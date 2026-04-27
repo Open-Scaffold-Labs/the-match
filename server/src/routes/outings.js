@@ -59,6 +59,35 @@ router.get('/recent', async (req, res) => {
   res.json({ outings: rows.map(r => ({ ...r, player_count: parseInt(r.player_count) })) })
 })
 
+// ─── GET /api/outings/rivalry/:opponentId ────────────────────────────────────
+// MUST be before /:code wildcard or Express will swallow it
+router.get('/rivalry/:opponentId', async (req, res) => {
+  try {
+    const uid = req.user.id
+    const oid = req.params.opponentId
+    const rows = await db.many(
+      `SELECT mh.id, mh.is_tie, mh.winner_score, mh.loser_score, mh.course_name,
+              o.name AS outing_name, o.created_at,
+              CASE WHEN mh.winner_id = $1 THEN true ELSE false END AS i_won,
+              CASE WHEN mh.winner_id = $1 THEN mh.winner_score ELSE mh.loser_score END AS my_score,
+              CASE WHEN mh.winner_id = $1 THEN mh.loser_score  ELSE mh.winner_score END AS opp_score
+       FROM tm_match_history mh
+       JOIN tm_outings o ON o.id = mh.outing_id
+       WHERE (mh.winner_id = $1 AND mh.loser_id = $2)
+          OR (mh.winner_id = $2 AND mh.loser_id = $1)
+       ORDER BY o.created_at DESC
+       LIMIT 20`,
+      [uid, oid]
+    )
+    // Opponent name
+    const opp = await db.one('SELECT id, name, handicap FROM tm_users WHERE id = $1', [oid])
+    res.json({ matches: rows, opponent: opp || null })
+  } catch (err) {
+    console.error('[outings/rivalry]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // ─── GET /api/outings/my-rivalries ───────────────────────────────────────────
 router.get('/my-rivalries', async (req, res) => {
   const uid = req.user.id
@@ -83,9 +112,29 @@ router.get('/my-rivalries', async (req, res) => {
 
 // ─── GET /api/outings/:code ───────────────────────────────────────────────────
 router.get('/:code', async (req, res) => {
-  const row = await db.one('SELECT * FROM tm_outings WHERE code = $1', [req.params.code.toUpperCase()])
-  if (!row) return res.status(404).json({ error: 'Outing not found' })
-  res.json({ outing: row })
+  try {
+    const row = await db.one('SELECT * FROM tm_outings WHERE code = $1', [req.params.code.toUpperCase()])
+    if (!row) return res.status(404).json({ error: 'Outing not found' })
+
+    // Enrich state participants with per-hole scores from the DB table
+    const partRows = await db.many(
+      `SELECT op.user_id, op.scores, u.handicap
+       FROM tm_outing_participants op
+       LEFT JOIN tm_users u ON u.id = op.user_id
+       WHERE op.outing_id = $1`,
+      [row.id]
+    )
+    const state = row.state || { participants: [] }
+    const enriched = (state.participants || []).map(p => {
+      if (p.is_guest) return p  // guests: scores already in state JSONB
+      const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
+      return { ...p, scores: dp?.scores || [], handicap: dp?.handicap ?? null }
+    })
+    res.json({ outing: { ...row, state: { ...state, participants: enriched } } })
+  } catch (err) {
+    console.error('[outings/get]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
 })
 
 // ─── POST /api/outings/:code/join ─────────────────────────────────────────────
@@ -111,6 +160,41 @@ router.post('/:code/join', async (req, res) => {
   }
 
   res.json({ outing: { ...outing, state } })
+})
+
+// ─── POST /api/outings/:code/bulk-join ────────────────────────────────────────
+// Host-only: auto-add an array of user_ids as participants
+router.post('/:code/bulk-join', async (req, res) => {
+  try {
+    const code   = req.params.code.toUpperCase()
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Only the host can bulk-add players' })
+
+    const { user_ids } = req.body
+    if (!Array.isArray(user_ids) || user_ids.length === 0)
+      return res.status(400).json({ error: 'user_ids array required' })
+
+    const state = outing.state || { participants: [] }
+
+    for (const uid of user_ids) {
+      await db.query(
+        `INSERT INTO tm_outing_participants (outing_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [outing.id, uid]
+      )
+      const u = await db.one(`SELECT id, name FROM tm_users WHERE id = $1`, [uid])
+      if (u && !state.participants?.find(p => String(p.user_id) === String(uid))) {
+        state.participants.push({ user_id: u.id, name: u.name, total: 0, holes_played: 0 })
+      }
+    }
+
+    await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, added: user_ids.length })
+  } catch (err) {
+    console.error('[outings/bulk-join]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
 })
 
 // ─── PUT /api/outings/:code/scores ────────────────────────────────────────────
@@ -151,41 +235,328 @@ router.put('/:code/scores', async (req, res) => {
   res.json({ ok: true, total, holesPlayed })
 })
 
+// ─── POST /api/outings/:code/guests ──────────────────────────────────────────
+// Host-only: add a named guest (no app account) to the match
+router.post('/:code/guests', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { name } = req.body
+    if (!name || !name.trim()) return res.status(400).json({ error: 'name required' })
+
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const guestId = `guest_${Date.now()}`
+    const holes   = outing.state?.holes ?? 18
+    const state   = outing.state || { participants: [] }
+    state.participants = state.participants || []
+    state.participants.push({
+      user_id: guestId, name: name.trim(), is_guest: true,
+      total: 0, holes_played: 0, scores: new Array(holes).fill(0),
+    })
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+
+    res.status(201).json({ ok: true, guest_id: guestId })
+  } catch (err) {
+    console.error('[outings/guests]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/scores/host ───────────────────────────────────────
+// Host-only: enter a score for any participant (app user or guest)
+router.put('/:code/scores/host', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { hole, score, user_id } = req.body
+    if (hole === undefined || score === undefined || !user_id)
+      return res.status(400).json({ error: 'hole, score, user_id required' })
+
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const state = outing.state || { participants: [] }
+    const isGuest = String(user_id).startsWith('guest_')
+
+    if (isGuest) {
+      // Guest scores live in state JSONB only
+      const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+      if (pi < 0) return res.status(404).json({ error: 'Guest not found' })
+      const holes  = outing.state?.holes ?? 18
+      const scores = Array.isArray(state.participants[pi].scores) ? [...state.participants[pi].scores] : new Array(holes).fill(0)
+      while (scores.length < holes) scores.push(0)
+      scores[hole] = score
+      const total       = scores.reduce((s, x) => s + (x || 0), 0)
+      const holesPlayed = scores.filter(x => x > 0).length
+      state.participants[pi].scores      = scores
+      state.participants[pi].total       = total
+      state.participants[pi].holes_played = holesPlayed
+      await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      return res.json({ ok: true, total, holesPlayed })
+    }
+
+    // App user — update tm_outing_participants row + sync state
+    const existing = await db.one(
+      'SELECT * FROM tm_outing_participants WHERE outing_id = $1 AND user_id = $2',
+      [outing.id, user_id]
+    )
+    if (!existing) return res.status(404).json({ error: 'Participant not found' })
+
+    const holes  = outing.state?.holes ?? 18
+    const scores = Array.isArray(existing.scores) ? [...existing.scores] : new Array(holes).fill(0)
+    while (scores.length < holes) scores.push(0)
+    scores[hole] = score
+
+    const total       = scores.reduce((s, x) => s + (x || 0), 0)
+    const holesPlayed = scores.filter(x => x > 0).length
+
+    await db.query(
+      'UPDATE tm_outing_participants SET scores=$1, total=$2 WHERE outing_id=$3 AND user_id=$4',
+      [JSON.stringify(scores), total, outing.id, user_id]
+    )
+
+    const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+    if (pi >= 0) {
+      state.participants[pi].total       = total
+      state.participants[pi].holes_played = holesPlayed
+    }
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+
+    res.json({ ok: true, total, holesPlayed })
+  } catch (err) {
+    console.error('[outings/scores/host]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // ─── POST /api/outings/:code/end ──────────────────────────────────────────────
 router.post('/:code/end', async (req, res) => {
-  const code = req.params.code.toUpperCase()
-  const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
-  if (!outing) return res.status(404).json({ error: 'Outing not found' })
-  if (outing.host_id !== req.user.id) return res.status(403).json({ error: 'Only host can end outing' })
+  try {
+    const code = req.params.code.toUpperCase()
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Outing not found' })
+    if (String(outing.host_id) !== String(req.user.id)) return res.status(403).json({ error: 'Only host can end outing' })
 
-  const participants = await db.many(
-    'SELECT * FROM tm_outing_participants WHERE outing_id = $1 ORDER BY total ASC',
-    [outing.id]
-  )
+    const dbParticipants = await db.many(
+      `SELECT op.*, u.name, u.handicap
+       FROM tm_outing_participants op
+       LEFT JOIN tm_users u ON u.id = op.user_id
+       WHERE op.outing_id = $1 ORDER BY op.total ASC NULLS LAST`,
+      [outing.id]
+    )
+    // Merge in guest participants from state (no DB row)
+    const state      = outing.state || { participants: [] }
+    const holePars   = (() => {
+      const cp = outing.course_par ?? 72; const h = state.holes ?? 18
+      const base = Math.floor(cp / h), extra = cp - base * h
+      return Array.from({ length: h }, (_, i) => (i < extra ? base + 1 : base))
+    })()
+    const allParticipants = (state.participants || []).map(sp => {
+      const dp = dbParticipants.find(r => String(r.user_id) === String(sp.user_id))
+      return dp
+        ? { ...sp, scores: dp.scores || [], name: dp.name || sp.name, handicap: dp.handicap }
+        : sp // guest
+    }).sort((a, b) => (a.total ?? 999) - (b.total ?? 999))
 
-  // For individual play: write 1v1 match history for every pair
-  if (outing.team_format === 'individual' && participants.length >= 2) {
-    const winner = participants[0]
-    for (let i = 1; i < participants.length; i++) {
-      const loser = participants[i]
-      const isTie = winner.total === loser.total
-      await db.query(
-        `INSERT INTO tm_match_history
-           (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [outing.id, isTie ? null : winner.user_id, isTie ? null : loser.user_id,
-         isTie, winner.total, loser.total, outing.course_name]
-      )
+    // For individual play: write 1v1 match history for every pair
+    if (outing.team_format === 'individual' && dbParticipants.length >= 2) {
+      const winner = dbParticipants[0]
+      for (let i = 1; i < dbParticipants.length; i++) {
+        const loser   = dbParticipants[i]
+        const isTie   = winner.total === loser.total
+        await db.query(
+          `INSERT INTO tm_match_history
+             (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           ON CONFLICT DO NOTHING`,
+          [outing.id, isTie ? null : winner.user_id, isTie ? null : loser.user_id,
+           isTie, winner.total, loser.total, outing.course_name]
+        )
+      }
+      for (const p of dbParticipants) {
+        const result = p.total === dbParticipants[0].total
+          ? (dbParticipants.filter(x => x.total === dbParticipants[0].total).length > 1 ? 'tie' : 'win')
+          : 'loss'
+        await db.query('UPDATE tm_outing_participants SET result=$1 WHERE id=$2', [result, p.id])
+      }
     }
-    // Update participant results
-    for (const p of participants) {
-      const result = p.total === winner.total ? (participants.filter(x => x.total === winner.total).length > 1 ? 'tie' : 'win') : 'loss'
-      await db.query('UPDATE tm_outing_participants SET result=$1 WHERE id=$2', [result, p.id])
+
+    await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])
+
+    // Build summary for winner ceremony
+    const coursePar = outing.course_par ?? 72
+    function playerHighlights(p) {
+      const sc = Array.isArray(p.scores) ? p.scores : []
+      let birdies = 0, eagles = 0, pars = 0, bogeys = 0
+      let bestHoleDiff = 99, bestHole = null
+      sc.forEach((s, h) => {
+        if (!s) return
+        const d = s - (holePars[h] || 4)
+        if (d <= -2) { eagles++; if (d < bestHoleDiff) { bestHoleDiff = d; bestHole = { hole: h + 1, score: s, par: holePars[h] || 4 } } }
+        else if (d === -1) { birdies++; if (d < bestHoleDiff) { bestHoleDiff = d; bestHole = { hole: h + 1, score: s, par: holePars[h] || 4 } } }
+        else if (d === 0) pars++
+        else if (d === 1) bogeys++
+      })
+      return { birdies, eagles, pars, bogeys, bestHole }
     }
+
+    const podium = allParticipants.slice(0, 5).map(p => {
+      const hl = playerHighlights(p)
+      const played = (p.scores || []).filter(s => s > 0).length
+      const parSoFar = (p.scores || []).map((s, i) => s > 0 ? (holePars[i] || 4) : 0).reduce((a, b) => a + b, 0)
+      const diff = (p.total || 0) - parSoFar
+      return {
+        user_id: p.user_id, name: p.name, total: p.total || 0,
+        holes_played: played, diff, is_guest: p.is_guest || false,
+        handicap: p.handicap || null, ...hl,
+      }
+    })
+
+    // Overall highlights
+    const mostBirdies  = [...allParticipants].sort((a, b) => playerHighlights(b).birdies - playerHighlights(a).birdies)[0]
+    const mostEagles   = allParticipants.find(p => playerHighlights(p).eagles > 0)
+    const mbHL         = mostBirdies ? playerHighlights(mostBirdies) : null
+
+    res.json({
+      ok: true,
+      summary: {
+        winner: podium[0] || null,
+        podium,
+        course: outing.course_name,
+        course_par: coursePar,
+        format: outing.scoring_formats?.[0] || 'stroke',
+        team_format: outing.team_format,
+        highlights: {
+          most_birdies: mbHL?.birdies > 0 ? { name: mostBirdies.name, count: mbHL.birdies } : null,
+          most_eagles:  mostEagles && playerHighlights(mostEagles).eagles > 0
+            ? { name: mostEagles.name, count: playerHighlights(mostEagles).eagles } : null,
+        },
+      },
+    })
+  } catch (err) {
+    console.error('[outings/end]', err)
+    res.status(500).json({ error: 'Failed' })
   }
+})
 
-  await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])
-  res.json({ ok: true })
+// ─── PUT /api/outings/:code/markers ──────────────────────────────────────────
+// Host-only: save group marker assignments
+// Body: { markers: [{ marker_id, member_ids[] }] }
+router.put('/:code/markers', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const { markers } = req.body
+    if (!Array.isArray(markers)) return res.status(400).json({ error: 'markers array required' })
+
+    const state = { ...(outing.state || {}), markers }
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, markers })
+  } catch (err) {
+    console.error('[outings/markers]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/scores/marker ────────────────────────────────────
+// Assigned marker: enter scores for any player in their group
+router.put('/:code/scores/marker', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { hole, score, user_id } = req.body
+    if (hole === undefined || score === undefined || !user_id)
+      return res.status(400).json({ error: 'hole, score, user_id required' })
+
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+
+    // Verify caller is an assigned marker for the target player
+    const markers = outing.state?.markers ?? []
+    const callerIsMarker = markers.some(m =>
+      String(m.marker_id) === String(req.user.id) &&
+      m.member_ids.map(String).includes(String(user_id))
+    )
+    if (!callerIsMarker)
+      return res.status(403).json({ error: 'Not a marker for this player' })
+
+    const state = outing.state || { participants: [] }
+    const isGuest = String(user_id).startsWith('guest_')
+
+    if (isGuest) {
+      const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+      if (pi < 0) return res.status(404).json({ error: 'Guest not found' })
+      const holes  = outing.state?.holes ?? 18
+      const scores = Array.isArray(state.participants[pi].scores) ? [...state.participants[pi].scores] : new Array(holes).fill(0)
+      while (scores.length < holes) scores.push(0)
+      scores[hole] = score
+      const total       = scores.reduce((s, x) => s + (x || 0), 0)
+      const holesPlayed = scores.filter(x => x > 0).length
+      state.participants[pi].scores      = scores
+      state.participants[pi].total       = total
+      state.participants[pi].holes_played = holesPlayed
+      await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      return res.json({ ok: true, total, holesPlayed })
+    }
+
+    // App user
+    const existing = await db.one(
+      'SELECT * FROM tm_outing_participants WHERE outing_id=$1 AND user_id=$2',
+      [outing.id, user_id]
+    )
+    if (!existing) return res.status(404).json({ error: 'Participant not found' })
+
+    const holes  = outing.state?.holes ?? 18
+    const scores = Array.isArray(existing.scores) ? [...existing.scores] : new Array(holes).fill(0)
+    while (scores.length < holes) scores.push(0)
+    scores[hole] = score
+    const total       = scores.reduce((s, x) => s + (x || 0), 0)
+    const holesPlayed = scores.filter(x => x > 0).length
+
+    await db.query(
+      'UPDATE tm_outing_participants SET scores=$1, total=$2 WHERE outing_id=$3 AND user_id=$4',
+      [JSON.stringify(scores), total, outing.id, user_id]
+    )
+    const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+    if (pi >= 0) {
+      state.participants[pi].total       = total
+      state.participants[pi].holes_played = holesPlayed
+    }
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, total, holesPlayed })
+  } catch (err) {
+    console.error('[outings/scores/marker]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/teams ─────────────────────────────────────────────
+// Host-only: save/update team assignments in the outing state
+router.put('/:code/teams', async (req, res) => {
+  try {
+    const code   = req.params.code.toUpperCase()
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Only the host can set teams' })
+
+    const { teams } = req.body   // [{ id, name, color, member_ids: [user_id, ...] }]
+    if (!Array.isArray(teams)) return res.status(400).json({ error: 'teams array required' })
+
+    const state = { ...(outing.state || {}), teams }
+    await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, teams })
+  } catch (err) {
+    console.error('[outings/teams]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
 })
 
 module.exports = router

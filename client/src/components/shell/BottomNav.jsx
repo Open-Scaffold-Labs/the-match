@@ -3,7 +3,7 @@ import { IconHome, IconTrophy, IconTarget, IconFlag, IconBarChart } from '../pri
 
 const NAV_ITEMS = [
   { tab: TABS.HOME,   Icon: IconHome,      label: 'Home'      },
-  { tab: TABS.OUTING, Icon: IconTrophy,    label: 'Outing'    },
+  { tab: TABS.OUTING, Icon: IconTrophy,    label: 'Match'    },
   { tab: TABS.EYE,    Icon: IconTarget,    label: 'Eagle Eye', center: true },
   { tab: TABS.ROUND,  Icon: IconFlag,      label: 'Round'     },
   { tab: TABS.STATS,  Icon: IconBarChart,  label: 'Stats'     },

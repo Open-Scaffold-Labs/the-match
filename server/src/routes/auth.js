@@ -9,38 +9,49 @@ function mintToken(userId) {
 
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
-  const { email, name, pin } = req.body
-  if (!email || !name || !pin) return res.status(400).json({ error: 'email, name, and pin required' })
-  if (!/^\d{4}$/.test(pin))   return res.status(400).json({ error: 'PIN must be 4 digits' })
+  try {
+    const { email, name, pin } = req.body
+    if (!email || !name || !pin) return res.status(400).json({ error: 'email, name, and pin required' })
+    if (!/^\d{4}$/.test(pin))   return res.status(400).json({ error: 'PIN must be 4 digits' })
 
-  const exists = await db.one('SELECT id FROM tm_users WHERE email = $1', [email.toLowerCase()])
-  if (exists) return res.status(409).json({ error: 'Email already registered' })
+    // db.one returns null when no row — safe to use as existence check
+    const exists = await db.one('SELECT id FROM tm_users WHERE email = $1', [email.toLowerCase()])
+    if (exists) return res.status(409).json({ error: 'Email already registered' })
 
-  const hash = await bcrypt.hash(pin, 10)
-  const user = await db.one(
-    `INSERT INTO tm_users (email, name, pin_hash) VALUES ($1, $2, $3)
-     RETURNING id, email, name, role`,
-    [email.toLowerCase(), name.trim(), hash]
-  )
-  res.status(201).json({ token: mintToken(user.id), user })
+    const hash = await bcrypt.hash(pin, 10)
+    const user = await db.one(
+      `INSERT INTO tm_users (email, name, pin_hash) VALUES ($1, $2, $3)
+       RETURNING id, email, name, role`,
+      [email.toLowerCase(), name.trim(), hash]
+    )
+    res.status(201).json({ token: mintToken(user.id), user })
+  } catch (err) {
+    console.error('[signup]', err.message)
+    res.status(500).json({ error: 'Signup failed. Please try again.' })
+  }
 })
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-  const { email, pin } = req.body
-  if (!email || !pin) return res.status(400).json({ error: 'email and pin required' })
+  try {
+    const { email, pin } = req.body
+    if (!email || !pin) return res.status(400).json({ error: 'email and pin required' })
 
-  const user = await db.one(
-    'SELECT id, email, name, role, pin_hash FROM tm_users WHERE email = $1',
-    [email.toLowerCase()]
-  )
-  if (!user) return res.status(401).json({ error: 'Invalid email or PIN' })
+    const user = await db.one(
+      'SELECT id, email, name, role, pin_hash FROM tm_users WHERE email = $1',
+      [email.toLowerCase()]
+    )
+    if (!user) return res.status(401).json({ error: 'Invalid email or PIN' })
 
-  const ok = await bcrypt.compare(pin, user.pin_hash)
-  if (!ok)  return res.status(401).json({ error: 'Invalid email or PIN' })
+    const ok = await bcrypt.compare(pin, user.pin_hash)
+    if (!ok)  return res.status(401).json({ error: 'Invalid email or PIN' })
 
-  const { pin_hash: _, ...safeUser } = user
-  res.json({ token: mintToken(user.id), user: safeUser })
+    const { pin_hash: _, ...safeUser } = user
+    res.json({ token: mintToken(user.id), user: safeUser })
+  } catch (err) {
+    console.error('[login]', err.message)
+    res.status(500).json({ error: 'Login failed. Please try again.' })
+  }
 })
 
 // GET /api/auth/me

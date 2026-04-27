@@ -14,23 +14,29 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: '1.0.0', db: db.ready !== null })
 })
 
-// — Lazy DB init gate —
-let dbReady = false
-db.init().then(() => { dbReady = true }).catch(() => {})
-
-app.use('/api', (req, res, next) => {
-  if (dbReady) return next()
-  // Let auth callback through so cold-start login still works
+// — DB gate: await init per-request so serverless cold starts work —
+app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/auth')) return next()
-  res.status(503).json({ error: 'Server starting — please retry in a moment' })
+  try {
+    await db.init()
+    next()
+  } catch (e) {
+    console.error('[db-gate]', e.message)
+    res.status(503).json({ error: 'Database unavailable — please retry in a moment' })
+  }
 })
 
 // — Routes —
-app.use('/api/auth',      require('./routes/auth'))
-app.use('/api/rounds',    require('./routes/rounds'))
-app.use('/api/stats',     require('./routes/stats'))
-app.use('/api/outings',   require('./routes/outings'))
-app.use('/api/eagle-eye', require('./routes/eagle-eye'))
+app.use('/api/auth',         require('./routes/auth'))
+app.use('/api/rounds',       require('./routes/rounds'))
+app.use('/api/stats',        require('./routes/stats'))
+app.use('/api/outings',      require('./routes/outings'))
+app.use('/api/eagle-eye',    require('./routes/eagle-eye'))
+app.use('/api/profile',      require('./routes/profile'))
+app.use('/api/friends',      require('./routes/friends'))
+app.use('/api/games',        require('./routes/games'))
+app.use('/api/availability', require('./routes/availability'))
+app.use('/api/courses',     require('./routes/courses'))
 
 // — 404 fallback —
 app.use((req, res) => res.status(404).json({ error: 'Not found' }))

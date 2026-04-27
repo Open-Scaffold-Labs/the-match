@@ -526,8 +526,8 @@ Golf clubs and societies are the gateway to volume. One club ambassador = 50–2
 - Hazard distances overlay
 - GolfNow Affiliate API integration (self-service approval, OAuth 2.0, Node.js SDK available)
 - "Book a Tee Time" button on course detail screens — pulls live GolfNow inventory by course/date
-- Affiliate commission revenue per booking (~3–5%), GolfNow handles all payments
-- No formal contract required — apply at affiliate.gnsvc.com, approval typically within days
+- Affiliate commission revenue per booking (\~3–5%), GolfNow handles all payments
+- No formal contract required — apply at [affiliate.gnsvc.com](http://affiliate.gnsvc.com), approval typically within days
 
 **Phase 5 — Apple Watch + V2**
 

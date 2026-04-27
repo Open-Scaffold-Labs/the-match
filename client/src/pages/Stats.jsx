@@ -177,8 +177,8 @@ export default function Stats({ user }) {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/stats/summary').catch(() => null),
-      api.get('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
+      api('/api/stats/summary').catch(() => null),
+      api('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
     ]).then(([s, r]) => {
       setSummary(s)
       setRounds(r?.rounds ?? [])

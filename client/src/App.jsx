@@ -14,6 +14,7 @@ export default function App() {
   const [tab, setTab] = useState(TABS.HOME)
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [pendingOutingPlayers, setPendingOutingPlayers] = useState([])
 
   useEffect(() => {
     // Check for token in URL fragment (post-auth bounce)
@@ -40,19 +41,26 @@ export default function App() {
   if (!user)   return <Login onLogin={setUser} />
 
   const pages = {
-    [TABS.HOME]:   <Home   user={user} onNavigate={setTab} />,
+    [TABS.HOME]:   <Home   user={user} onNavigate={setTab} onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }} />,
     [TABS.ROUND]:  <ActiveRound user={user} />,
     [TABS.EYE]:    <EagleEye user={user} />,
-    [TABS.OUTING]: <Outing user={user} />,
+    [TABS.OUTING]: <Outing user={user} pendingPlayers={pendingOutingPlayers} onClearPending={() => setPendingOutingPlayers([])} />,
     [TABS.STATS]:  <Stats  user={user} />,
   }
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--tm-bg)' }}>
-      <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        {pages[tab]}
+    <div style={{ minHeight: '100dvh', background: '#000', display: 'flex', justifyContent: 'center' }}>
+      <div style={{
+        width: '100%', maxWidth: 430,
+        height: '100dvh', display: 'flex', flexDirection: 'column',
+        background: 'var(--tm-bg)', position: 'relative',
+        boxShadow: '0 0 80px rgba(0,0,0,0.8)',
+      }}>
+        <div style={{ flex: 1, overflowY: 'auto', position: 'relative', WebkitOverflowScrolling: 'touch' }}>
+          {pages[tab]}
+        </div>
+        <BottomNav active={tab} onChange={setTab} />
       </div>
-      <BottomNav active={tab} onChange={setTab} />
     </div>
   )
 }

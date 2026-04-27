@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { api } from '../lib/api.js'
+import { api, post } from '../lib/api.js'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
@@ -368,7 +368,7 @@ export default function ActiveRound({ user }) {
     setSaving(true)
     try {
       const totalPar = config.pars.reduce((s, p) => s + p, 0)
-      await api.post('/api/rounds', {
+      await post('/api/rounds', {
         courseName:   config.courseName,
         coursePar:    totalPar,
         courseRating: null,

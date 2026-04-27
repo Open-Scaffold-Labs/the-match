@@ -14,7 +14,7 @@ router.get('/summary', async (req, res) => {
        FROM tm_rounds WHERE user_id = $1 ORDER BY date DESC LIMIT 20`,
       [uid]
     ),
-    db.oneOrNone('SELECT club_data FROM tm_club_stats WHERE user_id = $1', [uid]),
+    db.one('SELECT club_data FROM tm_club_stats WHERE user_id = $1', [uid]),
   ])
 
   if (!roundData.length) return res.json(null)
