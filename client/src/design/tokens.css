@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════
+   THE MATCH — Design Tokens
+   Augusta at night. Trophy gold. Fairway green.
+═══════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* — Backgrounds — */
+    --tm-bg:              #070C09;   /* deepest dark, fairway black */
+    --tm-surface:         #0E1610;   /* card bg */
+    --tm-surface-2:       #152019;   /* raised card */
+    --tm-surface-3:       #1C2C22;   /* highest elevation */
+    --tm-overlay:         rgba(7,12,9,0.85);
+
+    /* — Borders — */
+    --tm-border:          #1E3025;
+    --tm-border-2:        #2A4433;
+    --tm-border-3:        #3A5E47;
+
+    /* — Green (primary) — */
+    --tm-green:           #2A7A38;
+    --tm-green-bright:    #35A046;
+    --tm-green-muted:     #162A1C;
+    --tm-green-text:      #5ED47A;
+
+    /* — Gold (accent) — */
+    --tm-gold:            #C9A040;
+    --tm-gold-bright:     #E8C05A;
+    --tm-gold-dim:        #8A6B28;
+    --tm-gold-muted:      #2C2010;
+    --tm-gold-text:       #E8C05A;
+
+    /* — Text — */
+    --tm-text:            #EDF5EF;   /* primary */
+    --tm-text-2:          #98B89E;   /* secondary */
+    --tm-text-3:          #5A7A60;   /* tertiary / placeholder */
+    --tm-text-inv:        #080D0A;   /* on bright bg */
+
+    /* — Score colors — */
+    --tm-eagle:           #FFD700;   /* eagle / double eagle */
+    --tm-birdie:          #4A9EDB;   /* birdie */
+    --tm-par:             #98B89E;   /* par */
+    --tm-bogey:           #E07A5A;   /* bogey */
+    --tm-double:          #E05252;   /* double+ */
+
+    /* — Status — */
+    --tm-success:         #35A046;
+    --tm-warning:         #C9A040;
+    --tm-danger:          #E05252;
+    --tm-info:            #4A9EDB;
+
+    /* — Spacing (4pt grid) — */
+    --tm-radius-sm:       6px;
+    --tm-radius:          12px;
+    --tm-radius-lg:       18px;
+    --tm-radius-xl:       24px;
+    --tm-radius-full:     9999px;
+
+    /* — Shadows — */
+    --tm-shadow-sm:       0 1px 3px rgba(0,0,0,0.5);
+    --tm-shadow:          0 4px 16px rgba(0,0,0,0.6);
+    --tm-shadow-lg:       0 8px 32px rgba(0,0,0,0.7);
+    --tm-glow-green:      0 0 20px rgba(42,122,56,0.35);
+    --tm-glow-gold:       0 0 20px rgba(201,160,64,0.4);
+
+    /* — Motion — */
+    --tm-ease:            cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --tm-ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+    --tm-duration-fast:   120ms;
+    --tm-duration:        220ms;
+    --tm-duration-slow:   350ms;
+
+    /* — Z-index — */
+    --z-base:    0;
+    --z-card:    10;
+    --z-nav:     100;
+    --z-modal:   200;
+    --z-toast:   300;
+
+    /* — Safe area (notch/home bar) — */
+    --safe-top:    env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-height:  68px;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Global resets & base styles
+═══════════════════════════════════════════ */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--tm-bg);
+    color: var(--tm-text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+                 'Segoe UI', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Page scroll container */
+  .page-scroll {
+    height: calc(100dvh - var(--nav-height) - var(--safe-bottom));
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-top: calc(var(--safe-top) + 16px);
+    padding-bottom: 24px;
+  }
+
+  /* Touch feedback */
+  .touch-press {
+    transition: transform var(--tm-duration-fast) var(--tm-ease),
+                opacity var(--tm-duration-fast) var(--tm-ease);
+  }
+  .touch-press:active { transform: scale(0.96); opacity: 0.85; }
+}
+
+/* ═══════════════════════════════════════════
+   Utility classes
+═══════════════════════════════════════════ */
+@layer utilities {
+  .tm-bg          { background: var(--tm-bg); }
+  .tm-surface     { background: var(--tm-surface); }
+  .tm-surface-2   { background: var(--tm-surface-2); }
+  .tm-surface-3   { background: var(--tm-surface-3); }
+  .tm-border      { border-color: var(--tm-border); }
+  .tm-border-2    { border-color: var(--tm-border-2); }
+  .tm-text        { color: var(--tm-text); }
+  .tm-text-2      { color: var(--tm-text-2); }
+  .tm-text-3      { color: var(--tm-text-3); }
+  .tm-gold        { color: var(--tm-gold-text); }
+  .tm-green       { color: var(--tm-green-text); }
+  .tm-shadow      { box-shadow: var(--tm-shadow); }
+  .tm-shadow-lg   { box-shadow: var(--tm-shadow-lg); }
+  .tm-glow-green  { box-shadow: var(--tm-glow-green); }
+  .tm-glow-gold   { box-shadow: var(--tm-glow-gold); }
+  .tm-radius      { border-radius: var(--tm-radius); }
+  .tm-radius-lg   { border-radius: var(--tm-radius-lg); }
+}

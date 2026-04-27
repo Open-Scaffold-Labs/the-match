@@ -1,0 +1,331 @@
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api.js'
+import { IconBarChart } from '../components/primitives/Icons.jsx'
+
+function scoreColor(diff) {
+  if (diff < 0)  return '#5ED47A'
+  if (diff === 0) return '#8AB4F8'
+  if (diff <= 2)  return '#E8A85A'
+  return '#E07A5A'
+}
+
+// ── Cinematic handicap hero card ──────────────────────────────────────────
+function HcpBadge({ hcp, roundCount }) {
+  const display = hcp === null
+    ? '—'
+    : hcp >= 0
+      ? hcp.toFixed(1)
+      : `+${Math.abs(hcp).toFixed(1)}`
+
+  return (
+    <div style={{ margin: '0 0 16px', position: 'relative' }}>
+      <div style={{
+        borderRadius: 24, overflow: 'hidden', position: 'relative',
+        background: 'linear-gradient(140deg, #0A1F10 0%, #0D2615 35%, #071209 100%)',
+        border: '1px solid rgba(232,192,90,0.2)',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+        padding: '24px 22px 22px',
+      }}>
+        {/* Radial glow */}
+        <div style={{
+          position: 'absolute', left: -40, top: -40,
+          width: 220, height: 220, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(232,192,90,0.12) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        {/* Grid texture */}
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 24, opacity: 0.03,
+          backgroundImage: 'repeating-linear-gradient(0deg, #fff 0px, #fff 1px, transparent 1px, transparent 24px), repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 24px)',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            fontSize: 11, color: 'rgba(232,192,90,0.7)',
+            fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em',
+            marginBottom: 8,
+          }}>
+            Handicap Index
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 16 }}>
+            <div style={{
+              fontSize: 76, fontWeight: 900, lineHeight: 0.9, letterSpacing: '-3px',
+              background: 'linear-gradient(180deg, #F5E070 0%, #E8C05A 50%, #C9A040 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 0 12px rgba(232,192,90,0.25))',
+            }}>
+              {display}
+            </div>
+            <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                USGA method
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+                Best 8 of last 20
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex', gap: 8,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 10, padding: '10px 14px',
+          }}>
+            <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Rounds</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{roundCount ?? '—'}</div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Status</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#5ED47A' }}>Active</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Score trend SVG chart ─────────────────────────────────────────────────
+function MiniTrendBar({ rounds }) {
+  if (!rounds || rounds.length < 2) return null
+  const diffs = rounds.slice().reverse().map(r => r.total - (r.course_par || 72))
+  const max = Math.max(...diffs)
+  const min = Math.min(...diffs)
+  const range = max - min || 1
+  const W = 320, H = 60
+  const pts = diffs.map((d, i) => ({
+    x: (i / (diffs.length - 1)) * W,
+    y: H - ((d - min) / range) * (H - 12) - 6,
+    d,
+  }))
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+
+  return (
+    <div style={{
+      borderRadius: 18, overflow: 'hidden',
+      background: 'rgba(255,255,255,0.03)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      boxShadow: '0 2px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+      padding: '18px 18px 14px',
+      marginBottom: 16,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Score Trend</div>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Last {rounds.length} rounds</div>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#35A046" />
+            <stop offset="100%" stopColor="#5ED47A" />
+          </linearGradient>
+        </defs>
+        <line x1="0" y1={H / 2} x2={W} y2={H / 2}
+          stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4,4" />
+        <path d={path} fill="none" stroke="url(#trendLine)" strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r="4.5"
+            fill={p.d < 0 ? '#5ED47A' : p.d === 0 ? '#8AB4F8' : '#E8A85A'}
+            stroke="rgba(6,14,8,0.9)" strokeWidth="2" />
+        ))}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Oldest</span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Latest</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Glass stat tile ───────────────────────────────────────────────────────
+function StatTile({ label, value, sub, accent }) {
+  return (
+    <div style={{
+      borderRadius: 16,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+      padding: '18px 14px', textAlign: 'center',
+    }}>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
+        textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: 34, fontWeight: 900, lineHeight: 1,
+        color: accent ?? '#fff',
+      }}>
+        {value}
+      </div>
+      {sub && (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 5 }}>{sub}</div>
+      )}
+    </div>
+  )
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────
+export default function Stats({ user }) {
+  const [summary, setSummary] = useState(null)
+  const [rounds,  setRounds]  = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/stats/summary').catch(() => null),
+      api.get('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
+    ]).then(([s, r]) => {
+      setSummary(s)
+      setRounds(r?.rounds ?? [])
+      setLoading(false)
+    })
+  }, [])
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100%', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+      Loading stats…
+    </div>
+  )
+
+  // Empty state
+  if (!summary && rounds.length === 0) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20, textAlign: 'center' }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: '50%',
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <IconBarChart size={32} color="rgba(255,255,255,0.3)" />
+      </div>
+      <div>
+        <div style={{ fontWeight: 800, color: '#fff', fontSize: 20, marginBottom: 8 }}>No rounds yet</div>
+        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, lineHeight: 1.6 }}>
+          Play your first round to see your handicap, score trend, and club distances.
+        </div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{ padding: '20px 20px 16px', flexShrink: 0 }}>
+        <div style={{
+          fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
+          background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+        }}>
+          Stats
+        </div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>{user.name}</div>
+      </div>
+
+      <div className="page-scroll" style={{ padding: '0 16px 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+        {/* Handicap hero */}
+        <HcpBadge hcp={summary?.handicap ?? null} roundCount={summary?.roundCount} />
+
+        {/* Stat tiles */}
+        {summary && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <StatTile
+              label="Avg Score"
+              value={summary.avgScore != null ? summary.avgScore.toFixed(1) : '—'}
+              sub={`Par ${rounds[0]?.course_par ?? 72}`}
+            />
+            <StatTile
+              label="Best Round"
+              value={summary.bestScore ?? '—'}
+              sub="All time"
+              accent="#5ED47A"
+            />
+          </div>
+        )}
+
+        {/* Trend chart */}
+        <MiniTrendBar rounds={rounds} />
+
+        {/* Club distances */}
+        {summary?.topClubs?.length > 0 && (
+          <div style={{
+            borderRadius: 18,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            overflow: 'hidden', marginBottom: 16,
+          }}>
+            <div style={{
+              padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+              fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+            }}>
+              Your Distances
+            </div>
+            {summary.topClubs.map((c, i) => (
+              <div key={i} style={{
+                padding: '13px 18px',
+                borderBottom: i < summary.topClubs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div>
+                  <span style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.club}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>{c.shots} shots</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#E8C05A' }}>{c.avg}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>yd</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Recent rounds */}
+        {rounds.length > 0 && (
+          <div style={{
+            borderRadius: 18,
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+              fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+            }}>
+              Recent Rounds
+            </div>
+            {rounds.slice(0, 8).map((r, i) => {
+              const diff  = r.total - (r.course_par || 72)
+              const label = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
+              const col   = scoreColor(diff)
+              return (
+                <div key={r.id} style={{
+                  padding: '13px 18px',
+                  borderBottom: i < Math.min(7, rounds.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>{r.course_name}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
+                      {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: col }}>{r.total}</div>
+                    <div style={{ fontSize: 11, color: col, fontWeight: 700 }}>{label}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

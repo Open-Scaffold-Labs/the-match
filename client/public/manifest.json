@@ -1,0 +1,13 @@
+{
+  "name": "The Match",
+  "short_name": "The Match",
+  "description": "Your AI-powered golf companion",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070C09",
+  "theme_color": "#070C09",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
