@@ -19,7 +19,7 @@ export default function BottomNav({ active, onChange }) {
       width: '100%',
       maxWidth: 430,
       height: '56px',
-      background: 'red',
+      background: 'rgba(255, 253, 248, 0.96)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
       borderTop: '1px solid rgba(27,94,59,0.14)',

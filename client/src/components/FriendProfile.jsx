@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
 
 // ── Nearby Course Picker ──────────────────────────────────────────────────────
@@ -426,9 +427,9 @@ export default function FriendProfile({ friend: friendSummary, myName, confirmed
       .finally(() => setLoading(false))
   }, [friendSummary?.friend_id])
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 300,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -582,6 +583,7 @@ export default function FriendProfile({ friend: friendSummary, myName, confirmed
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

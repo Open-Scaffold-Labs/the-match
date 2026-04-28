@@ -63,7 +63,7 @@ export default function App() {
         width: '100%', maxWidth: 430,
         height: '100dvh',
         background: 'transparent',
-        position: 'relative', zIndex: 1,
+        position: 'relative',
         overflow: 'hidden',
       }}>
         {/* Scrollable content — stops exactly where the fixed nav begins */}
