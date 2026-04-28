@@ -120,12 +120,6 @@
     padding-bottom: 24px;
   }
 
-  /* Bottom nav — extends background through home indicator zone */
-  .bottom-nav {
-    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  }
-
   /* Touch feedback */
   .touch-press {
     transition: transform var(--tm-duration-fast) var(--tm-ease),

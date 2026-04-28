@@ -11,13 +11,14 @@ const NAV_ITEMS = [
 
 export default function BottomNav({ active, onChange }) {
   return (
-    <nav className="bottom-nav" style={{
+    <nav style={{
       position: 'fixed',
-      bottom: 0,
+      bottom: 'env(safe-area-inset-bottom, 0px)',
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: 430,
+      height: '56px',
       background: 'rgba(255, 253, 248, 0.96)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
