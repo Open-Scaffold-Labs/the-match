@@ -13,21 +13,20 @@ export default function BottomNav({ active, onChange }) {
   return (
     <nav style={{
       position: 'fixed',
-      bottom: 0,
+      bottom: 'env(safe-area-inset-bottom, 0px)',
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: 430,
-      height: 'calc(56px + env(safe-area-inset-bottom, 16px))',
-      paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+      height: '56px',
       background: 'rgba(255, 253, 248, 0.96)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
       borderTop: '1px solid rgba(27,94,59,0.14)',
       display: 'flex',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       justifyContent: 'space-around',
-      paddingTop: 6,
+      paddingTop: 0,
       zIndex: 200,
     }}>
       {NAV_ITEMS.map(item => (
