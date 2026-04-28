@@ -12,22 +12,18 @@ const NAV_ITEMS = [
 export default function BottomNav({ active, onChange }) {
   return (
     <nav style={{
-      position: 'fixed',
-      bottom: 'env(safe-area-inset-bottom, 0px)',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: '100%',
-      maxWidth: 430,
-      height: '56px',
-      background: 'rgba(255, 253, 248, 0.96)',
+      height: 'calc(68px + env(safe-area-inset-bottom, 0px))',
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      background: 'rgba(255, 253, 248, 0.94)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
       borderTop: '1px solid rgba(27,94,59,0.14)',
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'space-around',
-      paddingTop: 0,
-      zIndex: 200,
+      paddingTop: 10,
+      position: 'relative',
+      zIndex: 100,
     }}>
       {NAV_ITEMS.map(item => (
         <NavItem key={item.tab} item={item} active={active === item.tab} onPress={() => onChange(item.tab)} />
@@ -44,11 +40,11 @@ function NavItem({ item, active, onPress }) {
       <button onClick={onPress} style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         gap: 4, border: 'none', cursor: 'pointer', padding: '0 8px',
-        marginTop: -16, background: 'transparent',
+        marginTop: -22, background: 'transparent',
         WebkitTapHighlightColor: 'transparent',
       }}>
         <div style={{
-          width: 50, height: 50, borderRadius: '50%',
+          width: 58, height: 58, borderRadius: '50%',
           background: active
             ? 'linear-gradient(145deg, #E8C05A 0%, #C9A040 60%, #8A6B28 100%)'
             : 'linear-gradient(145deg, #35A046 0%, #2A7A38 60%, #1A4A24 100%)',
@@ -75,7 +71,7 @@ function NavItem({ item, active, onPress }) {
     <button onClick={onPress} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       gap: 4, border: 'none', cursor: 'pointer',
-      padding: '2px 14px', background: 'transparent',
+      padding: '4px 14px', background: 'transparent',
       WebkitTapHighlightColor: 'transparent', minWidth: 60,
       position: 'relative',
     }}>
