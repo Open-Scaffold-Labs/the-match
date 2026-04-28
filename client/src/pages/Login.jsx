@@ -31,14 +31,16 @@ export default function Login({ onLogin }) {
 
   return (
     <div style={{
-      height: '100dvh',
+      position: 'fixed',
+      inset: 0,
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      position: 'relative',
-      overflow: 'hidden',
       background: '#060E08',
+      padding: '40px 0 40px',
     }}>
       {/* Ambient background layers */}
       <div style={{
