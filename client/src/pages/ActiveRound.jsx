@@ -43,7 +43,7 @@ function scoreBadge(strokes, par) {
 }
 
 // ─── Setup Sheet ────────────────────────────────────────────────────────────
-function SetupSheet({ onStart }) {
+function SetupSheet({ onStart, onBack }) {
   const [courseName, setCourseName] = useState('')
   const [holes, setHoles] = useState(18)
   const [pars, setPars] = useState(DEFAULT_PARS.slice(0, 18))
@@ -58,6 +58,15 @@ function SetupSheet({ onStart }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
+        {onBack && (
+          <button onClick={onBack} style={{
+            background: 'none', border: 'none', color: 'var(--tm-text-3)',
+            fontSize: 14, fontWeight: 600, padding: '0 0 12px 0', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            ← Back
+          </button>
+        )}
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--tm-gold-text)', marginBottom: 4 }}>Start Round</div>
         <div style={{ fontSize: 14, color: 'var(--tm-text-3)' }}>Set up your scorecard</div>
       </div>
@@ -319,7 +328,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 }
 
 // ─── Main ActiveRound Component ───────────────────────────────────────────────
-export default function ActiveRound({ user }) {
+export default function ActiveRound({ user, onBack }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'
   const [config, setConfig] = useState(null)  // { courseName, pars[] }
   const [hole, setHole]     = useState(0)     // 0-indexed
@@ -377,12 +386,13 @@ export default function ActiveRound({ user }) {
         scores:       scores,
         shots:        shots,
       })
-      // Reset to setup
+      // Reset and return to hub if launched from Outing tab
       setPhase('setup')
       setConfig(null)
       setHole(0)
       setScores([])
       setShots([])
+      onBack?.()
     } catch (e) {
       console.error(e)
     } finally {
@@ -390,7 +400,7 @@ export default function ActiveRound({ user }) {
     }
   }
 
-  if (phase === 'setup') return <SetupSheet onStart={handleStart} />
+  if (phase === 'setup') return <SetupSheet onStart={handleStart} onBack={onBack} />
 
   if (phase === 'summary') return (
     <ScorecardSummary

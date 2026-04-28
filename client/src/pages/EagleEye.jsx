@@ -453,7 +453,7 @@ function ResultSheet({ result: r, holeData, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div style={{ background: 'rgba(42,122,56,0.2)', border: '1px solid rgba(42,122,56,0.4)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Club</div>
-            <div style={{ color: '#4ADE80', fontWeight: 800, fontSize: 22 }}>{r.recommendedClub}</div>
+            <div style={{ color: '#C9A040', fontWeight: 800, fontSize: 22 }}>{r.recommendedClub}</div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Alternate</div>
@@ -471,7 +471,7 @@ function ResultSheet({ result: r, holeData, onClose }) {
           ].filter(([,v]) => v !== 0).map(([label, val]) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>{label}</span>
-              <span style={{ color: val > 0 ? '#F87171' : '#4ADE80', fontWeight: 700, fontSize: 13 }}>{adj(val)}y</span>
+              <span style={{ color: val > 0 ? '#F87171' : '#C9A040', fontWeight: 700, fontSize: 13 }}>{adj(val)}y</span>
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6 }}>
@@ -483,7 +483,7 @@ function ResultSheet({ result: r, holeData, onClose }) {
         {/* Caddie note */}
         {r.caddieNote && (
           <div style={{ background: 'rgba(42,122,56,0.12)', border: '1px solid rgba(42,122,56,0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-            <div style={{ color: '#4ADE80', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>🦅 EAGLE CADDIE</div>
+            <div style={{ color: '#C9A040', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>🦅 EAGLE CADDIE</div>
             <div style={{ color: 'var(--tm-text)', fontSize: 14, lineHeight: 1.55 }}>{r.caddieNote}</div>
           </div>
         )}
@@ -662,7 +662,7 @@ export default function EagleEye() {
   const temp = weather ? Math.round(weather.temperature_2m) : null
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#070C09', display: 'flex', flexDirection: 'column', paddingBottom: 'var(--nav-height)' }}>
+    <div style={{ minHeight: '100dvh', background: 'transparent', display: 'flex', flexDirection: 'column', paddingBottom: 'var(--nav-height)' }}>
 
       {/* ── Top bar ── */}
       <div style={{ paddingTop: 'max(52px, calc(var(--safe-top) + 12px))', padding: '52px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -672,8 +672,8 @@ export default function EagleEye() {
           </div>
           {/* GPS + weather strip */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: gps ? '#4ADE80' : 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: gps ? '#4ADE80' : 'rgba(255,255,255,0.2)', display: 'inline-block' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: gps ? '#C9A040' : 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: gps ? '#C9A040' : 'rgba(255,255,255,0.2)', display: 'inline-block' }} />
               {gps ? 'GPS' : 'No GPS'}
             </span>
             {temp != null && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{temp}°F</span>}
@@ -748,7 +748,7 @@ export default function EagleEye() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
                 <button onClick={() => changeHole(-1)} disabled={currentHole === 1} style={{ background: 'none', border: 'none', color: currentHole === 1 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', fontSize: 22, cursor: currentHole === 1 ? 'default' : 'pointer', padding: '0 4px' }}>‹</button>
                 <div style={{ background: 'rgba(42,122,56,0.25)', border: '1px solid rgba(42,122,56,0.4)', borderRadius: 12, padding: '6px 20px' }}>
-                  <div style={{ color: '#4ADE80', fontWeight: 800, fontSize: 16 }}>HOLE {currentHole}</div>
+                  <div style={{ color: '#C9A040', fontWeight: 800, fontSize: 16 }}>HOLE {currentHole}</div>
                   <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 1 }}>PAR {holeData?.par ?? '—'} · Hdcp {holeData?.handicap ?? '—'}</div>
                 </div>
                 <button onClick={() => changeHole(1)} disabled={currentHole === totalHoles} style={{ background: 'none', border: 'none', color: currentHole === totalHoles ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', fontSize: 22, cursor: currentHole === totalHoles ? 'default' : 'pointer', padding: '0 4px' }}>›</button>

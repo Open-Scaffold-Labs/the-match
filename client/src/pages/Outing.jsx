@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api, post, put } from '../lib/api.js'
+import ActiveRound from './ActiveRound.jsx'
+import AugustaBoard from '../components/AugustaBoard.jsx'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function scoreColor(strokes, par) {
@@ -20,7 +22,7 @@ function wlLabel(w, l, t) {
 }
 
 // ─── Outing Hub (main landing) ────────────────────────────────────────────────
-function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry }) {
+function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound, onLeaderboard }) {
   const [rivalries, setRivalries] = useState([])
   const [recentOutings, setRecentOutings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -70,6 +72,35 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry }) {
               cursor: 'pointer',
             }}>
             Enter a Code
+          </button>
+        </div>
+
+        {/* Solo round + Leaderboard */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onSoloRound} style={{
+            flex: 1, padding: '14px 0', borderRadius: 14,
+            background: 'rgba(197,160,64,0.08)',
+            border: '1px solid rgba(197,160,64,0.25)',
+            color: '#F5D78A', fontWeight: 700, fontSize: 14,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            Solo Round
+          </button>
+          <button onClick={onLeaderboard} style={{
+            flex: 1, padding: '14px 0', borderRadius: 14,
+            background: 'rgba(27,94,32,0.15)',
+            border: '1px solid rgba(27,94,32,0.45)',
+            color: '#C9A040', fontWeight: 700, fontSize: 14,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Leaderboard
           </button>
         </div>
 
@@ -227,13 +258,13 @@ function RivalryDetail({ rivalry, userId, onBack }) {
   const ties    = rivalry.ties ?? 0
   const total   = myWins + oppWins + ties
   const lead    = myWins > oppWins ? 'up' : myWins < oppWins ? 'down' : 'even'
-  const lColor  = lead === 'up' ? '#4ADE80' : lead === 'down' ? '#F87171' : 'rgba(255,255,255,0.5)'
+  const lColor  = lead === 'up' ? '#C9A040' : lead === 'down' ? '#F87171' : 'rgba(255,255,255,0.5)'
 
   // Form guide: last 5 results
   const recent = (matches || []).slice(0, 5)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--tm-bg)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent' }}>
       {/* Header */}
       <div style={{ padding: '16px 20px 12px', background: 'var(--tm-surface)', borderBottom: '1px solid var(--tm-border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -252,7 +283,7 @@ function RivalryDetail({ rivalry, userId, onBack }) {
         {total > 0 && (
           <div style={{ marginTop: 14 }}>
             <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex', gap: 1 }}>
-              <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, #2A7A38, #4ADE80)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
+              <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, #2A7A38, #C9A040)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
               {ties > 0 && <div style={{ width: `${(ties/total)*100}%`, background: 'rgba(138,180,248,0.5)' }} />}
               <div style={{ flex: 1, background: 'rgba(248,113,113,0.4)', borderRadius: '0 99px 99px 0' }} />
             </div>
@@ -269,9 +300,9 @@ function RivalryDetail({ rivalry, userId, onBack }) {
                 <div key={i} style={{
                   width: 22, height: 22, borderRadius: '50%', fontSize: 10, fontWeight: 800,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: m.is_tie ? 'rgba(138,180,248,0.2)' : won ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)',
-                  border: m.is_tie ? '1px solid rgba(138,180,248,0.4)' : won ? '1px solid rgba(74,222,128,0.4)' : '1px solid rgba(248,113,113,0.4)',
-                  color: m.is_tie ? '#93C5FD' : won ? '#4ADE80' : '#F87171',
+                  background: m.is_tie ? 'rgba(138,180,248,0.2)' : won ? 'rgba(201,160,64,0.2)' : 'rgba(248,113,113,0.2)',
+                  border: m.is_tie ? '1px solid rgba(138,180,248,0.4)' : won ? '1px solid rgba(201,160,64,0.4)' : '1px solid rgba(248,113,113,0.4)',
+                  color: m.is_tie ? '#93C5FD' : won ? '#C9A040' : '#F87171',
                 }}>{m.is_tie ? 'T' : won ? 'W' : 'L'}</div>
               )
             })}
@@ -303,13 +334,13 @@ function RivalryDetail({ rivalry, userId, onBack }) {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, marginBottom: 4,
-                      background: m.is_tie ? 'rgba(138,180,248,0.12)' : won ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)',
-                      border: m.is_tie ? '1px solid rgba(138,180,248,0.3)' : won ? '1px solid rgba(74,222,128,0.3)' : '1px solid rgba(248,113,113,0.3)',
-                      color: m.is_tie ? '#93C5FD' : won ? '#4ADE80' : '#F87171',
+                      background: m.is_tie ? 'rgba(138,180,248,0.12)' : won ? 'rgba(201,160,64,0.12)' : 'rgba(248,113,113,0.12)',
+                      border: m.is_tie ? '1px solid rgba(138,180,248,0.3)' : won ? '1px solid rgba(201,160,64,0.3)' : '1px solid rgba(248,113,113,0.3)',
+                      color: m.is_tie ? '#93C5FD' : won ? '#C9A040' : '#F87171',
                     }}>{m.is_tie ? 'TIE' : won ? 'WIN' : 'LOSS'}</div>
                     <div style={{ fontSize: 12, color: 'var(--tm-text-3)' }}>
                       {m.my_score} – {m.opp_score}
-                      {!m.is_tie && <span style={{ color: won ? '#4ADE80' : '#F87171', fontWeight: 700, marginLeft: 4 }}>({diff > 0 ? '+' : ''}{diff})</span>}
+                      {!m.is_tie && <span style={{ color: won ? '#C9A040' : '#F87171', fontWeight: 700, marginLeft: 4 }}>({diff > 0 ? '+' : ''}{diff})</span>}
                     </div>
                   </div>
                 </div>
@@ -346,7 +377,7 @@ function EndMatchScreen({ summary, onDone }) {
   const podiumColors = ['#E8C05A', 'rgba(255,255,255,0.5)', '#CD7F32']
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--tm-bg)', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent', overflowY: 'auto' }}>
       {/* Trophy hero */}
       <div style={{ padding: '32px 24px 24px', textAlign: 'center', background: 'radial-gradient(ellipse at top, rgba(197,160,64,0.12) 0%, transparent 70%)' }}>
         <div style={{ fontSize: 64, marginBottom: 12, lineHeight: 1 }}>
@@ -366,7 +397,7 @@ function EndMatchScreen({ summary, onDone }) {
             <div style={{ fontSize: 16, color: 'var(--tm-text-3)' }}>
               {winner.total} strokes
               {winner.diff !== undefined && (
-                <span style={{ marginLeft: 8, fontWeight: 800, color: winner.diff < 0 ? '#4ADE80' : winner.diff > 0 ? '#F87171' : 'var(--tm-text-2)' }}>
+                <span style={{ marginLeft: 8, fontWeight: 800, color: winner.diff < 0 ? '#C9A040' : winner.diff > 0 ? '#F87171' : 'var(--tm-text-2)' }}>
                   ({winner.diff === 0 ? 'E' : winner.diff > 0 ? `+${winner.diff}` : winner.diff})
                 </span>
               )}
@@ -380,7 +411,7 @@ function EndMatchScreen({ summary, onDone }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Final Standings</div>
         {podium.map((p, i) => {
           const sign = p.diff === 0 ? 'E' : p.diff > 0 ? `+${p.diff}` : `${p.diff}`
-          const diffC = p.diff < 0 ? '#4ADE80' : p.diff > 0 ? '#F87171' : 'var(--tm-text-2)'
+          const diffC = p.diff < 0 ? '#C9A040' : p.diff > 0 ? '#F87171' : 'var(--tm-text-2)'
           return (
             <div key={p.user_id} style={{
               background: i === 0 ? 'rgba(232,192,90,0.1)' : 'var(--tm-surface)',
@@ -394,7 +425,7 @@ function EndMatchScreen({ summary, onDone }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, color: i === 0 ? '#F5D78A' : 'var(--tm-text)', fontSize: 15 }}>{p.name}{p.is_guest ? ' (guest)' : ''}</div>
                 <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 2 }}>
-                  {p.birdies > 0 && <span style={{ color: '#4ADE80', marginRight: 8 }}>{p.birdies} birdie{p.birdies !== 1 ? 's' : ''}</span>}
+                  {p.birdies > 0 && <span style={{ color: '#C9A040', marginRight: 8 }}>{p.birdies} birdie{p.birdies !== 1 ? 's' : ''}</span>}
                   {p.eagles > 0 && <span style={{ color: '#E8C05A', marginRight: 8 }}>{p.eagles} eagle{p.eagles !== 1 ? 's' : ''}</span>}
                   {p.holes_played} holes
                 </div>
@@ -420,7 +451,7 @@ function EndMatchScreen({ summary, onDone }) {
             {highlights.most_birdies && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13, color: 'var(--tm-text-2)' }}>Most birdies</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#4ADE80' }}>{highlights.most_birdies.name} × {highlights.most_birdies.count}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#C9A040' }}>{highlights.most_birdies.name} × {highlights.most_birdies.count}</span>
               </div>
             )}
           </div>
@@ -664,8 +695,8 @@ function cellBg(score, par) {
 function cellBorder(score, par) {
   if (!score || !par) return '1px solid var(--tm-border)'
   const d = score - par
-  if (d <= -2) return '2px solid #4ADE80'
-  if (d === -1) return '1px solid #4ADE80'
+  if (d <= -2) return '2px solid #C9A040'
+  if (d === -1) return '1px solid #C9A040'
   if (d === 0)  return '1px solid var(--tm-border)'
   if (d === 1)  return '1px solid #F87171'
   return '2px solid #F87171'
@@ -673,7 +704,7 @@ function cellBorder(score, par) {
 function cellColor(score, par) {
   if (!score || !par) return 'var(--tm-text-3)'
   const d = score - par
-  if (d <= -2) return '#4ADE80'
+  if (d <= -2) return '#C9A040'
   if (d === -1) return '#86EFAC'
   if (d === 0)  return 'var(--tm-text-2)'
   if (d === 1)  return '#FCA5A5'
@@ -1022,7 +1053,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const SUB_COL    = 38
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--tm-bg)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent' }}>
       {/* Header */}
       <div style={{ padding: '14px 16px 10px', background: 'var(--tm-surface)', borderBottom: '1px solid var(--tm-border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1089,7 +1120,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 10, textAlign: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <span style={{
               fontSize: 14, fontWeight: 900,
-              color: matchPlayData.p1HolesUp === 0 ? 'var(--tm-text-2)' : matchPlayData.p1HolesUp > 0 ? '#4ADE80' : '#F87171',
+              color: matchPlayData.p1HolesUp === 0 ? 'var(--tm-text-2)' : matchPlayData.p1HolesUp > 0 ? '#C9A040' : '#F87171',
             }}>
               {matchPlayData.p1HolesUp === 0
                 ? 'ALL SQUARE'
@@ -1300,7 +1331,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
                   {last3.map((x, i) => {
                     const d = x.s - x.par
-                    const c = d <= -2 ? '#E8C05A' : d === -1 ? '#4ADE80' : d === 0 ? 'rgba(255,255,255,0.25)' : d === 1 ? '#F87171' : '#EF4444'
+                    const c = d <= -2 ? '#E8C05A' : d === -1 ? '#C9A040' : d === 0 ? 'rgba(255,255,255,0.25)' : d === 1 ? '#F87171' : '#EF4444'
                     return <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
                   })}
                 </div>
@@ -1316,7 +1347,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                   if (res !== null) {
                     const won = p1 ? res === 'p1' : res === 'p2'
                     const halved = res === 'half'
-                    if (won) { mpBg = '#1e4a2a'; mpBorder = '1px solid #4ADE80'; mpColor = '#4ADE80' }
+                    if (won) { mpBg = '#1e4a2a'; mpBorder = '1px solid #C9A040'; mpColor = '#C9A040' }
                     else if (!halved) { mpBg = '#4a1e1e'; mpBorder = '1px solid #F87171'; mpColor = '#F87171' }
                     else { mpBg = undefined; mpBorder = '1px solid rgba(255,255,255,0.15)'; mpColor = 'var(--tm-text-3)' }
                   }
@@ -1382,8 +1413,8 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
         }
         const mpStatusColor = isMatchPlay && matchPlayData
           ? (isP1?.(p)
-            ? (matchPlayData.p1HolesUp > 0 ? '#4ADE80' : matchPlayData.p1HolesUp < 0 ? '#F87171' : 'var(--tm-text-2)')
-            : (matchPlayData.p1HolesUp < 0 ? '#4ADE80' : matchPlayData.p1HolesUp > 0 ? '#F87171' : 'var(--tm-text-2)'))
+            ? (matchPlayData.p1HolesUp > 0 ? '#C9A040' : matchPlayData.p1HolesUp < 0 ? '#F87171' : 'var(--tm-text-2)')
+            : (matchPlayData.p1HolesUp < 0 ? '#C9A040' : matchPlayData.p1HolesUp > 0 ? '#F87171' : 'var(--tm-text-2)'))
           : 'var(--tm-text-2)'
 
         // Match play holes won
@@ -1425,7 +1456,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
 }
 
 // ─── Team Setup Sheet ─────────────────────────────────────────────────────────
-const TEAM_PALETTE = ['#4ADE80', '#E8C05A', '#60A5FA', '#F87171', '#A78BFA', '#FB923C', '#34D399', '#FBBF24']
+const TEAM_PALETTE = ['#C9A040', '#E8C05A', '#60A5FA', '#F87171', '#A78BFA', '#FB923C', '#34D399', '#FBBF24']
 
 // ─── Group / Marker Setup ─────────────────────────────────────────────────────
 // Host divides players into groups of ≤4 and designates one marker per group.
@@ -1496,7 +1527,7 @@ function GroupSetup({ outing, onClose, onSaved }) {
     finally { setSaving(false) }
   }
 
-  const CHIP_COLORS = ['#4ADE80', '#93C5FD', '#F5D78A', '#F87171', '#C4B5FD', '#FD8A4B']
+  const CHIP_COLORS = ['#C9A040', '#93C5FD', '#F5D78A', '#F87171', '#C4B5FD', '#FD8A4B']
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
@@ -1903,7 +1934,7 @@ function CodeShare({ outing, onEnter }) {
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
 export default function Outing({ user, pendingPlayers = [], onClearPending }) {
-  const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry'
+  const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [activeCode, setActiveCode] = useState(null)
@@ -1915,6 +1946,9 @@ export default function Outing({ user, pendingPlayers = [], onClearPending }) {
   useEffect(() => {
     if (pendingPlayers.length > 0) setShowCreate(true)
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} />
+  if (view === 'board') return <AugustaBoard user={user} onBack={() => setView('hub')} />
 
   if (view === 'live' && activeCode) return (
     <LiveOuting
@@ -1952,6 +1986,8 @@ export default function Outing({ user, pendingPlayers = [], onClearPending }) {
         onCreate={() => setShowCreate(true)}
         onOpenOuting={code => { setActiveCode(code); setView('live') }}
         onOpenRivalry={r => { setActiveRivalry(r); setView('rivalry') }}
+        onSoloRound={() => setView('solo')}
+        onLeaderboard={() => setView('board')}
       />
       {showJoin && (
         <JoinSheet

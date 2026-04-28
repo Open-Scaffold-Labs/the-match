@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import BottomNav from './components/shell/BottomNav.jsx'
 import { TABS } from './constants.js'
 import Home from './pages/Home.jsx'
-import ActiveRound from './pages/ActiveRound.jsx'
+
 import EagleEye from './pages/EagleEye.jsx'
 import Outing from './pages/Outing.jsx'
 import Stats from './pages/Stats.jsx'
+import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
 import { getToken } from './lib/api.js'
 
@@ -42,19 +43,27 @@ export default function App() {
 
   const pages = {
     [TABS.HOME]:   <Home   user={user} onNavigate={setTab} onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }} />,
-    [TABS.ROUND]:  <ActiveRound user={user} />,
     [TABS.EYE]:    <EagleEye user={user} />,
     [TABS.OUTING]: <Outing user={user} pendingPlayers={pendingOutingPlayers} onClearPending={() => setPendingOutingPlayers([])} />,
     [TABS.STATS]:  <Stats  user={user} />,
+    [TABS.TOUR]:   <PGAScores />,
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#000', display: 'flex', justifyContent: 'center' }}>
+    <div style={{
+      minHeight: '100dvh',
+      backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center 40%',
+      backgroundAttachment: 'fixed',
+      display: 'flex',
+      justifyContent: 'center',
+    }}>
       <div style={{
         width: '100%', maxWidth: 430,
         height: '100dvh', display: 'flex', flexDirection: 'column',
-        background: 'var(--tm-bg)', position: 'relative',
-        boxShadow: '0 0 80px rgba(0,0,0,0.8)',
+        background: 'transparent',
+        position: 'relative', zIndex: 1,
       }}>
         <div style={{ flex: 1, overflowY: 'auto', position: 'relative', WebkitOverflowScrolling: 'touch' }}>
           {pages[tab]}

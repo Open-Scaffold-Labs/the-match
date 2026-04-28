@@ -23,7 +23,7 @@ function HcpBadge({ hcp, roundCount }) {
         borderRadius: 24, overflow: 'hidden', position: 'relative',
         background: 'linear-gradient(140deg, #0A1F10 0%, #0D2615 35%, #071209 100%)',
         border: '1px solid rgba(232,192,90,0.2)',
-        boxShadow: '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(27,94,59,0.07)',
         padding: '24px 22px 22px',
       }}>
         {/* Radial glow */}
@@ -59,10 +59,10 @@ function HcpBadge({ hcp, roundCount }) {
               {display}
             </div>
             <div style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.45)', lineHeight: 1.4 }}>
                 USGA method
               </div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>
+              <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.45)', lineHeight: 1.4 }}>
                 Best 8 of last 20
               </div>
             </div>
@@ -70,16 +70,16 @@ function HcpBadge({ hcp, roundCount }) {
 
           <div style={{
             display: 'flex', gap: 8,
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(27,94,59,0.10)',
             borderRadius: 10, padding: '10px 14px',
           }}>
-            <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Rounds</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{roundCount ?? '—'}</div>
+            <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid rgba(27,94,59,0.10)' }}>
+              <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.38)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Rounds</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: '#0D1F12' }}>{roundCount ?? '—'}</div>
             </div>
             <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Status</div>
+              <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.38)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Status</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#5ED47A' }}>Active</div>
             </div>
           </div>
@@ -107,25 +107,25 @@ function MiniTrendBar({ rounds }) {
   return (
     <div style={{
       borderRadius: 18, overflow: 'hidden',
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      boxShadow: '0 2px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+      background: 'rgba(255,255,255,0.80)',
+      border: '1px solid rgba(27,94,59,0.10)',
+      boxShadow: '0 2px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.85)',
       padding: '18px 18px 14px',
       marginBottom: 16,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Score Trend</div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Last {rounds.length} rounds</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)' }}>Score Trend</div>
+        <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.35)' }}>Last {rounds.length} rounds</div>
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
         <defs>
           <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#35A046" />
+            <stop offset="0%" stopColor="#C9A040" />
             <stop offset="100%" stopColor="#5ED47A" />
           </linearGradient>
         </defs>
         <line x1="0" y1={H / 2} x2={W} y2={H / 2}
-          stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="4,4" />
+          stroke="rgba(27,94,59,0.10)" strokeWidth="1" strokeDasharray="4,4" />
         <path d={path} fill="none" stroke="url(#trendLine)" strokeWidth="2.5"
           strokeLinecap="round" strokeLinejoin="round" />
         {pts.map((p, i) => (
@@ -135,8 +135,8 @@ function MiniTrendBar({ rounds }) {
         ))}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Oldest</span>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Latest</span>
+        <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.28)' }}>Oldest</span>
+        <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.28)' }}>Latest</span>
       </div>
     </div>
   )
@@ -147,12 +147,12 @@ function StatTile({ label, value, sub, accent }) {
   return (
     <div style={{
       borderRadius: 16,
-      background: 'rgba(255,255,255,0.04)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+      background: 'rgba(255,255,255,0.85)',
+      border: '1px solid rgba(27,94,59,0.10)',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(27,94,59,0.07)',
       padding: '18px 14px', textAlign: 'center',
     }}>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
+      <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.35)', fontWeight: 700,
         textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
         {label}
       </div>
@@ -163,7 +163,7 @@ function StatTile({ label, value, sub, accent }) {
         {value}
       </div>
       {sub && (
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 5 }}>{sub}</div>
+        <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.35)', marginTop: 5 }}>{sub}</div>
       )}
     </div>
   )
@@ -188,7 +188,7 @@ export default function Stats({ user }) {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-      height: '100%', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+      height: '100%', color: 'rgba(13,31,18,0.35)', fontSize: 14 }}>
       Loading stats…
     </div>
   )
@@ -199,15 +199,15 @@ export default function Stats({ user }) {
       justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20, textAlign: 'center' }}>
       <div style={{
         width: 72, height: 72, borderRadius: '50%',
-        background: 'rgba(255,255,255,0.05)',
+        background: 'rgba(27,94,59,0.07)',
         border: '1px solid rgba(255,255,255,0.1)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <IconBarChart size={32} color="rgba(255,255,255,0.3)" />
+        <IconBarChart size={32} color="rgba(13,31,18,0.35)" />
       </div>
       <div>
-        <div style={{ fontWeight: 800, color: '#fff', fontSize: 20, marginBottom: 8 }}>No rounds yet</div>
-        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, lineHeight: 1.6 }}>
+        <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 20, marginBottom: 8 }}>No rounds yet</div>
+        <div style={{ color: 'rgba(13,31,18,0.38)', fontSize: 14, lineHeight: 1.6 }}>
           Play your first round to see your handicap, score trend, and club distances.
         </div>
       </div>
@@ -225,7 +225,7 @@ export default function Stats({ user }) {
         }}>
           Stats
         </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>{user.name}</div>
+        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.38)', marginTop: 1 }}>{user.name}</div>
       </div>
 
       <div className="page-scroll" style={{ padding: '0 16px 20px', display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -257,29 +257,29 @@ export default function Stats({ user }) {
         {summary?.topClubs?.length > 0 && (
           <div style={{
             borderRadius: 18,
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.80)',
+            border: '1px solid rgba(27,94,59,0.10)',
             overflow: 'hidden', marginBottom: 16,
           }}>
             <div style={{
-              padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-              fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+              padding: '14px 18px', borderBottom: '1px solid rgba(27,94,59,0.08)',
+              fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)',
             }}>
               Your Distances
             </div>
             {summary.topClubs.map((c, i) => (
               <div key={i} style={{
                 padding: '13px 18px',
-                borderBottom: i < summary.topClubs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                borderBottom: i < summary.topClubs.length - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <div>
-                  <span style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.club}</span>
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>{c.shots} shots</span>
+                  <span style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{c.club}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(13,31,18,0.35)', marginLeft: 8 }}>{c.shots} shots</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
                   <span style={{ fontSize: 22, fontWeight: 900, color: '#E8C05A' }}>{c.avg}</span>
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>yd</span>
+                  <span style={{ fontSize: 12, color: 'rgba(13,31,18,0.38)' }}>yd</span>
                 </div>
               </div>
             ))}
@@ -290,13 +290,13 @@ export default function Stats({ user }) {
         {rounds.length > 0 && (
           <div style={{
             borderRadius: 18,
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.80)',
+            border: '1px solid rgba(27,94,59,0.10)',
             overflow: 'hidden',
           }}>
             <div style={{
-              padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-              fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+              padding: '14px 18px', borderBottom: '1px solid rgba(27,94,59,0.08)',
+              fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)',
             }}>
               Recent Rounds
             </div>
@@ -307,12 +307,12 @@ export default function Stats({ user }) {
               return (
                 <div key={r.id} style={{
                   padding: '13px 18px',
-                  borderBottom: i < Math.min(7, rounds.length - 1) ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  borderBottom: i < Math.min(7, rounds.length - 1) ? '1px solid rgba(27,94,59,0.07)' : 'none',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>{r.course_name}</div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>
+                    <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 14 }}>{r.course_name}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.35)', marginTop: 2 }}>
                       {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>
                   </div>

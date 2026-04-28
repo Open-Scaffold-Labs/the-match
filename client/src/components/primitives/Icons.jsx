@@ -85,6 +85,19 @@ export function IconTarget({ size = 24, color = 'currentColor', strokeWidth = 1.
   )
 }
 
+export function IconTour({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="10" x2="14" y2="10" />
+      <line x1="4" y1="14" x2="16" y2="14" />
+      <line x1="4" y1="18" x2="11" y2="18" />
+      <circle cx="19" cy="16" r="3" />
+      <line x1="21.5" y1="18.5" x2="23" y2="20" />
+    </svg>
+  )
+}
+
 // The Match emblem — TM monogram in a circle
 export function TMEmblem({ size = 48, gold = false }) {
   const accent = gold ? '#E8C05A' : '#5ED47A'

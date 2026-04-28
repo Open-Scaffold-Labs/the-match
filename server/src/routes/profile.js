@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
     const start = seasonStart(year)
 
     const [user, seasonRows, roundRows, streakRows, seasonStarted] = await Promise.all([
-      db.one('SELECT id, name, email, role, home_course, bio, handicap FROM tm_users WHERE id = $1', [uid]),
+      db.one('SELECT id, name, email, role, home_course, bio, handicap, avatar, cutout FROM tm_users WHERE id = $1', [uid]),
 
       // Season W / L / T from match history
       db.many(
@@ -121,6 +121,28 @@ router.post('/update', async (req, res) => {
   } catch (err) {
     console.error('[profile/update]', err.message)
     res.status(500).json({ error: 'Update failed' })
+  }
+})
+
+// POST /api/profile/avatar — save player card image + body cutout
+router.post('/avatar', async (req, res) => {
+  try {
+    const { avatar, cutout } = req.body
+    if (!avatar || typeof avatar !== 'string') {
+      return res.status(400).json({ error: 'Missing avatar' })
+    }
+    if (!avatar.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Invalid image format' })
+    }
+    const user = await db.one(
+      `UPDATE tm_users SET avatar = $1, cutout = $2, updated_at = NOW()
+       WHERE id = $3 RETURNING id, avatar, cutout`,
+      [avatar, cutout ?? null, req.user.id]
+    )
+    res.json({ ok: true, user })
+  } catch (err) {
+    console.error('[profile/avatar]', err.message)
+    res.status(500).json({ error: 'Failed to save avatar' })
   }
 })
 

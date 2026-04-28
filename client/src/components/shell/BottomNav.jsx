@@ -1,12 +1,12 @@
 import { TABS } from '../../constants.js'
-import { IconHome, IconTrophy, IconTarget, IconFlag, IconBarChart } from '../primitives/Icons.jsx'
+import { IconHome, IconTrophy, IconTarget, IconFlag, IconBarChart, IconTour } from '../primitives/Icons.jsx'
 
 const NAV_ITEMS = [
   { tab: TABS.HOME,   Icon: IconHome,      label: 'Home'      },
-  { tab: TABS.OUTING, Icon: IconTrophy,    label: 'Match'    },
+  { tab: TABS.OUTING, Icon: IconTrophy,    label: 'Match'     },
   { tab: TABS.EYE,    Icon: IconTarget,    label: 'Eagle Eye', center: true },
-  { tab: TABS.ROUND,  Icon: IconFlag,      label: 'Round'     },
   { tab: TABS.STATS,  Icon: IconBarChart,  label: 'Stats'     },
+  { tab: TABS.TOUR,   Icon: IconTour,      label: 'Tour'      },
 ]
 
 export default function BottomNav({ active, onChange }) {
@@ -14,10 +14,10 @@ export default function BottomNav({ active, onChange }) {
     <nav style={{
       height: 'calc(68px + env(safe-area-inset-bottom, 0px))',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-      background: 'rgba(7, 12, 9, 0.92)',
+      background: 'rgba(255, 253, 248, 0.94)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
-      borderTop: '1px solid rgba(255,255,255,0.06)',
+      borderTop: '1px solid rgba(27,94,59,0.14)',
       display: 'flex',
       alignItems: 'flex-start',
       justifyContent: 'space-around',
@@ -58,7 +58,7 @@ function NavItem({ item, active, onPress }) {
         </div>
         <span style={{
           fontSize: 10, fontWeight: 600, letterSpacing: '0.03em',
-          color: active ? '#E8C05A' : 'rgba(255,255,255,0.35)',
+          color: active ? '#C9A040' : 'rgba(27,94,59,0.40)',
           transition: 'color 220ms ease',
         }}>
           {label}
@@ -80,27 +80,27 @@ function NavItem({ item, active, onPress }) {
         position: 'absolute', top: -10, left: '50%',
         transform: 'translateX(-50%)',
         width: active ? 24 : 0, height: 2, borderRadius: 1,
-        background: 'linear-gradient(90deg, #35A046, #5ED47A)',
-        boxShadow: active ? '0 0 8px rgba(94,212,122,0.8)' : 'none',
+        background: 'linear-gradient(90deg, #1B5E3B, #2A7A38)',
+        boxShadow: active ? '0 0 8px rgba(27,94,59,0.5)' : 'none',
         transition: 'width 250ms cubic-bezier(0.34,1.56,0.64,1)',
       }} />
 
       <div style={{
         width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderRadius: 8,
-        background: active ? 'rgba(94,212,122,0.1)' : 'transparent',
+        background: active ? 'rgba(27,94,59,0.10)' : 'transparent',
         transition: 'background 220ms ease',
       }}>
         <Icon
           size={20}
-          color={active ? '#5ED47A' : 'rgba(255,255,255,0.32)'}
+          color={active ? '#1B5E3B' : 'rgba(27,94,59,0.38)'}
           strokeWidth={active ? 2 : 1.5}
         />
       </div>
 
       <span style={{
         fontSize: 10, fontWeight: active ? 600 : 400,
-        color: active ? '#5ED47A' : 'rgba(255,255,255,0.32)',
+        color: active ? '#1B5E3B' : 'rgba(27,94,59,0.38)',
         letterSpacing: '0.03em',
         transition: 'color 220ms ease, font-weight 0ms',
       }}>

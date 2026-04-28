@@ -2,54 +2,54 @@
 
 /* ═══════════════════════════════════════════
    THE MATCH — Design Tokens
-   Augusta at night. Trophy gold. Fairway green.
+   Augusta in daylight. Cream & white. Forest green. Trophy gold.
 ═══════════════════════════════════════════ */
 
 @layer base {
   :root {
     /* — Backgrounds — */
-    --tm-bg:              #070C09;   /* deepest dark, fairway black */
-    --tm-surface:         #0E1610;   /* card bg */
-    --tm-surface-2:       #152019;   /* raised card */
-    --tm-surface-3:       #1C2C22;   /* highest elevation */
-    --tm-overlay:         rgba(7,12,9,0.85);
+    --tm-bg:              #F2EEE6;   /* warm parchment / Augusta scorecard */
+    --tm-surface:         #FFFFFF;   /* card bg */
+    --tm-surface-2:       #F8F5EF;   /* raised card */
+    --tm-surface-3:       #EDE8DC;   /* highest elevation */
+    --tm-overlay:         rgba(252,250,245,0.92);
 
     /* — Borders — */
-    --tm-border:          #1E3025;
-    --tm-border-2:        #2A4433;
-    --tm-border-3:        #3A5E47;
+    --tm-border:          rgba(27,94,59,0.12);
+    --tm-border-2:        rgba(27,94,59,0.20);
+    --tm-border-3:        rgba(27,94,59,0.32);
 
     /* — Green (primary) — */
-    --tm-green:           #2A7A38;
-    --tm-green-bright:    #35A046;
-    --tm-green-muted:     #162A1C;
-    --tm-green-text:      #5ED47A;
+    --tm-green:           #1B5E3B;   /* Augusta forest green */
+    --tm-green-bright:    #2A7A38;
+    --tm-green-muted:     #E6F2EC;   /* very light green tint */
+    --tm-green-text:      #1B5E3B;
 
     /* — Gold (accent) — */
     --tm-gold:            #C9A040;
     --tm-gold-bright:     #E8C05A;
-    --tm-gold-dim:        #8A6B28;
-    --tm-gold-muted:      #2C2010;
-    --tm-gold-text:       #E8C05A;
+    --tm-gold-dim:        #A07828;
+    --tm-gold-muted:      #FDF8EC;   /* light gold tint */
+    --tm-gold-text:       #7A5800;   /* dark gold for on-light readability */
 
     /* — Text — */
-    --tm-text:            #EDF5EF;   /* primary */
-    --tm-text-2:          #98B89E;   /* secondary */
-    --tm-text-3:          #5A7A60;   /* tertiary / placeholder */
-    --tm-text-inv:        #080D0A;   /* on bright bg */
+    --tm-text:            #0D1F12;   /* primary — very dark green-black */
+    --tm-text-2:          #3D6B4F;   /* secondary */
+    --tm-text-3:          #7A9E85;   /* tertiary / placeholder */
+    --tm-text-inv:        #FFFFFF;   /* on dark bg */
 
     /* — Score colors — */
-    --tm-eagle:           #FFD700;   /* eagle / double eagle */
-    --tm-birdie:          #4A9EDB;   /* birdie */
-    --tm-par:             #98B89E;   /* par */
-    --tm-bogey:           #E07A5A;   /* bogey */
-    --tm-double:          #E05252;   /* double+ */
+    --tm-eagle:           #B8860B;   /* eagle / double eagle — dark gold */
+    --tm-birdie:          #2563EB;   /* birdie — vivid blue */
+    --tm-par:             #6B7280;   /* par — slate gray */
+    --tm-bogey:           #D97706;   /* bogey — amber */
+    --tm-double:          #DC2626;   /* double+ — red */
 
     /* — Status — */
-    --tm-success:         #35A046;
+    --tm-success:         #1B5E3B;
     --tm-warning:         #C9A040;
-    --tm-danger:          #E05252;
-    --tm-info:            #4A9EDB;
+    --tm-danger:          #DC2626;
+    --tm-info:            #2563EB;
 
     /* — Spacing (4pt grid) — */
     --tm-radius-sm:       6px;
@@ -59,11 +59,11 @@
     --tm-radius-full:     9999px;
 
     /* — Shadows — */
-    --tm-shadow-sm:       0 1px 3px rgba(0,0,0,0.5);
-    --tm-shadow:          0 4px 16px rgba(0,0,0,0.6);
-    --tm-shadow-lg:       0 8px 32px rgba(0,0,0,0.7);
-    --tm-glow-green:      0 0 20px rgba(42,122,56,0.35);
-    --tm-glow-gold:       0 0 20px rgba(201,160,64,0.4);
+    --tm-shadow-sm:       0 1px 3px rgba(0,0,0,0.08);
+    --tm-shadow:          0 4px 16px rgba(0,0,0,0.10);
+    --tm-shadow-lg:       0 8px 32px rgba(0,0,0,0.14);
+    --tm-glow-green:      0 0 20px rgba(27,94,59,0.18);
+    --tm-glow-gold:       0 0 20px rgba(201,160,64,0.28);
 
     /* — Motion — */
     --tm-ease:            cubic-bezier(0.25, 0.46, 0.45, 0.94);
