@@ -361,7 +361,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, 
       </div>
 
       {/* Top bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 'max(16px, env(safe-area-inset-top))', padding: '12px 16px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: '16px', padding: '12px 16px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => { closeCamera(); onClose() }} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 15 }}>🦅 Eagle Eye</div>
@@ -389,7 +389,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, 
 
       {/* Capture button */}
       {!scanning && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: 'max(28px, env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: '28px', display: 'flex', justifyContent: 'center' }}>
           <button
             onClick={capture}
             style={{

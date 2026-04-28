@@ -79,10 +79,9 @@
     --z-modal:   200;
     --z-toast:   300;
 
-    /* — Safe area (notch/home bar) — */
+    /* — Layout — */
     --safe-top:    env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --nav-height:  68px;
+    --nav-height:  56px;
   }
 }
 
@@ -112,7 +111,7 @@
 
   /* Page scroll container */
   .page-scroll {
-    height: calc(100dvh - var(--nav-height) - var(--safe-bottom));
+    height: calc(100dvh - var(--nav-height));
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;

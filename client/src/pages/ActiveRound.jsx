@@ -123,7 +123,7 @@ function SetupSheet({ onStart, onBack }) {
           )}
         </div>
       </div>
-      <div style={{ padding: '16px 20px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', flexShrink: 0 }}>
+      <div style={{ padding: '16px 20px', flexShrink: 0 }}>
         <button onClick={() => onStart({ courseName: courseName || 'Course', pars: pars.slice(0, holes) })}
           style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))', color: '#fff', fontWeight: 800, fontSize: 17, border: 'none' }}>
           Tee It Up
@@ -217,7 +217,7 @@ function HoleScorer({ hole, par, strokes, shots, onScore, onAddShot, gps, onNext
       </div>
 
       {/* Navigation */}
-      <div style={{ padding: '12px 20px', paddingBottom: 'calc(12px + env(safe-area-inset-bottom))', flexShrink: 0, display: 'flex', gap: 12 }}>
+      <div style={{ padding: '12px 20px', flexShrink: 0, display: 'flex', gap: 12 }}>
         {hole > 1 && (
           <button onClick={onPrev}
             style={{ flex: 1, padding: '14px', borderRadius: 'var(--tm-radius-lg)', background: 'var(--tm-surface)', border: '1px solid var(--tm-border)', color: 'var(--tm-text-2)', fontWeight: 700, fontSize: 15 }}>
@@ -240,7 +240,7 @@ function HoleScorer({ hole, par, strokes, shots, onScore, onAddShot, gps, onNext
 function ClubSheet({ onSelect, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-      <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', padding: '20px 20px calc(20px + env(safe-area-inset-bottom))' }}>
+      <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tm-text)' }}>Which club?</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tm-text-3)', fontSize: 20 }}>✕</button>
@@ -317,7 +317,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
         </div>
       </div>
 
-      <div style={{ padding: '16px 20px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', flexShrink: 0 }}>
+      <div style={{ padding: '16px 20px', flexShrink: 0 }}>
         <button onClick={onSave} disabled={saving}
           style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: saving ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: saving ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 17, border: 'none' }}>
           {saving ? 'Saving…' : '💾 Save Round'}
