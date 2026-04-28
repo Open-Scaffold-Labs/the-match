@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { post } from '../lib/api.js'
 
 // ─── Country flag definitions ──────────────────────────────────────────────────
@@ -330,9 +331,9 @@ export default function PlayerCard({ user, season, onClose, onSave, existingCard
     clearInterval(timerRef.current)
   }, [])
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.92)',
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'flex-start',
@@ -393,7 +394,8 @@ export default function PlayerCard({ user, season, onClose, onSave, existingCard
           <ViewScreen cardUrl={cardUrl} onRetake={retake} onClose={onClose} />
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
