@@ -72,7 +72,7 @@ export default function App() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: '56px',
+          bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
           overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
