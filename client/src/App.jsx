@@ -61,17 +61,21 @@ export default function App() {
     }}>
       <div style={{
         width: '100%', maxWidth: 430,
-        minHeight: '100dvh',
+        height: '100dvh',
         background: 'transparent',
         position: 'relative', zIndex: 1,
+        overflow: 'hidden',
       }}>
-        {/* Scrollable content — padded so nothing hides behind the fixed nav */}
+        {/* Scrollable content — stops exactly where the fixed nav begins */}
         <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 'calc(56px + env(safe-area-inset-bottom, 16px))',
           overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 16px))',
-          minHeight: '100dvh',
         }}>
           {pages[tab]}
         </div>
