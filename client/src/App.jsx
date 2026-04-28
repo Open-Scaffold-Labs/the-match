@@ -65,7 +65,14 @@ export default function App() {
         background: 'transparent',
         position: 'relative', zIndex: 1,
       }}>
-        <div style={{ flex: 1, overflowY: 'auto', position: 'relative', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          position: 'relative',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+        }}>
           {pages[tab]}
         </div>
         <BottomNav active={tab} onChange={setTab} />

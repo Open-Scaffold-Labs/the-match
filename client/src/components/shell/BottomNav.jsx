@@ -12,7 +12,7 @@ const NAV_ITEMS = [
 export default function BottomNav({ active, onChange }) {
   return (
     <nav style={{
-      height: 'calc(68px + env(safe-area-inset-bottom, 0px))',
+      height: 'calc(56px + env(safe-area-inset-bottom, 0px))',
       paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       background: 'rgba(255, 253, 248, 0.94)',
       backdropFilter: 'blur(24px)',
@@ -21,9 +21,10 @@ export default function BottomNav({ active, onChange }) {
       display: 'flex',
       alignItems: 'flex-start',
       justifyContent: 'space-around',
-      paddingTop: 10,
+      paddingTop: 6,
       position: 'relative',
       zIndex: 100,
+      flexShrink: 0,
     }}>
       {NAV_ITEMS.map(item => (
         <NavItem key={item.tab} item={item} active={active === item.tab} onPress={() => onChange(item.tab)} />
@@ -40,11 +41,11 @@ function NavItem({ item, active, onPress }) {
       <button onClick={onPress} style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         gap: 4, border: 'none', cursor: 'pointer', padding: '0 8px',
-        marginTop: -22, background: 'transparent',
+        marginTop: -16, background: 'transparent',
         WebkitTapHighlightColor: 'transparent',
       }}>
         <div style={{
-          width: 58, height: 58, borderRadius: '50%',
+          width: 50, height: 50, borderRadius: '50%',
           background: active
             ? 'linear-gradient(145deg, #E8C05A 0%, #C9A040 60%, #8A6B28 100%)'
             : 'linear-gradient(145deg, #35A046 0%, #2A7A38 60%, #1A4A24 100%)',
@@ -71,7 +72,7 @@ function NavItem({ item, active, onPress }) {
     <button onClick={onPress} style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       gap: 4, border: 'none', cursor: 'pointer',
-      padding: '4px 14px', background: 'transparent',
+      padding: '2px 14px', background: 'transparent',
       WebkitTapHighlightColor: 'transparent', minWidth: 60,
       position: 'relative',
     }}>
