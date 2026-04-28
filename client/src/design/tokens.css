@@ -81,6 +81,7 @@
 
     /* — Layout — */
     --safe-top:    env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
     --nav-height:  56px;
   }
 }
@@ -101,7 +102,7 @@
   }
 
   body {
-    background: var(--tm-bg);
+    background: #FFFDF8;  /* match nav bar so safe-area bleed is invisible */
     color: var(--tm-text);
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
                  'Segoe UI', system-ui, sans-serif;
@@ -117,6 +118,12 @@
     -webkit-overflow-scrolling: touch;
     padding-top: calc(var(--safe-top) + 16px);
     padding-bottom: 24px;
+  }
+
+  /* Bottom nav — safe area extension */
+  .bottom-nav {
+    height: calc(56px + var(--safe-bottom)) !important;
+    padding-bottom: var(--safe-bottom) !important;
   }
 
   /* Touch feedback */
