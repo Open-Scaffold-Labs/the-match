@@ -428,7 +428,7 @@ export default function FriendProfile({ friend: friendSummary, myName, confirmed
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
+      position: 'fixed', inset: 0, zIndex: 300,
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -437,8 +437,8 @@ export default function FriendProfile({ friend: friendSummary, myName, confirmed
         background: 'linear-gradient(180deg, #0E1F13, #070C09)',
         border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: '22px 22px 0 0',
-        maxHeight: '90dvh', overflowY: 'auto',
-        padding: '20px 16px 48px',
+        maxHeight: '88dvh', overflowY: 'auto',
+        padding: '20px 16px 32px',
         WebkitOverflowScrolling: 'touch',
       }} onClick={e => e.stopPropagation()}>
 

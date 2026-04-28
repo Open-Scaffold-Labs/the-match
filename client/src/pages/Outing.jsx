@@ -499,7 +499,7 @@ function JoinSheet({ onClose, onJoined }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 300, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', padding: '24px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--tm-text)' }}>Enter a Code</div>
@@ -621,7 +621,7 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
   const stepTitles = ['Set the Stage', 'Scoring Format', 'Competition Structure']
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 300, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '24px 20px 0', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -747,7 +747,7 @@ function ScoreModal({ playerName, hole, par, currentScore, onSave, onClose }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
+      position: 'fixed', inset: 0, zIndex: 300,
       background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end',
     }} onClick={onClose}>
       <div style={{
@@ -807,7 +807,7 @@ function GuestModal({ onAdd, onClose }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 200,
+      position: 'fixed', inset: 0, zIndex: 300,
       background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end',
     }} onClick={onClose}>
       <div style={{
@@ -1530,7 +1530,7 @@ function GroupSetup({ outing, onClose, onSaved }) {
   const CHIP_COLORS = ['#C9A040', '#93C5FD', '#F5D78A', '#F87171', '#C4B5FD', '#FD8A4B']
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 300, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div style={{ padding: '20px 20px 12px', borderBottom: '1px solid var(--tm-border)', flexShrink: 0 }}>
