@@ -61,20 +61,22 @@ export default function App() {
     }}>
       <div style={{
         width: '100%', maxWidth: 430,
-        height: '100dvh', display: 'flex', flexDirection: 'column',
+        minHeight: '100dvh',
         background: 'transparent',
         position: 'relative', zIndex: 1,
       }}>
+        {/* Scrollable content — padded so nothing hides behind the fixed nav */}
         <div style={{
-          flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          position: 'relative',
           WebkitOverflowScrolling: 'touch',
-          paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 16px))',
+          minHeight: '100dvh',
         }}>
           {pages[tab]}
         </div>
+
+        {/* Fixed nav pinned to bottom of screen */}
         <BottomNav active={tab} onChange={setTab} />
       </div>
     </div>

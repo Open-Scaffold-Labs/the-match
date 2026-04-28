@@ -12,9 +12,15 @@ const NAV_ITEMS = [
 export default function BottomNav({ active, onChange }) {
   return (
     <nav style={{
-      height: 'calc(56px + env(safe-area-inset-bottom, 0px))',
-      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-      background: 'rgba(255, 253, 248, 0.94)',
+      position: 'fixed',
+      bottom: 0,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '100%',
+      maxWidth: 430,
+      height: 'calc(56px + env(safe-area-inset-bottom, 16px))',
+      paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+      background: 'rgba(255, 253, 248, 0.96)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
       borderTop: '1px solid rgba(27,94,59,0.14)',
@@ -22,9 +28,7 @@ export default function BottomNav({ active, onChange }) {
       alignItems: 'flex-start',
       justifyContent: 'space-around',
       paddingTop: 6,
-      position: 'relative',
-      zIndex: 100,
-      flexShrink: 0,
+      zIndex: 200,
     }}>
       {NAV_ITEMS.map(item => (
         <NavItem key={item.tab} item={item} active={active === item.tab} onPress={() => onChange(item.tab)} />
