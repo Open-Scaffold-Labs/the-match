@@ -343,7 +343,7 @@ export default function PlayerCard({ user, season, onClose, onSave, existingCard
       <div style={{
         width: '100%', maxWidth: 430,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 20px 0',
+        padding: 'max(16px, env(safe-area-inset-top)) 20px 0',
         position: 'sticky', top: 0, zIndex: 10,
         background: 'rgba(0,0,0,0.88)',
         backdropFilter: 'blur(16px)',
