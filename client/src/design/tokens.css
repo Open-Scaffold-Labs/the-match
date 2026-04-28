@@ -120,10 +120,10 @@
     padding-bottom: 24px;
   }
 
-  /* Bottom nav — safe area extension */
+  /* Bottom nav — extends background through home indicator zone */
   .bottom-nav {
-    height: calc(56px + var(--safe-bottom)) !important;
-    padding-bottom: var(--safe-bottom) !important;
+    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
 
   /* Touch feedback */
