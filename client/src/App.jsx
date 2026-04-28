@@ -72,7 +72,7 @@ export default function App() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',  /* nav height + home indicator */
+          bottom: '56px',
           overflowY: 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',

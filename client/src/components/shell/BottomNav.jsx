@@ -13,7 +13,7 @@ export default function BottomNav({ active, onChange }) {
   return (
     <nav style={{
       position: 'fixed',
-      bottom: 'env(safe-area-inset-bottom, 0px)',
+      bottom: 0,
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',
