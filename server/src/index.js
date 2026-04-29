@@ -17,6 +17,7 @@ app.get('/health', (req, res) => {
 // — DB gate: await init per-request so serverless cold starts work —
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/auth')) return next()
+  if (req.path.startsWith('/eagle-eye/osm')) return next() // OSM proxy — no DB needed
   try {
     await db.init()
     next()

@@ -95,4 +95,58 @@ function estimateAltFromPressure(hPa) {
   return Math.round(44330 * (1 - Math.pow(hPa / 1013.25, 1 / 5.255)) * 3.281)
 }
 
+// GET /api/eagle-eye/osm?bbox=south,west,north,east
+// Proxy for Overpass API — browser can't call overpass-api.de directly (CORS/CSP)
+
+// Server-side in-memory cache — Overpass responses cached for 60 min.
+// Within a warm Vercel instance this makes repeat fetches (same course, same session)
+// instant without hitting the Overpass mirrors again.
+const overpassCache = new Map()
+const OVERPASS_CACHE_TTL = 60 * 60 * 1000
+
+const OVERPASS_MIRRORS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+]
+router.get('/osm', async (req, res) => {
+  try {
+    const { bbox, type } = req.query
+    if (!bbox) return res.status(400).json({ error: 'bbox required' })
+
+    const cacheKey = `${type}|${bbox}`
+    const hit = overpassCache.get(cacheKey)
+    if (hit && Date.now() - hit.ts < OVERPASS_CACHE_TTL) {
+      return res.json(hit.data)
+    }
+
+    // 'holes' = fast path: only golf=hole ways (primary, authoritative)
+    // 'teegreen' = gap-fill: individual tee/green nodes
+    const query = type === 'teegreen'
+      ? `[out:json][timeout:25];(node["golf"="tee"](${bbox});way["golf"="tee"](${bbox});node["golf"="green"](${bbox});way["golf"="green"](${bbox}););out center;`
+      : `[out:json][timeout:15];(way["golf"="hole"](${bbox}););out geom;`
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+      'User-Agent': 'TheMatchApp/1.0 (golf companion; contact@thegolfmatch.app)',
+    }
+    const body = 'data=' + encodeURIComponent(query)
+    let lastErr = null
+    for (const mirror of OVERPASS_MIRRORS) {
+      try {
+        const response = await fetch(mirror, { method: 'POST', headers, body })
+        if (!response.ok) { lastErr = `${mirror} → ${response.status}`; continue }
+        const data = await response.json()
+        overpassCache.set(cacheKey, { data, ts: Date.now() })
+        return res.json(data)
+      } catch (e) { lastErr = `${mirror} → ${e.message}`; continue }
+    }
+    console.error('[eagle-eye/osm] all mirrors failed:', lastErr)
+    res.status(502).json({ error: 'OSM unavailable: ' + lastErr })
+  } catch (err) {
+    console.error('[eagle-eye/osm]', err.message)
+    res.status(500).json({ error: 'OSM fetch failed: ' + err.message })
+  }
+})
+
 module.exports = router

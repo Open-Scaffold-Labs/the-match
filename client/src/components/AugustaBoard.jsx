@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 const AUGUSTA_PARS = [4, 5, 4, 3, 4, 3, 4, 5, 4, 4, 4, 3, 5, 4, 5, 3, 4, 4]
 
@@ -334,9 +335,9 @@ export default function AugustaBoard({ user, onBack }) {
       </div>
 
       {/* Score / Par modal */}
-      {modal && (
+      {modal && createPortal(
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
           onClick={() => { setModal(null); setInputVal('') }}
         >
           <div
@@ -390,7 +391,8 @@ export default function AugustaBoard({ user, onBack }) {
               fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.06em',
             }}>SAVE</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

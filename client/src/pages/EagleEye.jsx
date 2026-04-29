@@ -1,5 +1,106 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+
+// Module-level cache: keyed by `${courseId}-${teeName}` — survives re-renders,
+// cleared only on page reload. Means switching holes is instant after first load.
+const osmPositionCache = new Map()
+
+// ─── localStorage persistence for OSM data (7-day TTL) ───────────────────────
+// After the first load of a course, pins are instant on every subsequent visit.
+const OSM_LS_TTL = 7 * 24 * 60 * 60 * 1000
+function lsLoadOsm(key) {
+  try {
+    const raw = localStorage.getItem(`tm-osm-${key}`)
+    if (!raw) return null
+    const { data, ts } = JSON.parse(raw)
+    if (Date.now() - ts > OSM_LS_TTL) { localStorage.removeItem(`tm-osm-${key}`); return null }
+    return data
+  } catch { return null }
+}
+function lsSaveOsm(key, data) {
+  try { localStorage.setItem(`tm-osm-${key}`, JSON.stringify({ data, ts: Date.now() })) } catch {}
+}
+
+// ─── Nearest-neighbor sort for untagged greens (spatial fallback) ────────────
+function nearestNeighborSort(points, startLat, startLon) {
+  if (!points.length) return []
+  const remaining = [...points]
+  const result = []
+  let curLat = startLat, curLon = startLon
+  while (remaining.length > 0) {
+    let minD = Infinity, minI = 0
+    for (let i = 0; i < remaining.length; i++) {
+      const d = Math.hypot(remaining[i].lat - curLat, remaining[i].lon - curLon)
+      if (d < minD) { minD = d; minI = i }
+    }
+    const picked = remaining.splice(minI, 1)[0]
+    result.push(picked)
+    curLat = picked.lat; curLon = picked.lon
+  }
+  return result
+}
+
+// ─── Match greens to hole numbers using scorecard yardages ───────────────────
+// Each hole has a unique yardage — find the tee→green distance that best matches
+// the scorecard, then assign that green the correct hole number.
+function matchGreensToHoles(greens, tees, scorecard) {
+  if (!greens.length || !tees.length || !scorecard.length) return {}
+  const assigned = {}
+  const usedGreenIdxs = new Set()
+
+  // Process most-distinctive yardages first (shortest par 3s and longest par 5s
+  // are the most unique anchors, reducing cascading mis-assignments)
+  const medY = [...scorecard].map(h => h.yardage).sort((a, b) => a - b)[Math.floor(scorecard.length / 2)]
+  const sorted = [...scorecard].sort((a, b) =>
+    Math.abs(b.yardage - medY) - Math.abs(a.yardage - medY)
+  )
+
+  for (const hole of sorted) {
+    let bestGreenIdx = -1, bestDiff = Infinity
+
+    for (let gi = 0; gi < greens.length; gi++) {
+      if (usedGreenIdxs.has(gi)) continue
+      // For this green, find the tee whose distance to the green is closest
+      // to this hole's scorecard yardage
+      for (const tee of tees) {
+        const dist = haversineYards(tee, greens[gi])
+        const diff = Math.abs(dist - hole.yardage)
+        if (diff < bestDiff) { bestDiff = diff; bestGreenIdx = gi }
+      }
+    }
+
+    if (bestGreenIdx >= 0 && bestDiff < 200) {
+      assigned[hole.hole] = greens[bestGreenIdx]
+      usedGreenIdxs.add(bestGreenIdx)
+    }
+  }
+
+  console.log('[OSM] yardage-matched holes:', Object.keys(assigned).length, '/ 18, worst diff:', Math.round(
+    Math.max(...Object.keys(assigned).map(h => {
+      const g = assigned[h]; const s = scorecard.find(x => x.hole === parseInt(h))
+      return Math.min(...tees.map(t => Math.abs(haversineYards(t, g) - s.yardage)))
+    }))
+  ), 'yds')
+  return assigned
+}
+
+// ─── Bearing from one GPS point to another (0 = N, 90 = E, 180 = S, 270 = W) ─
+function calcBearing(from, to) {
+  if (!from || !to) return null
+  const lat1 = from.lat * Math.PI / 180
+  const lat2 = to.lat  * Math.PI / 180
+  const dLon = (to.lon - from.lon) * Math.PI / 180
+  const y = Math.sin(dLon) * Math.cos(lat2)
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360
+}
+
+// ─── Cardinal direction label ─────────────────────────────────────────────────
+function bearingLabel(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+  return dirs[Math.round(deg / 22.5) % 16]
+}
 
 // ─── Haversine distance in yards ─────────────────────────────────────────────
 function haversineYards(a, b) {
@@ -70,51 +171,15 @@ function WindArrow({ deg }) {
 }
 
 // ─── Satellite hole map (Leaflet + ESRI tiles + OSM hole positions) ──────────
-function HoleMap({ courseCtx, currentHole, gps }) {
+// geocoded, holePositions, greenPositions fetched by parent EagleEye and passed as props
+function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, greenPositions = {} }) {
   const containerRef      = useRef(null)
   const mapRef            = useRef(null)
-  const markerRef         = useRef(null)
-  const teeMarkersRef     = useRef({})
-  const [geocoded, setGeocoded]         = useState(null)
-  const [holePositions, setHolePositions] = useState({}) // { 1: {lat,lon}, 2: ... }
-  const [mapErr, setMapErr]             = useState(null)
-
-  // Step 1: Geocode course name → lat/lon via Nominatim
-  useEffect(() => {
-    if (!courseCtx) return
-    const { club_name, city, state } = courseCtx.course
-    const q = [club_name, city, state].filter(Boolean).join(', ')
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
-      .then(r => r.json())
-      .then(data => {
-        if (data[0]) setGeocoded({ lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })
-        else setMapErr('Course location not found')
-      })
-      .catch(() => setMapErr('Geocoding failed'))
-  }, [courseCtx?.course?.club_name])
-
-  // Step 2: Once geocoded, query Overpass API for per-hole tee positions from OSM
-  useEffect(() => {
-    if (!geocoded) return
-    const pad = 0.025 // ~1.7 mile radius bounding box
-    const bbox = `${geocoded.lat - pad},${geocoded.lon - pad},${geocoded.lat + pad},${geocoded.lon + pad}`
-    const query = `[out:json][timeout:25];(node["golf"="tee"](${bbox});way["golf"="tee"](${bbox}););out center;`
-    fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`)
-      .then(r => r.json())
-      .then(data => {
-        const positions = {}
-        for (const el of data.elements) {
-          const ref = parseInt(el.tags?.ref)
-          if (!ref || ref < 1 || ref > 18) continue
-          const lat = el.lat ?? el.center?.lat
-          const lon = el.lon ?? el.center?.lon ?? el.center?.lng
-          if (lat && lon) positions[ref] = { lat, lon }
-        }
-        if (Object.keys(positions).length > 0) setHolePositions(positions)
-        // If OSM has no hole data, map stays centered on course — still useful as aerial view
-      })
-      .catch(() => {}) // Overpass failure is non-fatal
-  }, [geocoded])
+  const markerRef         = useRef(null)   // GPS dot
+  const holeMarkerRef     = useRef(null)   // gold tee pin
+  const greenMarkerRef    = useRef(null)   // red flag on green
+  const [mapErr, setMapErr] = useState(null)
+  const [mapReady, setMapReady] = useState(false)
 
   // Load Leaflet from CDN and init map — only once geocoded location is known
   useEffect(() => {
@@ -130,21 +195,24 @@ function HoleMap({ courseCtx, currentHole, gps }) {
       const courseCenter = geocoded ?? center
       const map = L.map(containerRef.current, {
         center: [courseCenter.lat, courseCenter.lon],
-        zoom: 17,
+        zoom: 16,
         zoomControl: true,
         attributionControl: false,
+        rotate: true,           // leaflet-rotate: enable bearing control
+        touchRotate: false,     // disable confusing pinch-rotate gesture
+        bearing: 0,
       })
 
-      // ESRI satellite imagery (free, no key)
+      // ESRI satellite imagery — keepBuffer:4 keeps more tiles in memory during pans
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 20, tileSize: 256 }
+        { maxZoom: 20, tileSize: 256, keepBuffer: 4, updateWhenZooming: false }
       ).addTo(map)
 
-      // GPS dot — only show if user is within ~5 miles of course (on the course)
+      // GPS dot — only show if user is within ~5 miles of course
       if (gps && geocoded) {
         const dist = haversineYards(gps, { lat: geocoded.lat, lon: geocoded.lon })
-        if (dist != null && dist < 8800) { // 5 miles in yards
+        if (dist != null && dist < 8800) {
           markerRef.current = L.circleMarker([gps.lat, gps.lon], {
             radius: 9, color: '#F5D78A', weight: 3,
             fillColor: '#F5D78A', fillOpacity: 0.95,
@@ -153,10 +221,26 @@ function HoleMap({ courseCtx, currentHole, gps }) {
       }
 
       mapRef.current = map
+      // Don't fitBounds here — the hole-pan effect will position the map
+      // correctly once OSM data arrives. Avoids a redundant double-move.
+      setMapReady(true)
+    }
+
+    // Load Leaflet + rotate plugin in parallel, init when both are ready
+    const tryInit = () => { if (window.L && window.__leafletRotateReady) init() }
+
+    const loadRotatePlugin = () => {
+      if (window.__leafletRotateReady) { tryInit(); return }
+      if (document.getElementById('leaflet-rotate-js')) return // already injecting
+      const s = document.createElement('script')
+      s.id  = 'leaflet-rotate-js'
+      s.src = 'https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js'
+      s.onload = () => { window.__leafletRotateReady = true; tryInit() }
+      document.head.appendChild(s)
     }
 
     if (window.L) {
-      init()
+      loadRotatePlugin()
     } else {
       // Inject Leaflet CSS
       if (!document.getElementById('leaflet-css')) {
@@ -166,12 +250,14 @@ function HoleMap({ courseCtx, currentHole, gps }) {
         link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
         document.head.appendChild(link)
       }
-      // Inject Leaflet JS
+      // Inject Leaflet JS and rotate plugin IN PARALLEL, init when both ready
       if (!document.getElementById('leaflet-js')) {
         const script = document.createElement('script')
-        script.id = 'leaflet-js'
+        script.id  = 'leaflet-js'
         script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-        script.onload = init
+        // Load rotate plugin AFTER Leaflet — rotate extends L.* prototypes,
+        // so Leaflet must be present first. Then tryInit when both are ready.
+        script.onload = () => { loadRotatePlugin() }
         document.head.appendChild(script)
       }
     }
@@ -179,44 +265,81 @@ function HoleMap({ courseCtx, currentHole, gps }) {
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
       markerRef.current = null
+      holeMarkerRef.current = null
+      greenMarkerRef.current = null
+      setMapReady(false)
     }
   }, [geocoded])
 
-  // Pan to specific hole tee when hole changes or OSM data arrives
+  // Pan to current hole + update single marker (no 36-marker re-render)
   useEffect(() => {
-    if (!mapRef.current) return
-    const pos = holePositions[currentHole]
-    if (pos) {
-      mapRef.current.setView([pos.lat, pos.lon], 18)
-      // Highlight current hole tee
-      Object.entries(teeMarkersRef.current).forEach(([num, m]) => {
-        if (!window.L) return
-        const isCurrent = parseInt(num) === currentHole
-        m.setStyle({ radius: isCurrent ? 10 : 6, fillOpacity: isCurrent ? 1 : 0.5, weight: isCurrent ? 3 : 1.5 })
-      })
-    }
-  }, [currentHole, holePositions])
+    if (!mapRef.current || !window.L) return
+    const teePos   = holePositions[currentHole]
+    const greenPos = greenPositions[currentHole]
+    const panPos   = teePos || greenPos
+    if (!panPos) return
 
-  // Add tee markers to map when OSM positions arrive
-  useEffect(() => {
-    if (!mapRef.current || !window.L || Object.keys(holePositions).length === 0) return
+    const teePt   = holePositions[currentHole]
+    const greenPt = greenPositions[currentHole]
+
+    // Center between tee and green so both are visible, not just the tee
+    const centerLat = teePt && greenPt ? (teePt.lat + greenPt.lat) / 2 : panPos.lat
+    const centerLon = teePt && greenPt ? (teePt.lon + greenPt.lon) / 2 : panPos.lon
+    // Zoom based on hole length — par 3s tighter, long par 5s wider
+    const holeDist  = teePt && greenPt ? haversineYards(teePt, greenPt) : 0
+    const zoom = holeDist > 400 ? 16 : holeDist > 220 ? 17 : 18
+
+    // animate:false = instant teleport to the hole
+    mapRef.current.setView([centerLat, centerLon], zoom, { animate: false })
+
+    // setBearing MUST come AFTER setView — setView resets bearing to 0 (north-up).
+    // setBearing(b) puts compass bearing b at the top of the screen.
+    // leaflet-rotate applies CSS rotateZ(-b), which places bearing b at the top.
+    // "course-up": green at top → bearing = direction from tee to green.
+    if (teePt && greenPt && typeof mapRef.current.setBearing === 'function') {
+      mapRef.current.setBearing(calcBearing(teePt, greenPt))
+    }
+
     const L = window.L
-    // Clear old tee markers
-    Object.values(teeMarkersRef.current).forEach(m => m.remove())
-    teeMarkersRef.current = {}
-    // Add a small marker for each tee
-    Object.entries(holePositions).forEach(([num, pos]) => {
-      const isCurrent = parseInt(num) === currentHole
-      const m = L.circleMarker([pos.lat, pos.lon], {
-        radius: isCurrent ? 10 : 6,
-        color: '#fff', weight: isCurrent ? 3 : 1.5,
-        fillColor: '#C9A040', fillOpacity: isCurrent ? 1 : 0.5,
+
+    // Gold circle at tee
+    if (holeMarkerRef.current) {
+      holeMarkerRef.current.setLatLng([panPos.lat, panPos.lon])
+    } else {
+      holeMarkerRef.current = L.circleMarker([panPos.lat, panPos.lon], {
+        radius: 9, color: '#fff', weight: 2.5,
+        fillColor: '#C9A040', fillOpacity: 1,
+      }).addTo(mapRef.current)
+    }
+
+    // Red flag icon on the green
+    const flagPos = greenPositions[currentHole]
+    if (flagPos) {
+      const flagIcon = L.divIcon({
+        className: '',
+        html: `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="28" viewBox="0 0 22 28">
+          <!-- flagpole -->
+          <line x1="4" y1="2" x2="4" y2="27" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+          <!-- flag -->
+          <polygon points="4,2 20,8 4,14" fill="#E53935" stroke="white" stroke-width="0.8"/>
+          <!-- base dot -->
+          <circle cx="4" cy="27" r="2.5" fill="#E53935" stroke="white" stroke-width="1.2"/>
+        </svg>`,
+        iconSize:   [22, 28],
+        iconAnchor: [4, 27],  // anchor at base of pole
       })
-        .bindTooltip(`H${num}`, { permanent: false, direction: 'top', className: 'ee-tip' })
-        .addTo(mapRef.current)
-      teeMarkersRef.current[num] = m
-    })
-  }, [holePositions])
+      if (greenMarkerRef.current) {
+        greenMarkerRef.current.setLatLng([flagPos.lat, flagPos.lon])
+        greenMarkerRef.current.setIcon(flagIcon)
+      } else {
+        greenMarkerRef.current = L.marker([flagPos.lat, flagPos.lon], { icon: flagIcon })
+          .addTo(mapRef.current)
+      }
+    } else if (greenMarkerRef.current) {
+      greenMarkerRef.current.remove()
+      greenMarkerRef.current = null
+    }
+  }, [currentHole, holePositions, greenPositions, mapReady])
 
   // Update GPS marker position without panning away from the course
   useEffect(() => {
@@ -253,8 +376,8 @@ function HoleMap({ courseCtx, currentHole, gps }) {
   }
 
   return (
-    <div style={{ flex: 1, position: 'relative' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 340 }} />
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {/* Hole badge overlay */}
       <div style={{
         position: 'absolute', top: 12, left: 12, zIndex: 1000,
@@ -280,13 +403,45 @@ function HoleMap({ courseCtx, currentHole, gps }) {
 }
 
 // ─── Camera modal (overlays the distance view) ────────────────────────────────
-function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, onResult }) {
+function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos, onClose, onResult }) {
   const videoRef   = useRef(null)
   const canvasRef  = useRef(null)
   const streamRef  = useRef(null)
   const [facingBack, setFacingBack] = useState(true)
   const [scanning, setScanning]     = useState(false)
   const [error, setError]           = useState(null)
+  const [compass, setCompass]       = useState(null)  // current device heading (degrees)
+
+  // Target bearing: from the user's GPS position to the green
+  const targetBearing = calcBearing(gps, greenPos)
+
+  // Arrow rotation = how far to turn the phone to face the green
+  const arrowRotation = (targetBearing != null && compass != null)
+    ? ((targetBearing - compass + 360) % 360)
+    : null
+  const isAligned = arrowRotation != null && (arrowRotation < 22 || arrowRotation > 338)
+
+  // Request compass / device orientation
+  useEffect(() => {
+    const handler = e => {
+      // iOS: webkitCompassHeading is magnetic north (0-360)
+      // Android: alpha is 0-360 but counts opposite; 360-alpha gives compass heading
+      const heading = e.webkitCompassHeading ?? (e.alpha != null ? (360 - e.alpha) % 360 : null)
+      if (heading != null) setCompass(heading)
+    }
+    const setup = async () => {
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        try {
+          const perm = await DeviceOrientationEvent.requestPermission()
+          if (perm === 'granted') window.addEventListener('deviceorientation', handler, true)
+        } catch {}
+      } else {
+        window.addEventListener('deviceorientation', handler, true)
+      }
+    }
+    setup()
+    return () => window.removeEventListener('deviceorientation', handler, true)
+  }, [])
 
   const openCamera = useCallback(async () => {
     try {
@@ -337,13 +492,54 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, 
     }
   }
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#000', display: 'flex', flexDirection: 'column' }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', flexDirection: 'column' }}>
       {/* Viewfinder */}
       <video ref={videoRef} autoPlay playsInline muted
         style={{ flex: 1, width: '100%', objectFit: 'cover' }}
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* ── Green direction compass ── */}
+      {targetBearing != null && !scanning && (
+        <div style={{
+          position: 'absolute', bottom: 140, left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          pointerEvents: 'none',
+        }}>
+          {/* Rotating arrow ring */}
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: isAligned ? 'rgba(42,122,56,0.85)' : 'rgba(7,12,9,0.75)',
+            border: `2px solid ${isAligned ? '#5ED47A' : 'rgba(255,255,255,0.25)'}`,
+            backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'background 0.3s, border-color 0.3s',
+          }}>
+            <div style={{
+              transform: `rotate(${arrowRotation ?? 0}deg)`,
+              transition: arrowRotation != null ? 'transform 0.1s linear' : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, lineHeight: 1,
+              color: isAligned ? '#5ED47A' : '#F5D78A',
+            }}>↑</div>
+          </div>
+          {/* Label */}
+          <div style={{
+            background: 'rgba(7,12,9,0.75)', backdropFilter: 'blur(8px)',
+            borderRadius: 20, padding: '4px 12px',
+            border: `1px solid ${isAligned ? 'rgba(94,212,122,0.4)' : 'rgba(255,255,255,0.15)'}`,
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: isAligned ? '#5ED47A' : 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>
+              {isAligned
+                ? '✓ FACING GREEN'
+                : compass != null
+                  ? `TURN ${arrowRotation < 180 ? 'RIGHT' : 'LEFT'} · ${bearingLabel(targetBearing)}`
+                  : `GREEN · ${bearingLabel(targetBearing)}`}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Crosshair */}
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
@@ -364,7 +560,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, 
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: '16px', padding: '12px 16px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => { closeCamera(); onClose() }} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 15 }}>🦅 Eagle Eye</div>
+          <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 13, letterSpacing: '0.12em' }}>EAGLE EYE</div>
           {holeData && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>H{currentHole} · {holeData.yardage}y · Par {holeData.par}</div>}
         </div>
         <button onClick={flip} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⇄</button>
@@ -372,10 +568,18 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, 
 
       {/* Scanning overlay */}
       {scanning && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-          <div style={{ fontSize: 52 }}>🦅</div>
-          <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 20 }}>Analyzing…</div>
-          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13 }}>GPS · Weather · Vision{courseCtx ? ' · Course Data' : ''}</div>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+          <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ animation: 'ee-scan 0.9s ease-in-out infinite' }}>
+            <circle cx="36" cy="36" r="32" stroke="#C9A040" strokeWidth="1" strokeOpacity="0.4"/>
+            <circle cx="36" cy="36" r="20" stroke="#E8C05A" strokeWidth="1.5" strokeOpacity="0.8"/>
+            <circle cx="36" cy="36" r="3" fill="#F5D78A"/>
+            <line x1="36" y1="4" x2="36" y2="14" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <line x1="36" y1="58" x2="36" y2="68" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <line x1="4" y1="36" x2="14" y2="36" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <line x1="58" y1="36" x2="68" y2="36" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+          </svg>
+          <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 18, letterSpacing: '0.04em' }}>Analyzing</div>
+          <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, letterSpacing: '0.06em' }}>GPS · WEATHER · VISION{courseCtx ? ' · COURSE' : ''}</div>
         </div>
       )}
 
@@ -414,7 +618,8 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, onClose, 
           </button>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -423,8 +628,8 @@ function ResultSheet({ result: r, holeData, onClose }) {
   const adj = n => n > 0 ? `+${n}` : `${n}`
   const hasReal = holeData?.yardage != null
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div onClick={onClose} style={{ flex: 1, background: 'rgba(0,0,0,0.5)' }} />
       <div style={{
         background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0',
@@ -483,7 +688,7 @@ function ResultSheet({ result: r, holeData, onClose }) {
         {/* Caddie note */}
         {r.caddieNote && (
           <div style={{ background: 'rgba(42,122,56,0.12)', border: '1px solid rgba(42,122,56,0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-            <div style={{ color: '#C9A040', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>🦅 EAGLE CADDIE</div>
+            <div style={{ color: '#C9A040', fontSize: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.1em' }}>CADDIE NOTE</div>
             <div style={{ color: 'var(--tm-text)', fontSize: 14, lineHeight: 1.55 }}>{r.caddieNote}</div>
           </div>
         )}
@@ -494,27 +699,60 @@ function ResultSheet({ result: r, holeData, onClose }) {
           color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
         }}>Done</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
 // ─── Course Picker ────────────────────────────────────────────────────────────
-function CoursePicker({ onSelect, onClose }) {
+function CoursePicker({ onSelect, onClose, gps }) {
   const [query, setQuery]     = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(null)
   const [course, setCourse]   = useState(null)
   const [teeIdx, setTeeIdx]   = useState(0)
+  const rawResults             = useRef([]) // unsorted cache so we can re-sort when gps arrives
+  const gpsRef                 = useRef(gps)
 
-  async function search() {
-    if (!query.trim()) return
-    setLoading(true)
-    try {
-      const d = await api(`/api/courses/search?q=${encodeURIComponent(query)}`)
-      setResults(d.courses || [])
-    } catch {} finally { setLoading(false) }
+  // Keep gpsRef current so async callbacks always see the latest value
+  useEffect(() => { gpsRef.current = gps }, [gps])
+
+  function distMiles(c, loc) {
+    const g = loc ?? gpsRef.current
+    if (!g || c.latitude == null || c.longitude == null) return Infinity
+    const R = 3958.8
+    const dLat = (c.latitude - g.lat) * Math.PI / 180
+    const dLon = (c.longitude - g.lon) * Math.PI / 180
+    const a = Math.sin(dLat/2)**2 + Math.cos(g.lat * Math.PI/180) * Math.cos(c.latitude * Math.PI/180) * Math.sin(dLon/2)**2
+    return R * 2 * Math.asin(Math.sqrt(a))
   }
+
+  function sortAndSet(courses) {
+    const sorted = [...courses].sort((a, b) => distMiles(a) - distMiles(b))
+    setResults(sorted)
+  }
+
+  // Re-sort existing results whenever GPS locks in or updates
+  useEffect(() => {
+    if (rawResults.current.length > 0) sortAndSet(rawResults.current)
+  }, [gps])
+
+  // Live search — fires 350ms after the user stops typing, min 2 chars
+  useEffect(() => {
+    if (selected) return
+    const q = query.trim()
+    if (q.length < 2) { rawResults.current = []; setResults([]); return }
+    setLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const d = await api(`/api/courses/search?q=${encodeURIComponent(q)}`)
+        rawResults.current = d.courses || []
+        sortAndSet(rawResults.current)
+      } catch {} finally { setLoading(false) }
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [query])
 
   async function pickCourse(c) {
     setSelected(c)
@@ -528,34 +766,42 @@ function CoursePicker({ onSelect, onClose }) {
   const tees = course ? [...(course.tees?.male || []), ...(course.tees?.female || [])] : []
   const activeTee = tees[teeIdx]
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: '#07100C', zIndex: 400, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: '#07100C', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer' }}>←</button>
           <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>Select Course</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <div style={{ position: 'relative', marginTop: 12 }}>
           <input
             autoFocus value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && search()}
+            onChange={e => { setSelected(null); setCourse(null); setQuery(e.target.value) }}
             placeholder="Search course name…"
-            style={{ flex: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
+            style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 40px 10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
           />
-          <button onClick={search} disabled={loading} style={{ background: 'rgba(232,192,90,0.2)', border: '1px solid rgba(232,192,90,0.4)', borderRadius: 10, padding: '10px 16px', color: '#F5D78A', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
-            {loading ? '…' : 'Search'}
-          </button>
+          {loading && (
+            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(245,215,138,0.3)', borderTopColor: '#F5D78A', animation: 'ee-spin-slow 0.7s linear infinite' }} />
+          )}
         </div>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
-        {!selected && results.map(c => (
-          <div key={c.id} onClick={() => pickCourse(c)} style={{ padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
-            <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.club_name}</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{[c.city, c.state, c.country].filter(Boolean).join(', ')}</div>
-          </div>
-        ))}
+        {!selected && results.map(c => {
+          const miles = distMiles(c)
+          const distLabel = miles < Infinity ? (miles < 0.1 ? 'Here' : miles < 1 ? `${Math.round(miles * 10) / 10} mi` : `${Math.round(miles)} mi`) : null
+          return (
+            <div key={c.id} onClick={() => pickCourse(c)} style={{ padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.club_name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{[c.city, c.state, c.country].filter(Boolean).join(', ')}</div>
+              </div>
+              {distLabel && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: miles < 5 ? '#5ED47A' : 'rgba(255,255,255,0.3)', flexShrink: 0, marginLeft: 12 }}>{distLabel}</div>
+              )}
+            </div>
+          )
+        })}
 
         {course && activeTee && (
           <>
@@ -587,13 +833,15 @@ function CoursePicker({ onSelect, onClose }) {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
 export default function EagleEye() {
   const [gps, setGps]               = useState(null)
+  const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
   const [weather, setWeather]       = useState(null)
   const [courseCtx, setCourseCtx]   = useState(null)
@@ -603,20 +851,233 @@ export default function EagleEye() {
   const [result, setResult]         = useState(null)
   const [viewMode, setViewMode]     = useState('distance') // 'distance' | 'map'
 
-  // Live GPS watch
+  // OSM course data: geocoded position, tee coords, green coords
+  const [courseGeocoded, setCourseGeocoded] = useState(null)
+  const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
+  const [greenPositions, setGreenPositions] = useState({}) // { 1: {lat,lon}, ... } greens
+  const [osmLoading, setOsmLoading]         = useState(false)
+
+  const watchIdRef = useRef(null)
+
+  // Preload Leaflet + rotate plugin the moment EagleEye mounts so both scripts
+  // are cached and ready before the user ever opens the satellite map view.
   useEffect(() => {
-    if (!navigator.geolocation) return
-    const id = navigator.geolocation.watchPosition(
+    const preloadRotate = () => {
+      if (window.__leafletRotateReady || document.getElementById('leaflet-rotate-js')) return
+      const s = document.createElement('script')
+      s.id  = 'leaflet-rotate-js'
+      s.src = 'https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js'
+      s.onload = () => { window.__leafletRotateReady = true }
+      document.head.appendChild(s)
+    }
+    if (window.L) { preloadRotate(); return }
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link')
+      link.id = 'leaflet-css'; link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+    if (!document.getElementById('leaflet-js')) {
+      const script = document.createElement('script')
+      script.id  = 'leaflet-js'
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+      script.onload = preloadRotate  // chain: Leaflet ready → load rotate plugin
+      document.head.appendChild(script)
+    }
+  }, [])
+
+  function startGpsWatch() {
+    if (!navigator.geolocation || watchIdRef.current != null) return
+    watchIdRef.current = navigator.geolocation.watchPosition(
       pos => {
+        setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
         setGps(coords)
         fetchWeather(coords)
       },
-      () => {},
+      err => {
+        if (err.code === 1) setGpsError('denied-hard')
+        else if (err.code === 2) setGpsError('unavailable')
+        else setGpsError('timeout')
+      },
       { enableHighAccuracy: true, timeout: 15000 }
     )
-    return () => navigator.geolocation.clearWatch(id)
+  }
+
+  // requestLocation must be called from a user tap — iOS won't show the dialog otherwise
+  function requestLocation() {
+    if (!navigator.geolocation) { setGpsError('unavailable'); return }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setGpsError(null)
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
+        setGps(coords)
+        fetchWeather(coords)
+        startGpsWatch()
+      },
+      err => {
+        if (err.code === 1) setGpsError('denied-hard')
+        else if (err.code === 2) setGpsError('unavailable')
+        else setGpsError('timeout')
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  // Cleanup only — no auto-request on mount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+    }
   }, [])
+
+  // Geocode course + fetch tee/green coordinates from OSM when course is selected
+  useEffect(() => {
+    if (!courseCtx) return
+    setCourseGeocoded(null)
+    setHolePositions({})
+    setGreenPositions({})
+    setOsmLoading(true)
+
+    const { club_name, city, state } = courseCtx.course
+    const cacheKey = `${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+
+    // 1️⃣ In-memory cache (survives re-renders within a page session)
+    if (osmPositionCache.has(cacheKey)) {
+      const cached = osmPositionCache.get(cacheKey)
+      setCourseGeocoded(cached.geocoded)
+      setHolePositions(cached.tees)
+      setGreenPositions(cached.greens)
+      setOsmLoading(false)
+      return
+    }
+    // 2️⃣ localStorage cache (survives page reloads — 7-day TTL)
+    const stored = lsLoadOsm(cacheKey)
+    if (stored) {
+      osmPositionCache.set(cacheKey, stored) // also warm in-memory cache
+      setCourseGeocoded(stored.geocoded)
+      setHolePositions(stored.tees)
+      setGreenPositions(stored.greens)
+      setOsmLoading(false)
+      return
+    }
+
+    const q = [club_name, city, state].filter(Boolean).join(', ')
+
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data[0]) { setOsmLoading(false); return }
+        // Store bounding box for fitBounds in map
+        const bb = data[0].boundingbox // [minlat, maxlat, minlon, maxlon]
+        const gc = {
+          lat: parseFloat(data[0].lat),
+          lon: parseFloat(data[0].lon),
+          bbox: bb ? {
+            south: parseFloat(bb[0]), north: parseFloat(bb[1]),
+            west:  parseFloat(bb[2]), east:  parseFloat(bb[3]),
+          } : null,
+        }
+        setCourseGeocoded(gc)
+
+        // Use tight Nominatim bbox for Overpass (avoids picking up neighboring courses)
+        const ovBbox = gc.bbox
+          ? `${gc.bbox.south},${gc.bbox.west},${gc.bbox.north},${gc.bbox.east}`
+          : `${gc.lat - 0.015},${gc.lon - 0.015},${gc.lat + 0.015},${gc.lon + 0.015}`
+
+        console.log('[OSM] Overpass bbox:', ovBbox)
+        // Fetch both queries in parallel:
+        //   holes  — golf=hole ways with ref tags (authoritative hole numbers + tee/green geometry)
+        //   teegreen — individual tee/green nodes (gap-fill for any holes the way query missed)
+        return Promise.all([
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(r => r.json()),
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(r => r.json()),
+        ]).then(([osmHoles, osmNodes]) => {
+            const scorecard = courseCtx?.tee?.holes ?? []
+            const holeTees = {}, holeGreens = {}
+
+            // ── Primary: golf=hole ways (have authoritative ref → hole number) ──
+            const holeWaysByRef = {}
+            for (const el of osmHoles.elements) {
+              if (el.type !== 'way' || el.geometry?.length < 2) continue
+              const ref = parseInt(el.tags?.ref)
+              if (!(ref >= 1 && ref <= 18)) continue
+              if (!holeWaysByRef[ref]) holeWaysByRef[ref] = []
+              const first   = el.geometry[0]
+              const last    = el.geometry[el.geometry.length - 1]
+              const teePt   = { lat: first.lat, lon: first.lon }
+              const greenPt = { lat: last.lat,  lon: last.lon }
+              holeWaysByRef[ref].push({ tee: teePt, green: greenPt, dist: haversineYards(teePt, greenPt) })
+            }
+            for (const [refStr, ways] of Object.entries(holeWaysByRef)) {
+              const holeNum    = parseInt(refStr)
+              const scoreYards = scorecard.find(h => h.hole === holeNum)?.yardage
+              // Pick the tee-set whose distance best matches the selected tee color yardage
+              const picked = (scoreYards && ways.length > 1)
+                ? ways.reduce((b, w) => Math.abs(w.dist - scoreYards) < Math.abs(b.dist - scoreYards) ? w : b)
+                : ways[0]
+              holeTees[holeNum]   = picked.tee
+              holeGreens[holeNum] = picked.green
+            }
+            console.log('[OSM] golf=hole ways found:', Object.keys(holeTees).length)
+
+            // ── Gap-fill: teegreen nodes for any holes the way query missed ──
+            const refTees = {}, refGreens = {}
+            const unrefGreens = [], unrefTees = []
+            for (const el of osmNodes.elements) {
+              const lat = el.lat ?? el.center?.lat
+              const lon = el.lon ?? el.center?.lon ?? el.center?.lng
+              if (!lat || !lon) continue
+              const ref = parseInt(el.tags?.ref)
+              if (ref >= 1 && ref <= 18) {
+                if (el.tags?.golf === 'tee')        refTees[ref]   = { lat, lon }
+                else if (el.tags?.golf === 'green') refGreens[ref] = { lat, lon }
+              } else if (el.tags?.golf === 'green') {
+                unrefGreens.push({ lat, lon })
+              } else if (el.tags?.golf === 'tee') {
+                unrefTees.push({ lat, lon })
+              }
+            }
+
+            // Fill any hole not already covered by golf=hole ways
+            const missingHoles = scorecard.filter(h => !holeTees[h.hole] || !holeGreens[h.hole])
+            let gapFills = 0
+            for (const h of missingHoles) {
+              if (!holeTees[h.hole]   && refTees[h.hole])   { holeTees[h.hole]   = refTees[h.hole];   gapFills++ }
+              if (!holeGreens[h.hole] && refGreens[h.hole]) { holeGreens[h.hole] = refGreens[h.hole]; gapFills++ }
+            }
+
+            // For holes still missing greens, try yardage-matching unref'd green nodes
+            const stillNoGreen = scorecard.filter(h => !holeGreens[h.hole])
+            if (stillNoGreen.length > 0 && unrefGreens.length > 0) {
+              const teePool = Object.values(holeTees).length > 0 ? Object.values(holeTees) : unrefTees
+              const matched = matchGreensToHoles(unrefGreens, teePool, stillNoGreen)
+              for (const [hStr, green] of Object.entries(matched)) {
+                holeGreens[parseInt(hStr)] = green
+                gapFills++
+              }
+            }
+            // Last resort: spatial sort for completely unmapped courses
+            const stillNoAnything = scorecard.filter(h => !holeTees[h.hole] && !holeGreens[h.hole])
+            if (stillNoAnything.length === scorecard.length && unrefGreens.length >= 9) {
+              const ordered = nearestNeighborSort(unrefGreens, gc.lat, gc.lon)
+              ordered.forEach((g, i) => { holeGreens[i + 1] = g })
+            }
+
+            console.log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens — gap-fills:', gapFills)
+            setHolePositions(holeTees)
+            setGreenPositions(holeGreens)
+            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens }
+            osmPositionCache.set(cacheKey, cachePayload)
+            lsSaveOsm(cacheKey, cachePayload) // persist across page reloads
+          })
+      })
+      .catch(err => { console.error('[OSM] fetch error:', err) })
+      .finally(() => setOsmLoading(false))
+  }, [courseCtx?.course?.id, courseCtx?.tee?.tee_name])
 
   const fetchWeather = useCallback(async ({ lat, lon }) => {
     try {
@@ -634,7 +1095,11 @@ export default function EagleEye() {
 
   const totalHoles = courseCtx?.tee?.holes?.length ?? 18
 
-  // Distance walked from tee this hole
+  // Real GPS distance to green center (OSM data)
+  const greenCoord = greenPositions[currentHole]
+  const gpsToGreen = (greenCoord && gps) ? haversineYards(gps, greenCoord) : null
+
+  // Fallback: distance walked from tee subtracted from DB yardage
   const distanceWalked = haversineYards(teeGps, gps) ?? 0
   const remainingYards = holeData
     ? Math.max(0, (holeData.yardage ?? 0) - distanceWalked)
@@ -658,174 +1123,303 @@ export default function EagleEye() {
   const wind = weather
     ? { speed: Math.round(weather.wind_speed_10m), dir: Math.round(weather.wind_direction_10m) }
     : null
-
   const temp = weather ? Math.round(weather.temperature_2m) : null
 
+  const displayYards = gpsToGreen ?? (distanceWalked > 10 && remainingYards != null
+    ? remainingYards
+    : (holeData?.yardage ?? null))
+
+  const teeHoles = courseCtx?.tee?.holes ?? []
+
   return (
-    <div style={{ minHeight: '100dvh', background: 'transparent', display: 'flex', flexDirection: 'column', paddingBottom: 'var(--nav-height)' }}>
+    <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes ee-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes ee-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .ee-hole-chip::-webkit-scrollbar { display: none; }
+      `}</style>
 
-      {/* ── Top bar ── */}
-      <div style={{ paddingTop: 'max(52px, calc(var(--safe-top) + 12px))', padding: '52px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em', background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Eagle Eye
+      {/* ── Status bar ── */}
+      <div style={{
+        paddingTop: 'env(safe-area-inset-top, 44px)',
+        background: '#070C09',
+        borderBottom: courseCtx ? '1px solid rgba(255,255,255,0.05)' : 'none',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 10px' }}>
+          {/* Title */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, #F5D78A, #C9A040)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              EAGLE EYE
+            </div>
+            {courseCtx && (
+              <button onClick={() => setShowPicker(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+            )}
           </div>
-          {/* GPS + weather strip */}
+          {/* Conditions pills */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: gps ? '#C9A040' : 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: gps ? '#C9A040' : 'rgba(255,255,255,0.2)', display: 'inline-block' }} />
-              {gps ? 'GPS' : 'No GPS'}
-            </span>
-            {temp != null && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{temp}°F</span>}
-            {wind && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}><WindArrow deg={wind.dir} /> {wind.speed}mph</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Main content ── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 10px' }}>
-
-        {/* ── Distance / Map toggle ── */}
-        {courseCtx && (
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 3, marginBottom: 16, width: '100%', maxWidth: 340 }}>
-            {['distance', 'map'].map(mode => (
-              <button key={mode} onClick={() => setViewMode(mode)} style={{
-                flex: 1, padding: '8px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: viewMode === mode ? 'rgba(245,215,138,0.15)' : 'transparent',
-                color: viewMode === mode ? '#F5D78A' : 'rgba(255,255,255,0.4)',
-                fontWeight: 700, fontSize: 13, transition: 'all 0.2s',
-              }}>
-                {mode === 'distance' ? '📐 Distance' : '🛰 Map'}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {!courseCtx ? (
-          /* ── No course: welcome prompt ── */
-          <div style={{ textAlign: 'center', padding: '0 20px' }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>🦅</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 8 }}>Select Your Course</div>
-            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 32 }}>
-              Pick a course to see live hole distances and get AI-powered rangefinder readings.
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: gps ? 'rgba(42,122,56,0.18)' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${gps ? 'rgba(42,122,56,0.35)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 20, padding: '4px 8px',
+            }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: gps ? '#5ED47A' : 'rgba(255,255,255,0.2)' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: gps ? '#5ED47A' : 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>GPS</span>
             </div>
-            <button onClick={() => setShowPicker(true)} style={{
-              padding: '16px 36px', borderRadius: 16, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
-              color: '#fff', fontWeight: 800, fontSize: 17,
-              boxShadow: '0 4px 20px rgba(42,122,56,0.4)',
-            }}>Choose Course</button>
-          </div>
-        ) : (
-          /* ── Course selected: distance or map display ── */
-          <>
-            {/* Course name + change button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: viewMode === 'map' ? 0 : 24 }}>
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                {courseCtx.course.club_name}
-              </span>
-              <button onClick={() => setShowPicker(true)} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '2px 10px', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer' }}>
-                Change
-              </button>
-            </div>
-
-            {/* ── Map view ── */}
-            {viewMode === 'map' && (
-              <div style={{ width: '100%', maxWidth: 340, borderRadius: 20, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', height: 340, display: 'flex', flexDirection: 'column', marginBottom: 12 }}>
-                {/* Hole navigator on top of map */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'rgba(7,12,9,0.9)', padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                  <button onClick={() => changeHole(-1)} disabled={currentHole === 1} style={{ background: 'none', border: 'none', color: currentHole === 1 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', fontSize: 20, cursor: currentHole === 1 ? 'default' : 'pointer' }}>‹</button>
-                  <span style={{ color: '#fff', fontWeight: 700, fontSize: 14, minWidth: 80, textAlign: 'center' }}>Hole {currentHole} of {totalHoles}</span>
-                  <button onClick={() => changeHole(1)} disabled={currentHole === totalHoles} style={{ background: 'none', border: 'none', color: currentHole === totalHoles ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)', fontSize: 20, cursor: currentHole === totalHoles ? 'default' : 'pointer' }}>›</button>
-                </div>
-                <HoleMap courseCtx={courseCtx} currentHole={currentHole} gps={gps} />
+            {wind && (
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>
+                  <WindArrow deg={wind.dir} /> {wind.speed}
+                </span>
               </div>
             )}
-
-            {/* ── Big distance card ── */}
-            {viewMode === 'distance' && <div style={{ width: '100%', maxWidth: 340, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 24, padding: '28px 24px 24px', textAlign: 'center', marginBottom: 20 }}>
-              {/* Hole badge */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
-                <button onClick={() => changeHole(-1)} disabled={currentHole === 1} style={{ background: 'none', border: 'none', color: currentHole === 1 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', fontSize: 22, cursor: currentHole === 1 ? 'default' : 'pointer', padding: '0 4px' }}>‹</button>
-                <div style={{ background: 'rgba(42,122,56,0.25)', border: '1px solid rgba(42,122,56,0.4)', borderRadius: 12, padding: '6px 20px' }}>
-                  <div style={{ color: '#C9A040', fontWeight: 800, fontSize: 16 }}>HOLE {currentHole}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 1 }}>PAR {holeData?.par ?? '—'} · Hdcp {holeData?.handicap ?? '—'}</div>
-                </div>
-                <button onClick={() => changeHole(1)} disabled={currentHole === totalHoles} style={{ background: 'none', border: 'none', color: currentHole === totalHoles ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', fontSize: 22, cursor: currentHole === totalHoles ? 'default' : 'pointer', padding: '0 4px' }}>›</button>
+            {temp != null && (
+              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{temp}°</span>
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Main yardage */}
-              <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
-                {distanceWalked > 10 ? 'Est. Remaining' : 'From Tee'}
+        {/* ── Hole strip ── */}
+        {courseCtx && (
+          <div className="ee-hole-chip" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 20px 12px', scrollbarWidth: 'none' }}>
+            {teeHoles.map(h => {
+              const active = h.hole === currentHole
+              return (
+                <button key={h.hole} onClick={() => { setCurrentHole(h.hole); setTeeGps(gps); setResult(null) }}
+                  style={{
+                    flexShrink: 0, padding: '6px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                    background: active ? 'rgba(201,160,64,0.2)' : 'rgba(255,255,255,0.05)',
+                    outline: active ? '1px solid rgba(201,160,64,0.5)' : '1px solid transparent',
+                    transition: 'all 0.15s',
+                  }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: active ? '#F5D78A' : 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{h.hole}</div>
+                  <div style={{ fontSize: 9, color: active ? 'rgba(245,215,138,0.6)' : 'rgba(255,255,255,0.25)', marginTop: 2, fontWeight: 600 }}>P{h.par}</div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── GPS error banner ── */}
+      {gpsError && (
+        <div style={{ margin: '8px 16px 0', padding: '12px 14px', borderRadius: 12, background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#F87171' }}>
+                {gpsError === 'denied' ? 'Location access blocked' : gpsError === 'timeout' ? 'GPS signal lost' : 'Location unavailable'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 6, lineHeight: 1 }}>
-                <span style={{ fontSize: 80, fontWeight: 900, letterSpacing: '-4px', color: '#fff', lineHeight: 0.9 }}>
-                  {distanceWalked > 10 && remainingYards != null ? remainingYards : (holeData?.yardage ?? '—')}
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+                {gpsError === 'denied' ? 'Tap below to enable, or go to Settings manually' : 'Move to an open area and try again'}
+              </div>
+            </div>
+            <button onClick={requestLocation}
+              style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 8, padding: '6px 12px', color: '#F87171', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+            >
+              Enable GPS
+            </button>
+          </div>
+          {gpsError === 'denied-hard' && (
+            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.8 }}>
+              Location is blocked. Open Settings and allow access:<br/>
+              <span style={{ color: 'rgba(255,255,255,0.75)' }}>
+                If using from home screen:<br/>
+                <span style={{ color: '#F5D78A' }}>Settings → Privacy &amp; Security → Location Services → The Match → While Using</span>
+              </span><br/>
+              <span style={{ color: 'rgba(255,255,255,0.75)' }}>
+                If using in Safari:<br/>
+                <span style={{ color: '#F5D78A' }}>Settings → Privacy &amp; Security → Location Services → Safari → While Using</span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Main content ── */}
+      {!courseCtx ? (
+        /* ── Welcome hero ── */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 28px 16px', animation: 'ee-fade-in 0.4s ease' }}>
+          {/* Animated crosshair */}
+          <div style={{ position: 'relative', width: 140, height: 140, marginBottom: 24 }}>
+            <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0, animation: 'ee-spin-slow 20s linear infinite' }}>
+              <circle cx="80" cy="80" r="74" stroke="rgba(201,160,64,0.10)" strokeWidth="1" strokeDasharray="6 8"/>
+            </svg>
+            <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0, animation: 'ee-spin-slow 12s linear infinite reverse' }}>
+              <circle cx="80" cy="80" r="60" stroke="rgba(201,160,64,0.14)" strokeWidth="1" strokeDasharray="4 10"/>
+            </svg>
+            <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0 }}>
+              <circle cx="80" cy="80" r="46" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.55"/>
+              <circle cx="80" cy="80" r="26" stroke="#E8C05A" strokeWidth="1.5" strokeOpacity="0.8"/>
+              <circle cx="80" cy="80" r="4" fill="#F5D78A"/>
+              <line x1="80" y1="6" x2="80" y2="50" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <line x1="80" y1="110" x2="80" y2="154" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <line x1="6" y1="80" x2="50" y2="80" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <line x1="110" y1="80" x2="154" y2="80" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              {[45,135,225,315].map(a => {
+                const rad = a * Math.PI / 180
+                const x1 = 80 + 52*Math.cos(rad), y1 = 80 + 52*Math.sin(rad)
+                const x2 = 80 + 62*Math.cos(rad), y2 = 80 + 62*Math.sin(rad)
+                return <line key={a} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C9A040" strokeWidth="1" strokeOpacity="0.3" strokeLinecap="round"/>
+              })}
+            </svg>
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', boxShadow: '0 0 80px rgba(201,160,64,0.08)', pointerEvents: 'none' }} />
+          </div>
+
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: '#C9A040', marginBottom: 10 }}>AI-POWERED RANGEFINDER</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 8, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
+            Know Every Yard.<br/>Play Every Shot.
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.32)', lineHeight: 1.6, marginBottom: 24, maxWidth: 270, textAlign: 'center' }}>
+            Select your course for live hole distances, GPS tracking, and AI shot analysis.
+          </div>
+          {!gps && (
+            <button onClick={requestLocation} style={{
+              padding: '11px 28px', borderRadius: 12, border: '1px solid rgba(94,212,122,0.4)', cursor: 'pointer',
+              background: 'rgba(94,212,122,0.1)', color: '#5ED47A', fontWeight: 700, fontSize: 13,
+              marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#5ED47A', boxShadow: '0 0 8px #5ED47A' }} />
+              Enable Location
+            </button>
+          )}
+
+          <button onClick={() => setShowPicker(true)} style={{
+            padding: '15px 48px', borderRadius: 16, border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, #C9A040 0%, #E8C05A 100%)',
+            color: '#070C09', fontWeight: 900, fontSize: 16, letterSpacing: '0.02em',
+            boxShadow: '0 6px 32px rgba(201,160,64,0.4), 0 2px 8px rgba(0,0,0,0.3)',
+          }}>Select Course</button>
+
+          {/* Feature row */}
+          <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
+            {[
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>, label: 'GPS Live' },
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'AI Analysis' },
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>, label: 'Weather' },
+            ].map(f => (
+              <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                {f.icon}
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 600, letterSpacing: '0.06em' }}>{f.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* ── Distance view — satellite map background + HUD overlay ── */
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+
+          {/* Full-screen satellite map */}
+          <HoleMap courseCtx={courseCtx} currentHole={currentHole} gps={gps} geocoded={courseGeocoded} holePositions={holePositions} greenPositions={greenPositions} />
+
+          {/* HUD overlay */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
+
+            {/* ── Top: yardage card ── */}
+            <div style={{ alignSelf: 'center', pointerEvents: 'auto', textAlign: 'center',
+              background: 'rgba(4,8,6,0.78)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)',
+              padding: '16px 32px 14px', boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.35)', marginBottom: 2 }}>
+                {gpsToGreen != null ? 'TO GREEN · LIVE GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', lineHeight: 1 }}>
+                <span style={{ fontSize: 88, fontWeight: 900, letterSpacing: '-4px', color: '#fff', lineHeight: 0.9, fontVariantNumeric: 'tabular-nums' }}>
+                  {displayYards ?? '—'}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 20, paddingBottom: 8 }}>yds</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.35)', paddingTop: 14, marginLeft: 5 }}>YDS</span>
               </div>
-
-              {/* Tee yardage sub-label when showing remaining */}
-              {distanceWalked > 10 && remainingYards != null && (
-                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>
-                  Full hole: {holeData?.yardage}y · Walked: ~{distanceWalked}y
+              {osmLoading && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 4, letterSpacing: '0.06em' }}>Loading course data…</div>}
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'center' }}>
+                <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 6, padding: '3px 12px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#5ED47A' }}>PAR {holeData?.par ?? '—'}</span>
                 </div>
-              )}
-
-              {/* Wind/conditions mini strip */}
-              {wind && (
-                <div style={{ marginTop: 16, padding: '10px 0 0', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', justifyContent: 'center', gap: 20 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Wind</div>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginTop: 2 }}><WindArrow deg={wind.dir} /> {wind.speed} mph</div>
+                <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 12px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>HDCP {holeData?.handicap ?? '—'}</span>
+                </div>
+                {holeData?.yardage && gpsToGreen != null && (
+                  <div style={{ background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 6, padding: '3px 12px' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#C9A040' }}>{holeData.yardage}Y TEE</span>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Bottom: conditions + actions ── */}
+            <div style={{ pointerEvents: 'auto' }}>
+              {/* Conditions pills */}
+              {(wind || temp != null) && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+                  {wind && (
+                    <div style={{ background: 'rgba(4,8,6,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <WindArrow deg={wind.dir} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{wind.speed} mph</span>
+                    </div>
+                  )}
                   {temp != null && (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Temp</div>
-                      <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginTop: 2 }}>{temp}°F</div>
+                    <div style={{ background: 'rgba(4,8,6,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '6px 14px' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{temp}°F</span>
                     </div>
                   )}
                   {gps?.alt != null && (
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Alt</div>
-                      <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginTop: 2 }}>{Math.round(gps.alt * 3.281)}ft</div>
+                    <div style={{ background: 'rgba(4,8,6,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '6px 14px' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{Math.round(gps.alt * 3.281)}ft</span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Set tee position button */}
-              <button onClick={() => setTeeGps(gps)} style={{
-                marginTop: 14, background: 'none', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20,
-                padding: '5px 14px', color: 'rgba(255,255,255,0.35)', fontSize: 11, cursor: 'pointer',
-              }}>
-                📍 Mark Tee Position
-              </button>
-            </div>}
-
-            {/* ── Last Eagle Eye result summary ── */}
-            {result && (
-              <div onClick={() => setResult(result)} style={{
-                width: '100%', maxWidth: 340, background: 'rgba(201,160,64,0.08)', border: '1px solid rgba(201,160,64,0.2)',
-                borderRadius: 16, padding: '14px 16px', cursor: 'pointer', marginBottom: 12,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <div>
-                  <div style={{ color: 'rgba(245,215,138,0.6)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Last Range</div>
-                  <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 20, marginTop: 2 }}>{result.playsLikeYards} yds</div>
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>{result.recommendedClub} · {result.shotShape}</div>
+              {/* Last analysis result */}
+              {result && (
+                <div onClick={() => setResult(result)} style={{
+                  marginBottom: 10, padding: '10px 16px', borderRadius: 14, cursor: 'pointer',
+                  background: 'rgba(4,8,6,0.78)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(201,160,64,0.3)', display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(245,215,138,0.5)', letterSpacing: '0.1em' }}>LAST ANALYSIS</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#F5D78A', marginTop: 1 }}>{result.playsLikeYards} yds · {result.recommendedClub}</div>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(245,215,138,0.4)" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Tap to view ›</div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              )}
 
-      {/* ── Pulsating Eagle Eye button ── */}
-      {courseCtx && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 20 }}>
-          <EagleEyeBtn onPress={() => setShowCamera(true)} scanning={false} />
+              {/* Analyze Shot — primary CTA */}
+              <button onClick={() => setShowCamera(true)} style={{
+                width: '100%', padding: '17px', borderRadius: 18, border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg, #B8860B 0%, #C9A040 40%, #E8C05A 100%)',
+                color: '#070C09', fontWeight: 900, fontSize: 16, letterSpacing: '0.04em',
+                boxShadow: '0 8px 32px rgba(201,160,64,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                marginBottom: 10,
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(7,12,9,0.8)" strokeWidth="1.8" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+                  <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+                  <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+                </svg>
+                Analyze Shot
+              </button>
+
+              {/* Mark Tee secondary */}
+              <button onClick={() => setTeeGps(gps)} style={{
+                width: '100%', padding: '11px', borderRadius: 14, cursor: 'pointer',
+                background: 'rgba(4,8,6,0.72)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Mark Tee Position
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -837,6 +1431,7 @@ export default function EagleEye() {
           holeData={holeData}
           currentHole={currentHole}
           courseCtx={courseCtx}
+          greenPos={greenPositions[currentHole] ?? null}
           onClose={() => setShowCamera(false)}
           onResult={res => { setResult(res); setShowCamera(false) }}
         />
@@ -854,6 +1449,7 @@ export default function EagleEye() {
         <CoursePicker
           onClose={() => setShowPicker(false)}
           onSelect={handleCourseSelect}
+          gps={gps}
         />
       )}
     </div>

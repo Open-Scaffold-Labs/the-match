@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
 
 const CLUBS = [
@@ -238,8 +239,8 @@ function HoleScorer({ hole, par, strokes, shots, onScore, onAddShot, gps, onNext
 
 // ─── Club Sheet ───────────────────────────────────────────────────────────────
 function ClubSheet({ onSelect, onClose }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 200, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tm-text)' }}>Which club?</div>
@@ -255,7 +256,8 @@ function ClubSheet({ onSelect, onClose }) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

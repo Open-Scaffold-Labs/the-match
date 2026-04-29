@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { api, post, put } from '../lib/api.js'
 import { TMEmblem, IconTarget, IconTrophy, IconFlag, IconChevronRight, IconPlus } from '../components/primitives/Icons.jsx'
 import FriendProfile from '../components/FriendProfile.jsx'
@@ -377,9 +378,9 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
     }
   }
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1100,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -481,7 +482,8 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
           cursor: 'pointer', letterSpacing: '0.03em',
         }}>Schedule a Group Match</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -673,9 +675,9 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
   const isMatch = game.request_type === 'availability_match'
   const others = (game.participants || []).filter(p => p.status === 'accepted')
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1200,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -735,7 +737,8 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
           cursor: course.trim() ? 'pointer' : 'default', transition: 'all 0.15s',
         }}>{saving ? 'Saving…' : 'Lock It In'}</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1109,9 +1112,9 @@ function AddFriendModal({ onClose, onRequestSent }) {
 
   const handicapStr = (hcp) => hcp != null ? (hcp > 0 ? `+${hcp}` : String(hcp)) : null
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -1215,7 +1218,8 @@ function AddFriendModal({ onClose, onRequestSent }) {
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1270,9 +1274,9 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
     setSending(false)
   }
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1100,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -1430,7 +1434,8 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
           }}>{sending ? 'Sending…' : invitees.length === 0 ? 'Add at least 1 friend' : `Send Invite${invitees.length > 1 ? 's' : ''}`}</button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1461,9 +1466,9 @@ function EditProfileModal({ user, onSave, onClose }) {
     setSaving(false)
   }
 
-  return (
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }} onClick={onClose}>
@@ -1511,7 +1516,8 @@ function EditProfileModal({ user, onSave, onClose }) {
           fontSize: 15, fontWeight: 700, cursor: 'pointer',
         }}>{saving ? 'Saving…' : 'Save'}</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
