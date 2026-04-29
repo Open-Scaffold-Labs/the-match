@@ -1,0 +1,33 @@
+{
+  "wiki/overview.md": {
+    "mtime": 1777500342.2537706,
+    "source_id": "06512a7e-69f2-45d3-be81-bb309de0388f"
+  },
+  "wiki/log.md": {
+    "mtime": 1777500342.255363,
+    "source_id": "15cedf79-865a-4c17-b902-414c9f97b702"
+  },
+  "wiki/index.md": {
+    "mtime": 1777500342.2556713,
+    "source_id": "3cf047e7-2e47-4635-9b36-1131248ac851",
+    "verified_at": 1777501697.5899599
+  },
+  "wiki/synthesis/claude-anti-patterns.md": {
+    "mtime": 1777500342.2546115,
+    "source_id": "99fb7ae8-a837-45c6-9068-7915dc51a5f7",
+    "verified_at": 1777501703.295112
+  },
+  "wiki/concepts/llm-wiki-pattern.md": {
+    "mtime": 1777500342.2565055,
+    "source_id": "82220887-5a93-4de8-bac0-e153a39cd248",
+    "verified_at": 1777501709.156737
+  },
+  "wiki/concepts/notebooklm-workflow.md": {
+    "mtime": 1777500342.2568595,
+    "source_id": "ce3c1326-3223-4653-bb53-05295500df0c"
+  },
+  "wiki/sources/claude-code-karpathy-obsidian-video-2026-04-14.md": {
+    "mtime": 1777500342.257352,
+    "source_id": "4ff84c02-ada1-4ab0-9605-906758c60d66"
+  }
+}
