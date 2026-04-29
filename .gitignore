@@ -1,8 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
 node_modules/
-dist/
+
+# Environment
 .env
 .env.local
-.env.*.local
-*.log
+
+# Build
+.vercel/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
 .DS_Store
-.vercel
