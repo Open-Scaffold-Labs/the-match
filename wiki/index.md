@@ -26,4 +26,5 @@ Content catalog — every page listed here.
 
 ## Synthesis
 
-*(none yet)*
+- [[synthesis/audit-2026-04-29]] — full static audit: 12 bugs, 11 UX issues, 10 tech-debt items, 14 missing-feature backlog candidates · 2026-04-29
+- [[synthesis/claude-anti-patterns]] — institutional memory of mistakes (14 entries inherited from LimitlessStack base)
