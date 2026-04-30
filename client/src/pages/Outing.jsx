@@ -1742,9 +1742,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
       display: 'flex', flexDirection: 'column', height: '100%',
       background: 'linear-gradient(180deg, #0a2410 0%, #0F3D1E 100%)',
     }}>
-      {/* Header — dark green strip with white title, gold code chip */}
+      {/* Header — dark green strip with white title, gold code chip.
+          calc(safe-top + 14px) clears the iOS notch / Android status bar
+          on phones; on desktop / non-notch devices --safe-top = 0px so the
+          header gets just the 14px breathing room. (2026-04-30) */}
       <div style={{
-        padding: '14px 16px 10px',
+        padding: 'calc(var(--safe-top) + 14px) 16px 10px',
         background: AUGUSTA_GREEN_DEEP,
         borderBottom: '2px solid ' + AUGUSTA_WOOD,
         flexShrink: 0,
