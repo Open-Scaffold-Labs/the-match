@@ -1038,9 +1038,14 @@ export default function EagleEye() {
         // Fetch both queries in parallel:
         //   holes  — golf=hole ways with ref tags (authoritative hole numbers + tee/green geometry)
         //   teegreen — individual tee/green nodes (gap-fill for any holes the way query missed)
+        // Server proxies via 3 Overpass mirrors with internal fallback.
+        // If all mirrors return non-OK, server returns { error: ... } — we
+        // coerce that to an empty {elements:[]} so downstream loops still
+        // work (the localStorage 7-day cache is the actual fallback).
+        const safeOsm = r => r.json().then(d => d?.error ? { elements: [] } : d).catch(() => ({ elements: [] }))
         return Promise.all([
-          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(r => r.json()),
-          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(r => r.json()),
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(safeOsm),
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(safeOsm),
         ]).then(([osmHoles, osmNodes]) => {
             const scorecard = courseCtx?.tee?.holes ?? []
             const holeTees = {}, holeGreens = {}

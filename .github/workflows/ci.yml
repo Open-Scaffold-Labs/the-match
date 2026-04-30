@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    name: Lint + Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint client
+        run: npm run lint --workspace=client
+        continue-on-error: true  # ESLint warnings shouldn't block until we triage them
+
+      - name: Build client
+        run: npm run build --workspace=client
+
+      - name: Server module load smoke test
+        run: |
+          cd server
+          NODE_ENV=production node -e "require('./src/routes/auth.js'); require('./src/routes/games.js'); require('./src/routes/outings.js'); require('./src/routes/eagle-eye.js'); require('./src/routes/profile.js'); require('./src/routes/friends.js'); require('./src/routes/availability.js'); require('./src/routes/courses.js'); require('./src/routes/rounds.js'); require('./src/routes/stats.js'); console.log('all routes load ok')"
+
+  # Future: when F-T1 lands, add a 'test' job here that runs Playwright + Vitest.

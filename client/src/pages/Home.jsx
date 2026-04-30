@@ -305,12 +305,21 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
       {/* Friends list with activity */}
       {friends.length === 0 && incoming.length === 0 && (!outgoing || outgoing.length === 0) && (
         <div style={{
-          textAlign: 'center', padding: '24px 20px',
+          textAlign: 'center', padding: '28px 20px 24px',
           background: 'rgba(255,255,255,0.88)', borderRadius: 14,
           border: '1px dashed rgba(27,94,59,0.20)',
         }}>
-          <div style={{ color: 'rgba(13,31,18,0.38)', fontSize: 13 }}>No playing partners yet</div>
-          <div style={{ color: 'rgba(13,31,18,0.28)', fontSize: 11, marginTop: 4 }}>Add a friend to see their rounds and availability</div>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>⛳</div>
+          <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No playing partners yet</div>
+          <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 12, lineHeight: 1.5, marginBottom: 14 }}>
+            Add a friend to track their rounds, see their availability, and challenge them to a match.
+          </div>
+          <button onClick={() => onAddFriend ? onAddFriend() : setShowAdd(true)} style={{
+            background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+            color: '#fff', border: 'none', padding: '10px 22px', borderRadius: 10,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            boxShadow: '0 2px 12px rgba(46,158,69,0.25)',
+          }}>+ Find a friend</button>
         </div>
       )}
 
@@ -782,7 +791,10 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
         }}>{games.length + sentRequests.length}</span>
       </div>
 
-      {games.map(g => {
+      {/* Per-card "#N of M" counter when multiple same-day matches lack
+          start_time. Time-of-day is the primary disambiguator post-
+          migration-005; this is the legacy-row fallback. (F-R6A) */}
+      {games.map((g, gIdx, gArr) => {
         const dateLabel = new Date(g.date + 'T12:00:00').toLocaleDateString('en-US', {
           weekday: 'short', month: 'short', day: 'numeric',
         })
@@ -793,6 +805,12 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
               hour: 'numeric', minute: '2-digit',
             })
           : null
+        // Same-date counter — only useful when there are 2+ matches on
+        // the same day AND none of them has a time set (otherwise time
+        // is the disambiguator).
+        const sameDayMatches = gArr.filter(x => x.date === g.date)
+        const sameDayPos = sameDayMatches.findIndex(x => x.id === g.id) + 1
+        const showCounter = sameDayMatches.length > 1 && !timeLabel
         const isMatch      = g.request_type === 'availability_match'
         const accepted     = (g.participants || []).filter(p => p.status === 'accepted')
         const pending      = (g.participants || []).filter(p => p.status === 'pending')
@@ -813,6 +831,9 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
                 <div style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>{dateLabel}</div>
                 {timeLabel && (
                   <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>· {timeLabel}</div>
+                )}
+                {showCounter && (
+                  <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 11, fontWeight: 600 }}>· #{sameDayPos} of {sameDayMatches.length}</div>
                 )}
               </div>
               <span style={{
