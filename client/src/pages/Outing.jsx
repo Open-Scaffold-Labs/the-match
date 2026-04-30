@@ -3,7 +3,21 @@ import { createPortal } from 'react-dom'
 import { api, post, put } from '../lib/api.js'
 import { warn } from '../lib/logger.js'
 import ActiveRound from './ActiveRound.jsx'
-import AugustaBoard from '../components/AugustaBoard.jsx'
+// Standalone AugustaBoard route was removed 2026-04-30 (Path A) — every
+// match now renders the Augusta scorecard directly via LiveOuting.
+
+// ─── Augusta theme palette (used across all in-match scorecard rendering) ────
+// Path A landed 2026-04-30: every match scorecard IS the Augusta board now.
+// Standalone /board route is gone; LiveOuting renders an Augusta-style table.
+const AUGUSTA_GREEN      = '#0F3D1E'   // dark wood frame + dividers + page bg
+const AUGUSTA_GREEN_DEEP = '#0a2c14'   // deepest shadow line
+const AUGUSTA_TEAL       = '#A8C9C2'   // iconic Augusta panel color
+const AUGUSTA_TEAL_HOVER = '#9DC0B8'   // current-user row tint
+const AUGUSTA_CREAM      = '#E8DFC2'   // LEADERS banner cream
+const AUGUSTA_TILE       = '#F2EBD3'   // score tile (slightly warmer cream)
+const AUGUSTA_RED        = '#B22222'   // under-par red
+const AUGUSTA_INK        = '#0F0F0F'   // over-par + names
+const AUGUSTA_WOOD       = '#5a3a16'   // hand-painted wood frame edge
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function scoreColor(strokes, par) {
@@ -80,7 +94,7 @@ async function copyCode(code) {
 //   3. Secondary icons  (Solo Round + Leaderboard, demoted to thin row)
 //   4. Rivalries        (with search bar at ≥5; 1-line nudge when empty)
 //   5. Recent Matches   (only finished matches — LIVE ones promoted to strip)
-function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound, onLeaderboard }) {
+function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound }) {
   const [rivalries, setRivalries] = useState([])
   const [recentOutings, setRecentOutings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -219,59 +233,9 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           </button>
         </div>
 
-        {/* ─── Augusta Scoreboard hero card ───────────────────────────
-            The signature feature — promoted from a tiny "Leaderboard"
-            icon to a full hero card. Masters dark-green panel with
-            yellow M-flag accents to evoke the real board. (2026-04-30) */}
-        <button onClick={onLeaderboard} style={{
-          width: '100%', padding: '16px 18px', borderRadius: 16,
-          border: '2px solid rgba(255,215,0,0.55)',
-          background: 'linear-gradient(135deg, #0F3D1E 0%, #1a5c1a 100%)',
-          color: '#fff', cursor: 'pointer', textAlign: 'left',
-          display: 'flex', alignItems: 'center', gap: 14,
-          boxShadow: '0 6px 24px rgba(15,61,30,0.40), inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -3px 0 rgba(0,0,0,0.18)',
-          position: 'relative', overflow: 'hidden',
-        }}>
-          {/* Subtle wood-grain feel via repeating vertical stripes */}
-          <div aria-hidden style={{
-            position: 'absolute', inset: 0, opacity: 0.06,
-            backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0 1px, transparent 1px 6px)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{
-            flexShrink: 0, position: 'relative',
-            width: 44, height: 44, borderRadius: '50%',
-            background: '#FFD700',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.55)',
-          }}>
-            <span style={{
-              fontSize: 22, fontWeight: 900, color: '#0F3D1E',
-              fontFamily: '"Georgia", "Times New Roman", serif',
-              lineHeight: 1, marginTop: 1,
-            }}>M</span>
-          </div>
-          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-            <div style={{
-              fontWeight: 900, fontSize: 17, color: '#fff',
-              fontFamily: '"Georgia", "Times New Roman", serif',
-              fontStyle: 'italic', letterSpacing: '0.04em',
-              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-            }}>Augusta Scoreboard</div>
-            <div style={{
-              fontSize: 12, color: 'rgba(255,215,0,0.85)', marginTop: 2, fontWeight: 600,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              Masters-style scoring for any group
-            </div>
-          </div>
-          <div style={{
-            color: '#FFD700', fontWeight: 800, fontSize: 14, flexShrink: 0,
-            position: 'relative',
-          }}>Open →</div>
-        </button>
-
-        {/* Solo Round — a smaller secondary card under the hero */}
+        {/* Solo Round — secondary action under primary CTAs.
+            Augusta Scoreboard hero card removed: the board IS the scorecard
+            for every match now, no separate standalone access. (2026-04-30 Path A) */}
         <button onClick={onSoloRound} style={{
           width: '100%', padding: '11px 14px', borderRadius: 12,
           background: 'rgba(255,255,255,0.75)',
@@ -280,7 +244,6 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-          marginTop: -8,   // tighten gap from the hero card above (parent has gap:16)
         }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
@@ -1009,52 +972,59 @@ function estimateHolePars(coursePar, holes) {
 }
 
 // Cell coloring per golf scorecard tradition
-function cellBg(score, par) {
-  if (!score || !par) return 'transparent'
-  const d = score - par
-  if (d <= -2) return '#1a4a2e'   // eagle — dark green
-  if (d === -1) return '#1e6b3a'  // birdie — green
-  if (d === 0)  return 'transparent' // par — no fill
-  if (d === 1)  return '#6b1e1e'  // bogey — dark red
-  return '#8b1a1a'                // double+ — red
+// Augusta-style cell: cream tile, red numerals for under-par, ink for
+// over-par. Birdie = single red circle, eagle = double red circle, bogey
+// = single black square, double = double black square. Subtotals (OUT/IN)
+// render as deeper teal cells with white block text.
+function cellBg(score, par, isSubtotal) {
+  if (isSubtotal) return AUGUSTA_GREEN
+  if (!score || !par) return 'rgba(242,235,211,0.55)'   // empty cream slot
+  return AUGUSTA_TILE
 }
-function cellBorder(score, par) {
-  if (!score || !par) return '1px solid var(--tm-border)'
-  const d = score - par
-  if (d <= -2) return '2px solid #C9A040'
-  if (d === -1) return '1px solid #C9A040'
-  if (d === 0)  return '1px solid var(--tm-border)'
-  if (d === 1)  return '1px solid #F87171'
-  return '2px solid #F87171'
+function cellBorder(score, par, isSubtotal) {
+  if (isSubtotal) return '1px solid ' + AUGUSTA_GREEN_DEEP
+  return '1px solid rgba(0,0,0,0.45)'
 }
-function cellColor(score, par) {
-  if (!score || !par) return 'var(--tm-text-3)'
-  const d = score - par
-  if (d <= -2) return '#C9A040'
-  if (d === -1) return '#86EFAC'
-  if (d === 0)  return 'var(--tm-text-2)'
-  if (d === 1)  return '#FCA5A5'
-  return '#F87171'
+function cellColor(score, par, isSubtotal) {
+  if (isSubtotal) return '#fff'
+  if (!score || !par) return AUGUSTA_INK
+  return score - par < 0 ? AUGUSTA_RED : AUGUSTA_INK
 }
 
-// Single scorecard cell — tappable by host for any player, or by self
-function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, overrideBorder, overrideColor }) {
-  const bg     = overrideBg     ?? (isSubtotal ? 'var(--tm-surface-3)' : cellBg(score, par))
-  const border = overrideBorder ?? (isSubtotal ? '1px solid var(--tm-border-2)' : cellBorder(score, par))
-  const color  = overrideColor  ?? (isSubtotal ? 'var(--tm-text)' : cellColor(score, par))
+// Single scorecard cell — tappable by host for any player, or by self.
+// Augusta-look: cream tile + birdie/bogey ring overlays.
+function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, overrideBorder, overrideColor, w = 32, h = 36 }) {
+  const bg     = overrideBg     ?? cellBg(score, par, isSubtotal)
+  const border = overrideBorder ?? cellBorder(score, par, isSubtotal)
+  const color  = overrideColor  ?? cellColor(score, par, isSubtotal)
+  const diff   = (!isSubtotal && score && par) ? score - par : null
   return (
     <div
       onClick={canEdit && !isSubtotal ? onTap : undefined}
       style={{
-        minWidth: isSubtotal ? 36 : 32, height: 36,
-        background: bg, border, borderRadius: 4,
+        minWidth: isSubtotal ? w + 4 : w, width: isSubtotal ? w + 4 : w, height: h,
+        background: bg, border,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: isSubtotal ? 13 : 14, fontWeight: isSubtotal ? 800 : 700,
+        fontSize: isSubtotal ? 14 : 15, fontWeight: 900,
+        fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
         color, cursor: canEdit && !isSubtotal ? 'pointer' : 'default',
         flexShrink: 0, userSelect: 'none',
+        position: 'relative',
       }}
     >
-      {score || (isSubtotal ? '—' : '')}
+      {/* Birdie / Eagle: red circle (or two for eagle) */}
+      {diff === -1 && <div style={{ position: 'absolute', inset: 3, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />}
+      {diff != null && diff <= -2 && <>
+        <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />
+      </>}
+      {/* Bogey / Double: black square (or two for double) */}
+      {diff === 1 && <div style={{ position: 'absolute', inset: 3, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />}
+      {diff != null && diff >= 2 && <>
+        <div style={{ position: 'absolute', inset: 2, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 6, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
+      </>}
+      {score || (isSubtotal ? '' : '')}
     </div>
   )
 }
@@ -1121,15 +1091,50 @@ function ScoreModal({ playerName, hole, par, currentScore, onSave, onClose }) {
 }
 
 // ─── Add Guest Modal ──────────────────────────────────────────────────────────
-function GuestModal({ onAdd, onClose }) {
-  const [name, setName] = useState('')
-  const [saving, setSaving] = useState(false)
+// Add Player Modal — search-as-you-type for app users, fallback to manual guest.
+//   - Type 2+ chars → calls /api/friends/search?q=… (debounced 250ms)
+//   - Click a matching user → bulk-joins them as a real participant
+//   - Click "Add as guest" → manual scorecard slot via the original /guests path
+// (2026-04-30 Path A: replaces the old guest-only sheet)
+function GuestModal({ code, onAdd, onAppUserAdded, onClose }) {
+  const [name, setName]         = useState('')
+  const [results, setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [saving, setSaving]     = useState(false)
 
-  async function submit() {
-    if (!name.trim()) return
+  // Debounced user search — fires when input length ≥ 2
+  useEffect(() => {
+    const q = name.trim()
+    if (q.length < 2) { setResults([]); setSearching(false); return }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await api(`/api/friends/search?q=${encodeURIComponent(q)}`)
+        setResults(Array.isArray(res) ? res : [])
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [name])
+
+  async function addAppUser(u) {
+    if (saving) return
     setSaving(true)
-    await onAdd(name.trim())
-    setSaving(false)
+    try {
+      await post(`/api/outings/${code}/bulk-join`, { user_ids: [u.id] })
+      onAppUserAdded?.()
+    } catch (e) { warn('[bulk-join]', e?.message) }
+    finally { setSaving(false) }
+  }
+
+  async function addAsGuest() {
+    if (!name.trim() || saving) return
+    setSaving(true)
+    try { await onAdd(name.trim()) }
+    finally { setSaving(false) }
   }
 
   return createPortal(
@@ -1143,33 +1148,73 @@ function GuestModal({ onAdd, onClose }) {
         padding: '24px 20px 36px',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--tm-border-2)', margin: '0 auto 20px' }} />
-        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 6 }}>Add Guest Player</div>
-        <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 20 }}>
-          For players without the app — the host enters their scores manually.
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 6 }}>Add Player</div>
+        <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 16 }}>
+          Type a name — if they're on The Match, they'll show up below. Otherwise add them as a guest.
         </div>
         <input
           autoFocus
           value={name}
           onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && submit()}
-          placeholder="Player name"
+          onKeyDown={e => e.key === 'Enter' && results.length === 0 && addAsGuest()}
+          placeholder="Player name or email"
           style={{
             width: '100%', padding: '14px 16px', borderRadius: 'var(--tm-radius)',
             background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',
             color: 'var(--tm-text)', fontSize: 16, outline: 'none', boxSizing: 'border-box',
-            marginBottom: 16,
+            marginBottom: 8,
           }}
         />
+
+        {/* Search results — appear as user types */}
+        {(searching || results.length > 0) && (
+          <div style={{
+            maxHeight: 220, overflowY: 'auto',
+            border: '1px solid var(--tm-border)', borderRadius: 'var(--tm-radius)',
+            background: 'var(--tm-surface-2)',
+            marginBottom: 12,
+          }}>
+            {searching && results.length === 0 && (
+              <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--tm-text-3)' }}>Searching…</div>
+            )}
+            {results.map(u => (
+              <button key={u.id} onClick={() => addAppUser(u)} disabled={saving}
+                style={{
+                  width: '100%', textAlign: 'left', cursor: 'pointer',
+                  padding: '10px 14px', border: 'none', background: 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  borderBottom: '1px solid var(--tm-border)',
+                }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--tm-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.email}{u.handicap != null ? ` · HCP ${u.handicap}` : ''}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--tm-green-text)', fontWeight: 800, flexShrink: 0, marginLeft: 8 }}>
+                  + Add
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Fallback — add as manual guest */}
         <button
-          onClick={submit}
+          onClick={addAsGuest}
           disabled={!name.trim() || saving}
           style={{
-            width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
+            width: '100%', padding: 14, borderRadius: 'var(--tm-radius-lg)',
             background: name.trim() ? 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))' : 'var(--tm-surface-3)',
             color: name.trim() ? 'var(--tm-text-inv)' : 'var(--tm-text-3)',
-            fontWeight: 800, fontSize: 16, border: 'none', cursor: name.trim() ? 'pointer' : 'default',
+            fontWeight: 800, fontSize: 15, border: 'none', cursor: name.trim() ? 'pointer' : 'default',
           }}
-        >{saving ? 'Adding…' : 'Add to Scorecard'}</button>
+        >{saving ? 'Adding…' : results.length > 0 ? `Add "${name}" as guest instead` : 'Add as Guest Player'}</button>
+
+        {/* Help text */}
+        <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 10, textAlign: 'center' }}>
+          Guests don't have accounts — the host enters their scores manually.
+        </div>
       </div>
     </div>,
     document.body
@@ -1376,22 +1421,41 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
 
   // Column width constants
-  const PLAYER_COL = 80
+  const PLAYER_COL = 90
   const HOLE_COL   = 32
-  const SUB_COL    = 38
+  const SUB_COL    = 40
+
+  // Row sizing: minimum 4 rows fill the screen. Available space ≈ viewport
+  // minus header (~110px) minus banner (~58) minus 2 header rows (~64)
+  // minus totals (~104) minus footer (~50) minus nav (~64). Pick a row
+  // height that fits min(participants, 4) into that space.
+  const VIEWPORT_BUDGET = 360   // approx px available for player rows
+  const MIN_ROWS_VISIBLE = 4
+  const visibleRowCount = Math.max(MIN_ROWS_VISIBLE, participants.length || 1)
+  const ROW_H = participants.length <= MIN_ROWS_VISIBLE
+    ? Math.max(56, Math.floor(VIEWPORT_BUDGET / Math.max(1, participants.length || MIN_ROWS_VISIBLE) / 2))
+    : 56
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent' }}>
-      {/* Header */}
-      <div style={{ padding: '14px 16px 10px', background: 'var(--tm-surface)', borderBottom: '1px solid var(--tm-border)', flexShrink: 0 }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: 'linear-gradient(180deg, #0a2410 0%, #0F3D1E 100%)',
+    }}>
+      {/* Header — dark green strip with white title, gold code chip */}
+      <div style={{
+        padding: '14px 16px 10px',
+        background: AUGUSTA_GREEN_DEEP,
+        borderBottom: '2px solid ' + AUGUSTA_WOOD,
+        flexShrink: 0,
+      }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--tm-text-3)', fontSize: 22, padding: '0 4px', cursor: 'pointer' }}>←</button>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, padding: '0 4px', cursor: 'pointer' }}>←</button>
           <div style={{ textAlign: 'center', flex: 1, padding: '0 8px' }}>
-            <div style={{ fontWeight: 800, color: 'var(--tm-text)', fontSize: 15, lineHeight: 1.2 }}>{outing.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
+            <div style={{ fontWeight: 900, color: '#fff', fontSize: 15, lineHeight: 1.2, fontFamily: '"Georgia", serif', fontStyle: 'italic', letterSpacing: '0.03em' }}>{outing.name}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <div style={{ background: 'var(--tm-green-muted)', padding: '3px 8px', borderRadius: 'var(--tm-radius-full)', fontSize: 10, fontWeight: 700, color: 'var(--tm-green-text)', letterSpacing: 2 }}>{code}</div>
+            <div style={{ background: '#FFD700', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, letterSpacing: 2, fontFamily: '"Arial Black", Arial, sans-serif' }}>{code}</div>
             {isHost && isTeamFormat && (
               <button onClick={() => setShowTeams(true)} style={{
                 background: teams.length > 0 ? 'rgba(232,192,90,0.15)' : 'rgba(255,255,255,0.08)',
@@ -1464,40 +1528,48 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         )}
       </div>
 
-      {/* Scorecard */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {participants.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--tm-text-3)', fontSize: 14 }}>
-            Waiting for players to join…
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            {/* ── Front 9 ── */}
-            <ScorecardTable
-              label="FRONT 9"
-              holes={frontHoles}
-              holePars={holePars}
-              subtotalPar={frontPar}
-              participants={sorted}
-              getScores={getScores}
-              isHost={isHost}
-              userId={user?.id}
-              isMarkerFor={isMarkerFor}
-              playerTeam={playerTeam}
-              onCellTap={(p, h) => setScoreModal({ userId: p.user_id, userName: p.name, hole: h })}
-              matchPlayData={isMatchPlay ? matchPlayData : null}
-              isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
-              PLAYER_COL={PLAYER_COL}
-              HOLE_COL={HOLE_COL}
-              SUB_COL={SUB_COL}
-            />
-            {/* ── Back 9 (if 18 holes) ── */}
-            {backHoles.length > 0 && (
+      {/* Augusta board frame — wood-bordered panel with cream LEADERS banner */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        margin: '12px 12px',
+        borderRadius: 6,
+        overflow: 'hidden',
+        background: AUGUSTA_TEAL,
+        border: '3px solid ' + AUGUSTA_WOOD,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.4)',
+      }}>
+        {/* Cream LEADERS banner — dark green block letters */}
+        <div style={{
+          background: AUGUSTA_CREAM,
+          borderBottom: '3px solid ' + AUGUSTA_GREEN,
+          textAlign: 'center', padding: '10px 0 8px',
+          flexShrink: 0,
+        }}>
+          <div style={{
+            fontSize: 36, fontWeight: 900, lineHeight: 1, color: AUGUSTA_GREEN,
+            letterSpacing: '0.16em',
+            fontFamily: '"Impact", "Arial Black", Arial, sans-serif',
+            textShadow: '0 1px 0 rgba(255,255,255,0.5)',
+          }}>LEADERS</div>
+        </div>
+
+        {/* Scorecard tables — scroll horizontally if needed, vertically as one body */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {participants.length === 0 ? (
+            <div style={{
+              padding: 40, textAlign: 'center', fontSize: 14,
+              color: AUGUSTA_INK, fontFamily: '"Georgia", serif', fontStyle: 'italic',
+            }}>
+              Waiting for players to join…
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              {/* ── Front 9 ── */}
               <ScorecardTable
-                label="BACK 9"
-                holes={backHoles}
+                label="FRONT 9"
+                holes={frontHoles}
                 holePars={holePars}
-                subtotalPar={backPar}
+                subtotalPar={frontPar}
                 participants={sorted}
                 getScores={getScores}
                 isHost={isHost}
@@ -1510,29 +1582,74 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 PLAYER_COL={PLAYER_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
+                rowH={ROW_H}
               />
-            )}
-            {/* ── Totals row ── */}
-            <TotalsRow
-              participants={sorted}
-              holePars={holePars}
-              holeCount={holeCount}
-              coursePar={coursePar}
-              getScores={getScores}
-              diffStr={netMode ? netDiffStr : diffStr}
-              diffColor={diffColor}
-              playerTeam={playerTeam}
-              netMode={netMode}
-              netTotal={netTotal}
-              isMatchPlay={isMatchPlay}
-              matchPlayData={matchPlayData}
-              isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
-              PLAYER_COL={PLAYER_COL}
-              HOLE_COL={HOLE_COL}
-              SUB_COL={SUB_COL}
-            />
-          </div>
-        )}
+              {/* ── Back 9 (if 18 holes) ── */}
+              {backHoles.length > 0 && (
+                <ScorecardTable
+                  label="BACK 9"
+                  holes={backHoles}
+                  holePars={holePars}
+                  subtotalPar={backPar}
+                  participants={sorted}
+                  getScores={getScores}
+                  isHost={isHost}
+                  userId={user?.id}
+                  isMarkerFor={isMarkerFor}
+                  playerTeam={playerTeam}
+                  onCellTap={(p, h) => setScoreModal({ userId: p.user_id, userName: p.name, hole: h })}
+                  matchPlayData={isMatchPlay ? matchPlayData : null}
+                  isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
+                  PLAYER_COL={PLAYER_COL}
+                  HOLE_COL={HOLE_COL}
+                  SUB_COL={SUB_COL}
+                  rowH={ROW_H}
+                />
+              )}
+              {/* ── Totals row ── */}
+              <TotalsRow
+                participants={sorted}
+                holePars={holePars}
+                holeCount={holeCount}
+                coursePar={coursePar}
+                getScores={getScores}
+                diffStr={netMode ? netDiffStr : diffStr}
+                diffColor={diffColor}
+                playerTeam={playerTeam}
+                netMode={netMode}
+                netTotal={netTotal}
+                isMatchPlay={isMatchPlay}
+                matchPlayData={matchPlayData}
+                isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
+                PLAYER_COL={PLAYER_COL}
+                HOLE_COL={HOLE_COL}
+                SUB_COL={SUB_COL}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Augusta plaque footer */}
+        <div style={{
+          background: AUGUSTA_GREEN,
+          padding: '8px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          borderTop: '2px solid ' + AUGUSTA_WOOD,
+          flexShrink: 0,
+        }}>
+          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
+          }}>M</span>
+          <div style={{
+            fontFamily: '"Georgia", "Times New Roman", serif',
+            fontSize: 14, color: '#fff', fontStyle: 'italic', letterSpacing: '0.10em',
+          }}>Augusta National Club Golf</div>
+          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
+          }}>M</span>
+        </div>
       </div>
 
       {/* Score entry modal */}
@@ -1556,9 +1673,17 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         )
       })()}
 
-      {/* Guest add modal */}
+      {/* Add Player sheet — search-as-you-type for app users + manual guest fallback */}
       {showGuestModal && (
-        <GuestModal onAdd={addGuest} onClose={() => setShowGuestModal(false)} />
+        <GuestModal
+          code={code}
+          onAdd={addGuest}
+          onAppUserAdded={async () => {
+            await loadOuting()
+            setShowGuestModal(false)
+          }}
+          onClose={() => setShowGuestModal(false)}
+        />
       )}
 
       {/* Team Setup sheet */}
@@ -1589,95 +1714,115 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL, rowH = 56 }) {
+  // Augusta-style table — teal panels for HOLE/PAR/name columns, dark green
+  // strip for OUT/IN subtotal columns, cream tiles for score cells.
+  const headerRow = {
+    display: 'flex', alignItems: 'center',
+    borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+    background: AUGUSTA_TEAL,
+  }
+  const headerNameCol = {
+    minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
+    fontSize: 12, fontWeight: 900, color: AUGUSTA_INK,
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
+  }
+  const headerHoleCell = {
+    minWidth: HOLE_COL, width: HOLE_COL, height: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, fontWeight: 900, color: AUGUSTA_INK,
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    flexShrink: 0,
+    borderLeft: '1px solid rgba(0,0,0,0.18)',
+  }
+  const subtotalHeaderCell = {
+    minWidth: SUB_COL, width: SUB_COL, height: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 12, fontWeight: 900, color: '#fff',
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    background: AUGUSTA_GREEN, letterSpacing: '0.06em', flexShrink: 0,
+  }
+
   return (
     <div style={{ marginBottom: 0 }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--tm-border)', background: 'var(--tm-surface)' }}>
-        {/* Player name col */}
-        <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '6px 8px', fontSize: 10, fontWeight: 700, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, flexShrink: 0 }}>
-          {label}
-        </div>
-        {/* Hole numbers */}
-        <div style={{ display: 'flex', gap: 2, padding: '6px 4px', overflowX: 'visible' }}>
+      {/* HOLE row — teal panel with black numerals + dark-green OUT/IN */}
+      <div style={headerRow}>
+        <div style={headerNameCol}>{label}</div>
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
           {holes.map(h => (
-            <div key={h} style={{ minWidth: HOLE_COL, width: HOLE_COL, textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--tm-text-3)', flexShrink: 0 }}>
-              {h + 1}
-            </div>
+            <div key={h} style={headerHoleCell}>{h + 1}</div>
           ))}
-          <div style={{ minWidth: SUB_COL, width: SUB_COL, textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--tm-gold-text)', letterSpacing: 1, flexShrink: 0 }}>OUT</div>
+          <div style={subtotalHeaderCell}>{label === 'BACK 9' ? 'IN' : 'OUT'}</div>
         </div>
       </div>
 
-      {/* Par row */}
-      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--tm-border)', background: 'var(--tm-surface-2)' }}>
-        <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '4px 8px', fontSize: 10, fontWeight: 700, color: 'var(--tm-text-3)', flexShrink: 0 }}>
-          Par
-        </div>
-        <div style={{ display: 'flex', gap: 2, padding: '4px 4px' }}>
+      {/* PAR row — black numerals on teal */}
+      <div style={{ ...headerRow, borderBottom: '2px solid ' + AUGUSTA_GREEN_DEEP }}>
+        <div style={headerNameCol}>PAR</div>
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
           {holes.map(h => (
-            <div key={h} style={{ minWidth: HOLE_COL, width: HOLE_COL, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--tm-text-2)', flexShrink: 0 }}>
-              {holePars[h]}
-            </div>
+            <div key={h} style={headerHoleCell}>{holePars[h]}</div>
           ))}
-          <div style={{ minWidth: SUB_COL, width: SUB_COL, textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--tm-text-2)', flexShrink: 0 }}>{subtotalPar}</div>
+          <div style={subtotalHeaderCell}>{subtotalPar}</div>
         </div>
       </div>
 
-      {/* Player rows */}
-      {participants.map((p, idx) => {
+      {/* Player rows — teal panel for name, cream tiles for scores */}
+      {participants.map((p) => {
         const sc       = getScores(p)
         const isMe     = String(p.user_id) === String(userId)
         const team     = playerTeam(p.user_id)
-        // Host edits all; assigned marker edits their group; no one else can edit
         const canEdit  = isHost || (isMarkerFor ? isMarkerFor(String(userId), String(p.user_id)) : false)
         const subtotal = holes.reduce((sum, h) => sum + (sc[h] || 0), 0)
         const p1       = matchPlayData ? isP1?.(p) : false
-
-        // Streak: last 3 played holes across all holes (not just this section)
-        const allPlayedWithPar = sc.map((s, i) => s > 0 ? { s, par: holePars[i] } : null).filter(Boolean)
-        const last3 = allPlayedWithPar.slice(-3)
+        // Surname in caps, fallback to first if single-word
+        const parts    = (p.name || '').trim().split(/\s+/)
+        const display  = (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').toUpperCase().slice(0, 12)
 
         return (
           <div key={p.user_id} style={{
             display: 'flex', alignItems: 'center',
-            borderBottom: '1px solid var(--tm-border)',
-            background: isMe ? 'rgba(197,160,64,0.07)' : idx % 2 === 0 ? 'var(--tm-surface)' : 'var(--tm-surface-2)',
+            borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+            background: isMe ? AUGUSTA_TEAL_HOVER : AUGUSTA_TEAL,
+            borderLeft: isMe ? `4px solid ${AUGUSTA_GREEN}` : 'none',
+            minHeight: rowH,
           }}>
-            {/* Player name + streak dots */}
-            <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '6px 8px', flexShrink: 0, overflow: 'hidden' }}>
-              <div style={{ fontSize: 12, fontWeight: isMe ? 800 : 600, color: isMe ? 'var(--tm-gold-text)' : 'var(--tm-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {p.name?.split(' ')[0] ?? p.name}
+            {/* Player surname in caps on teal panel */}
+            <div style={{
+              minWidth: PLAYER_COL - (isMe ? 4 : 0), width: PLAYER_COL - (isMe ? 4 : 0),
+              padding: '8px 10px', flexShrink: 0, overflow: 'hidden',
+            }}>
+              <div style={{
+                fontSize: 14, fontWeight: 900, color: AUGUSTA_INK,
+                fontFamily: '"Arial Black", Arial, sans-serif',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                letterSpacing: '0.04em',
+              }}>
+                {display}
               </div>
               {team && (
-                <div style={{ fontSize: 10, color: team.color, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{
+                  fontSize: 10, color: AUGUSTA_INK, fontWeight: 700, opacity: 0.7,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
                   {team.name}
-                </div>
-              )}
-              {/* Streak dots */}
-              {last3.length > 0 && (
-                <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
-                  {last3.map((x, i) => {
-                    const d = x.s - x.par
-                    const c = d <= -2 ? '#E8C05A' : d === -1 ? '#C9A040' : d === 0 ? 'rgba(255,255,255,0.25)' : d === 1 ? '#F87171' : '#EF4444'
-                    return <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
-                  })}
                 </div>
               )}
             </div>
             {/* Score cells */}
-            <div style={{ display: 'flex', gap: 2, padding: '6px 4px' }}>
+            <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
               {holes.map(h => {
-                // Match play cell override
-                let mpBg = undefined, mpBorder = undefined, mpColor = undefined
+                // Match play cell override — gold if won, red if lost, neutral if halved
+                let mpBg, mpBorder, mpColor
                 if (matchPlayData) {
                   const res = matchPlayData.holeResults[h]
-                  if (res !== null) {
+                  if (res !== null && res !== undefined) {
                     const won = p1 ? res === 'p1' : res === 'p2'
                     const halved = res === 'half'
-                    if (won) { mpBg = '#1e4a2a'; mpBorder = '1px solid #C9A040'; mpColor = '#C9A040' }
-                    else if (!halved) { mpBg = '#4a1e1e'; mpBorder = '1px solid #F87171'; mpColor = '#F87171' }
-                    else { mpBg = undefined; mpBorder = '1px solid rgba(255,255,255,0.15)'; mpColor = 'var(--tm-text-3)' }
+                    if (won) { mpBg = '#FFE39A'; mpBorder = '1.5px solid ' + AUGUSTA_GREEN; mpColor = AUGUSTA_GREEN }
+                    else if (!halved) { mpBg = '#FFD3D3'; mpBorder = '1.5px solid ' + AUGUSTA_RED; mpColor = AUGUSTA_RED }
+                    else { mpBg = AUGUSTA_TILE; mpBorder = '1px dashed rgba(0,0,0,0.45)'; mpColor = 'rgba(0,0,0,0.55)' }
                   }
                 }
                 return (
@@ -1688,14 +1833,19 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                     canEdit={canEdit}
                     onTap={() => onCellTap(p, h)}
                     isSubtotal={false}
+                    w={HOLE_COL}
+                    h={rowH}
                     overrideBg={mpBg}
                     overrideBorder={mpBorder}
                     overrideColor={mpColor}
                   />
                 )
               })}
-              {/* Subtotal */}
-              <ScorecardCell score={subtotal || null} par={null} canEdit={false} isSubtotal={true} />
+              {/* Subtotal — dark green strip */}
+              <ScorecardCell
+                score={subtotal || null} par={null} canEdit={false} isSubtotal={true}
+                w={SUB_COL} h={rowH}
+              />
             </div>
           </div>
         )
@@ -1706,31 +1856,40 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
 
 // ─── Totals row ───────────────────────────────────────────────────────────────
 function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL }) {
+  // Augusta-style: dark green strip with white block-letter "TOTALS" + numbers
   return (
-    <div style={{ background: 'var(--tm-surface)', borderTop: '2px solid var(--tm-border)' }}>
+    <div style={{ background: AUGUSTA_GREEN, borderTop: '2px solid ' + AUGUSTA_WOOD }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--tm-border)', background: 'var(--tm-surface-2)' }}>
-        <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '6px 8px', fontSize: 10, fontWeight: 700, color: 'var(--tm-gold-text)', textTransform: 'uppercase', letterSpacing: 1, flexShrink: 0 }}>
-          TOTALS
-        </div>
-        <div style={{ display: 'flex', gap: 2, padding: '6px 4px' }}>
-          <div style={{ minWidth: SUB_COL + 4, width: SUB_COL + 4, textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--tm-text-3)', letterSpacing: 1, flexShrink: 0 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+        background: AUGUSTA_GREEN_DEEP,
+      }}>
+        <div style={{
+          minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
+          fontSize: 11, fontWeight: 900, color: '#fff',
+          fontFamily: '"Arial Black", Arial, sans-serif',
+          letterSpacing: '0.06em', flexShrink: 0,
+        }}>TOTALS</div>
+        <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>
             {netMode ? 'NET' : isMatchPlay ? 'HOLES' : 'TOT'}
           </div>
-          <div style={{ minWidth: SUB_COL + 4, width: SUB_COL + 4, textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--tm-text-3)', letterSpacing: 1, flexShrink: 0 }}>
+          <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>
             {isMatchPlay ? 'STATUS' : '+/−'}
           </div>
-          <div style={{ minWidth: 48, textAlign: 'center', fontSize: 10, fontWeight: 800, color: 'var(--tm-text-3)', letterSpacing: 1, flexShrink: 0 }}>THRU</div>
+          <div style={{ minWidth: 52, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>THRU</div>
         </div>
       </div>
-      {participants.map((p, idx) => {
+      {participants.map((p) => {
         const sc          = getScores(p)
         const team        = playerTeam(p.user_id)
         const gross       = sc.reduce((s, v) => s + (v || 0), 0)
         const displayTot  = netMode ? (netTotal?.(p) ?? gross) : gross
         const holesPlayed = sc.filter(v => v > 0).length
         const dStr        = diffStr(p)
-        const dColor      = diffColor(p)
+        const parts       = (p.name || '').trim().split(/\s+/)
+        const display     = (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').toUpperCase().slice(0, 12)
 
         // Match play status for this player
         let mpStatus = null
@@ -1741,38 +1900,59 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
         }
         const mpStatusColor = isMatchPlay && matchPlayData
           ? (isP1?.(p)
-            ? (matchPlayData.p1HolesUp > 0 ? '#C9A040' : matchPlayData.p1HolesUp < 0 ? '#F87171' : 'var(--tm-text-2)')
-            : (matchPlayData.p1HolesUp < 0 ? '#C9A040' : matchPlayData.p1HolesUp > 0 ? '#F87171' : 'var(--tm-text-2)'))
-          : 'var(--tm-text-2)'
+            ? (matchPlayData.p1HolesUp > 0 ? '#FFD700' : matchPlayData.p1HolesUp < 0 ? '#FFB4B4' : '#fff')
+            : (matchPlayData.p1HolesUp < 0 ? '#FFD700' : matchPlayData.p1HolesUp > 0 ? '#FFB4B4' : '#fff'))
+          : '#fff'
 
-        // Match play holes won
         const mpHolesWon = isMatchPlay && matchPlayData
           ? matchPlayData.holeResults.filter(r => r !== null && (isP1?.(p) ? r === 'p1' : r === 'p2')).length
           : null
 
+        // Score-to-par "+/-" color: gold when under, red-ish over
+        const dParsed = parseInt(dStr.replace(/[^\d-]/g, '')) || 0
+        const dColor  = !holesPlayed ? 'rgba(255,255,255,0.55)'
+                      : dStr === 'E' ? '#fff'
+                      : dParsed < 0 ? '#FFD700'
+                      : '#FFB4B4'
+
         return (
           <div key={p.user_id} style={{
             display: 'flex', alignItems: 'center',
-            borderBottom: '1px solid var(--tm-border)',
-            background: idx % 2 === 0 ? 'var(--tm-surface)' : 'var(--tm-surface-2)',
+            borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+            background: AUGUSTA_GREEN,
           }}>
-            <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '10px 8px', flexShrink: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {p.name?.split(' ')[0] ?? p.name}
-              </div>
-              {team && <div style={{ fontSize: 10, color: team.color, fontWeight: 700 }}>{team.name}</div>}
+            <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '10px 10px', flexShrink: 0 }}>
+              <div style={{
+                fontSize: 14, fontWeight: 900, color: '#fff',
+                fontFamily: '"Arial Black", Arial, sans-serif',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                letterSpacing: '0.04em',
+              }}>{display}</div>
+              {team && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700 }}>{team.name}</div>}
               {netMode && p.handicap != null && !p.is_guest && (
-                <div style={{ fontSize: 9, color: 'rgba(197,160,64,0.7)', fontWeight: 700 }}>HCP {p.handicap}</div>
+                <div style={{ fontSize: 9, color: '#FFD700', fontWeight: 700 }}>HCP {p.handicap}</div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 2, padding: '10px 4px', alignItems: 'center' }}>
-              <div style={{ minWidth: SUB_COL + 4, width: SUB_COL + 4, textAlign: 'center', fontSize: 18, fontWeight: 900, color: displayTot ? 'var(--tm-text)' : 'var(--tm-text-3)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <div style={{
+                minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center',
+                fontSize: 18, fontWeight: 900, color: '#fff', flexShrink: 0,
+                fontFamily: '"Arial Black", Arial, sans-serif',
+              }}>
                 {isMatchPlay ? (mpHolesWon ?? '—') : (displayTot || '—')}
               </div>
-              <div style={{ minWidth: SUB_COL + 4, width: SUB_COL + 4, textAlign: 'center', fontSize: isMatchPlay ? 12 : 15, fontWeight: 800, color: isMatchPlay ? mpStatusColor : (holesPlayed ? dColor : 'var(--tm-text-3)'), flexShrink: 0 }}>
+              <div style={{
+                minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center',
+                fontSize: isMatchPlay ? 13 : 16, fontWeight: 900,
+                color: isMatchPlay ? mpStatusColor : dColor,
+                fontFamily: '"Arial Black", Arial, sans-serif', flexShrink: 0,
+              }}>
                 {isMatchPlay ? (matchPlayData?.played > 0 ? mpStatus : '—') : (holesPlayed ? dStr : '—')}
               </div>
-              <div style={{ minWidth: 48, textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--tm-text-3)', flexShrink: 0 }}>
+              <div style={{
+                minWidth: 52, textAlign: 'center', fontSize: 14, fontWeight: 800,
+                color: 'rgba(255,255,255,0.85)', flexShrink: 0,
+              }}>
                 {holesPlayed || '—'}
               </div>
             </div>
@@ -2278,7 +2458,6 @@ export default function Outing({ user, pendingPlayers = [], onClearPending }) {
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} />
-  if (view === 'board') return <AugustaBoard user={user} onBack={() => setView('hub')} />
 
   if (view === 'live' && activeCode) return (
     <LiveOuting
@@ -2317,7 +2496,6 @@ export default function Outing({ user, pendingPlayers = [], onClearPending }) {
         onOpenOuting={code => { setActiveCode(code); setView('live') }}
         onOpenRivalry={r => { setActiveRivalry(r); setView('rivalry') }}
         onSoloRound={() => setView('solo')}
-        onLeaderboard={() => setView('board')}
       />
       {showJoin && (
         <JoinSheet
