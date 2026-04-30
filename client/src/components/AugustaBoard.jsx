@@ -180,6 +180,11 @@ export default function AugustaBoard({ user, onBack }) {
     ...extra,
   })
 
+  // Real Masters boards show ~8-10 player slots even before any are filled.
+  // We pad the rendered tbody with empty rows so the board fills the page.
+  const PLACEHOLDER_ROWS = 8
+  const emptyRowsNeeded = Math.max(0, PLACEHOLDER_ROWS - sorted.length)
+
   return (
     <div style={{
       minHeight: '100dvh',
@@ -191,6 +196,7 @@ export default function AugustaBoard({ user, onBack }) {
       <div style={{
         padding: '52px 20px 0',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexShrink: 0,
       }}>
         <button onClick={onBack} style={{
           background: 'rgba(255,255,255,0.10)', border: 'none', borderRadius: 20,
@@ -202,14 +208,16 @@ export default function AugustaBoard({ user, onBack }) {
         </div>
       </div>
 
-      {/* Board — wood-frame panel */}
+      {/* Board — wood-frame panel, fills remaining viewport height */}
       <div style={{
-        margin: '16px 12px 0',
+        margin: '12px 12px 12px',
         borderRadius: 6,
         overflow: 'hidden',
         background: MASTERS_GREEN,
         border: '3px solid #5a3a16',                     // hand-painted wood frame
         boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.4)',
+        flex: 1,
+        display: 'flex', flexDirection: 'column',
       }}>
 
         {/* LEADERS — yellow block letters on green, like the real board */}
@@ -218,6 +226,7 @@ export default function AugustaBoard({ user, onBack }) {
           borderBottom: '2px solid ' + MASTERS_GREEN_DEEP,
           textAlign: 'center', padding: '14px 0 10px',
           position: 'relative',
+          flexShrink: 0,
         }}>
           <div style={{
             fontSize: 44, fontWeight: 900, lineHeight: 1, color: MASTERS_GOLD,
@@ -227,8 +236,8 @@ export default function AugustaBoard({ user, onBack }) {
           }}>LEADERS</div>
         </div>
 
-        {/* Scrollable grid */}
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', background: MASTERS_GREEN }}>
+        {/* Scrollable grid — flex:1 to fill the board panel */}
+        <div style={{ overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: MASTERS_GREEN, flex: 1 }}>
           <table style={{
             borderCollapse: 'collapse',
             minWidth: PRIOR + NAME + 18 * CELL + 3 * SUM,
@@ -357,82 +366,105 @@ export default function AugustaBoard({ user, onBack }) {
                 )
               })}
 
-              {players.length === 0 && (
-                <tr>
-                  <td colSpan={23} style={{
-                    height: 70, textAlign: 'center',
-                    color: 'rgba(255,215,0,0.55)', fontSize: 13,
-                    background: MASTERS_GREEN,
-                    fontFamily: '"Georgia", serif', fontStyle: 'italic',
-                    letterSpacing: '0.05em',
-                  }}>
-                    Add players below to begin
+              {/* Empty placeholder rows — fills the board to look like a real
+                  scoreboard with open slots, not a half-empty grid */}
+              {Array(emptyRowsNeeded).fill(0).map((_, i) => (
+                <tr key={`empty-${i}`}>
+                  <td style={{ ...gCell(PRIOR), cursor: 'default' }}></td>
+                  <td style={{ ...gCell(NAME), cursor: 'default' }}>
+                    {i === 0 && players.length === 0 && (
+                      <div style={{
+                        textAlign: 'center', color: 'rgba(255,215,0,0.45)',
+                        fontFamily: '"Georgia", serif', fontStyle: 'italic',
+                        fontSize: 13, fontWeight: 400, letterSpacing: '0.04em',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        Add a player ↓
+                      </div>
+                    )}
                   </td>
+                  {pars.map((_, j) => (
+                    <td key={j} style={{
+                      ...sCell(CELL),
+                      background: 'rgba(244,233,193,0.30)',
+                      cursor: 'default',
+                    }}></td>
+                  ))}
+                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, cursor: 'default' }}></td>
+                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, cursor: 'default' }}></td>
+                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, cursor: 'default' }}></td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Add player — lives inside the board frame, just above the footer.
+            Gold-on-green to match the Masters palette. (2026-04-30) */}
+        <div style={{
+          padding: '12px 14px',
+          background: MASTERS_GREEN_DEEP,
+          borderTop: '1px solid rgba(0,0,0,0.4)',
+          flexShrink: 0,
+        }}>
+          {addingPlayer ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                ref={nameInputRef}
+                autoFocus
+                value={newName}
+                onChange={e => setNewName(e.target.value.slice(0, 18))}
+                onKeyDown={e => { if (e.key === 'Enter') addPlayer() }}
+                placeholder="PLAYER NAME"
+                style={{
+                  flex: 1, background: MASTERS_CREAM, border: '2px solid ' + MASTERS_GOLD,
+                  borderRadius: 6, color: MASTERS_INK, padding: '10px 12px',
+                  fontSize: 14, fontWeight: 700, outline: 'none', minWidth: 0,
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                  letterSpacing: '0.05em', textTransform: 'uppercase',
+                }}
+              />
+              <button onClick={addPlayer} style={{
+                background: MASTERS_GOLD, color: MASTERS_GREEN, border: 'none', borderRadius: 6,
+                padding: '0 18px', fontSize: 13, fontWeight: 900, cursor: 'pointer',
+                fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.06em',
+              }}>ADD</button>
+              {players.length > 0 && (
+                <button onClick={() => { setAddingPlayer(false); setNewName('') }} style={{
+                  background: 'rgba(255,255,255,0.10)', border: 'none', borderRadius: 6,
+                  padding: '0 12px', fontSize: 18, cursor: 'pointer', color: '#fff',
+                }}>✕</button>
+              )}
+            </div>
+          ) : (
+            <button onClick={() => setAddingPlayer(true)} style={{
+              width: '100%', padding: '11px',
+              background: 'linear-gradient(180deg, #FFD700 0%, #E0B920 100%)',
+              border: '1px solid #C99B1A',
+              borderRadius: 6, color: MASTERS_GREEN, fontSize: 13, fontWeight: 900,
+              cursor: 'pointer', fontFamily: '"Arial Black", Arial, sans-serif',
+              letterSpacing: '0.08em',
+              boxShadow: '0 2px 8px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4)',
+            }}>+ ADD PLAYER</button>
+          )}
         </div>
 
         {/* Augusta footer — reads as the wooden plaque under the board */}
         <div style={{
           background: 'linear-gradient(180deg, #0a2c14 0%, #061a0b 100%)',
-          padding: '12px 20px',
+          padding: '10px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18,
           borderTop: '2px solid #5a3a16',
+          flexShrink: 0,
         }}>
-          <MastersFlag size={24} />
+          <MastersFlag size={22} />
           <div style={{
             fontFamily: '"Georgia", "Times New Roman", serif',
-            fontSize: 17, color: MASTERS_GOLD, fontStyle: 'italic', letterSpacing: '0.10em',
+            fontSize: 16, color: MASTERS_GOLD, fontStyle: 'italic', letterSpacing: '0.10em',
             textShadow: '0 1px 0 rgba(0,0,0,0.5)',
           }}>Augusta National Club Golf</div>
-          <MastersFlag size={24} />
+          <MastersFlag size={22} />
         </div>
-      </div>
-
-      {/* Add player — gold-accented to match the board's frame */}
-      <div style={{ padding: '16px 14px 48px' }}>
-        {addingPlayer ? (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              ref={nameInputRef}
-              autoFocus
-              value={newName}
-              onChange={e => setNewName(e.target.value.slice(0, 18))}
-              onKeyDown={e => { if (e.key === 'Enter') addPlayer() }}
-              placeholder="PLAYER NAME"
-              style={{
-                flex: 1, background: '#F4E9C1', border: '2px solid #FFD700',
-                borderRadius: 8, color: '#0F0F0F', padding: '12px 14px',
-                fontSize: 15, fontWeight: 700, outline: 'none',
-                fontFamily: '"Arial Black", Arial, sans-serif',
-                letterSpacing: '0.05em', textTransform: 'uppercase',
-              }}
-            />
-            <button onClick={addPlayer} style={{
-              background: '#FFD700', color: '#0F3D1E', border: 'none', borderRadius: 8,
-              padding: '0 20px', fontSize: 14, fontWeight: 900, cursor: 'pointer',
-              fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.06em',
-            }}>ADD</button>
-            {players.length > 0 && (
-              <button onClick={() => { setAddingPlayer(false); setNewName('') }} style={{
-                background: 'rgba(255,255,255,0.10)', border: 'none', borderRadius: 8,
-                padding: '0 12px', fontSize: 18, cursor: 'pointer', color: '#fff',
-              }}>✕</button>
-            )}
-          </div>
-        ) : (
-          <button onClick={() => setAddingPlayer(true)} style={{
-            width: '100%', padding: '15px',
-            background: 'linear-gradient(180deg, #FFD700 0%, #E0B920 100%)',
-            border: '1px solid #C99B1A',
-            borderRadius: 10, color: '#0F3D1E', fontSize: 14, fontWeight: 900,
-            cursor: 'pointer', fontFamily: '"Arial Black", Arial, sans-serif',
-            letterSpacing: '0.08em',
-            boxShadow: '0 4px 14px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4)',
-          }}>+ ADD PLAYER</button>
-        )}
       </div>
 
       {/* Score / Par modal */}

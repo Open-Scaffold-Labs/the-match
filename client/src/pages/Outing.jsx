@@ -258,8 +258,11 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
               fontStyle: 'italic', letterSpacing: '0.04em',
               textShadow: '0 1px 2px rgba(0,0,0,0.4)',
             }}>Augusta Scoreboard</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,215,0,0.85)', marginTop: 2, fontWeight: 600 }}>
-              Live leaderboard for any group of players
+            <div style={{
+              fontSize: 12, color: 'rgba(255,215,0,0.85)', marginTop: 2, fontWeight: 600,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              Masters-style scoring for any group
             </div>
           </div>
           <div style={{
