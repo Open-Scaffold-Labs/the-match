@@ -1282,10 +1282,6 @@ function cellBg(score, par, isSubtotal) {
   if (!score || !par) return 'rgba(242,235,211,0.55)'   // empty cream slot
   return AUGUSTA_TILE
 }
-function cellBorder(score, par, isSubtotal) {
-  if (isSubtotal) return '1px solid ' + AUGUSTA_GREEN_DEEP
-  return '1px solid rgba(0,0,0,0.45)'
-}
 function cellColor(score, par, isSubtotal) {
   if (isSubtotal) return '#fff'
   if (!score || !par) return AUGUSTA_INK
@@ -1293,18 +1289,27 @@ function cellColor(score, par, isSubtotal) {
 }
 
 // Single scorecard cell — tappable by host for any player, or by self.
-// Augusta-look: cream tile + birdie/bogey ring overlays.
+// Borders use only `borderLeft` so adjacent cells share a single 1px line
+// (matches the header rows' borderLeft scheme; otherwise body cells stacked
+// 2px between them and looked misaligned with headers when scrolled).
+// (2026-04-30 PM border-cleanup)
 function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, overrideBorder, overrideColor, w = 32, h = 36 }) {
   const bg     = overrideBg     ?? cellBg(score, par, isSubtotal)
-  const border = overrideBorder ?? cellBorder(score, par, isSubtotal)
   const color  = overrideColor  ?? cellColor(score, par, isSubtotal)
   const diff   = (!isSubtotal && score && par) ? score - par : null
+  // Border treatment — only the LEFT edge so adjacent cells share a divider.
+  // Subtotal cells (OUT/IN) get a heavier dark-green left border to mark the
+  // boundary between cream score grid and dark green totals strip.
+  const borderLeft = overrideBorder ?? (isSubtotal
+    ? '2px solid ' + AUGUSTA_GREEN_DEEP
+    : '1px solid rgba(0,0,0,0.20)')
   return (
     <div
       onClick={canEdit && !isSubtotal ? onTap : undefined}
       style={{
         minWidth: isSubtotal ? w + 4 : w, width: isSubtotal ? w + 4 : w, height: h,
-        background: bg, border,
+        background: bg,
+        borderLeft,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: isSubtotal ? 14 : 15, fontWeight: 900,
         fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
@@ -2080,7 +2085,9 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
     fontSize: 13, fontWeight: 900, color: '#fff',
     fontFamily: '"Arial Black", Arial, sans-serif',
     flexShrink: 0,
-    borderLeft: '1px solid rgba(255,255,255,0.10)',
+    // Match body cells' borderLeft color so vertical dividers run continuously
+    // from header through every body row when scrolled (2026-04-30 PM fix).
+    borderLeft: '1px solid rgba(0,0,0,0.20)',
     textShadow: '0 1px 1px rgba(0,0,0,0.40)',
   }
   const subtotalHeaderCell = {
@@ -2090,6 +2097,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
     fontFamily: '"Arial Black", Arial, sans-serif',
     background: AUGUSTA_GREEN_DEEP, letterSpacing: '0.06em', flexShrink: 0,
     textShadow: '0 1px 1px rgba(0,0,0,0.50)',
+    borderLeft: '2px solid ' + AUGUSTA_GREEN_DEEP,
   }
 
   return (
@@ -2263,14 +2271,14 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
               <div key={h} style={{
                 minWidth: HOLE_COL, width: HOLE_COL, height: rowH,
                 background: 'rgba(242,235,211,0.55)',
-                border: '1px solid rgba(0,0,0,0.45)',
+                borderLeft: '1px solid rgba(0,0,0,0.20)',
                 flexShrink: 0,
               }} />
             ))}
             <div style={{
               minWidth: SUB_COL + 4, width: SUB_COL + 4, height: rowH,
               background: AUGUSTA_GREEN,
-              border: '1px solid ' + AUGUSTA_GREEN_DEEP,
+              borderLeft: '2px solid ' + AUGUSTA_GREEN_DEEP,
               flexShrink: 0,
             }} />
           </div>
