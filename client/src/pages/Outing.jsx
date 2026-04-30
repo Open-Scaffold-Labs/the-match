@@ -219,40 +219,71 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           </button>
         </div>
 
-        {/* ─── Secondary icon row (Solo Round + Leaderboard, demoted) ─ */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onSoloRound} style={{
-            flex: 1, padding: '10px 0', borderRadius: 12,
-            background: 'rgba(255,255,255,0.65)',
-            border: '1px solid rgba(201,160,64,0.30)',
-            color: '#7A5800', fontWeight: 700, fontSize: 12,
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+        {/* ─── Augusta Scoreboard hero card ───────────────────────────
+            The signature feature — promoted from a tiny "Leaderboard"
+            icon to a full hero card. Masters dark-green panel with
+            yellow M-flag accents to evoke the real board. (2026-04-30) */}
+        <button onClick={onLeaderboard} style={{
+          width: '100%', padding: '16px 18px', borderRadius: 16,
+          border: '2px solid rgba(255,215,0,0.55)',
+          background: 'linear-gradient(135deg, #0F3D1E 0%, #1a5c1a 100%)',
+          color: '#fff', cursor: 'pointer', textAlign: 'left',
+          display: 'flex', alignItems: 'center', gap: 14,
+          boxShadow: '0 6px 24px rgba(15,61,30,0.40), inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -3px 0 rgba(0,0,0,0.18)',
+          position: 'relative', overflow: 'hidden',
+        }}>
+          {/* Subtle wood-grain feel via repeating vertical stripes */}
+          <div aria-hidden style={{
+            position: 'absolute', inset: 0, opacity: 0.06,
+            backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0 1px, transparent 1px 6px)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            flexShrink: 0, position: 'relative',
+            width: 44, height: 44, borderRadius: '50%',
+            background: '#FFD700',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.55)',
           }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            Solo Round
-          </button>
-          <button onClick={onLeaderboard} style={{
-            flex: 1, padding: '10px 0', borderRadius: 12,
-            background: 'rgba(255,255,255,0.65)',
-            border: '1px solid rgba(27,94,59,0.25)',
-            color: '#1B5E3B', fontWeight: 700, fontSize: 12,
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-              <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
-              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
-              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
-            </svg>
-            Leaderboard
-          </button>
-        </div>
+            <span style={{
+              fontSize: 22, fontWeight: 900, color: '#0F3D1E',
+              fontFamily: '"Georgia", "Times New Roman", serif',
+              lineHeight: 1, marginTop: 1,
+            }}>M</span>
+          </div>
+          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+            <div style={{
+              fontWeight: 900, fontSize: 17, color: '#fff',
+              fontFamily: '"Georgia", "Times New Roman", serif',
+              fontStyle: 'italic', letterSpacing: '0.04em',
+              textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            }}>Augusta Scoreboard</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,215,0,0.85)', marginTop: 2, fontWeight: 600 }}>
+              Live leaderboard for any group of players
+            </div>
+          </div>
+          <div style={{
+            color: '#FFD700', fontWeight: 800, fontSize: 14, flexShrink: 0,
+            position: 'relative',
+          }}>Open →</div>
+        </button>
+
+        {/* Solo Round — a smaller secondary card under the hero */}
+        <button onClick={onSoloRound} style={{
+          width: '100%', padding: '11px 14px', borderRadius: 12,
+          background: 'rgba(255,255,255,0.75)',
+          border: '1px solid rgba(201,160,64,0.35)',
+          color: '#7A5800', fontWeight: 700, fontSize: 13,
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+          marginTop: -8,   // tighten gap from the hero card above (parent has gap:16)
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+          Solo Round (just keep score)
+        </button>
 
         {/* ─── Rivalries ─────────────────────────────────────────────── */}
         <div>
