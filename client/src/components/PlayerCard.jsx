@@ -3,27 +3,33 @@ import { createPortal } from 'react-dom'
 import { post } from '../lib/api.js'
 
 // ─── Country flag definitions ──────────────────────────────────────────────────
-// colors = flag stripe colors (left → right / top → bottom)
-// accent = primary color used for the accent line on the card
+// iso = flagcdn.com ISO code (CORS-enabled, supports subdivisions like gb-eng)
+// accent = primary color used for the selected-state ring + flat fallback
+//          if the flag image fails to load
+// 2026-04-30: switched from canvas-drawn diagonal stripes to real flag
+//             images for full PGA-Tour parity (the user's reference look).
 const COUNTRY_FLAGS = [
-  { id: 'usa',         name: 'USA',          emoji: '🇺🇸', colors: ['#B22234','#FFFFFF','#3C3B6E'], accent: '#3C3B6E' },
-  { id: 'england',     name: 'England',      emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', colors: ['#CF142B','#FFFFFF','#CF142B'], accent: '#CF142B' },
-  { id: 'ireland',     name: 'Ireland',      emoji: '🇮🇪', colors: ['#169B62','#FFFFFF','#FF883E'], accent: '#169B62' },
-  { id: 'scotland',    name: 'Scotland',     emoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', colors: ['#003087','#FFFFFF','#003087'], accent: '#003087' },
-  { id: 'australia',   name: 'Australia',    emoji: '🇦🇺', colors: ['#00008B','#CC0000','#FFFFFF'], accent: '#00008B' },
-  { id: 'canada',      name: 'Canada',       emoji: '🇨🇦', colors: ['#D80621','#FFFFFF','#D80621'], accent: '#D80621' },
-  { id: 'japan',       name: 'Japan',        emoji: '🇯🇵', colors: ['#FFFFFF','#BC002D','#FFFFFF'], accent: '#BC002D' },
-  { id: 'spain',       name: 'Spain',        emoji: '🇪🇸', colors: ['#AA151B','#F1BF00','#AA151B'], accent: '#AA151B' },
-  { id: 'sweden',      name: 'Sweden',       emoji: '🇸🇪', colors: ['#006AA7','#FECC02','#006AA7'], accent: '#006AA7' },
-  { id: 'germany',     name: 'Germany',      emoji: '🇩🇪', colors: ['#1A1A1A','#DD0000','#FFCE00'], accent: '#DD0000' },
-  { id: 'southafrica', name: 'South Africa', emoji: '🇿🇦', colors: ['#007A4D','#1A1A1A','#DE3831'], accent: '#007A4D' },
-  { id: 'newzealand',  name: 'New Zealand',  emoji: '🇳🇿', colors: ['#00247D','#CC142B','#FFFFFF'], accent: '#00247D' },
-  { id: 'southkorea',  name: 'South Korea',  emoji: '🇰🇷', colors: ['#C60C30','#FFFFFF','#003478'], accent: '#C60C30' },
-  { id: 'norway',      name: 'Norway',       emoji: '🇳🇴', colors: ['#EF2B2D','#FFFFFF','#002868'], accent: '#002868' },
-  { id: 'france',      name: 'France',       emoji: '🇫🇷', colors: ['#002395','#FFFFFF','#ED2939'], accent: '#002395' },
-  { id: 'mexico',      name: 'Mexico',       emoji: '🇲🇽', colors: ['#006847','#FFFFFF','#CE1126'], accent: '#006847' },
-  { id: 'argentina',   name: 'Argentina',    emoji: '🇦🇷', colors: ['#74ACDF','#FFFFFF','#74ACDF'], accent: '#74ACDF' },
+  { id: 'usa',         name: 'USA',          emoji: '🇺🇸',  iso: 'us',     accent: '#3C3B6E' },
+  { id: 'england',     name: 'England',      emoji: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', iso: 'gb-eng', accent: '#CF142B' },
+  { id: 'ireland',     name: 'Ireland',      emoji: '🇮🇪',  iso: 'ie',     accent: '#169B62' },
+  { id: 'scotland',    name: 'Scotland',     emoji: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', iso: 'gb-sct', accent: '#003087' },
+  { id: 'australia',   name: 'Australia',    emoji: '🇦🇺',  iso: 'au',     accent: '#00008B' },
+  { id: 'canada',      name: 'Canada',       emoji: '🇨🇦',  iso: 'ca',     accent: '#D80621' },
+  { id: 'japan',       name: 'Japan',        emoji: '🇯🇵',  iso: 'jp',     accent: '#BC002D' },
+  { id: 'spain',       name: 'Spain',        emoji: '🇪🇸',  iso: 'es',     accent: '#AA151B' },
+  { id: 'sweden',      name: 'Sweden',       emoji: '🇸🇪',  iso: 'se',     accent: '#006AA7' },
+  { id: 'germany',     name: 'Germany',      emoji: '🇩🇪',  iso: 'de',     accent: '#DD0000' },
+  { id: 'southafrica', name: 'South Africa', emoji: '🇿🇦',  iso: 'za',     accent: '#007A4D' },
+  { id: 'newzealand',  name: 'New Zealand',  emoji: '🇳🇿',  iso: 'nz',     accent: '#00247D' },
+  { id: 'southkorea',  name: 'South Korea',  emoji: '🇰🇷',  iso: 'kr',     accent: '#C60C30' },
+  { id: 'norway',      name: 'Norway',       emoji: '🇳🇴',  iso: 'no',     accent: '#002868' },
+  { id: 'france',      name: 'France',       emoji: '🇫🇷',  iso: 'fr',     accent: '#002395' },
+  { id: 'mexico',      name: 'Mexico',       emoji: '🇲🇽',  iso: 'mx',     accent: '#006847' },
+  { id: 'argentina',   name: 'Argentina',    emoji: '🇦🇷',  iso: 'ar',     accent: '#74ACDF' },
 ]
+
+// flagcdn URL helper — returns a high-res CORS-enabled flag PNG.
+const flagUrl = (iso) => `https://flagcdn.com/w1280/${iso}.png`
 
 // ─── Processing messages ───────────────────────────────────────────────────────
 const PROC_MSGS = [
@@ -51,149 +57,87 @@ async function resizeCutout(blob, maxH = 280) {
   }
 }
 
-function loadImg(src) {
+function loadImg(src, { crossOrigin = null } = {}) {
   return new Promise((res, rej) => {
     const img = new Image()
+    if (crossOrigin) img.crossOrigin = crossOrigin
     img.onload = () => res(img)
     img.onerror = rej
     img.src = src
   })
 }
 
-// Draws diagonal parallelogram flag stripes — the ESPN style
-function drawFlagBg(ctx, W, H, colors) {
-  // Cream base
-  ctx.fillStyle = '#F5F2EC'
-  ctx.fillRect(0, 0, W, H)
-
-  const n = colors.length
-  const slant = W * 0.24  // diagonal slant amount
-
-  colors.forEach((color, i) => {
-    // Skip near-white stripes — they're invisible against the cream base
-    if (color === '#FFFFFF' || color === '#F5F2EC') return
-
-    const x0 = (W / n) * i
-    const x1 = (W / n) * (i + 1)
-
-    ctx.save()
-    ctx.globalAlpha = 0.26
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.moveTo(x0 + slant, 0)    // top-left
-    ctx.lineTo(x1 + slant, 0)    // top-right
-    ctx.lineTo(x1 - slant, H)    // bottom-right
-    ctx.lineTo(x0 - slant, H)    // bottom-left
-    ctx.closePath()
-    ctx.fill()
-    ctx.restore()
-  })
+// Draw a "cover-fit" image centered on the canvas — equivalent to
+// objectFit: cover in CSS. Used for the country flag background.
+function drawCover(ctx, img, x, y, W, H) {
+  const ir = img.naturalWidth / img.naturalHeight
+  const cr = W / H
+  let sw, sh, sx, sy
+  if (ir > cr) {
+    // image wider than canvas → crop sides
+    sh = img.naturalHeight
+    sw = sh * cr
+    sx = (img.naturalWidth - sw) / 2
+    sy = 0
+  } else {
+    // image taller → crop top/bottom
+    sw = img.naturalWidth
+    sh = sw / cr
+    sx = 0
+    sy = (img.naturalHeight - sh) / 2
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, W, H)
 }
 
-async function buildCard(cutoutBlob, flag, profile) {
+// Build the player card — PGA Tour Tour-page look:
+// faded country flag fills the full background; the cutout sits on top,
+// top-aligned. No diagonal stripes, no info panel, no name overlay.
+// `profile` is no longer rendered (we strip name/handicap/stats per the
+// user's spec); kept in the signature for callers' backwards compat.
+// (2026-04-30 — matches the PlayerPhoto component on the Tour tab.)
+async function buildCard(cutoutBlob, flag /* , profile */) {
   const W = 750, H = 1040
   const canvas = document.createElement('canvas')
   canvas.width = W; canvas.height = H
   const ctx = canvas.getContext('2d')
 
-  // 1 ── Background: cream + diagonal flag bands
-  drawFlagBg(ctx, W, H, flag.colors)
+  // 1 ── Soft cream base — gives the flag something neutral to fade onto
+  ctx.fillStyle = '#F5F2EC'
+  ctx.fillRect(0, 0, W, H)
 
-  // 2 ── Player cutout with bottom fade
+  // 2 ── Country flag, full-cover, faded (matches PGA PlayerPhoto opacity ~0.18)
+  try {
+    const flagImg = await loadImg(flagUrl(flag.iso), { crossOrigin: 'anonymous' })
+    ctx.save()
+    ctx.globalAlpha = 0.22
+    drawCover(ctx, flagImg, 0, 0, W, H)
+    ctx.restore()
+  } catch {
+    // Fallback: solid accent at low opacity if the flag image fails to load
+    ctx.save()
+    ctx.globalAlpha = 0.16
+    ctx.fillStyle = flag.accent
+    ctx.fillRect(0, 0, W, H)
+    ctx.restore()
+  }
+
+  // 3 ── Player cutout — full size, top-aligned (mirrors objectPosition: top center)
   const objUrl = URL.createObjectURL(cutoutBlob)
   try {
     const playerImg = await loadImg(objUrl)
     const aspect = playerImg.naturalWidth / playerImg.naturalHeight
-    const tH = H * 0.80
+    // Fill the card height; allow cropping at the sides if the cutout is narrow,
+    // and let it spill below if the player is tall (overflow is clipped to canvas).
+    const tH = H
     const tW = tH * aspect
     const px = (W - tW) / 2
-    const py = H * 0.04
-
-    // Offscreen canvas for fade masking
-    const ofc = document.createElement('canvas')
-    ofc.width = W; ofc.height = H
-    const oc = ofc.getContext('2d')
-    oc.drawImage(playerImg, px, py, tW, tH)
-
-    // Bottom fade via destination-out
-    oc.globalCompositeOperation = 'destination-out'
-    const fade = oc.createLinearGradient(0, H * 0.60, 0, H * 0.82)
-    fade.addColorStop(0, 'rgba(0,0,0,0)')
-    fade.addColorStop(1, 'rgba(0,0,0,1)')
-    oc.fillStyle = fade; oc.fillRect(0, 0, W, H)
-
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.drawImage(ofc, 0, 0)
-
-    // Subtle rim glow in accent color
-    const rimOfc = document.createElement('canvas')
-    rimOfc.width = W; rimOfc.height = H
-    const rc = rimOfc.getContext('2d')
-    rc.drawImage(playerImg, px, py, tW, tH)
-    rc.globalCompositeOperation = 'destination-out'
-    rc.fillStyle = fade; rc.fillRect(0, 0, W, H)
-    ctx.globalCompositeOperation = 'screen'
-    ctx.globalAlpha = 0.10
-    ctx.filter = `blur(20px)`
-    ctx.drawImage(rimOfc, 0, 0)
-    ctx.filter = 'none'
-    ctx.globalAlpha = 1
-    ctx.globalCompositeOperation = 'source-over'
+    const py = 0
+    ctx.drawImage(playerImg, px, py, tW, tH)
   } finally {
     URL.revokeObjectURL(objUrl)
   }
 
-  // 3 ── Info panel: cream gradient from transparent → opaque at bottom
-  const panelColor = '245,242,236'
-  const info = ctx.createLinearGradient(0, H * 0.58, 0, H)
-  info.addColorStop(0, `rgba(${panelColor},0)`)
-  info.addColorStop(0.22, `rgba(${panelColor},0.90)`)
-  info.addColorStop(1, `rgba(${panelColor},0.99)`)
-  ctx.fillStyle = info; ctx.fillRect(0, H * 0.58, W, H * 0.42)
-
-  // 4 ── Accent line in flag primary color
-  const lineY = Math.round(H * 0.786)
-  const lineGrad = ctx.createLinearGradient(W * 0.08, 0, W * 0.92, 0)
-  lineGrad.addColorStop(0, 'rgba(0,0,0,0)')
-  lineGrad.addColorStop(0.15, flag.accent)
-  lineGrad.addColorStop(0.85, flag.accent)
-  lineGrad.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.shadowColor = flag.accent
-  ctx.shadowBlur = 14
-  ctx.fillStyle = lineGrad
-  ctx.fillRect(W * 0.08, lineY, W * 0.84, 3)
-  ctx.shadowBlur = 0
-
-  // 5 ── Country name (below accent line)
-  ctx.textAlign = 'center'
-  ctx.fillStyle = 'rgba(13,31,18,0.42)'
-  ctx.font = '600 26px "Helvetica Neue", Arial, sans-serif'
-  ctx.letterSpacing = '0.12em'
-  ctx.fillText(flag.name.toUpperCase(), W / 2, H * 0.828)
-
-  // 6 ── Player name (dark, bold)
-  const name = (profile.name ?? 'PLAYER').toUpperCase()
-  ctx.fillStyle = '#0D1F12'
-  ctx.font = '900 72px "Helvetica Neue", Arial, sans-serif'
-  ctx.fillText(name, W / 2, H * 0.870)
-
-  // 7 ── Stats row
-  const hcp = profile.handicap != null
-    ? (profile.handicap > 0 ? `+${profile.handicap}` : `${profile.handicap}`)
-    : 'SCRATCH'
-  const course = (profile.home_course ?? 'THE COURSE').toUpperCase()
-  const record = profile.wins != null ? `${profile.wins}W · ${profile.losses}L` : null
-  const statParts = [`HCP ${hcp}`, course, record].filter(Boolean)
-  ctx.font = '500 26px "Helvetica Neue", Arial, sans-serif'
-  ctx.fillStyle = 'rgba(13,31,18,0.45)'
-  ctx.fillText(statParts.join('  ·  '), W / 2, H * 0.914)
-
-  // 8 ── THE MATCH watermark
-  ctx.font = '700 20px "Helvetica Neue", Arial, sans-serif'
-  ctx.fillStyle = 'rgba(13,31,18,0.16)'
-  ctx.fillText('THE MATCH', W / 2, H * 0.964)
-
-  return canvas.toDataURL('image/jpeg', 0.90)
+  return canvas.toDataURL('image/jpeg', 0.92)
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -570,28 +514,23 @@ function CustomizeScreen({ cardUrl, rebuildKey, flagIdx, flags, onFlag, onSave, 
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
               transition: 'all 0.18s ease',
             }}>
-              {/* Mini flag preview — diagonal stripes */}
+              {/* Mini flag preview — real flag image, matches what gets used on the card */}
               <div style={{
                 width: 36, height: 24, borderRadius: 4, overflow: 'hidden',
                 position: 'relative', background: '#F5F2EC',
                 border: '1px solid rgba(255,255,255,0.1)',
                 flexShrink: 0,
               }}>
-                {f.colors.filter(c => c !== '#FFFFFF').map((color, ci) => {
-                  const n = f.colors.filter(c => c !== '#FFFFFF').length
-                  return (
-                    <div key={ci} style={{
-                      position: 'absolute',
-                      top: 0, bottom: 0,
-                      left: `${(100 / n) * ci}%`,
-                      width: `${100 / n}%`,
-                      background: color,
-                      opacity: 0.75,
-                      transform: 'skewX(-10deg)',
-                      transformOrigin: 'top left',
-                    }} />
-                  )
-                })}
+                <img
+                  src={`https://flagcdn.com/w80/${f.iso}.png`}
+                  alt={f.name}
+                  loading="lazy"
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover', objectPosition: 'center',
+                    display: 'block',
+                  }}
+                />
               </div>
               <div style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
