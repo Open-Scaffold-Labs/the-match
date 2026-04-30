@@ -98,5 +98,45 @@ User shared a photo of the actual Masters scoreboard. The iconic Augusta panels 
 
 **Commit:** `1b24a77`. Touched: `client/src/components/AugustaBoard.jsx`. No new dependencies.
 
+## [2026-04-30] refactor | Path A — Augusta is the only scorecard
+
+User direction: "this needs to be the scorecard for every match you enter, it shouldnt have its own button it should be the only scorecard and the size of the rows can be a minimum of 4 rows that fit the screen if its a match of only 4 or less".
+
+Two paths considered. Picked **Path A** (Augusta visuals on `LiveOuting`, retire standalone `AugustaBoard`). Path B would have rebuilt scoring from `AugustaBoard` and ported all the server logic — too much regression risk for purely visual gain.
+
+**LiveOuting + ScorecardTable + TotalsRow restyled:**
+- Page background: dark forest green gradient (was transparent)
+- Header strip: dark green with white italic title and gold code chip
+- Wood-frame panel wrapping the scorecard with cream `LEADERS` banner
+- HOLE / PAR rows: black numerals on pale teal panel (`AUGUSTA_TEAL #A8C9C2`)
+- Player rows: white block-letter SURNAME caps on teal; current user gets a gold left-border accent
+- Score cells: cream tile (`AUGUSTA_TILE #F2EBD3`) with red numerals for under-par, ink for over; birdie = single red circle, eagle = double; bogey = single black square, double = double square
+- Subtotal columns (OUT / IN): dark green strip with white block letters
+- TOTALS strip: dark green panel with white SURNAME, white TOT/+/-/THRU; gold for under-par, light red for over
+- Match-play winning cells: light gold tile w/ green border; losing: light red tile w/ red border; halved: dashed border
+- Augusta plaque footer with M-flag bookends
+
+**Row sizing (the user's "min 4 rows that fit the screen" requirement):**
+- `MIN_ROWS = 4`. When the match has ≤4 players, real rows render at 80px and the table appends `4 - participants.length` filler placeholder rows (teal panel + cream tile slots) so the board always shows 4 rows.
+- When the match has >4 players, rows shrink to 56px and the body scrolls vertically.
+- Avoids stretching a single LAVIN row to 180px tall (looked terrible).
+
+**Add Player modal — search-as-you-type:**
+- Type 2+ chars → debounced 250ms call to `/api/friends/search?q=…`
+- Matching app users render as a tappable list with name + email + handicap; click to bulk-join via `/api/outings/:code/bulk-join`
+- "Add as guest" button always available — falls back to the original `/guests` endpoint for players without an account
+- Fixes the previous behavior where the only path was manual guest entry
+
+**Removed:**
+- `AugustaBoard` import (`from '../components/AugustaBoard.jsx'`) — the file still exists but is no longer wired up
+- The standalone `view === 'board'` route in the main `Outing` wrapper
+- The Augusta Scoreboard hero card on the Match tab
+- The `onLeaderboard` prop wiring through `OutingHub`
+
+**Color constants extracted to module level** at the top of `Outing.jsx` (`AUGUSTA_GREEN`, `AUGUSTA_TEAL`, `AUGUSTA_CREAM`, `AUGUSTA_TILE`, `AUGUSTA_RED`, `AUGUSTA_INK`, `AUGUSTA_WOOD`, `AUGUSTA_GREEN_DEEP`, `AUGUSTA_TEAL_HOVER`).
+
+**Commits:** `fbe1774` (initial Path A), `825ae55` (filler-rows fix). Touched: `client/src/pages/Outing.jsx`. No schema, no Eagle Eye, no server changes (server already had `/api/friends/search` and `/api/outings/:code/bulk-join`).
+
+
 
 
