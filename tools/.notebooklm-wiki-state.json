@@ -4,13 +4,14 @@
     "source_id": "06512a7e-69f2-45d3-be81-bb309de0388f"
   },
   "wiki/log.md": {
-    "mtime": 1777500342.255363,
-    "source_id": "15cedf79-865a-4c17-b902-414c9f97b702"
+    "mtime": 1777528264.1117735,
+    "source_id": "e465cdde-d243-46e8-a823-acbe25398583",
+    "verified_at": 1777528441.724957
   },
   "wiki/index.md": {
-    "mtime": 1777500342.2556713,
-    "source_id": "3cf047e7-2e47-4635-9b36-1131248ac851",
-    "verified_at": 1777501697.5899599
+    "mtime": 1777506498.2718418,
+    "source_id": "a12da60a-cd43-4e6f-9f83-ed7a442d6015",
+    "verified_at": 1777528452.4247959
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1777500342.2546115,
@@ -29,5 +30,15 @@
   "wiki/sources/claude-code-karpathy-obsidian-video-2026-04-14.md": {
     "mtime": 1777500342.257352,
     "source_id": "4ff84c02-ada1-4ab0-9605-906758c60d66"
+  },
+  "wiki/synthesis/audit-fixes-proposal-2026-04-29.md": {
+    "mtime": 1777506489.8181577,
+    "source_id": "57873476-9523-40c8-99b9-f1c92b98636a",
+    "verified_at": 1777528458.527522
+  },
+  "wiki/synthesis/audit-2026-04-29.md": {
+    "mtime": 1777505340.9369805,
+    "source_id": "b6b2c26c-b544-491b-aae6-eb751b761468",
+    "verified_at": 1777528463.928512
   }
 }
