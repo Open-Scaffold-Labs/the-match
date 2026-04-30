@@ -863,9 +863,230 @@ const TEAMS = [
   { id: 'big_team',   label: 'Multiple Teams', desc: 'Create 3 or more teams — ideal for larger groups' },
 ]
 
+// CoursePicker — search-as-you-type for real courses (GolfCourseAPI via
+// /api/courses/search). When the host picks a course, it loads the full
+// course detail and lets them choose a tee; the resulting hole_pars[] flows
+// up to the wizard via onPick. Includes a "type your own" fallback for
+// courses that aren't in the API. (2026-04-30)
+function CoursePicker({ value, onPick, onClear, onTypedName }) {
+  const [query, setQuery]       = useState('')
+  const [results, setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [coords, setCoords]     = useState(null)   // { lat, lng } once geolocation resolves
+  const [openCourse, setOpenCourse] = useState(null) // { id, club_name, course_name, tees: { male, female } }
+  const [loadingCourse, setLoadingCourse] = useState(false)
+
+  // Request geolocation once; gracefully no-op if denied
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* user denied or unavailable — search still works */ },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 5 * 60 * 1000 }
+    )
+  }, [])
+
+  // Debounced search after 2+ chars
+  useEffect(() => {
+    if (openCourse) return    // don't keep searching while picking a tee
+    const q = query.trim()
+    if (q.length < 2) { setResults([]); setSearching(false); return }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q })
+        if (coords) {
+          params.set('lat', String(coords.lat))
+          params.set('lng', String(coords.lng))
+        }
+        const res = await api(`/api/courses/search?${params.toString()}`)
+        setResults(Array.isArray(res?.courses) ? res.courses : [])
+      } catch {
+        setResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [query, coords, openCourse])
+
+  async function selectCourse(c) {
+    setLoadingCourse(true)
+    try {
+      const detail = await api(`/api/courses/${c.id}`)
+      setOpenCourse(detail)
+    } catch {
+      setOpenCourse(null)
+    } finally {
+      setLoadingCourse(false)
+    }
+  }
+
+  function selectTee(tee) {
+    if (!openCourse) return
+    const holes = (tee.holes || []).map(h => h.par)
+    onPick({
+      courseId:    openCourse.id,
+      courseName:  openCourse.club_name || openCourse.course_name,
+      courseTee:   tee.tee_name,
+      holePars:    holes,
+      holeYardages: (tee.holes || []).map(h => h.yardage),
+      holeHandicaps:(tee.holes || []).map(h => h.handicap),
+      coursePar:   tee.par_total,
+    })
+    setQuery('')
+    setResults([])
+    setOpenCourse(null)
+  }
+
+  // ─── Selected state — show the chosen course + tee compactly ─────────
+  if (value?.courseId && value?.holePars) {
+    return (
+      <div style={{
+        background: 'var(--tm-green-muted)',
+        border: '1px solid rgba(46,158,69,0.40)',
+        borderRadius: 'var(--tm-radius)',
+        padding: '12px 14px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--tm-green-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            ✓ {value.courseName}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--tm-text-2)', marginTop: 2 }}>
+            {value.courseTee} tees · Par {value.coursePar} · {value.holePars.length} holes
+          </div>
+        </div>
+        <button onClick={onClear} style={{
+          background: 'rgba(255,255,255,0.6)', border: '1px solid var(--tm-border)',
+          borderRadius: 8, padding: '6px 10px',
+          color: 'var(--tm-text-2)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          flexShrink: 0,
+        }}>Change</button>
+      </div>
+    )
+  }
+
+  // ─── Tee selection ───────────────────────────────────────────────────
+  if (openCourse) {
+    const allTees = [...(openCourse.tees?.male || []), ...(openCourse.tees?.female || [])]
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--tm-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {openCourse.club_name}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--tm-text-3)' }}>Choose a tee</div>
+          </div>
+          <button onClick={() => setOpenCourse(null)} style={{
+            background: 'none', border: 'none', color: 'var(--tm-text-3)',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>← Back</button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+          {allTees.length === 0 && (
+            <div style={{ color: 'var(--tm-text-3)', fontSize: 13, padding: 10 }}>
+              No tee data — try another course or type the name manually.
+            </div>
+          )}
+          {allTees.map((t, i) => (
+            <button key={`${t.tee_name}-${i}`} onClick={() => selectTee(t)} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 12px', borderRadius: 'var(--tm-radius)',
+              border: '1px solid var(--tm-border)', background: 'var(--tm-surface-2)',
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 13 }}>{t.tee_name}</div>
+                <div style={{ fontSize: 11, color: 'var(--tm-text-3)' }}>
+                  Par {t.par_total} · {t.total_yards} yds
+                  {t.course_rating ? ` · ${t.course_rating}/${t.slope_rating}` : ''}
+                </div>
+              </div>
+              <span style={{ color: 'var(--tm-green-text)', fontWeight: 800, fontSize: 13 }}>Pick →</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Search state ────────────────────────────────────────────────────
+  return (
+    <div>
+      <input
+        autoFocus
+        value={query}
+        onChange={e => { setQuery(e.target.value); onTypedName?.(e.target.value) }}
+        placeholder={coords ? 'Type a course (closest first)' : 'Type a course'}
+        style={{
+          width: '100%', background: 'var(--tm-surface-2)',
+          border: '1px solid var(--tm-border-2)', borderRadius: 'var(--tm-radius)',
+          color: 'var(--tm-text)', fontSize: 16, padding: '12px 14px',
+          outline: 'none', boxSizing: 'border-box',
+        }}
+      />
+      {(searching || loadingCourse || results.length > 0) && (
+        <div style={{
+          marginTop: 8, maxHeight: 220, overflowY: 'auto',
+          border: '1px solid var(--tm-border)', borderRadius: 'var(--tm-radius)',
+          background: 'var(--tm-surface-2)',
+        }}>
+          {(searching || loadingCourse) && (
+            <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--tm-text-3)' }}>
+              {loadingCourse ? 'Loading course…' : 'Searching…'}
+            </div>
+          )}
+          {results.map(c => (
+            <button key={c.id} onClick={() => selectCourse(c)} style={{
+              width: '100%', textAlign: 'left', cursor: 'pointer',
+              padding: '10px 14px', border: 'none', background: 'transparent',
+              borderBottom: '1px solid var(--tm-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.club_name || c.course_name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--tm-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {[c.city, c.state, c.country].filter(Boolean).join(', ')}
+                </div>
+              </div>
+              {c.distance_km != null && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tm-green-text)', flexShrink: 0 }}>
+                  {c.distance_km < 1 ? `${Math.round(c.distance_km * 1000)}m` :
+                    c.distance_km < 100 ? `${c.distance_km.toFixed(1)}km` :
+                    `${Math.round(c.distance_km)}km`}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 8 }}>
+        Can't find it? Just leave the name typed — we'll use your course name without the per-hole pars.
+      </div>
+    </div>
+  )
+}
+
 function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState({ name: '', courseName: '', format: 'stroke', team: 'individual', holes: 18 })
+  const [form, setForm] = useState({
+    name: '',
+    courseName: '',
+    format: 'stroke',
+    team: 'individual',
+    holes: 18,
+    // Real course data captured by the picker; null when host opts out
+    courseId: null,
+    courseTee: null,
+    holePars: null,
+    holeYardages: null,
+    holeHandicaps: null,
+    coursePar: null,    // computed from picked tee's par_total when set
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -874,12 +1095,24 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
   async function handleCreate() {
     setLoading(true); setError('')
     try {
+      // If user picked a real course, slice hole_pars to the chosen hole count;
+      // if they only typed a name (or skipped), fall back to the legacy default.
+      const slice = (arr) => Array.isArray(arr) ? arr.slice(0, form.holes) : null
+      const slicedPars     = slice(form.holePars)
+      const computedPar    = slicedPars ? slicedPars.reduce((a, b) => a + (b || 0), 0) : null
+
       const data = await post('/api/outings', {
         name: form.name || `${user.name}'s Match`,
         courseName: form.courseName || 'TBD',
         scoringFormats: [form.format],
         teamFormat: form.team,
-        coursePar: form.holes === 9 ? 36 : 72,
+        coursePar: computedPar || form.coursePar || (form.holes === 9 ? 36 : 72),
+        // Real per-hole data — server stores nulls when not provided
+        courseId:      form.courseId,
+        courseTee:     form.courseTee,
+        holePars:      slicedPars,
+        holeYardages:  slice(form.holeYardages),
+        holeHandicaps: slice(form.holeHandicaps),
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -905,8 +1138,29 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
       </div>
       <div>
         <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Course</div>
-        <input value={form.courseName} onChange={e => set('courseName', e.target.value)} placeholder="Course name (optional)"
-          style={{ width: '100%', background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border-2)', borderRadius: 'var(--tm-radius)', color: 'var(--tm-text)', fontSize: 16, padding: '12px 14px', outline: 'none', boxSizing: 'border-box' }} />
+        <CoursePicker
+          value={form.courseId ? form : null}
+          onPick={picked => setForm(f => ({
+            ...f,
+            courseId:      picked.courseId,
+            courseName:    picked.courseName,
+            courseTee:     picked.courseTee,
+            holePars:      picked.holePars,
+            holeYardages:  picked.holeYardages,
+            holeHandicaps: picked.holeHandicaps,
+            coursePar:     picked.coursePar,
+          }))}
+          onClear={() => setForm(f => ({
+            ...f,
+            courseId:      null,
+            courseTee:     null,
+            holePars:      null,
+            holeYardages:  null,
+            holeHandicaps: null,
+            coursePar:     null,
+          }))}
+          onTypedName={text => set('courseName', text)}
+        />
       </div>
       <div>
         <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Holes</div>
@@ -1371,7 +1625,13 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const markers      = outing.state?.markers ?? []  // [{ marker_id, member_ids[] }]
   const holeCount    = outing.state?.holes ?? 18
   const coursePar    = outing.course_par ?? 72
-  const holePars     = estimateHolePars(coursePar, holeCount)
+  // Prefer real per-hole pars from the picked course; fall back to the
+  // synthetic distribution for legacy matches that have no course_id.
+  // (2026-04-30 — migration 006 added the column)
+  const realHolePars = Array.isArray(outing.hole_pars) ? outing.hole_pars : null
+  const holePars     = realHolePars && realHolePars.length >= holeCount
+    ? realHolePars.slice(0, holeCount)
+    : estimateHolePars(coursePar, holeCount)
   const isHost       = String(outing.host_id) === String(user?.id)
   const isTeamFormat = outing.team_format && outing.team_format !== 'individual'
 

@@ -14,7 +14,11 @@ function genCode() {
 
 // ─── POST /api/outings — create ───────────────────────────────────────────────
 router.post('/', async (req, res) => {
-  const { name, courseName, coursePar, scoringFormats, teamFormat, pointMethod } = req.body
+  const {
+    name, courseName, coursePar, scoringFormats, teamFormat, pointMethod,
+    // New (2026-04-30): real per-hole course data from the create-wizard course picker
+    courseId, courseTee, holePars, holeYardages, holeHandicaps,
+  } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
   // Ensure unique code
@@ -28,11 +32,24 @@ router.post('/', async (req, res) => {
   const state  = { holes, participants: [] }
 
   const row = await db.one(
-    `INSERT INTO tm_outings (code, name, host_id, course_name, course_par, team_format, point_method, scoring_formats, state)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-    [code, name, req.user.id, courseName || 'TBD', coursePar || 72,
-     teamFormat || 'individual', pointMethod || null,
-     JSON.stringify(scoringFormats || ['stroke']), JSON.stringify(state)]
+    `INSERT INTO tm_outings (
+       code, name, host_id, course_name, course_par,
+       team_format, point_method, scoring_formats, state,
+       course_id, course_tee, hole_pars, hole_yardages, hole_handicaps
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     RETURNING *`,
+    [
+      code, name, req.user.id,
+      courseName || 'TBD', coursePar || 72,
+      teamFormat || 'individual', pointMethod || null,
+      JSON.stringify(scoringFormats || ['stroke']), JSON.stringify(state),
+      courseId || null,
+      courseTee || null,
+      Array.isArray(holePars)      ? JSON.stringify(holePars)      : null,
+      Array.isArray(holeYardages)  ? JSON.stringify(holeYardages)  : null,
+      Array.isArray(holeHandicaps) ? JSON.stringify(holeHandicaps) : null,
+    ]
   )
 
   // Auto-add host as participant
