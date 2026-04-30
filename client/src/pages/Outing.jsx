@@ -27,15 +27,6 @@ const AUGUSTA_WOOD        = '#5a3a16'   // hand-painted wood frame edge
 const AUGUSTA_TEAL        = AUGUSTA_PANEL
 const AUGUSTA_TEAL_HOVER  = AUGUSTA_PANEL_HOVER
 
-// Engraved-groove horizontal divider — 1px shadow + 1px highlight rendered
-// as box-shadow (not borderBottom) so the line is always visible across
-// every cell type (panel green, dark green OUT/IN, cream tile) without the
-// 1px-on-flex-children subpixel-gap rendering bug at retina densities.
-// (2026-04-30 PM round 3)
-const DIVIDER_SHADOW    = 'rgba(0,0,0,0.55)'
-const DIVIDER_HIGHLIGHT = 'rgba(255,255,255,0.18)'
-const ROW_DIVIDER_SHADOW = `inset 0 -1px 0 0 ${DIVIDER_SHADOW}, inset 0 -2px 0 0 ${DIVIDER_HIGHLIGHT}`
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function scoreColor(strokes, par) {
   if (!strokes || !par) return 'var(--tm-text-2)'
@@ -2080,14 +2071,16 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
   const panelGradient = `linear-gradient(180deg, ${AUGUSTA_PANEL_HI} 0%, ${AUGUSTA_PANEL} 100%)`
+  // Divider color uses neutral black-alpha (not AUGUSTA_GREEN_DEEP) so the
+  // horizontal line is visible across BOTH the gradient panel AND the dark
+  // green OUT/IN strip — fixes the "line breaks off at hole 8/9" bug
+  // where the divider visually disappeared at the OUT cell because its bg
+  // was the same color as the divider. (2026-04-30 PM)
+  const dividerColor = 'rgba(0,0,0,0.50)'
   const headerRow = {
     display: 'flex', alignItems: 'center',
+    borderBottom: '1px solid ' + dividerColor,
     background: panelGradient,
-    // engraved-groove effect: shadow + highlight via box-shadow (see
-    // ROW_DIVIDER_SHADOW comment at top of file). Avoids the 1px
-    // borderBottom subpixel-gap rendering bug on flex children.
-    boxShadow: ROW_DIVIDER_SHADOW,
-    position: 'relative',   // makes the inset shadow stack predictably
   }
   const headerNameCol = {
     minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
@@ -2134,7 +2127,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
       </div>
 
       {/* PAR row — gold numerals on green (the iconic Augusta detail) */}
-      <div style={headerRow}>
+      <div style={{ ...headerRow, borderBottom: '2px solid ' + dividerColor }}>
         <div style={{ ...headerNameCol, color: AUGUSTA_GOLD }}>PAR</div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
           {holes.map(h => (
@@ -2159,7 +2152,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
         return (
           <div key={p.user_id} style={{
             display: 'flex', alignItems: 'center',
-            boxShadow: ROW_DIVIDER_SHADOW,
+            borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
             background: isMe ? AUGUSTA_PANEL_HOVER : panelGradient,
             borderLeft: isMe ? `4px solid ${AUGUSTA_GOLD}` : 'none',
             minHeight: rowH,
@@ -2269,7 +2262,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
       {Array(fillerRows).fill(0).map((_, i) => (
         <div key={`filler-${i}`} style={{
           display: 'flex', alignItems: 'center',
-          boxShadow: ROW_DIVIDER_SHADOW,
+          borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
           background: panelGradient,
           minHeight: rowH,
         }}>
@@ -2318,7 +2311,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center',
-        boxShadow: ROW_DIVIDER_SHADOW,
+        borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
         background: AUGUSTA_GREEN_DEEP,
       }}>
         <div style={{
@@ -2375,7 +2368,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
         return (
           <div key={p.user_id} style={{
             display: 'flex', alignItems: 'center',
-            boxShadow: ROW_DIVIDER_SHADOW,
+            borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
             background: AUGUSTA_GREEN,
           }}>
             {/* Avatar cell — photo fills edge-to-edge on the dark green strip */}
