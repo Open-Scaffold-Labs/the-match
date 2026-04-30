@@ -135,9 +135,11 @@ router.get('/:code', async (req, res) => {
     const row = await db.one('SELECT * FROM tm_outings WHERE code = $1', [req.params.code.toUpperCase()])
     if (!row) return res.status(404).json({ error: 'Outing not found' })
 
-    // Enrich state participants with per-hole scores from the DB table
+    // Enrich state participants with per-hole scores, handicap, and avatar
+    // from tm_users so the Augusta scorecard can show profile pictures.
+    // (avatar added 2026-04-30 — user requested player photos on the board)
     const partRows = await db.many(
-      `SELECT op.user_id, op.scores, u.handicap
+      `SELECT op.user_id, op.scores, u.handicap, u.avatar
        FROM tm_outing_participants op
        LEFT JOIN tm_users u ON u.id = op.user_id
        WHERE op.outing_id = $1`,
@@ -145,9 +147,14 @@ router.get('/:code', async (req, res) => {
     )
     const state = row.state || { participants: [] }
     const enriched = (state.participants || []).map(p => {
-      if (p.is_guest) return p  // guests: scores already in state JSONB
+      if (p.is_guest) return p  // guests: scores already in state JSONB, no avatar
       const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
-      return { ...p, scores: dp?.scores || [], handicap: dp?.handicap ?? null }
+      return {
+        ...p,
+        scores: dp?.scores || [],
+        handicap: dp?.handicap ?? null,
+        avatar: dp?.avatar ?? null,
+      }
     })
     res.json({ outing: { ...row, state: { ...state, participants: enriched } } })
   } catch (err) {

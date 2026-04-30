@@ -32,6 +32,45 @@ function scoreColor(strokes, par) {
 function initials(name = '') {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2)
 }
+
+// Deterministic avatar ring color from name — used for initials fallback.
+// Same palette as the standalone AugustaBoard, colors that read on cream/teal.
+function avatarBg(name = '') {
+  const palette = ['#1B5E20', '#0D47A1', '#6A1B9A', '#B71C1C', '#006064', '#E65100', '#33691E', '#4527A0']
+  let h = 0
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff
+  return palette[h % palette.length]
+}
+
+// PlayerAvatar — renders the user's profile photo if uploaded, otherwise
+// a colored initials circle. Used in the scorecard player rows.
+function PlayerAvatar({ name = '', avatar = null, size = 30, ringColor = AUGUSTA_GREEN }) {
+  const initialsStr = initials(name) || '·'
+  const baseStyle = {
+    width: size, height: size, borderRadius: '50%',
+    flexShrink: 0,
+    border: `2px solid ${ringColor}`,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+    overflow: 'hidden',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: avatarBg(name),
+    color: '#fff',
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    fontSize: Math.round(size * 0.36), fontWeight: 900,
+    letterSpacing: 0,
+  }
+  if (avatar) {
+    return (
+      <div style={{ ...baseStyle, background: AUGUSTA_TILE }}>
+        <img
+          src={avatar} alt={name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      </div>
+    )
+  }
+  return <div style={baseStyle}>{initialsStr}</div>
+}
 function wlLabel(w, l, t) {
   if (!w && !l && !t) return '—'
   return `${w}-${l}${t ? `-${t}` : ''}`
@@ -1420,8 +1459,9 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
 
-  // Column width constants
-  const PLAYER_COL = 90
+  // Column width constants. PLAYER_COL bumped from 90 → 116 (2026-04-30) to
+  // accommodate the 30px avatar circle alongside the surname.
+  const PLAYER_COL = 116
   const HOLE_COL   = 32
   const SUB_COL    = 40
 
@@ -1787,27 +1827,36 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             borderLeft: isMe ? `4px solid ${AUGUSTA_GREEN}` : 'none',
             minHeight: rowH,
           }}>
-            {/* Player surname in caps on teal panel */}
+            {/* Player avatar + surname caps on teal panel */}
             <div style={{
               minWidth: PLAYER_COL - (isMe ? 4 : 0), width: PLAYER_COL - (isMe ? 4 : 0),
-              padding: '8px 10px', flexShrink: 0, overflow: 'hidden',
+              padding: '6px 8px', flexShrink: 0, overflow: 'hidden',
+              display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <div style={{
-                fontSize: 14, fontWeight: 900, color: AUGUSTA_INK,
-                fontFamily: '"Arial Black", Arial, sans-serif',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                letterSpacing: '0.04em',
-              }}>
-                {display}
-              </div>
-              {team && (
+              <PlayerAvatar
+                name={p.name}
+                avatar={p.avatar}
+                size={Math.min(36, rowH - 16)}
+                ringColor={isMe ? AUGUSTA_GREEN : 'rgba(255,255,255,0.85)'}
+              />
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 10, color: AUGUSTA_INK, fontWeight: 700, opacity: 0.7,
+                  fontSize: 13, fontWeight: 900, color: AUGUSTA_INK,
+                  fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  letterSpacing: '0.04em',
                 }}>
-                  {team.name}
+                  {display}
                 </div>
-              )}
+                {team && (
+                  <div style={{
+                    fontSize: 10, color: AUGUSTA_INK, fontWeight: 700, opacity: 0.7,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {team.name}
+                  </div>
+                )}
+              </div>
             </div>
             {/* Score cells */}
             <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
@@ -1952,17 +2001,28 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
             borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
             background: AUGUSTA_GREEN,
           }}>
-            <div style={{ minWidth: PLAYER_COL, width: PLAYER_COL, padding: '10px 10px', flexShrink: 0 }}>
-              <div style={{
-                fontSize: 14, fontWeight: 900, color: '#fff',
-                fontFamily: '"Arial Black", Arial, sans-serif',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                letterSpacing: '0.04em',
-              }}>{display}</div>
-              {team && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700 }}>{team.name}</div>}
-              {netMode && p.handicap != null && !p.is_guest && (
-                <div style={{ fontSize: 9, color: '#FFD700', fontWeight: 700 }}>HCP {p.handicap}</div>
-              )}
+            <div style={{
+              minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 8px', flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <PlayerAvatar
+                name={p.name}
+                avatar={p.avatar}
+                size={32}
+                ringColor="#FFD700"
+              />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 900, color: '#fff',
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  letterSpacing: '0.04em',
+                }}>{display}</div>
+                {team && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700 }}>{team.name}</div>}
+                {netMode && p.handicap != null && !p.is_guest && (
+                  <div style={{ fontSize: 9, color: '#FFD700', fontWeight: 700 }}>HCP {p.handicap}</div>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <div style={{
