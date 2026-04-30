@@ -1719,9 +1719,13 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
 
-  // Column width constants. PLAYER_COL bumped from 90 → 116 (2026-04-30) to
-  // accommodate the 30px avatar circle alongside the surname.
-  const PLAYER_COL = 116
+  // Column width constants. The leftmost area of each row is split into TWO
+  // cells now (2026-04-30): a square AVATAR_COL that houses the photo edge-
+  // to-edge, and a NAME_COL for the surname caps. Old single PLAYER_COL kept
+  // around as the sum so headers (HOLE / PAR / TOTALS) span both cells.
+  const AVATAR_COL = 60        // square; matches rowH visually w/o forcing it
+  const NAME_COL   = 88        // enough room for surnames at fontSize 13
+  const PLAYER_COL = AVATAR_COL + NAME_COL  // 148 — used for header spans
   const HOLE_COL   = 32
   const SUB_COL    = 40
 
@@ -1877,6 +1881,8 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 matchPlayData={isMatchPlay ? matchPlayData : null}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
+                AVATAR_COL={AVATAR_COL}
+                NAME_COL={NAME_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
                 rowH={ROW_H}
@@ -1921,6 +1927,8 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 matchPlayData={matchPlayData}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
+                AVATAR_COL={AVATAR_COL}
+                NAME_COL={NAME_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
               />
@@ -2013,7 +2021,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0 }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 60, NAME_COL = 88, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0 }) {
   // Augusta-style table — teal panels for HOLE/PAR/name columns, dark green
   // strip for OUT/IN subtotal columns, cream tiles for score cells.
   const headerRow = {
@@ -2087,21 +2095,46 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             borderLeft: isMe ? `4px solid ${AUGUSTA_GREEN}` : 'none',
             minHeight: rowH,
           }}>
-            {/* Player avatar + surname caps on teal panel */}
+            {/* Avatar cell — photo fills edge-to-edge, square box */}
             <div style={{
-              minWidth: PLAYER_COL - (isMe ? 4 : 0), width: PLAYER_COL - (isMe ? 4 : 0),
-              padding: '6px 8px', flexShrink: 0, overflow: 'hidden',
-              display: 'flex', alignItems: 'center', gap: 8,
+              minWidth: AVATAR_COL - (isMe ? 4 : 0), width: AVATAR_COL - (isMe ? 4 : 0),
+              height: rowH, flexShrink: 0,
+              borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
+              background: isMe ? AUGUSTA_TEAL_HOVER : AUGUSTA_TEAL,
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <PlayerAvatar
-                name={p.name}
-                avatar={p.avatar}
-                size={Math.min(36, rowH - 16)}
-                ringColor={isMe ? AUGUSTA_GREEN : 'rgba(255,255,255,0.85)'}
-              />
+              {p.avatar ? (
+                <img
+                  src={p.avatar}
+                  alt={p.name}
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover', objectPosition: 'top center',
+                    display: 'block',
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '100%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: avatarBg(p.name),
+                  color: '#fff',
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                  fontSize: Math.round(rowH * 0.36), fontWeight: 900,
+                  letterSpacing: '0.02em',
+                }}>{initials(p.name)}</div>
+              )}
+            </div>
+            {/* Name cell — surname caps on teal panel */}
+            <div style={{
+              minWidth: NAME_COL, width: NAME_COL, height: rowH,
+              padding: '0 10px', flexShrink: 0, overflow: 'hidden',
+              display: 'flex', alignItems: 'center',
+            }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: 900, color: AUGUSTA_INK,
+                  fontSize: 14, fontWeight: 900, color: AUGUSTA_INK,
                   fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   letterSpacing: '0.04em',
@@ -2112,6 +2145,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                   <div style={{
                     fontSize: 10, color: AUGUSTA_INK, fontWeight: 700, opacity: 0.7,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    marginTop: 2,
                   }}>
                     {team.name}
                   </div>
@@ -2168,9 +2202,16 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
           background: AUGUSTA_TEAL,
           minHeight: rowH,
         }}>
+          {/* Empty avatar cell */}
           <div style={{
-            minWidth: PLAYER_COL, width: PLAYER_COL,
-            padding: '8px 10px', flexShrink: 0, height: rowH,
+            minWidth: AVATAR_COL, width: AVATAR_COL, height: rowH,
+            borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
+            flexShrink: 0,
+          }} />
+          {/* Empty name cell */}
+          <div style={{
+            minWidth: NAME_COL, width: NAME_COL, height: rowH,
+            padding: '0 10px', flexShrink: 0,
           }} />
           <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
             {holes.map(h => (
@@ -2195,7 +2236,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
 }
 
 // ─── Totals row ───────────────────────────────────────────────────────────────
-function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL }) {
+function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 60, NAME_COL = 88, HOLE_COL, SUB_COL }) {
   // Augusta-style: dark green strip with white block-letter "TOTALS" + numbers
   return (
     <div style={{ background: AUGUSTA_GREEN, borderTop: '2px solid ' + AUGUSTA_WOOD }}>
@@ -2255,32 +2296,59 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
                       : dParsed < 0 ? '#FFD700'
                       : '#FFB4B4'
 
+        const totalsRowH = 56
         return (
           <div key={p.user_id} style={{
             display: 'flex', alignItems: 'center',
             borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
             background: AUGUSTA_GREEN,
           }}>
+            {/* Avatar cell — photo fills edge-to-edge on the dark green strip */}
             <div style={{
-              minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 8px', flexShrink: 0,
-              display: 'flex', alignItems: 'center', gap: 8,
+              minWidth: AVATAR_COL, width: AVATAR_COL, height: totalsRowH,
+              flexShrink: 0,
+              borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
+              background: AUGUSTA_GREEN_DEEP,
+              overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <PlayerAvatar
-                name={p.name}
-                avatar={p.avatar}
-                size={32}
-                ringColor="#FFD700"
-              />
+              {p.avatar ? (
+                <img
+                  src={p.avatar}
+                  alt={p.name}
+                  style={{
+                    width: '100%', height: '100%',
+                    objectFit: 'cover', objectPosition: 'top center',
+                    display: 'block',
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', height: '100%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: avatarBg(p.name),
+                  color: '#fff',
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                  fontSize: Math.round(totalsRowH * 0.36), fontWeight: 900,
+                }}>{initials(p.name)}</div>
+              )}
+            </div>
+            {/* Name cell */}
+            <div style={{
+              minWidth: NAME_COL, width: NAME_COL, height: totalsRowH,
+              padding: '0 10px', flexShrink: 0,
+              display: 'flex', alignItems: 'center',
+            }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: 900, color: '#fff',
+                  fontSize: 14, fontWeight: 900, color: '#fff',
                   fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   letterSpacing: '0.04em',
                 }}>{display}</div>
-                {team && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700 }}>{team.name}</div>}
+                {team && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, marginTop: 2 }}>{team.name}</div>}
                 {netMode && p.handicap != null && !p.is_guest && (
-                  <div style={{ fontSize: 9, color: '#FFD700', fontWeight: 700 }}>HCP {p.handicap}</div>
+                  <div style={{ fontSize: 9, color: '#FFD700', fontWeight: 700, marginTop: 1 }}>HCP {p.handicap}</div>
                 )}
               </div>
             </div>
