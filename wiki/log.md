@@ -137,6 +137,27 @@ Two paths considered. Picked **Path A** (Augusta visuals on `LiveOuting`, retire
 
 **Commits:** `fbe1774` (initial Path A), `825ae55` (filler-rows fix). Touched: `client/src/pages/Outing.jsx`. No schema, no Eagle Eye, no server changes (server already had `/api/friends/search` and `/api/outings/:code/bulk-join`).
 
+## [2026-04-30] refactor | Profile pictures on the Augusta scorecard
+
+User wanted player photos on the scorecard alongside the surname caps.
+
+**Server change** — `/api/outings/:code` now enriches each non-guest participant with `u.avatar` (data URL) from `tm_users`. Guests don't have avatars (they have no account); they get the initials fallback.
+
+**Client change** — new `<PlayerAvatar />` component in `Outing.jsx`:
+- Renders an `<img>` of the user's uploaded photo when `avatar` is set
+- Falls back to initials on a deterministic background color (same palette as the original AugustaBoard helpers — `#1B5E20`, `#0D47A1`, `#6A1B9A`, etc.)
+- Configurable size + ring color so it can be themed differently in `ScorecardTable` (white-ish ring on teal panel) vs `TotalsRow` (gold ring on dark green strip)
+
+**Layout adjustments:**
+- `PLAYER_COL` bumped from 90 → 116 to fit the avatar + surname inline without truncation
+- Avatar size auto-scales with `rowH` (capped at 36px) so larger row heights for ≤4-player matches show bigger photos
+- Current user's avatar still gets the gold ring + the row's gold left-border accent
+
+**Verified live** — joined a match, saw the LAVIN row with my actual profile photo to the left of the surname; entered scores 5 (bogey, black square), 3 (birdie, red circle), 6 (double, double square), 2 (eagle, double red circle), 4 (par, no marker). All markers + colors firing correctly.
+
+**Commit:** `215cd2d`. Touched: `server/src/routes/outings.js`, `client/src/pages/Outing.jsx`. No schema (avatar/cutout columns already existed in `tm_users`).
+
+
 
 
 
