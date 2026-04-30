@@ -41,7 +41,13 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
   }, [])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    /* Dark backdrop so the white-text Outing UI is readable against the
+       bright golf-ball page background. Without this, headers and copy
+       sat directly on top of the image and washed out (audit R1/R5). */
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: 'linear-gradient(180deg, rgba(7,16,12,0.85) 0%, rgba(7,16,12,0.92) 60%, rgba(7,16,12,0.96) 100%)',
+    }}>
       <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
@@ -49,7 +55,7 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: 2,
         }}>Outings</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Your rivalries live here</div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>Your rivalries live here</div>
       </div>
 
       <div className="page-scroll" style={{
@@ -114,7 +120,7 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
 
         {/* Head-to-head rivalries */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Your Rivalries</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Your Rivalries</div>
           {loading
             ? <div style={{ color: 'var(--tm-text-3)', textAlign: 'center', padding: '20px 0', fontSize: 14 }}>Loading…</div>
             : rivalries.length === 0
@@ -126,7 +132,7 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
         {/* Recent outings */}
         {recentOutings.length > 0 && (
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Recent Outings</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Recent Outings</div>
             {recentOutings.map(o => (
               <button key={o.id} onClick={() => onOpenOuting(o.code)}
                 style={{
@@ -235,7 +241,7 @@ function EmptyRivalries() {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         margin: '0 auto 16px',
       }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
           <circle cx="9" cy="7" r="4"/>
           <path d="M23 21v-2a4 4 0 00-3-3.87"/>
@@ -662,7 +668,7 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
                   }}>{p.name}</div>
                 ))}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 8 }}>
                 These players will be auto-added when you create the outing.
               </div>
             </div>
@@ -1754,7 +1760,7 @@ function TeamSetup({ outing, onClose, onSaved }) {
           <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Set Teams</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
-        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginBottom: 20 }}>
+        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 20 }}>
           Tap a player to assign them · tap their name again to move or remove
         </div>
 
@@ -1799,7 +1805,7 @@ function TeamSetup({ outing, onClose, onSaved }) {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>{members.length} players</span>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>{members.length} players</span>
                   {teams.length > 2 && (
                     <button onClick={() => removeTeam(team.id)} style={{
                       background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)',
@@ -1847,7 +1853,7 @@ function TeamSetup({ outing, onClose, onSaved }) {
           <button onClick={addTeam} style={{
             width: '100%', padding: '11px',
             background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.12)',
-            borderRadius: 10, color: 'rgba(255,255,255,0.3)', fontSize: 13,
+            borderRadius: 10, color: 'rgba(255,255,255,0.6)', fontSize: 13,
             cursor: 'pointer', marginBottom: 16,
           }}>+ Add Team</button>
         )}

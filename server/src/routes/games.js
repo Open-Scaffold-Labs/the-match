@@ -5,19 +5,26 @@ const db          = require('../db')
 
 router.use(requireAuth)
 
-// ─── POST /api/games — create a group game and invite up to 3 friends ─────────
+// ─── POST /api/games — create a group match and invite up to 3 friends ─────────
+// (Note: route is /api/games for legacy reasons; in user-facing copy these are
+// "matches" — golf parlance. The DB table is tm_games; renaming would be a
+// bigger schema migration than is currently warranted.)
 router.post('/', async (req, res) => {
   try {
     const uid = req.user.id
-    const { date, course_name, request_type = 'tee_time', message, invitee_ids = [] } = req.body
+    const { date, start_time, course_name, request_type = 'tee_time', message, invitee_ids = [] } = req.body
     if (!date) return res.status(400).json({ error: 'date required' })
     if (invitee_ids.length > 3) return res.status(400).json({ error: 'max 3 invitees' })
+    // start_time is optional — accepted as 'HH:MM' or 'HH:MM:SS' or null
+    if (start_time && !/^\d{2}:\d{2}(:\d{2})?$/.test(start_time)) {
+      return res.status(400).json({ error: 'start_time must be HH:MM or HH:MM:SS' })
+    }
 
-    // Create the game
+    // Create the match
     const game = await db.one(
-      `INSERT INTO tm_games (created_by, date, course_name, request_type, message)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [uid, date, course_name || null, request_type, message || null]
+      `INSERT INTO tm_games (created_by, date, start_time, course_name, request_type, message)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [uid, date, start_time || null, course_name || null, request_type, message || null]
     )
     const gameId = game.id
 
@@ -48,10 +55,13 @@ router.get('/', async (req, res) => {
   try {
     const uid = req.user.id
 
-    // All games I'm part of (any status) that haven't passed
+    // All matches I'm part of (any status) that haven't passed.
+    // Sort by date ASC, then start_time ASC (NULLs last) so multiple
+    // matches on the same day appear in time order.
     const rows = await db.many(
       `SELECT
          g.id, g.created_by, TO_CHAR(g.date, 'YYYY-MM-DD') AS date,
+         TO_CHAR(g.start_time, 'HH24:MI') AS start_time,
          g.course_name, g.request_type, g.message, g.created_at,
          g.broadcast,
          gp.status AS my_status,
@@ -60,7 +70,7 @@ router.get('/', async (req, res) => {
        JOIN tm_games g ON g.id = gp.game_id
        JOIN tm_users u ON u.id = g.created_by
        WHERE gp.user_id = $1 AND g.date >= CURRENT_DATE
-       ORDER BY g.date ASC`,
+       ORDER BY g.date ASC, g.start_time ASC NULLS LAST`,
       [uid]
     )
 
@@ -169,7 +179,7 @@ router.post('/:id/broadcast', async (req, res) => {
       [gameId]
     )
     const filled = parseInt(countRow.c)
-    if (filled >= 4) return res.status(400).json({ error: 'Game already full' })
+    if (filled >= 4) return res.status(400).json({ error: 'Match already full' })
 
     // Get all accepted friends not already in the game
     const friends = await db.many(
@@ -222,7 +232,7 @@ router.post('/:id/invite', async (req, res) => {
       `SELECT COUNT(*) AS c FROM tm_game_participants WHERE game_id = $1 AND status != 'declined'`,
       [req.params.id]
     )
-    if (parseInt(count.c) >= 4) return res.status(400).json({ error: 'Game is full (max 4)' })
+    if (parseInt(count.c) >= 4) return res.status(400).json({ error: 'Match is full (max 4)' })
 
     await db.query(
       `INSERT INTO tm_game_participants (game_id, user_id, status) VALUES ($1, $2, 'pending')

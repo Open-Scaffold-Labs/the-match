@@ -218,7 +218,11 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800 }}>PLAYING PARTNERS</div>
+        <div style={{
+          color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+          textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+        }}>PLAYING PARTNERS</div>
         <button onClick={() => onAddFriend ? onAddFriend() : setShowAdd(v => !v)} style={{
           background: 'rgba(27,94,59,0.06)',
           border: '1px solid rgba(27,94,59,0.14)', borderRadius: 8,
@@ -544,7 +548,12 @@ function AvailabilityCalendar({ uid, onScheduleGame }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800, marginBottom: 10 }}>
+      <div style={{
+        color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+        marginBottom: 10,
+        background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+        display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+      }}>
         AVAILABILITY CALENDAR
       </div>
 
@@ -760,7 +769,11 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <div style={{ color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800 }}>
+        <div style={{
+          color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+          textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+        }}>
           UPCOMING TEE TIMES
         </div>
         <span style={{
@@ -773,6 +786,13 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
         const dateLabel = new Date(g.date + 'T12:00:00').toLocaleDateString('en-US', {
           weekday: 'short', month: 'short', day: 'numeric',
         })
+        // Time of day in 12-hour format with AM/PM. NULL → no suffix
+        // (legacy matches predating migration 005 don't have one).
+        const timeLabel = g.start_time
+          ? new Date(`2000-01-01T${g.start_time}:00`).toLocaleTimeString('en-US', {
+              hour: 'numeric', minute: '2-digit',
+            })
+          : null
         const isMatch      = g.request_type === 'availability_match'
         const accepted     = (g.participants || []).filter(p => p.status === 'accepted')
         const pending      = (g.participants || []).filter(p => p.status === 'pending')
@@ -787,9 +807,14 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
             border: '1px solid rgba(27,94,59,0.10)',
             borderRadius: 14, padding: '14px 16px', marginBottom: 8,
           }}>
-            {/* Top row: date + badge */}
+            {/* Top row: date + time + badge */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>{dateLabel}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <div style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>{dateLabel}</div>
+                {timeLabel && (
+                  <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>· {timeLabel}</div>
+                )}
+              </div>
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
                 color: isMatch ? '#1B5E3B' : '#7A5800',
@@ -1226,6 +1251,7 @@ function AddFriendModal({ onClose, onRequestSent }) {
 // ─── Create Game Modal ────────────────────────────────────────────────────────
 function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
   const [date, setDate]         = useState(initialDate || new Date().toISOString().slice(0, 10))
+  const [startTime, setStartTime] = useState('08:00')  // sensible morning default
   const [type, setType]         = useState('tee_time')
   const [course, setCourse]     = useState('')
   const [message, setMessage]   = useState('')
@@ -1263,6 +1289,7 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
     try {
       await post('/api/games', {
         date,
+        start_time: startTime || null,
         request_type: type,
         course_name: course.trim() || null,
         message: message.trim() || null,
@@ -1290,15 +1317,27 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(27,94,59,0.14)', margin: '0 auto 20px' }} />
         <div style={{ color: '#fff', fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Schedule a Match</div>
 
-        {/* Date */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 6 }}>DATE</div>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{
-            width: '100%', boxSizing: 'border-box',
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 10, color: '#fff', padding: '11px 14px', fontSize: 14, outline: 'none',
-            colorScheme: 'dark',
-          }} />
+        {/* Date + Time — side-by-side row so time-of-day disambiguates
+            same-day matches on the Home dashboard (audit R6, 2026-04-29). */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 6 }}>DATE</div>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={{
+              width: '100%', boxSizing: 'border-box',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 10, color: '#fff', padding: '11px 14px', fontSize: 14, outline: 'none',
+              colorScheme: 'dark',
+            }} />
+          </div>
+          <div style={{ flex: '0 0 130px' }}>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 6 }}>TEE TIME</div>
+            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{
+              width: '100%', boxSizing: 'border-box',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 10, color: '#fff', padding: '11px 14px', fontSize: 14, outline: 'none',
+              colorScheme: 'dark',
+            }} />
+          </div>
         </div>
 
         {/* Type toggle */}

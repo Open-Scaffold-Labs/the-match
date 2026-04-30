@@ -110,7 +110,10 @@
     line-height: 1.5;
   }
 
-  /* Page scroll container */
+  /* Page scroll container — flex column so inline `gap: N` actually
+     stacks children (audit R1 / 2026-04-29). Every tab body uses this
+     class; without display:flex the gap was a no-op on all of them and
+     children could overflow side-by-side on wider previews. */
   .page-scroll {
     height: calc(100dvh - var(--nav-height));
     overflow-y: auto;
@@ -118,6 +121,8 @@
     -webkit-overflow-scrolling: touch;
     padding-top: calc(var(--safe-top) + 16px);
     padding-bottom: 24px;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Touch feedback */
