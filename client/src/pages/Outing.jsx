@@ -1301,11 +1301,12 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
   const color  = overrideColor  ?? cellColor(score, par, isSubtotal)
   const diff   = (!isSubtotal && score && par) ? score - par : null
   // Border treatment — only the LEFT edge so adjacent cells share a divider.
-  // Subtotal cells (OUT/IN) get a heavier dark-green left border to mark the
-  // boundary between cream score grid and dark green totals strip.
-  const borderLeft = overrideBorder ?? (isSubtotal
-    ? '2px solid ' + AUGUSTA_GREEN_DEEP
-    : '1px solid rgba(0,0,0,0.20)')
+  // Subtotal cells (OUT/IN) used to get a heavier 2px borderLeft, which made
+  // the hole-9→OUT boundary visibly step and made the horizontal HOLE→PAR
+  // divider appear to "break off" at hole 8/9. Now uses the same 1px
+  // dark-alpha as other cells; visual distinction comes from bg color
+  // (cream tile vs dark green strip). (2026-04-30 PM)
+  const borderLeft = overrideBorder ?? '1px solid rgba(0,0,0,0.20)'
   return (
     <div
       onClick={canEdit && !isSubtotal ? onTap : undefined}
@@ -2070,9 +2071,15 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
   const panelGradient = `linear-gradient(180deg, ${AUGUSTA_PANEL_HI} 0%, ${AUGUSTA_PANEL} 100%)`
+  // Divider color uses neutral black-alpha (not AUGUSTA_GREEN_DEEP) so the
+  // horizontal line is visible across BOTH the gradient panel AND the dark
+  // green OUT/IN strip — fixes the "line breaks off at hole 8/9" bug
+  // where the divider visually disappeared at the OUT cell because its bg
+  // was the same color as the divider. (2026-04-30 PM)
+  const dividerColor = 'rgba(0,0,0,0.50)'
   const headerRow = {
     display: 'flex', alignItems: 'center',
-    borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+    borderBottom: '1px solid ' + dividerColor,
     background: panelGradient,
   }
   const headerNameCol = {
@@ -2093,6 +2100,9 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
     borderLeft: '1px solid rgba(0,0,0,0.20)',
     textShadow: '0 1px 1px rgba(0,0,0,0.40)',
   }
+  // Subtotal header cell (OUT / IN): same 1px borderLeft as hole cells so the
+  // hole-9 → OUT boundary doesn't have a visible "step" that makes the
+  // horizontal HOLE→PAR divider look like it breaks off. (2026-04-30 PM)
   const subtotalHeaderCell = {
     minWidth: SUB_COL, width: SUB_COL, height: 34,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2100,7 +2110,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
     fontFamily: '"Arial Black", Arial, sans-serif',
     background: AUGUSTA_GREEN_DEEP, letterSpacing: '0.06em', flexShrink: 0,
     textShadow: '0 1px 1px rgba(0,0,0,0.50)',
-    borderLeft: '2px solid ' + AUGUSTA_GREEN_DEEP,
+    borderLeft: '1px solid rgba(0,0,0,0.50)',
   }
 
   return (
@@ -2117,7 +2127,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
       </div>
 
       {/* PAR row — gold numerals on green (the iconic Augusta detail) */}
-      <div style={{ ...headerRow, borderBottom: '2px solid ' + AUGUSTA_GREEN_DEEP }}>
+      <div style={{ ...headerRow, borderBottom: '2px solid ' + dividerColor }}>
         <div style={{ ...headerNameCol, color: AUGUSTA_GOLD }}>PAR</div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
           {holes.map(h => (
@@ -2282,7 +2292,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             <div style={{
               minWidth: SUB_COL + 4, width: SUB_COL + 4, height: rowH,
               background: AUGUSTA_GREEN,
-              borderLeft: '2px solid ' + AUGUSTA_GREEN_DEEP,
+              borderLeft: '1px solid rgba(0,0,0,0.20)',
               flexShrink: 0,
               boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.50)',
             }} />
