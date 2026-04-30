@@ -1425,16 +1425,13 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const HOLE_COL   = 32
   const SUB_COL    = 40
 
-  // Row sizing: minimum 4 rows fill the screen. Available space ≈ viewport
-  // minus header (~110px) minus banner (~58) minus 2 header rows (~64)
-  // minus totals (~104) minus footer (~50) minus nav (~64). Pick a row
-  // height that fits min(participants, 4) into that space.
-  const VIEWPORT_BUDGET = 360   // approx px available for player rows
-  const MIN_ROWS_VISIBLE = 4
-  const visibleRowCount = Math.max(MIN_ROWS_VISIBLE, participants.length || 1)
-  const ROW_H = participants.length <= MIN_ROWS_VISIBLE
-    ? Math.max(56, Math.floor(VIEWPORT_BUDGET / Math.max(1, participants.length || MIN_ROWS_VISIBLE) / 2))
-    : 56
+  // Row sizing: minimum 4 rows fill the screen. Each row is ~80-90px; if
+  // fewer than 4 players, we render empty placeholder rows below them
+  // (instead of stretching the real rows huge, which read weirdly).
+  // Past 4 players, rows shrink to a 56px minimum and scroll vertically.
+  const MIN_ROWS = 4
+  const ROW_H = participants.length <= MIN_ROWS ? 80 : 56
+  const fillerRows = Math.max(0, MIN_ROWS - participants.length)
 
   return (
     <div style={{
@@ -1583,6 +1580,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
                 rowH={ROW_H}
+                fillerRows={fillerRows}
               />
               {/* ── Back 9 (if 18 holes) ── */}
               {backHoles.length > 0 && (
@@ -1604,6 +1602,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                   HOLE_COL={HOLE_COL}
                   SUB_COL={SUB_COL}
                   rowH={ROW_H}
+                  fillerRows={fillerRows}
                 />
               )}
               {/* ── Totals row ── */}
@@ -1714,7 +1713,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL, rowH = 56 }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0 }) {
   // Augusta-style table — teal panels for HOLE/PAR/name columns, dark green
   // strip for OUT/IN subtotal columns, cream tiles for score cells.
   const headerRow = {
@@ -1850,6 +1849,38 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
           </div>
         )
       })}
+
+      {/* Filler placeholder rows so the board always shows ≥4 rows
+          when the match has fewer players. (2026-04-30 Path A) */}
+      {Array(fillerRows).fill(0).map((_, i) => (
+        <div key={`filler-${i}`} style={{
+          display: 'flex', alignItems: 'center',
+          borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+          background: AUGUSTA_TEAL,
+          minHeight: rowH,
+        }}>
+          <div style={{
+            minWidth: PLAYER_COL, width: PLAYER_COL,
+            padding: '8px 10px', flexShrink: 0, height: rowH,
+          }} />
+          <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
+            {holes.map(h => (
+              <div key={h} style={{
+                minWidth: HOLE_COL, width: HOLE_COL, height: rowH,
+                background: 'rgba(242,235,211,0.55)',
+                border: '1px solid rgba(0,0,0,0.45)',
+                flexShrink: 0,
+              }} />
+            ))}
+            <div style={{
+              minWidth: SUB_COL + 4, width: SUB_COL + 4, height: rowH,
+              background: AUGUSTA_GREEN,
+              border: '1px solid ' + AUGUSTA_GREEN_DEEP,
+              flexShrink: 0,
+            }} />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
