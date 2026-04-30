@@ -133,49 +133,58 @@ export default function AugustaBoard({ user, onBack }) {
   const NAME  = 132
   const SUM   = 36   // F9 / B9 / TOT column width
 
-  const MASTERS_GREEN      = '#0F3D1E'   // forest-green panel
-  const MASTERS_GREEN_DEEP = '#0a2c14'   // deeper shadow line
-  const MASTERS_GOLD       = '#FFD700'
-  const MASTERS_CREAM      = '#F4E9C1'   // score-tile cream
+  // Real Augusta board palette (corrected 2026-04-30 from a reference photo):
+  //   - Panels are pale teal-sage, NOT forest green
+  //   - Text on panels is BLACK / dark, under-par scores in RED
+  //   - The frame around the panels is dark green wood
+  //   - The LEADERS banner at top is cream/tan with dark green text
+  const MASTERS_GREEN      = '#0F3D1E'   // dark green wood frame + accents
+  const MASTERS_GREEN_DEEP = '#0a2c14'   // deepest shadow line
+  const MASTERS_TEAL       = '#A8C9C2'   // iconic Augusta panel color
+  const MASTERS_TEAL_HOVER = '#9DC0B8'   // current-user tint
+  const MASTERS_CREAM      = '#E8DFC2'   // banner cream (LEADERS arch)
+  const MASTERS_TILE       = '#F2EBD3'   // score tile (slightly warmer cream)
   const MASTERS_RED        = '#B22222'   // under-par red
-  const MASTERS_INK        = '#0F0F0F'   // over-par ink
+  const MASTERS_INK        = '#0F0F0F'   // over-par ink + names
 
-  // Header cell (HOLE / PAR rows) — green panel, white/gold text
+  // Header cell (HOLE / PAR rows) — teal panel, black bold text
   const hCell = (w, extra = {}) => ({
     width: w, minWidth: w, height: 36,
-    border: '1px solid ' + MASTERS_GREEN_DEEP,
+    border: '1px solid rgba(0,0,0,0.30)',
     padding: 0,
     textAlign: 'center', verticalAlign: 'middle',
-    fontSize: 13, fontWeight: 900, color: '#fff',
+    fontSize: 13, fontWeight: 900, color: MASTERS_INK,
     fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
-    background: MASTERS_GREEN, userSelect: 'none',
+    background: MASTERS_TEAL, userSelect: 'none',
     letterSpacing: '0.04em',
     ...extra,
   })
 
-  // Score cell (player rows) — cream tile with thick black borders
+  // Score cell (player rows) — cream tile with thin black border
   const sCell = (w, extra = {}) => ({
     width: w, minWidth: w, height: ROW_H,
-    border: '1.5px solid ' + MASTERS_INK,
+    border: '1px solid rgba(0,0,0,0.45)',
     padding: 0,
     textAlign: 'center', verticalAlign: 'middle',
     fontSize: 17, fontWeight: 900,
     fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
     userSelect: 'none', cursor: 'pointer',
-    background: MASTERS_CREAM,
+    background: MASTERS_TILE,
+    color: MASTERS_INK,
     ...extra,
   })
 
-  // Green-panel cell used for PRIOR + NAME + F9/B9/TOT in player rows
+  // Teal-panel cell used for PRIOR + NAME + F9/B9/TOT in player rows.
+  // Names + numbers are black on the pale teal — matches the real board.
   const gCell = (w, extra = {}) => ({
     width: w, minWidth: w, height: ROW_H,
-    border: '1px solid ' + MASTERS_GREEN_DEEP,
+    border: '1px solid rgba(0,0,0,0.30)',
     padding: 0,
     textAlign: 'center', verticalAlign: 'middle',
-    color: '#fff',
+    color: MASTERS_INK,
     fontSize: 15, fontWeight: 900,
     fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
-    background: MASTERS_GREEN, userSelect: 'none',
+    background: MASTERS_TEAL, userSelect: 'none',
     letterSpacing: '0.04em',
     ...extra,
   })
@@ -220,51 +229,53 @@ export default function AugustaBoard({ user, onBack }) {
         display: 'flex', flexDirection: 'column',
       }}>
 
-        {/* LEADERS — yellow block letters on green, like the real board */}
+        {/* LEADERS — dark green block letters on cream banner, like the real board */}
         <div style={{
-          background: MASTERS_GREEN,
-          borderBottom: '2px solid ' + MASTERS_GREEN_DEEP,
-          textAlign: 'center', padding: '14px 0 10px',
+          background: MASTERS_CREAM,
+          borderBottom: '3px solid ' + MASTERS_GREEN,
+          textAlign: 'center', padding: '12px 0 8px',
           position: 'relative',
           flexShrink: 0,
         }}>
           <div style={{
-            fontSize: 44, fontWeight: 900, lineHeight: 1, color: MASTERS_GOLD,
+            fontSize: 42, fontWeight: 900, lineHeight: 1, color: MASTERS_GREEN,
             letterSpacing: '0.16em',
             fontFamily: '"Impact", "Arial Black", Arial, sans-serif',
-            textShadow: '0 2px 0 rgba(0,0,0,0.45), 0 0 12px rgba(255,215,0,0.18)',
+            textShadow: '0 1px 0 rgba(255,255,255,0.5)',
           }}>LEADERS</div>
         </div>
 
         {/* Scrollable grid — flex:1 to fill the board panel */}
-        <div style={{ overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: MASTERS_GREEN, flex: 1 }}>
+        <div style={{ overflowX: 'auto', overflowY: 'auto', WebkitOverflowScrolling: 'touch', background: MASTERS_TEAL, flex: 1 }}>
           <table style={{
             borderCollapse: 'collapse',
             minWidth: PRIOR + NAME + 18 * CELL + 3 * SUM,
             tableLayout: 'fixed',
           }}>
             <thead>
-              {/* HOLE row — F9 / B9 / TOT columns added at end */}
+              {/* HOLE row — F9 / B9 / TOT columns added at end. Header
+                  cells in dark-green panel with white text mimic the small
+                  divider strips on the real board. */}
               <tr>
                 <td style={hCell(PRIOR)}>PRIOR</td>
                 <td style={{ ...hCell(NAME), textAlign: 'left', paddingLeft: 10 }}>HOLE</td>
                 {pars.map((_, i) => <td key={i} style={hCell(CELL)}>{i + 1}</td>)}
-                <td style={{ ...hCell(SUM), background: MASTERS_GREEN_DEEP }}>F9</td>
-                <td style={{ ...hCell(SUM), background: MASTERS_GREEN_DEEP }}>B9</td>
-                <td style={{ ...hCell(SUM), background: MASTERS_GREEN_DEEP, color: MASTERS_GOLD }}>TOT</td>
+                <td style={{ ...hCell(SUM), background: MASTERS_GREEN, color: '#fff' }}>F9</td>
+                <td style={{ ...hCell(SUM), background: MASTERS_GREEN, color: '#fff' }}>B9</td>
+                <td style={{ ...hCell(SUM), background: MASTERS_GREEN, color: '#fff' }}>TOT</td>
               </tr>
-              {/* PAR row — yellow numbers on green */}
+              {/* PAR row — black numbers on teal (matches the real board) */}
               <tr>
-                <td style={{ ...hCell(PRIOR), color: MASTERS_GOLD }}></td>
-                <td style={{ ...hCell(NAME), color: MASTERS_GOLD, textAlign: 'left', paddingLeft: 10 }}>PAR</td>
+                <td style={hCell(PRIOR)}></td>
+                <td style={{ ...hCell(NAME), textAlign: 'left', paddingLeft: 10 }}>PAR</td>
                 {pars.map((p, i) => (
                   <td key={i} onClick={() => openPar(i)}
-                    style={{ ...hCell(CELL), color: MASTERS_GOLD, cursor: 'pointer' }}
+                    style={{ ...hCell(CELL), cursor: 'pointer' }}
                   >{p}</td>
                 ))}
-                <td style={{ ...hCell(SUM), color: MASTERS_GOLD, background: MASTERS_GREEN_DEEP }}>{parFront(pars)}</td>
-                <td style={{ ...hCell(SUM), color: MASTERS_GOLD, background: MASTERS_GREEN_DEEP }}>{parBack(pars)}</td>
-                <td style={{ ...hCell(SUM), color: MASTERS_GOLD, background: MASTERS_GREEN_DEEP, fontSize: 14 }}>{parTotal(pars)}</td>
+                <td style={{ ...hCell(SUM), background: MASTERS_GREEN, color: '#fff' }}>{parFront(pars)}</td>
+                <td style={{ ...hCell(SUM), background: MASTERS_GREEN, color: '#fff' }}>{parBack(pars)}</td>
+                <td style={{ ...hCell(SUM), background: MASTERS_GREEN, color: '#fff', fontSize: 14 }}>{parTotal(pars)}</td>
               </tr>
             </thead>
 
@@ -287,38 +298,39 @@ export default function AugustaBoard({ user, onBack }) {
 
                 return (
                   <tr key={player.id}>
-                    {/* PRIOR / score-to-par — red if under, white if over */}
+                    {/* PRIOR / score-to-par — red if under, ink if over */}
                     <td style={{
                       ...gCell(PRIOR),
-                      color: stpRed ? MASTERS_GOLD : '#fff',
+                      color: stpRed ? MASTERS_RED : MASTERS_INK,
                       fontSize: 18,
                       cursor: 'default',
-                      background: me ? '#143d20' : MASTERS_GREEN,
+                      background: me ? MASTERS_TEAL_HOVER : MASTERS_TEAL,
                     }}>
                       {stpStr}
                     </td>
 
-                    {/* Name — white block letters in caps on green panel */}
+                    {/* Name — black block letters in caps on teal panel */}
                     <td style={{
                       ...gCell(NAME),
                       textAlign: 'left', paddingLeft: 12,
                       fontSize: 16,
                       cursor: 'default',
-                      background: me ? '#143d20' : MASTERS_GREEN,
-                      borderLeft: me ? `4px solid ${MASTERS_GOLD}` : gCell(NAME).border,
+                      background: me ? MASTERS_TEAL_HOVER : MASTERS_TEAL,
+                      borderLeft: me ? `4px solid ${MASTERS_GREEN}` : gCell(NAME).border,
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textShadow: '0 1px 0 rgba(0,0,0,0.4)' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {displayName}
                         </span>
                         <button onClick={() => removePlayer(player.id)} style={{
-                          background: 'none', border: 'none', color: 'rgba(255,255,255,0.30)',
+                          background: 'none', border: 'none', color: 'rgba(0,0,0,0.30)',
                           fontSize: 16, cursor: 'pointer', lineHeight: 1, flexShrink: 0, padding: '0 6px',
                         }}>×</button>
                       </div>
                     </td>
 
-                    {/* Hole scores — cream tiles with red/black numbers and birdie/bogey markers */}
+                    {/* Hole scores — cream tiles, red for under-par, ink for over.
+                        Birdie/eagle = red circle(s); bogey/double = black square(s). */}
                     {player.scores.map((s, i) => {
                       const diff = s != null ? s - pars[i] : null
                       const ink = diff != null && diff < 0 ? MASTERS_RED : MASTERS_INK
@@ -327,7 +339,7 @@ export default function AugustaBoard({ user, onBack }) {
                           style={{
                             ...sCell(CELL),
                             color: ink,
-                            background: s == null ? 'rgba(244,233,193,0.55)' : MASTERS_CREAM,
+                            background: s == null ? 'rgba(242,235,211,0.65)' : MASTERS_TILE,
                             position: 'relative',
                           }}
                         >
@@ -352,29 +364,30 @@ export default function AugustaBoard({ user, onBack }) {
                       )
                     })}
 
-                    {/* F9 / B9 / TOT — green panel cells with white numbers */}
-                    <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, fontSize: 14, cursor: 'default' }}>
+                    {/* F9 / B9 / TOT — dark green panel cells with white numbers
+                        (the green divider strips on the real board) */}
+                    <td style={{ ...gCell(SUM), background: MASTERS_GREEN, color: '#fff', fontSize: 14, cursor: 'default' }}>
                       {f9 ?? ''}
                     </td>
-                    <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, fontSize: 14, cursor: 'default' }}>
+                    <td style={{ ...gCell(SUM), background: MASTERS_GREEN, color: '#fff', fontSize: 14, cursor: 'default' }}>
                       {b9 ?? ''}
                     </td>
-                    <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, fontSize: 16, color: MASTERS_GOLD, cursor: 'default' }}>
+                    <td style={{ ...gCell(SUM), background: MASTERS_GREEN, color: '#fff', fontSize: 16, cursor: 'default' }}>
                       {tot ?? ''}
                     </td>
                   </tr>
                 )
               })}
 
-              {/* Empty placeholder rows — fills the board to look like a real
-                  scoreboard with open slots, not a half-empty grid */}
+              {/* Empty placeholder rows — teal panels w/ cream tile slots,
+                  matches the real Masters board's open spots */}
               {Array(emptyRowsNeeded).fill(0).map((_, i) => (
                 <tr key={`empty-${i}`}>
                   <td style={{ ...gCell(PRIOR), cursor: 'default' }}></td>
                   <td style={{ ...gCell(NAME), cursor: 'default' }}>
                     {i === 0 && players.length === 0 && (
                       <div style={{
-                        textAlign: 'center', color: 'rgba(255,215,0,0.45)',
+                        textAlign: 'center', color: 'rgba(15,15,15,0.45)',
                         fontFamily: '"Georgia", serif', fontStyle: 'italic',
                         fontSize: 13, fontWeight: 400, letterSpacing: '0.04em',
                         whiteSpace: 'nowrap',
@@ -386,24 +399,25 @@ export default function AugustaBoard({ user, onBack }) {
                   {pars.map((_, j) => (
                     <td key={j} style={{
                       ...sCell(CELL),
-                      background: 'rgba(244,233,193,0.30)',
+                      background: 'rgba(242,235,211,0.55)',
                       cursor: 'default',
                     }}></td>
                   ))}
-                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, cursor: 'default' }}></td>
-                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, cursor: 'default' }}></td>
-                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN_DEEP, cursor: 'default' }}></td>
+                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN, cursor: 'default' }}></td>
+                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN, cursor: 'default' }}></td>
+                  <td style={{ ...gCell(SUM), background: MASTERS_GREEN, cursor: 'default' }}></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Add player — lives inside the board frame, just above the footer.
-            Gold-on-green to match the Masters palette. (2026-04-30) */}
+        {/* Add player — lives inside the board frame on a dark-green strip
+            just above the footer. White input on green panel feels like
+            the operator's clipboard area at the back of a real board. */}
         <div style={{
           padding: '12px 14px',
-          background: MASTERS_GREEN_DEEP,
+          background: MASTERS_GREEN,
           borderTop: '1px solid rgba(0,0,0,0.4)',
           flexShrink: 0,
         }}>
@@ -417,7 +431,7 @@ export default function AugustaBoard({ user, onBack }) {
                 onKeyDown={e => { if (e.key === 'Enter') addPlayer() }}
                 placeholder="PLAYER NAME"
                 style={{
-                  flex: 1, background: MASTERS_CREAM, border: '2px solid ' + MASTERS_GOLD,
+                  flex: 1, background: MASTERS_TILE, border: '2px solid ' + MASTERS_TEAL,
                   borderRadius: 6, color: MASTERS_INK, padding: '10px 12px',
                   fontSize: 14, fontWeight: 700, outline: 'none', minWidth: 0,
                   fontFamily: '"Arial Black", Arial, sans-serif',
@@ -425,7 +439,7 @@ export default function AugustaBoard({ user, onBack }) {
                 }}
               />
               <button onClick={addPlayer} style={{
-                background: MASTERS_GOLD, color: MASTERS_GREEN, border: 'none', borderRadius: 6,
+                background: MASTERS_TEAL, color: MASTERS_INK, border: 'none', borderRadius: 6,
                 padding: '0 18px', fontSize: 13, fontWeight: 900, cursor: 'pointer',
                 fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.06em',
               }}>ADD</button>
@@ -439,19 +453,19 @@ export default function AugustaBoard({ user, onBack }) {
           ) : (
             <button onClick={() => setAddingPlayer(true)} style={{
               width: '100%', padding: '11px',
-              background: 'linear-gradient(180deg, #FFD700 0%, #E0B920 100%)',
-              border: '1px solid #C99B1A',
-              borderRadius: 6, color: MASTERS_GREEN, fontSize: 13, fontWeight: 900,
+              background: MASTERS_TEAL,
+              border: '1px solid rgba(0,0,0,0.30)',
+              borderRadius: 6, color: MASTERS_INK, fontSize: 13, fontWeight: 900,
               cursor: 'pointer', fontFamily: '"Arial Black", Arial, sans-serif',
               letterSpacing: '0.08em',
-              boxShadow: '0 2px 8px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.30)',
             }}>+ ADD PLAYER</button>
           )}
         </div>
 
-        {/* Augusta footer — reads as the wooden plaque under the board */}
+        {/* Augusta footer — wooden plaque under the board */}
         <div style={{
-          background: 'linear-gradient(180deg, #0a2c14 0%, #061a0b 100%)',
+          background: MASTERS_GREEN,
           padding: '10px 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18,
           borderTop: '2px solid #5a3a16',
@@ -460,7 +474,7 @@ export default function AugustaBoard({ user, onBack }) {
           <MastersFlag size={22} />
           <div style={{
             fontFamily: '"Georgia", "Times New Roman", serif',
-            fontSize: 16, color: MASTERS_GOLD, fontStyle: 'italic', letterSpacing: '0.10em',
+            fontSize: 16, color: '#fff', fontStyle: 'italic', letterSpacing: '0.10em',
             textShadow: '0 1px 0 rgba(0,0,0,0.5)',
           }}>Augusta National Club Golf</div>
           <MastersFlag size={22} />
