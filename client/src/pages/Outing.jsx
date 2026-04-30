@@ -1279,7 +1279,10 @@ function estimateHolePars(coursePar, holes) {
 // render as deeper teal cells with white block text.
 function cellBg(score, par, isSubtotal) {
   if (isSubtotal) return AUGUSTA_GREEN
-  if (!score || !par) return 'rgba(242,235,211,0.55)'   // empty cream slot
+  // Every score cell — filled or empty — uses the same solid cream so the
+  // board reads as a uniform grid of score slots. The presence/absence of
+  // a numeral is the only difference. (2026-04-30 PM — user wanted ALL
+  // cells where a score would go to be the same cream color.)
   return AUGUSTA_TILE
 }
 function cellColor(score, par, isSubtotal) {
@@ -2270,9 +2273,10 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             {holes.map(h => (
               <div key={h} style={{
                 minWidth: HOLE_COL, width: HOLE_COL, height: rowH,
-                background: 'rgba(242,235,211,0.55)',
+                background: AUGUSTA_TILE,
                 borderLeft: '1px solid rgba(0,0,0,0.20)',
                 flexShrink: 0,
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.18), inset 0 -1px 0 rgba(255,255,255,0.40)',
               }} />
             ))}
             <div style={{
@@ -2280,6 +2284,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
               background: AUGUSTA_GREEN,
               borderLeft: '2px solid ' + AUGUSTA_GREEN_DEEP,
               flexShrink: 0,
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.50)',
             }} />
           </div>
         </div>
