@@ -1736,7 +1736,7 @@ export default function Home({ onNavigateToOuting }) {
                     borderRadius: 4, padding: '1px 6px',
                     color: '#1B5E3B', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
                   }}>GOLFNOW</div>
-                  <span style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, fontWeight: 500 }}>Integration coming soon</span>
+                  <span style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, fontWeight: 500 }}>Search tee times in your area →</span>
                 </div>
               </div>
             </div>

@@ -1,14 +1,28 @@
-const router  = require('express').Router()
-const bcrypt  = require('bcryptjs')
-const jwt     = require('jsonwebtoken')
-const db      = require('../db')
+const router    = require('express').Router()
+const rateLimit = require('express-rate-limit')
+const bcrypt    = require('bcryptjs')
+const jwt       = require('jsonwebtoken')
+const db        = require('../db')
 
 function mintToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '90d' })
 }
 
+// 5 login/signup attempts per IP per minute. Real burst protection against
+// brute-forcing the 4-digit PIN (10,000 combinations is otherwise feasible
+// to enumerate in hours). Vercel serverless functions reset state per cold
+// start, so this is in-memory phase-1 protection — phase 2 (later) should
+// move to a Postgres-backed or Redis-backed store. Audit B5 / 2026-04-29.
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again in a minute.' },
+})
+
 // POST /api/auth/signup
-router.post('/signup', async (req, res) => {
+router.post('/signup', authLimiter, async (req, res) => {
   try {
     const { email, name, pin } = req.body
     if (!email || !name || !pin) return res.status(400).json({ error: 'email, name, and pin required' })
@@ -32,7 +46,7 @@ router.post('/signup', async (req, res) => {
 })
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, pin } = req.body
     if (!email || !pin) return res.status(400).json({ error: 'email and pin required' })

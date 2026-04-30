@@ -16,6 +16,18 @@ function parseScore(str) {
   return isNaN(n) ? null : n
 }
 
+// "STARTS THU MAY 1" — used when a tournament hasn't begun yet (round = 0).
+// Falls back to "SOON" if the ESPN date string is malformed.
+function formatStartDate(iso) {
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return 'SOON'
+    return d.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+    }).toUpperCase()
+  } catch { return 'SOON' }
+}
+
 function ScoreBadge({ value, label, small }) {
   const color = scoreColor(value)
   const display = value == null ? '—' : value === 0 ? 'E' : value > 0 ? `+${value}` : String(value)
@@ -160,6 +172,7 @@ export default function PGAScores() {
           purse:       ev.displayPurse ?? null,
           round,
           totalRounds: comp?.status?.period ?? 4,
+          startDate:   ev.date ?? comp?.date ?? null,  // for "STARTS THU MAY 1" pre-tournament label
           inProgress,
           isComplete,
           status,
@@ -309,7 +322,15 @@ export default function PGAScores() {
                     background: ev.inProgress ? 'rgba(201,160,64,0.12)' : 'rgba(27,94,59,0.07)',
                     borderRadius: 6, padding: '3px 9px', display: 'inline-block',
                   }}>
-                    {ev.isComplete ? 'FINAL' : ev.inProgress ? `RD ${ev.round} · LIVE` : `RD ${ev.round}`}
+                    {ev.isComplete
+                      ? 'FINAL'
+                      : ev.inProgress
+                        ? `RD ${ev.round} · LIVE`
+                        : ev.round > 0
+                          ? `RD ${ev.round}`
+                          : ev.startDate
+                            ? `STARTS ${formatStartDate(ev.startDate)}`
+                            : 'PRE-TOURNAMENT'}
                   </div>
                   {ev.purse && (
                     <div style={{ color: 'rgba(27,94,59,0.45)', fontSize: 10, marginTop: 4 }}>{ev.purse}</div>
@@ -342,7 +363,10 @@ export default function PGAScores() {
                 gap: 4, alignItems: 'center',
                 padding: '7px 4px',
                 borderBottom: '1px solid rgba(27,94,59,0.06)',
-                background: idx === 0 ? 'rgba(201,160,64,0.06)' : 'transparent',
+                /* Solid-ish white per row so the page-background image
+                   doesn't bleed through and crush contrast on lower rows.
+                   Gold-tint the leader. Audit R5 / 2026-04-29. */
+                background: idx === 0 ? 'rgba(201,160,64,0.18)' : 'rgba(255,255,255,0.78)',
                 borderRadius: idx === 0 ? 8 : 0,
               }}>
                 {/* Position */}

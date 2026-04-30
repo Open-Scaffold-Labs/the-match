@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put } from '../lib/api.js'
+import { warn } from '../lib/logger.js'
 import ActiveRound from './ActiveRound.jsx'
 import AugustaBoard from '../components/AugustaBoard.jsx'
 
@@ -51,7 +52,13 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>Your rivalries live here</div>
       </div>
 
-      <div className="page-scroll" style={{ padding: '16px 20px', gap: 16 }}>
+      <div className="page-scroll" style={{
+        padding: '16px 20px',
+        display: 'flex', flexDirection: 'column', gap: 16,
+        /* Without display:flex the gap was a no-op and child rows could
+           overflow side-by-side on wider previews — caused the Match-tab
+           overlap from the audit's runtime click-through (R1). */
+      }}>
         {/* CTA buttons */}
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={onCreate}
@@ -562,7 +569,7 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
           await post(`/api/outings/${data.outing.code}/bulk-join`, {
             user_ids: pendingPlayers.map(p => p.id),
           })
-        } catch (e) { console.warn('[bulk-join]', e) }
+        } catch (e) { warn('[bulk-join]', e) }
       }
       onCreated(data.outing)
     } catch (e) {

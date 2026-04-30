@@ -173,15 +173,18 @@ function StatTile({ label, value, sub, accent }) {
 export default function Stats({ user }) {
   const [summary, setSummary] = useState(null)
   const [rounds,  setRounds]  = useState([])
+  const [profile, setProfile] = useState(null)  // includes seeded handicap
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       api('/api/stats/summary').catch(() => null),
       api('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
-    ]).then(([s, r]) => {
+      api('/api/profile').catch(() => null),  // seeded handicap when no rounds
+    ]).then(([s, r, p]) => {
       setSummary(s)
       setRounds(r?.rounds ?? [])
+      setProfile(p)
       setLoading(false)
     })
   }, [])
@@ -193,26 +196,83 @@ export default function Stats({ user }) {
     </div>
   )
 
-  // Empty state
-  if (!summary && rounds.length === 0) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20, textAlign: 'center' }}>
-      <div style={{
-        width: 72, height: 72, borderRadius: '50%',
-        background: 'rgba(27,94,59,0.07)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <IconBarChart size={32} color="rgba(13,31,18,0.35)" />
-      </div>
-      <div>
-        <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 20, marginBottom: 8 }}>No rounds yet</div>
-        <div style={{ color: 'rgba(13,31,18,0.38)', fontSize: 14, lineHeight: 1.6 }}>
-          Play your first round to see your handicap, score trend, and club distances.
+  // Empty state — no rounds yet. Two flavors:
+  //   1. User has set a starting handicap (via Edit Profile / Start Season) →
+  //      show that handicap as their current one with copy explaining it'll
+  //      switch to USGA-calculated once they log 5+ rounds.
+  //   2. No seeded handicap either → original "play your first round" CTA.
+  if (!summary && rounds.length === 0) {
+    const seededHcp = profile?.handicap
+    if (seededHcp != null) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ padding: '20px 20px 16px', flexShrink: 0 }}>
+            <div style={{
+              fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
+              background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            }}>
+              Stats
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.38)', marginTop: 1 }}>{user.name}</div>
+          </div>
+          <div className="page-scroll" style={{ padding: '0 16px 20px' }}>
+            <HcpBadge hcp={seededHcp} roundCount={0} />
+            <div style={{
+              borderRadius: 16,
+              background: 'rgba(255,255,255,0.92)',
+              border: '1px solid rgba(27,94,59,0.10)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.20)',
+              padding: '18px 18px',
+              marginTop: 12,
+            }}>
+              <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 16, marginBottom: 8 }}>
+                Your starting handicap
+              </div>
+              <div style={{ color: 'rgba(13,31,18,0.65)', fontSize: 13, lineHeight: 1.55 }}>
+                You haven't logged any rounds yet, so we're showing the handicap you entered when starting your season.
+                Once you log 5+ rounds, this switches to a USGA-method calculated index based on your best 8 of last 20.
+              </div>
+              <div style={{
+                marginTop: 14, padding: '12px 14px', borderRadius: 10,
+                background: 'rgba(27,94,59,0.06)',
+                color: 'rgba(13,31,18,0.55)', fontSize: 12, lineHeight: 1.5,
+              }}>
+                Need to update it? Tap <strong>Edit Profile</strong> on the Home tab to adjust your starting handicap.
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    // No rounds AND no seeded handicap → original empty state, with stronger CTA
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20, textAlign: 'center',
+        position: 'relative' }}>
+        {/* Dark overlay so the empty-state text stays readable over the bg image */}
+        <div style={{
+          position: 'absolute', inset: '20% 5%', borderRadius: 24,
+          background: 'rgba(7,12,9,0.45)', pointerEvents: 'none',
+        }} />
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.10)',
+          border: '1px solid rgba(255,255,255,0.20)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
+        }}>
+          <IconBarChart size={32} color="rgba(255,255,255,0.85)" />
+        </div>
+        <div style={{ position: 'relative' }}>
+          <div style={{ fontWeight: 800, color: '#fff', fontSize: 20, marginBottom: 8 }}>No stats yet</div>
+          <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 1.6 }}>
+            Set a starting handicap on the Home tab, or play your first round to start tracking your score trend and club distances.
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

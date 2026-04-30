@@ -65,7 +65,20 @@ Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or
 
 ## Feature status
 
-FeatureStatusAuth (login/signup)✅ DoneHome dashboard✅ DoneEagle Eye (AI rangefinder)✅ DoneActive Round (GPS tracking)🔲 NextOuting (tournaments)🔲 NextBig Team Battle🔲 NextStats + handicap🔲 NextAI Caddie chat🔲 Next
+| Feature | Status |
+|---|---|
+| Auth (login/signup) | ✅ Done |
+| Home dashboard | ✅ Done |
+| Eagle Eye (AI rangefinder) | ✅ Done |
+| Stats + seeded handicap | ✅ Done (calculated index switches in once 5+ rounds logged) |
+| Outing (tournaments) | ✅ Done |
+| Active Round / Solo Round | ✅ Done |
+| Friends + Availability Calendar | ✅ Done |
+| PGA Tour leaderboard | ✅ Done |
+| Big Team Battle | 🔲 Next (schema exists, UI pending) |
+| AI Caddie chat | 🔲 Next |
+| Per-hole scoring during live play | 🔲 Next |
+| Push notifications | 🔲 Next |
 
 ## Local dev
 

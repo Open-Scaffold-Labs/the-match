@@ -18,12 +18,16 @@ export default function App() {
   const [pendingOutingPlayers, setPendingOutingPlayers] = useState([])
 
   useEffect(() => {
-    // Check for token in URL fragment (post-auth bounce)
+    // Check for token in URL fragment (post-auth bounce). After parsing,
+    // scrub the fragment from the URL bar so the token doesn't linger in
+    // browser history or appear in document.referrer when the user follows
+    // an outbound link. (Audit B3 / 2026-04-29.)
     const hash = window.location.hash
     if (hash.startsWith('#token=')) {
       const token = hash.slice(7)
       localStorage.setItem('tm_token', token)
-      window.history.replaceState(null, '', window.location.pathname)
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      if (window.location.hash) window.location.hash = ''
     }
 
     const token = getToken()

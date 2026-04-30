@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+import { log } from '../lib/logger.js'
 
 // Module-level cache: keyed by `${courseId}-${teeName}` — survives re-renders,
 // cleared only on page reload. Means switching holes is instant after first load.
@@ -20,6 +21,32 @@ function lsLoadOsm(key) {
 }
 function lsSaveOsm(key, data) {
   try { localStorage.setItem(`tm-osm-${key}`, JSON.stringify({ data, ts: Date.now() })) } catch {}
+}
+
+// ─── Dedupe male+female tee arrays into a single chip list ──────────────────
+// The Golf Course API returns tees separately by gender. Most tee boxes
+// (Blue, White, Red…) are physically the same and have identical hole data
+// in both arrays — showing both as chips produces duplicates like
+// "Gold (6464y), Gold (6464y)". This helper merges, keeping the first
+// occurrence keyed by tee_name + total_yards. Female-only tees (rare —
+// genuinely separate forward boxes) are suffixed " (W)" to keep them
+// distinct without breaking equality with downstream cache keys.
+function dedupeTees(teesObj) {
+  const out = []
+  const seen = new Set()
+  for (const t of (teesObj?.male || [])) {
+    const key = `${t.tee_name}|${t.total_yards}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(t)
+  }
+  for (const t of (teesObj?.female || [])) {
+    const key = `${t.tee_name}|${t.total_yards}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ ...t, tee_name: `${t.tee_name} (W)` })
+  }
+  return out
 }
 
 // ─── Nearest-neighbor sort for untagged greens (spatial fallback) ────────────
@@ -76,7 +103,7 @@ function matchGreensToHoles(greens, tees, scorecard) {
     }
   }
 
-  console.log('[OSM] yardage-matched holes:', Object.keys(assigned).length, '/ 18, worst diff:', Math.round(
+  log('[OSM] yardage-matched holes:', Object.keys(assigned).length, '/ 18, worst diff:', Math.round(
     Math.max(...Object.keys(assigned).map(h => {
       const g = assigned[h]; const s = scorecard.find(x => x.hole === parseInt(h))
       return Math.min(...tees.map(t => Math.abs(haversineYards(t, g) - s.yardage)))
@@ -763,11 +790,29 @@ function CoursePicker({ onSelect, onClose, gps }) {
     } catch {} finally { setLoading(false) }
   }
 
-  const tees = course ? [...(course.tees?.male || []), ...(course.tees?.female || [])] : []
+  // Dedupe tees by tee_name + total_yards. The API returns separate male/female
+  // arrays, but most tee boxes (Blue, White, Red, etc.) are physically the same
+  // box — same name + same total yardage = same physical tees, same per-hole
+  // yardages. Showing both as chips made every multi-tee course display dupes.
+  // We keep the first occurrence (male if present, otherwise female), and
+  // suffix " (W)" on female-only tees to disambiguate when a course has a
+  // genuinely separate forward tee. Hole-position logic (cache keys, GPS
+  // matching, OSM lookups) is unchanged because tee_name and holes shape
+  // are identical across the male/female sources.
+  const tees = course ? dedupeTees(course.tees) : []
   const activeTee = tees[teeIdx]
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: '#07100C', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+    /* Outer backdrop container: full-viewport on every device, centers + clamps
+       the actual modal panel to mobile width on desktop. The existing modal
+       structure below this is unchanged — same #07100C background, same
+       padding, same content. Audit finding R2 / 2026-04-29. */
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex', justifyContent: 'center',
+    }}>
+    <div style={{ width: '100%', maxWidth: 430, height: '100%', background: '#07100C', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer' }}>←</button>
@@ -833,6 +878,7 @@ function CoursePicker({ onSelect, onClose, gps }) {
           </>
         )}
       </div>
+    </div>
     </div>,
     document.body
   )
@@ -988,7 +1034,7 @@ export default function EagleEye() {
           ? `${gc.bbox.south},${gc.bbox.west},${gc.bbox.north},${gc.bbox.east}`
           : `${gc.lat - 0.015},${gc.lon - 0.015},${gc.lat + 0.015},${gc.lon + 0.015}`
 
-        console.log('[OSM] Overpass bbox:', ovBbox)
+        log('[OSM] Overpass bbox:', ovBbox)
         // Fetch both queries in parallel:
         //   holes  — golf=hole ways with ref tags (authoritative hole numbers + tee/green geometry)
         //   teegreen — individual tee/green nodes (gap-fill for any holes the way query missed)
@@ -1022,7 +1068,7 @@ export default function EagleEye() {
               holeTees[holeNum]   = picked.tee
               holeGreens[holeNum] = picked.green
             }
-            console.log('[OSM] golf=hole ways found:', Object.keys(holeTees).length)
+            log('[OSM] golf=hole ways found:', Object.keys(holeTees).length)
 
             // ── Gap-fill: teegreen nodes for any holes the way query missed ──
             const refTees = {}, refGreens = {}
@@ -1067,7 +1113,7 @@ export default function EagleEye() {
               ordered.forEach((g, i) => { holeGreens[i + 1] = g })
             }
 
-            console.log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens — gap-fills:', gapFills)
+            log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens — gap-fills:', gapFills)
             setHolePositions(holeTees)
             setGreenPositions(holeGreens)
             const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens }
