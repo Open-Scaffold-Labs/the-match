@@ -67,28 +67,6 @@ function loadImg(src, { crossOrigin = null } = {}) {
   })
 }
 
-// Draw a "cover-fit" image centered on the canvas — equivalent to
-// objectFit: cover in CSS. Used for the country flag background.
-function drawCover(ctx, img, x, y, W, H) {
-  const ir = img.naturalWidth / img.naturalHeight
-  const cr = W / H
-  let sw, sh, sx, sy
-  if (ir > cr) {
-    // image wider than canvas → crop sides
-    sh = img.naturalHeight
-    sw = sh * cr
-    sx = (img.naturalWidth - sw) / 2
-    sy = 0
-  } else {
-    // image taller → crop top/bottom
-    sw = img.naturalWidth
-    sh = sw / cr
-    sx = 0
-    sy = (img.naturalHeight - sh) / 2
-  }
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, W, H)
-}
-
 // Build the player card — PGA Tour Tour-page look:
 // faded country flag fills the full background; the cutout sits on top,
 // top-aligned. No diagonal stripes, no info panel, no name overlay.
@@ -105,12 +83,17 @@ async function buildCard(cutoutBlob, flag /* , profile */) {
   ctx.fillStyle = '#F5F2EC'
   ctx.fillRect(0, 0, W, H)
 
-  // 2 ── Country flag, full-cover, faded (matches PGA PlayerPhoto opacity ~0.18)
+  // 2 ── Country flag, stretched to fill the full canvas at low opacity.
+  // Stretch (don't crop or letterbox) so the entire flag is always visible —
+  // for horizontal flags like Ireland (2:1) cover-cropping into this 0.72:1
+  // portrait was clipping the green and orange bands and only showing the
+  // white middle. At 0.22 opacity the aspect-ratio distortion reads as a
+  // tinted background rather than a stretched flag.
   try {
     const flagImg = await loadImg(flagUrl(flag.iso), { crossOrigin: 'anonymous' })
     ctx.save()
     ctx.globalAlpha = 0.22
-    drawCover(ctx, flagImg, 0, 0, W, H)
+    ctx.drawImage(flagImg, 0, 0, W, H)
     ctx.restore()
   } catch {
     // Fallback: solid accent at low opacity if the flag image fails to load
