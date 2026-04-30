@@ -23,11 +23,69 @@ function wlLabel(w, l, t) {
   return `${w}-${l}${t ? `-${t}` : ''}`
 }
 
+// "Today" / "Yesterday" / "Mar 12" — used by Recent Matches cards
+function relDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const ymd = (x) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`
+  const diffMs = now - d
+  if (ymd(d) === ymd(now)) return 'Today'
+  const yest = new Date(now); yest.setDate(yest.getDate() - 1)
+  if (ymd(d) === ymd(yest)) return 'Yesterday'
+  if (diffMs < 7 * 24 * 60 * 60 * 1000) return d.toLocaleDateString(undefined, { weekday: 'short' })
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+// Render a list of opponent names compactly: "Dale", "Dale + 2", or "—"
+function fmtOpponents(names) {
+  const n = (names || []).filter(Boolean)
+  if (n.length === 0) return null
+  const first = n[0].split(' ')[0]
+  if (n.length === 1) return first
+  if (n.length === 2) return `${first} & ${n[1].split(' ')[0]}`
+  return `${first} +${n.length - 1}`
+}
+
+// Tap-to-copy a join code, with brief visual confirmation handled by the caller
+async function copyCode(code) {
+  if (!code) return false
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code)
+      return true
+    }
+  } catch { /* fall through */ }
+  // Fallback for older browsers / iOS PWA when clipboard API blocked
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = code
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    return true
+  } catch { return false }
+}
+
 // ─── Outing Hub (main landing) ────────────────────────────────────────────────
+//
+// Match-tab redesign (2026-04-30) — content density first.
+// Architecture:
+//   1. Live Now strip   (only when ≥1 match has status === 'active')
+//   2. Primary CTAs     (Create + Enter a Code)
+//   3. Secondary icons  (Solo Round + Leaderboard, demoted to thin row)
+//   4. Rivalries        (with search bar at ≥5; 1-line nudge when empty)
+//   5. Recent Matches   (only finished matches — LIVE ones promoted to strip)
 function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound, onLeaderboard }) {
   const [rivalries, setRivalries] = useState([])
   const [recentOutings, setRecentOutings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [rivalrySearch, setRivalrySearch] = useState('')
+  const [copiedCode, setCopiedCode] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -40,11 +98,25 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
     })
   }, [])
 
+  // Split LIVE matches out of Recent — they get promoted to the Live Now strip
+  const liveMatches     = recentOutings.filter(o => o.status === 'active')
+  const finishedMatches = recentOutings.filter(o => o.status !== 'active')
+
+  // Filter rivalries by search input (only relevant once user has 5+)
+  const filteredRivalries = rivalrySearch.trim()
+    ? rivalries.filter(r => (r.opponent_name || '').toLowerCase().includes(rivalrySearch.toLowerCase()))
+    : rivalries
+
+  const onCopyCode = async (code, e) => {
+    e?.stopPropagation()
+    const ok = await copyCode(code)
+    if (ok) {
+      setCopiedCode(code)
+      setTimeout(() => setCopiedCode(null), 1400)
+    }
+  }
+
   return (
-    /* Light theme to match Home / Stats / Tour — translucent white glass
-       cards over the page-bg golf-ball image. Was dark-on-dark before
-       (cinematic but stood out as a different app). Now coordinated
-       with the rest of the tabs (2026-04-29). */
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
         <div style={{
@@ -53,17 +125,44 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: 2,
         }}>Matches</div>
-        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)', textShadow: '0 1px 2px rgba(255,255,255,0.6)' }}>Create or join — your rivalries live here.</div>
+        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)', textShadow: '0 1px 2px rgba(255,255,255,0.6)' }}>
+          {liveMatches.length > 0
+            ? `You have ${liveMatches.length} match${liveMatches.length > 1 ? 'es' : ''} in progress.`
+            : 'Create or join — your rivalries live here.'}
+        </div>
       </div>
 
       <div className="page-scroll" style={{
         padding: '16px 20px',
         display: 'flex', flexDirection: 'column', gap: 16,
-        /* Without display:flex the gap was a no-op and child rows could
-           overflow side-by-side on wider previews — caused the Match-tab
-           overlap from the audit's runtime click-through (R1). */
       }}>
-        {/* CTA buttons */}
+        {/* ─── Live Now strip ─────────────────────────────────────────── */}
+        {liveMatches.length > 0 && (
+          <div>
+            <div style={{
+              fontSize: 12, fontWeight: 800, color: '#1A6B28',
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
+              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+            }}>
+              <span className="tm-live-pulse" style={{
+                width: 8, height: 8, borderRadius: '50%', background: '#2E9E45',
+              }} />
+              Live Now
+            </div>
+            {liveMatches.map(o => (
+              <LiveMatchCard
+                key={o.id} o={o}
+                onResume={() => onOpenOuting(o.code)}
+                onCopyCode={(e) => onCopyCode(o.code, e)}
+                copied={copiedCode === o.code}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* ─── Primary CTAs ──────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={onCreate}
             style={{
@@ -88,55 +187,83 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           </button>
         </div>
 
-        {/* Solo round + Leaderboard */}
-        <div style={{ display: 'flex', gap: 10 }}>
+        {/* ─── Secondary icon row (Solo Round + Leaderboard, demoted) ─ */}
+        <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={onSoloRound} style={{
-            flex: 1, padding: '14px 0', borderRadius: 14,
-            background: 'rgba(255,255,255,0.85)',
-            border: '1.5px solid rgba(201,160,64,0.55)',
-            color: '#7A5800', fontWeight: 700, fontSize: 14,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+            flex: 1, padding: '10px 0', borderRadius: 12,
+            background: 'rgba(255,255,255,0.65)',
+            border: '1px solid rgba(201,160,64,0.30)',
+            color: '#7A5800', fontWeight: 700, fontSize: 12,
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
             </svg>
             Solo Round
           </button>
           <button onClick={onLeaderboard} style={{
-            flex: 1, padding: '14px 0', borderRadius: 14,
-            background: 'rgba(255,255,255,0.85)',
-            border: '1.5px solid rgba(27,94,59,0.45)',
-            color: '#1B5E3B', fontWeight: 700, fontSize: 14,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
+            flex: 1, padding: '10px 0', borderRadius: 12,
+            background: 'rgba(255,255,255,0.65)',
+            border: '1px solid rgba(27,94,59,0.25)',
+            color: '#1B5E3B', fontWeight: 700, fontSize: 12,
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+              <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+              <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
             </svg>
             Leaderboard
           </button>
         </div>
 
-        {/* Head-to-head rivalries */}
+        {/* ─── Rivalries ─────────────────────────────────────────────── */}
         <div>
-          <div style={{
-            fontSize: 12, fontWeight: 800, color: '#1B5E3B',
-            textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
-            background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
-            display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
-          }}>Your Rivalries</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{
+              fontSize: 12, fontWeight: 800, color: '#1B5E3B',
+              textTransform: 'uppercase', letterSpacing: '0.1em',
+              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+              display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+            }}>Your Rivalries</div>
+            {rivalries.length >= 5 && (
+              <div style={{
+                background: 'rgba(255,255,255,0.75)',
+                border: '1px solid rgba(27,94,59,0.15)',
+                borderRadius: 10, padding: '4px 10px',
+                display: 'flex', alignItems: 'center', gap: 6, flex: '0 1 200px',
+              }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.40)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  value={rivalrySearch} onChange={e => setRivalrySearch(e.target.value)}
+                  placeholder="Search…"
+                  style={{
+                    flex: 1, border: 'none', background: 'transparent', outline: 'none',
+                    fontSize: 12, color: '#0D1F12', minWidth: 0,
+                  }}
+                />
+              </div>
+            )}
+          </div>
           {loading
             ? <div style={{ color: 'var(--tm-text-3)', textAlign: 'center', padding: '20px 0', fontSize: 14 }}>Loading…</div>
             : rivalries.length === 0
             ? <EmptyRivalries />
-            : rivalries.map(r => <RivalryCard key={r.opponent_id} r={r} userId={user.id} onOpen={() => onOpenRivalry?.(r)} />)
+            : filteredRivalries.length === 0
+            ? <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 13, padding: '14px 4px' }}>No rivalries match "{rivalrySearch}".</div>
+            : filteredRivalries.map(r => <RivalryCard key={r.opponent_id} r={r} userId={user.id} onOpen={() => onOpenRivalry?.(r)} />)
           }
         </div>
 
-        {/* Recent matches */}
-        {recentOutings.length > 0 && (
+        {/* ─── Recent Matches (finished only — LIVE ones live in strip above) ─ */}
+        {finishedMatches.length > 0 && (
           <div>
             <div style={{
               fontSize: 12, fontWeight: 800, color: '#1B5E3B',
@@ -144,37 +271,128 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
               background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
               display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
             }}>Recent Matches</div>
-            {recentOutings.map(o => (
-              <button key={o.id} onClick={() => onOpenOuting(o.code)}
-                style={{
-                  width: '100%', textAlign: 'left', cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.85)',
-                  border: '1px solid rgba(27,94,59,0.10)',
-                  borderRadius: 14, padding: '14px 16px',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  marginBottom: 8,
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-                }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{o.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.50)', marginTop: 2 }}>
-                    {o.course_name} · {o.player_count}p · <span style={{ color: '#7A5800', fontWeight: 800, letterSpacing: 2 }}>{o.code}</span>
-                  </div>
-                </div>
-                <div style={{
-                  fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20,
-                  background: o.status === 'active' ? 'rgba(46,158,69,0.15)' : 'rgba(13,31,18,0.06)',
-                  color: o.status === 'active' ? '#1A6B28' : 'rgba(13,31,18,0.45)',
-                  border: o.status === 'active' ? '1px solid rgba(46,158,69,0.40)' : '1px solid rgba(13,31,18,0.12)',
-                }}>
-                  {o.status === 'active' ? '● LIVE' : 'Final'}
-                </div>
-              </button>
+            {finishedMatches.map(o => (
+              <RecentMatchCard
+                key={o.id} o={o} userId={user.id}
+                onOpen={() => onOpenOuting(o.code)}
+                onCopyCode={(e) => onCopyCode(o.code, e)}
+                copied={copiedCode === o.code}
+              />
             ))}
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+// ─── Live Match Card (top-of-page strip) ─────────────────────────────────────
+// Big tappable card for in-progress matches. Pulsing dot, prominent
+// "Resume →" label, opponent line, course line, copy-code chip.
+function LiveMatchCard({ o, onResume, onCopyCode, copied }) {
+  const opp = fmtOpponents(o.opponent_names) || o.name || 'Solo'
+  return (
+    <div onClick={onResume} style={{
+      cursor: 'pointer',
+      background: 'linear-gradient(135deg, rgba(46,158,69,0.18), rgba(255,255,255,0.85))',
+      border: '1.5px solid rgba(46,158,69,0.45)',
+      borderRadius: 16, padding: '14px 16px',
+      marginBottom: 8,
+      boxShadow: '0 4px 20px rgba(46,158,69,0.18), inset 0 1px 0 rgba(255,255,255,0.5)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <span className="tm-live-pulse" style={{
+            width: 8, height: 8, borderRadius: '50%', background: '#2E9E45',
+            boxShadow: '0 0 6px rgba(46,158,69,0.6)',
+          }} />
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#1A6B28', letterSpacing: 1.2, textTransform: 'uppercase' }}>Live</span>
+          <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.50)' }}>· {o.player_count}p</span>
+        </div>
+        <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          You vs {opp}
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {o.course_name && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              {o.course_name}
+            </span>
+          )}
+          <button onClick={onCopyCode} style={{
+            border: 'none', cursor: 'pointer',
+            background: copied ? 'rgba(46,158,69,0.20)' : 'rgba(122,88,0,0.10)',
+            color: copied ? '#1A6B28' : '#7A5800',
+            fontWeight: 800, fontSize: 11, letterSpacing: 2,
+            padding: '2px 8px', borderRadius: 6,
+            transition: 'background 200ms',
+          }}>
+            {copied ? '✓ Copied' : o.code}
+          </button>
+        </div>
+      </div>
+      <div style={{ color: '#1A6B28', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+        Resume →
+      </div>
+    </div>
+  )
+}
+
+// ─── Recent (finished) Match Card ────────────────────────────────────────────
+function RecentMatchCard({ o, userId, onOpen, onCopyCode, copied }) {
+  const opp = fmtOpponents(o.opponent_names) || 'Solo round'
+  const date = relDate(o.updated_at || o.created_at)
+  return (
+    <button onClick={onOpen} style={{
+      width: '100%', textAlign: 'left', cursor: 'pointer',
+      background: 'rgba(255,255,255,0.85)',
+      border: '1px solid rgba(27,94,59,0.10)',
+      borderRadius: 14, padding: '14px 16px',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      marginBottom: 8,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {opp === 'Solo round' ? opp : `You vs ${opp}`}
+        </div>
+        <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {o.course_name && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.45)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              {o.course_name}
+            </span>
+          )}
+          {date && <span>{date}</span>}
+          <button onClick={onCopyCode} style={{
+            border: 'none', cursor: 'pointer',
+            background: copied ? 'rgba(46,158,69,0.20)' : 'transparent',
+            color: copied ? '#1A6B28' : '#7A5800',
+            fontWeight: 800, fontSize: 11, letterSpacing: 2,
+            padding: '2px 6px', borderRadius: 5,
+            transition: 'background 200ms',
+          }}>
+            {copied ? '✓' : o.code}
+          </button>
+        </div>
+      </div>
+      <div style={{
+        fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20,
+        background: 'rgba(13,31,18,0.06)',
+        color: 'rgba(13,31,18,0.55)',
+        border: '1px solid rgba(13,31,18,0.12)',
+        flexShrink: 0,
+      }}>
+        Final
+      </div>
+    </button>
   )
 }
 
@@ -246,31 +464,27 @@ function RivalryCard({ r, userId, onOpen }) {
   )
 }
 
+// One-line nudge — much lighter than the original full empty card. Frees up
+// the ~200px below the fold for actual Recent Matches content. (2026-04-30)
 function EmptyRivalries() {
   return (
     <div style={{
-      borderRadius: 18,
-      background: 'rgba(255,255,255,0.85)',
+      borderRadius: 12,
+      background: 'rgba(255,255,255,0.55)',
       border: '1px dashed rgba(27,94,59,0.25)',
-      padding: '32px 20px', textAlign: 'center',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+      padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
     }}>
-      <div style={{
-        width: 56, height: 56, borderRadius: '50%',
-        background: 'rgba(27,94,59,0.06)',
-        border: '1px solid rgba(27,94,59,0.12)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        margin: '0 auto 16px',
-      }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-          <path d="M16 3.13a4 4 0 010 7.75"/>
-        </svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+        <path d="M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      <div style={{ color: 'rgba(13,31,18,0.70)', fontSize: 12, lineHeight: 1.4 }}>
+        Finish a match to start tracking your head-to-head record.
       </div>
-      <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, marginBottom: 8 }}>No rivalries yet</div>
-      <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 13, lineHeight: 1.6 }}>Create or join a match to start tracking your head-to-head record.</div>
     </div>
   )
 }

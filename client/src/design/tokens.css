@@ -131,6 +131,16 @@
                 opacity var(--tm-duration-fast) var(--tm-ease);
   }
   .touch-press:active { transform: scale(0.96); opacity: 0.85; }
+
+  /* Live-match pulsing dot — used by the Match tab Live Now strip and any
+     "● LIVE" badge that needs to feel actually live. (2026-04-30) */
+  .tm-live-pulse {
+    animation: tm-live-pulse 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes tm-live-pulse {
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(0.85); }
+  }
 }
 
 /* ═══════════════════════════════════════════

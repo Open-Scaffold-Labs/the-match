@@ -47,16 +47,35 @@ router.post('/', async (req, res) => {
 })
 
 // ─── GET /api/outings/recent ──────────────────────────────────────────────────
+// Returns the user's recent matches enriched with:
+//   - opponent_names: comma-separated names of OTHER participants (max 3 listed)
+//   - opponent_count: total other participants
+//   - updated_at / created_at: timestamps for "Today / Yesterday / Mar 12" labels
+// The Match tab uses this to render meaningful cards instead of the boilerplate
+// "Matt Lavin's Match" repeated for every row. (2026-04-30)
 router.get('/recent', async (req, res) => {
   const rows = await db.many(
     `SELECT o.id, o.code, o.name, o.course_name, o.status,
-            (SELECT COUNT(*) FROM tm_outing_participants p WHERE p.outing_id = o.id) AS player_count
+            o.created_at, o.updated_at,
+            (SELECT COUNT(*) FROM tm_outing_participants p WHERE p.outing_id = o.id) AS player_count,
+            (SELECT COALESCE(json_agg(u.name ORDER BY u.name), '[]'::json)
+               FROM tm_outing_participants p2
+               LEFT JOIN tm_users u ON u.id = p2.user_id
+               WHERE p2.outing_id = o.id
+                 AND p2.user_id IS NOT NULL
+                 AND p2.user_id <> $1) AS opponent_names
      FROM tm_outings o
      JOIN tm_outing_participants p ON p.outing_id = o.id AND p.user_id = $1
      ORDER BY o.updated_at DESC LIMIT 10`,
     [req.user.id]
   )
-  res.json({ outings: rows.map(r => ({ ...r, player_count: parseInt(r.player_count) })) })
+  res.json({
+    outings: rows.map(r => ({
+      ...r,
+      player_count: parseInt(r.player_count),
+      opponent_names: r.opponent_names || [],
+    })),
+  })
 })
 
 // ─── GET /api/outings/rivalry/:opponentId ────────────────────────────────────
