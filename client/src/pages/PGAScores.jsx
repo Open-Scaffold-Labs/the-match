@@ -339,20 +339,35 @@ export default function PGAScores() {
               </div>
             </div>
 
+            {/* Translucent glass card wrapping the entire leaderboard table.
+                Matches the rest of the Tour page's glass-morphism pattern
+                (0.22 white + backdrop blur). Individual rows below are
+                transparent — the container handles the bg + border, rows
+                just stack with subtle dividers. (User request 2026-04-29.) */}
+            <div style={{
+              background: 'rgba(255,255,255,0.22)',
+              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.45)',
+              borderRadius: 16,
+              padding: '12px 12px 4px',
+              marginBottom: 8,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+            }}>
+
             {/* Column headers */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '28px 44px 1fr 42px 42px 36px',
               gap: 4, padding: '0 4px 6px',
-              borderBottom: '1px solid rgba(27,94,59,0.10)',
+              borderBottom: '1px solid rgba(27,94,59,0.18)',
               marginBottom: 6,
             }}>
-              <div style={{ color: 'rgba(27,94,59,0.35)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
+              <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
               <div />
-              <div style={{ color: 'rgba(27,94,59,0.35)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em' }}>PLAYER</div>
-              <div style={{ color: 'rgba(27,94,59,0.35)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textAlign: 'center' }}>TOT</div>
-              <div style={{ color: 'rgba(27,94,59,0.35)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textAlign: 'center' }}>TODAY</div>
-              <div style={{ color: 'rgba(27,94,59,0.35)', fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
+              <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em' }}>PLAYER</div>
+              <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>TOT</div>
+              <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>TODAY</div>
+              <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
             </div>
 
             {/* Leaderboard */}
@@ -362,11 +377,11 @@ export default function PGAScores() {
                 gridTemplateColumns: '28px 44px 1fr 42px 42px 36px',
                 gap: 4, alignItems: 'center',
                 padding: '7px 4px',
-                borderBottom: '1px solid rgba(27,94,59,0.06)',
-                /* Solid-ish white per row so the page-background image
-                   doesn't bleed through and crush contrast on lower rows.
-                   Gold-tint the leader. Audit R5 / 2026-04-29. */
-                background: idx === 0 ? 'rgba(201,160,64,0.18)' : 'rgba(255,255,255,0.78)',
+                borderBottom: '1px solid rgba(27,94,59,0.10)',
+                /* Rows are transparent — the wrapping translucent card
+                   above provides the readable backdrop. Gold-tint the
+                   leader so they pop within the table. */
+                background: idx === 0 ? 'rgba(201,160,64,0.20)' : 'transparent',
                 borderRadius: idx === 0 ? 8 : 0,
               }}>
                 {/* Position */}
@@ -462,9 +477,11 @@ export default function PGAScores() {
             )}
 
             {/* Footer */}
-            <div style={{ padding: '12px 4px 4px', color: 'rgba(27,94,59,0.35)', fontSize: 10, textAlign: 'center' }}>
+            <div style={{ padding: '12px 4px 4px', color: 'rgba(27,94,59,0.50)', fontSize: 10, textAlign: 'center' }}>
               Updates every 30s · Data via ESPN
             </div>
+
+            </div>{/* end translucent leaderboard card */}
           </>
         )}
       </div>
