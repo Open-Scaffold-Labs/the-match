@@ -157,6 +157,41 @@ User wanted player photos on the scorecard alongside the surname caps.
 
 **Commit:** `215cd2d`. Touched: `server/src/routes/outings.js`, `client/src/pages/Outing.jsx`. No schema (avatar/cutout columns already existed in `tm_users`).
 
+## [2026-04-30] schema | Real per-hole pars from a course picker (closest-first)
+
+User direction: "i want the hole number and par for the hole information show exactly what the course your playing is" — they want the actual pars for the course being played (not the synthetic 4/3/5 distribution from `estimateHolePars`). Then: "full picker but make courses closest to you start showing up first after you type first two letters".
+
+**Migration `006_tm_outing_course_data.sql`** — applied to production Supabase. Added five nullable columns to `tm_outings`:
+- `course_id INT` — GolfCourseAPI course ID
+- `course_tee TEXT` — name of the chosen tee (Black, White, etc.)
+- `hole_pars JSONB` — array of pars per hole
+- `hole_yardages JSONB` — array of yardages per hole
+- `hole_handicaps JSONB` — array of stroke indices per hole
+
+**Server changes:**
+- `POST /api/outings` accepts `courseId`, `courseTee`, `holePars`, `holeYardages`, `holeHandicaps` and stores them; legacy create calls without these fields still work (columns are nullable).
+- `GET /api/outings/:code` already used `SELECT *` so the new fields flow through automatically.
+- `/api/courses/search` accepts `?lat=Y&lng=Z`. When provided, computes Haversine great-circle distance to every result and sorts ascending (unknown distances go last). Falls back to API order without coords.
+
+**Client changes (`Outing.jsx`):**
+- New `<CoursePicker />` component replaces the free-text "Course name" input in CreateWizard step 0:
+  - Requests browser geolocation silently on mount; passes coords to search if granted (so closest courses appear first per the user's request)
+  - Debounced 250ms search after 2+ chars hits `/api/courses/search`
+  - Results render with city/state and distance (auto-formatted: meters / km / rounded km)
+  - Click a course → loads `/api/courses/:id` → tee selector renders with `par_total`, `total_yards`, `course_rating/slope_rating` per tee
+  - Click a tee → captures full `hole_pars`/`hole_yardages`/`hole_handicaps` and shows "✓ Pebble Creek Golf Course / Black tees · Par 71 · 18 holes" with a Change button
+  - Free-text fallback retained: "Can't find it? Just leave the name typed — we'll use your course name without the per-hole pars."
+- `LiveOuting` now prefers `outing.hole_pars` (sliced to the match's hole count). Falls back to `estimateHolePars(coursePar, holeCount)` for legacy matches with no real data.
+
+**Verified live** by creating a fresh match with Pebble Creek Golf Course → Black tees:
+- Header reads "Pebble Creek Golf Course · Par 71" (was "TBD · Par 72")
+- PAR row shows the real Pebble Creek Black-tee distribution: Front `4-4-4-4-4-3-4-3-5`, Back `4-3-5-3-4-5-3-4-5`
+- Augusta scorecard birdie/bogey markers continue to compute against these real pars
+- Geolocation in Chrome MCP wasn't granted so distance sort wasn't visible in the UI — graceful degradation worked (results came back in API order)
+
+**Commit:** `50fbcbe`. Touched: `migrations/006_tm_outing_course_data.sql`, `server/src/routes/courses.js`, `server/src/routes/outings.js`, `client/src/pages/Outing.jsx`.
+
+
 
 
 
