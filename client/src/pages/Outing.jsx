@@ -102,6 +102,13 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
   const liveMatches     = recentOutings.filter(o => o.status === 'active')
   const finishedMatches = recentOutings.filter(o => o.status !== 'active')
 
+  // Cap visible LIVE cards so a stale-data tail doesn't dominate the screen.
+  // Anything beyond the cap is reachable via a "+N more" expand link.
+  const MAX_LIVE = 3
+  const [liveExpanded, setLiveExpanded] = useState(false)
+  const visibleLive = liveExpanded ? liveMatches : liveMatches.slice(0, MAX_LIVE)
+  const hiddenLive  = liveMatches.length - visibleLive.length
+
   // Filter rivalries by search input (only relevant once user has 5+)
   const filteredRivalries = rivalrySearch.trim()
     ? rivalries.filter(r => (r.opponent_name || '').toLowerCase().includes(rivalrySearch.toLowerCase()))
@@ -151,7 +158,7 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
               }} />
               Live Now
             </div>
-            {liveMatches.map(o => (
+            {visibleLive.map(o => (
               <LiveMatchCard
                 key={o.id} o={o}
                 onResume={() => onOpenOuting(o.code)}
@@ -159,6 +166,31 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
                 copied={copiedCode === o.code}
               />
             ))}
+            {hiddenLive > 0 && (
+              <button
+                onClick={() => setLiveExpanded(true)}
+                style={{
+                  width: '100%', padding: '8px 12px', borderRadius: 10, marginBottom: 4,
+                  background: 'rgba(255,255,255,0.55)',
+                  border: '1px dashed rgba(46,158,69,0.35)',
+                  color: '#1A6B28', fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer',
+                }}>
+                + {hiddenLive} more in progress
+              </button>
+            )}
+            {liveExpanded && liveMatches.length > MAX_LIVE && (
+              <button
+                onClick={() => setLiveExpanded(false)}
+                style={{
+                  width: '100%', padding: '6px 12px', borderRadius: 10,
+                  background: 'transparent', border: 'none',
+                  color: 'rgba(13,31,18,0.55)', fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer',
+                }}>
+                Show less
+              </button>
+            )}
           </div>
         )}
 
@@ -290,7 +322,12 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
 // Big tappable card for in-progress matches. Pulsing dot, prominent
 // "Resume →" label, opponent line, course line, copy-code chip.
 function LiveMatchCard({ o, onResume, onCopyCode, copied }) {
-  const opp = fmtOpponents(o.opponent_names) || o.name || 'Solo'
+  const opp = fmtOpponents(o.opponent_names)
+  // When no opponents have joined yet, the auto-generated match name like
+  // "Matt Lavin's Match" reads better as the title with "Waiting for players"
+  // than the awkward "You vs Matt Lavin's Match".
+  const title = opp ? `You vs ${opp}` : (o.name || 'New match')
+  const subtitle = opp ? null : 'Waiting for players'
   return (
     <div onClick={onResume} style={{
       cursor: 'pointer',
@@ -313,9 +350,12 @@ function LiveMatchCard({ o, onResume, onCopyCode, copied }) {
           <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.50)' }}>· {o.player_count}p</span>
         </div>
         <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          You vs {opp}
+          {title}
         </div>
         <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {subtitle && (
+            <span style={{ color: '#7A5800', fontWeight: 700 }}>{subtitle}</span>
+          )}
           {o.course_name && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -345,7 +385,8 @@ function LiveMatchCard({ o, onResume, onCopyCode, copied }) {
 
 // ─── Recent (finished) Match Card ────────────────────────────────────────────
 function RecentMatchCard({ o, userId, onOpen, onCopyCode, copied }) {
-  const opp = fmtOpponents(o.opponent_names) || 'Solo round'
+  const opp = fmtOpponents(o.opponent_names)
+  const title = opp ? `You vs ${opp}` : (o.name || 'Solo round')
   const date = relDate(o.updated_at || o.created_at)
   return (
     <button onClick={onOpen} style={{
@@ -359,7 +400,7 @@ function RecentMatchCard({ o, userId, onOpen, onCopyCode, copied }) {
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {opp === 'Solo round' ? opp : `You vs ${opp}`}
+          {title}
         </div>
         <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {o.course_name && (
