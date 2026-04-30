@@ -214,6 +214,32 @@ Reference look — `PlayerPhoto` in `PGAScores.jsx` is a faded full-cover countr
 
 **Commit:** `2796766`. Touched: `client/src/components/PlayerCard.jsx` (91 insertions / 152 deletions — net smaller).
 
+## [2026-04-30] refactor | Scorecard avatar in its own filled box
+
+User feedback: "i want the users pictures to have their own box to the left of the box their name is in so they arent scrunched together... make the picture fill out the box so adjust the size of the box the pictures go in accordingly".
+
+Previously each player row in `ScorecardTable` and `TotalsRow` had a single combined cell of width `PLAYER_COL = 116` containing a 30-36px circular `<PlayerAvatar />` next to the surname (gap: 8). The avatar was small and the name was crammed.
+
+**Split into two real cells:**
+- `AVATAR_COL = 60` — square box; `<img>` fills edge-to-edge with `objectFit: cover` + `objectPosition: top center` (preserves the head on portrait PGA-style avatars). Initials fallback also fills the box edge-to-edge with a deterministic palette color.
+- `NAME_COL = 88` — surname only, comfortably wide
+- `PLAYER_COL = AVATAR_COL + NAME_COL = 148` — kept around so headers (FRONT 9 / PAR / TOTALS / BACK 9) span both cells visually with one combined cell.
+- A vertical `1px solid AUGUSTA_GREEN_DEEP` divider separates the avatar cell from the name cell so the column structure reads clearly.
+
+**Affected rendering paths:**
+- ScorecardTable body player rows
+- ScorecardTable filler placeholder rows (keep the same column geometry so things align)
+- TotalsRow player rows (avatar fills the dark green strip; ring is gone since the cell border replaces it)
+
+**Header rows (HOLE / PAR / TOTALS) untouched** — they still use one combined cell at `PLAYER_COL` width, which still equals the sum of the body's two cells. The columns line up.
+
+**Current-user gold accent preserved** — the 4px gold left-border now lives on the avatar cell (the leftmost thing in the row); the cell width shrinks 4px when `isMe` so total row geometry still matches the header.
+
+**Verified live** — the LAVIN row now shows the user's actual PGA-style portrait card filling its avatar box, with "LAVIN" surname and score cells flowing cleanly to the right. Filler rows render empty avatar + empty name cells preserving the layout.
+
+**Commit:** `59fd7ed`. Touched: `client/src/pages/Outing.jsx`.
+
+
 
 
 
