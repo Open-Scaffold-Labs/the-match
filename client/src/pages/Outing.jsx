@@ -41,21 +41,19 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
   }, [])
 
   return (
-    /* Dark backdrop so the white-text Outing UI is readable against the
-       bright golf-ball page background. Without this, headers and copy
-       sat directly on top of the image and washed out (audit R1/R5). */
-    <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%',
-      background: 'linear-gradient(180deg, rgba(7,16,12,0.85) 0%, rgba(7,16,12,0.92) 60%, rgba(7,16,12,0.96) 100%)',
-    }}>
+    /* Light theme to match Home / Stats / Tour — translucent white glass
+       cards over the page-bg golf-ball image. Was dark-on-dark before
+       (cinematic but stood out as a different app). Now coordinated
+       with the rest of the tabs (2026-04-29). */
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
           background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: 2,
-        }}>Outings</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>Your rivalries live here</div>
+        }}>Matches</div>
+        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)', textShadow: '0 1px 2px rgba(255,255,255,0.6)' }}>Create or join — your rivalries live here.</div>
       </div>
 
       <div className="page-scroll" style={{
@@ -80,10 +78,11 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           <button onClick={onJoin}
             style={{
               flex: 1, padding: '16px 0', borderRadius: 14,
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(94,212,122,0.35)',
-              color: '#5ED47A', fontWeight: 800, fontSize: 15,
+              background: 'rgba(255,255,255,0.85)',
+              border: '1.5px solid rgba(46,158,69,0.55)',
+              color: '#1A6B28', fontWeight: 800, fontSize: 15,
               cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.10)',
             }}>
             Enter a Code
           </button>
@@ -93,24 +92,26 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onSoloRound} style={{
             flex: 1, padding: '14px 0', borderRadius: 14,
-            background: 'rgba(197,160,64,0.08)',
-            border: '1px solid rgba(197,160,64,0.25)',
-            color: '#F5D78A', fontWeight: 700, fontSize: 14,
+            background: 'rgba(255,255,255,0.85)',
+            border: '1.5px solid rgba(201,160,64,0.55)',
+            color: '#7A5800', fontWeight: 700, fontSize: 14,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
             </svg>
             Solo Round
           </button>
           <button onClick={onLeaderboard} style={{
             flex: 1, padding: '14px 0', borderRadius: 14,
-            background: 'rgba(27,94,32,0.15)',
-            border: '1px solid rgba(27,94,32,0.45)',
-            color: '#C9A040', fontWeight: 700, fontSize: 14,
+            background: 'rgba(255,255,255,0.85)',
+            border: '1.5px solid rgba(27,94,59,0.45)',
+            color: '#1B5E3B', fontWeight: 700, fontSize: 14,
             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.08)',
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
               <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
             </svg>
@@ -120,7 +121,12 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
 
         {/* Head-to-head rivalries */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Your Rivalries</div>
+          <div style={{
+            fontSize: 12, fontWeight: 800, color: '#1B5E3B',
+            textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
+            background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+            display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+          }}>Your Rivalries</div>
           {loading
             ? <div style={{ color: 'var(--tm-text-3)', textAlign: 'center', padding: '20px 0', fontSize: 14 }}>Loading…</div>
             : rivalries.length === 0
@@ -129,31 +135,37 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           }
         </div>
 
-        {/* Recent outings */}
+        {/* Recent matches */}
         {recentOutings.length > 0 && (
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Recent Outings</div>
+            <div style={{
+              fontSize: 12, fontWeight: 800, color: '#1B5E3B',
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
+              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+              display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+            }}>Recent Matches</div>
             {recentOutings.map(o => (
               <button key={o.id} onClick={() => onOpenOuting(o.code)}
                 style={{
                   width: '100%', textAlign: 'left', cursor: 'pointer',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'rgba(255,255,255,0.85)',
+                  border: '1px solid rgba(27,94,59,0.10)',
                   borderRadius: 14, padding: '14px 16px',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   marginBottom: 8,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
                 }}>
                 <div>
-                  <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{o.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
-                    {o.course_name} · {o.player_count}p · <span style={{ color: '#E8C05A', fontWeight: 700, letterSpacing: 2 }}>{o.code}</span>
+                  <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{o.name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.50)', marginTop: 2 }}>
+                    {o.course_name} · {o.player_count}p · <span style={{ color: '#7A5800', fontWeight: 800, letterSpacing: 2 }}>{o.code}</span>
                   </div>
                 </div>
                 <div style={{
                   fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20,
-                  background: o.status === 'active' ? 'rgba(94,212,122,0.15)' : 'rgba(255,255,255,0.06)',
-                  color: o.status === 'active' ? '#5ED47A' : 'rgba(255,255,255,0.4)',
-                  border: o.status === 'active' ? '1px solid rgba(94,212,122,0.3)' : '1px solid rgba(255,255,255,0.1)',
+                  background: o.status === 'active' ? 'rgba(46,158,69,0.15)' : 'rgba(13,31,18,0.06)',
+                  color: o.status === 'active' ? '#1A6B28' : 'rgba(13,31,18,0.45)',
+                  border: o.status === 'active' ? '1px solid rgba(46,158,69,0.40)' : '1px solid rgba(13,31,18,0.12)',
                 }}>
                   {o.status === 'active' ? '● LIVE' : 'Final'}
                 </div>
@@ -175,34 +187,42 @@ function RivalryCard({ r, userId, onOpen }) {
   const lead     = myWins > oppWins ? 'up' : myWins < oppWins ? 'down' : 'even'
   const leadColor = lead === 'up' ? 'var(--tm-birdie)' : lead === 'down' ? 'var(--tm-bogey)' : 'var(--tm-par)'
 
+  // Light theme colors for win/loss/tie indicators
+  const upColor   = '#1A6B28'   // dark green
+  const downColor = '#A04020'   // muted red-orange (bogey)
+  const evenColor = 'rgba(13,31,18,0.55)'
+  const lightLeadColor = lead === 'up' ? upColor : lead === 'down' ? downColor : evenColor
+
   return (
     <div onClick={onOpen} style={{
       borderRadius: 18,
-      background: 'rgba(255,255,255,0.04)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      boxShadow: '0 2px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+      background: 'rgba(255,255,255,0.85)',
+      border: '1px solid rgba(27,94,59,0.10)',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
       padding: '16px', marginBottom: 10, cursor: onOpen ? 'pointer' : 'default',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 42, height: 42, borderRadius: '50%',
-            background: 'linear-gradient(135deg, rgba(30,80,35,0.8), rgba(15,50,20,0.8))',
-            border: '1.5px solid rgba(94,212,122,0.4)',
-            boxShadow: '0 0 12px rgba(94,212,122,0.1)',
+            background: 'linear-gradient(135deg, rgba(46,158,69,0.18), rgba(27,94,59,0.10))',
+            border: '1.5px solid rgba(46,158,69,0.45)',
+            boxShadow: '0 1px 4px rgba(27,94,59,0.10)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 800, color: '#5ED47A',
+            fontSize: 14, fontWeight: 800, color: '#1A6B28',
           }}>
             {initials(r.opponent_name)}
           </div>
           <div>
-            <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{r.opponent_name}</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 1 }}>{total} match{total !== 1 ? 'es' : ''}</div>
+            <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{r.opponent_name}</div>
+            <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 1 }}>{total} match{total !== 1 ? 'es' : ''}</div>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: leadColor }}>{wlLabel(myWins, oppWins, ties)}</div>
-          <div style={{ fontSize: 11, color: leadColor, fontWeight: 600, marginTop: 1 }}>
+          <div style={{ fontSize: 24, fontWeight: 900, color: lightLeadColor }}>{wlLabel(myWins, oppWins, ties)}</div>
+          <div style={{ fontSize: 11, color: lightLeadColor, fontWeight: 700, marginTop: 1 }}>
             {lead === 'up' ? `+${myWins - oppWins} up` : lead === 'down' ? `${myWins - oppWins} down` : 'EVEN'}
           </div>
         </div>
@@ -210,15 +230,15 @@ function RivalryCard({ r, userId, onOpen }) {
       {/* Win bar */}
       {total > 0 && (
         <>
-          <div style={{ marginTop: 14, height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex', gap: 1 }}>
-            <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, #2A7A38, #5ED47A)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
-            {ties > 0 && <div style={{ width: `${(ties/total)*100}%`, background: 'rgba(138,180,248,0.5)' }} />}
-            <div style={{ flex: 1, background: 'rgba(224,122,90,0.5)', borderRadius: '0 99px 99px 0' }} />
+          <div style={{ marginTop: 14, height: 5, borderRadius: 99, background: 'rgba(27,94,59,0.08)', overflow: 'hidden', display: 'flex', gap: 1 }}>
+            <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, #1B5E3B, #2E9E45)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
+            {ties > 0 && <div style={{ width: `${(ties/total)*100}%`, background: 'rgba(80,120,200,0.55)' }} />}
+            <div style={{ flex: 1, background: 'rgba(180,80,40,0.5)', borderRadius: '0 99px 99px 0' }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-            <span style={{ fontSize: 11, color: 'rgba(94,212,122,0.7)', fontWeight: 600 }}>You {myWins}W</span>
-            {ties > 0 && <span style={{ fontSize: 11, color: 'rgba(138,180,248,0.6)', fontWeight: 600 }}>{ties}T</span>}
-            <span style={{ fontSize: 11, color: 'rgba(224,122,90,0.7)', fontWeight: 600 }}>{oppWins}W {r.opponent_name?.split(' ')[0]}</span>
+            <span style={{ fontSize: 11, color: '#1A6B28', fontWeight: 700 }}>You {myWins}W</span>
+            {ties > 0 && <span style={{ fontSize: 11, color: 'rgba(50,80,160,0.85)', fontWeight: 700 }}>{ties}T</span>}
+            <span style={{ fontSize: 11, color: '#A04020', fontWeight: 700 }}>{oppWins}W {r.opponent_name?.split(' ')[0]}</span>
           </div>
         </>
       )}
@@ -230,26 +250,27 @@ function EmptyRivalries() {
   return (
     <div style={{
       borderRadius: 18,
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.08)',
+      background: 'rgba(255,255,255,0.85)',
+      border: '1px dashed rgba(27,94,59,0.25)',
       padding: '32px 20px', textAlign: 'center',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
     }}>
       <div style={{
         width: 56, height: 56, borderRadius: '50%',
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: 'rgba(27,94,59,0.06)',
+        border: '1px solid rgba(27,94,59,0.12)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         margin: '0 auto 16px',
       }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
           <circle cx="9" cy="7" r="4"/>
           <path d="M23 21v-2a4 4 0 00-3-3.87"/>
           <path d="M16 3.13a4 4 0 010 7.75"/>
         </svg>
       </div>
-      <div style={{ fontWeight: 700, color: '#fff', fontSize: 15, marginBottom: 8 }}>No rivalries yet</div>
-      <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, lineHeight: 1.6 }}>Create or join a match to start tracking your head-to-head record.</div>
+      <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, marginBottom: 8 }}>No rivalries yet</div>
+      <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 13, lineHeight: 1.6 }}>Create or join a match to start tracking your head-to-head record.</div>
     </div>
   )
 }
