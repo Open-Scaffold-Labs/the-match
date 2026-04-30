@@ -239,6 +239,49 @@ Previously each player row in `ScorecardTable` and `TotalsRow` had a single comb
 
 **Commit:** `59fd7ed`. Touched: `client/src/pages/Outing.jsx`.
 
+## [2026-04-30] refactor | Scoreboard premium tournament-board redesign
+
+User feedback: "im not crazy about the teal color, there is no teal color on the actual augusta scoreboard.... page looks a little cheap, i want it to really impress visually". The earlier teal palette had been a misread of an off-tournament reference photo — the iconic in-tournament Augusta board is forest green with white block letters and gold PAR numerals.
+
+**Palette overhaul:**
+- `AUGUSTA_PANEL = #1A5230` (forest green) replaces `AUGUSTA_TEAL #A8C9C2`. Old `AUGUSTA_TEAL`/`AUGUSTA_TEAL_HOVER` constants kept as aliases so any stragglers still work.
+- `AUGUSTA_PANEL_HI = #235C36` for the panel-gradient top stop.
+- `AUGUSTA_GOLD = #E8C05A` (PAR numerals + accent) and `AUGUSTA_GOLD_DIM = #A8862E` (pinstripe / dimmed gold).
+
+**Header rows (HOLE / PAR):**
+- Switched from `flat teal + black text` to `panel gradient + white block-letter HOLE numerals with text-shadow` (chiseled feel) and `gold PAR numerals` — the iconic Masters detail.
+- Header height bumped 32 → 34 px to give the bigger letterforms breathing room.
+
+**Player rows:**
+- White surname caps on the same panel gradient, with `0 1px 1px rgba(0,0,0,0.45)` text-shadow for embossed feel.
+- Current-user accent: 4px solid `AUGUSTA_GOLD` left-border (was solid forest green) — actually pops as "this is you".
+- Avatar cell sits on `AUGUSTA_GREEN_DEEP` with a subtle inner highlight so the player photo really stands out against the dark slot.
+
+**Score tiles:**
+- Cream tiles get a `inset 0 1px 2px rgba(0,0,0,0.18), inset 0 -1px 0 rgba(255,255,255,0.40)` box-shadow — mimics the slotted-into-the-wood feel of real Masters score cards.
+- Subtotal cells (OUT / IN / TOT) get a deeper `inset 0 1px 2px rgba(0,0,0,0.50)` since they sit on the dark green strip.
+
+**LEADERS plaque:**
+- Cream → darker-cream gradient with `inset 0 -1px 2px rgba(0,0,0,0.18)` for embossed feel.
+- Thin gold rules above and below the type (`top: 0` and `bottom: 4` absolute-positioned 1px strips) in `AUGUSTA_GOLD_DIM` at 0.55-0.7 opacity.
+- Type switched from Impact to Georgia serif, letter-spacing widened from 0.16em → 0.20em for a refined look. Text-shadow adds depth.
+
+**Wood frame:**
+- Outer drop-shadow `0 16px 50px rgba(0,0,0,0.55)` for floating-on-the-page weight.
+- Inner gold pinstripe ring (`inset 0 0 0 1px AUGUSTA_GOLD_DIM`) inside the wood, then a deeper inset dark ring for hand-painted-wood grain.
+
+**Filler placeholder rows** match the new panel gradient + deep-green avatar slots so the empty-state board still reads as a tournament board.
+
+**Verified live** — opened Pebble Creek match at Black tees:
+- LEADERS plaque reads as an embossed cream sign with gold rules
+- HOLE 1-9 in white, PAR 4-4-4-4-4-3-4-3-5 in gold
+- LAVIN row with gold left-border, white surname, photo in deep-green slot
+- Score 3 on hole 3 (birdie on par 4) shows red numeral + red circle on cream tile
+- Footer plaque with M-flag bookends reads correctly
+
+**Commit:** `0a3997f`. Touched: `client/src/pages/Outing.jsx` (palette constants + ScorecardTable headers + body + filler rows + ScorecardCell box-shadow + LiveOuting board frame + LEADERS plaque). 91 insertions / 49 deletions.
+
+
 
 
 
