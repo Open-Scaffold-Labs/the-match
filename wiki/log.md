@@ -78,4 +78,25 @@ User feedback: "i thought we built the augusta scoreboard for the match page" �
 
 **Commits:** `ab0229b` (initial replica), `125e47b` (full-page fill + Add Player inside frame). Touched: `client/src/components/AugustaBoard.jsx`, `client/src/pages/Outing.jsx`. No schema, no Eagle Eye changes.
 
+## [2026-04-30] refactor | Augusta board color correction (teal-sage, not forest green)
+
+User shared a photo of the actual Masters scoreboard. The iconic Augusta panels are **pale teal-sage** (#A8C9C2), not forest green as I had built. Text on the panels is **black**, with red for under-par scores. Forest green is reserved for the wooden frame and the F9/B9/TOT divider strips.
+
+**Color corrections in `AugustaBoard.jsx`:**
+- Panel background: forest green → `MASTERS_TEAL #A8C9C2` (PRIOR, NAME, HOLE row, PAR row, empty placeholder rows)
+- Player surname text: white → `MASTERS_INK #0F0F0F`
+- PRIOR (score-to-par): gold/white → black for over-par, red for under
+- PAR row numerals: gold → black on teal — the real board's iconic detail
+- HOLE row numerals: white → black on teal
+- F9/B9/TOT divider strips: still dark green with white numbers (matches the green dividers on the reference photo)
+- LEADERS banner: gold-on-green → dark-green-on-cream (the real board has a cream/tan arched banner with dark green letters)
+- Score tiles: warmer cream `#F2EBD3` (was `#F4E9C1`)
+- Empty placeholder rows: teal panels with the cream tile slots
+- 'Add a player ↓' hint: gold → dark ink (now readable on teal)
+- Add Player section: gold-yellow gradient → simple teal button on dark-green strip (feels like the operator panel area at the back of a real roller board)
+- Footer plaque: still dark green, but text now white (was gold) to match the cream-banner-on-green color logic of the rest of the board
+
+**Commit:** `1b24a77`. Touched: `client/src/components/AugustaBoard.jsx`. No new dependencies.
+
+
 
