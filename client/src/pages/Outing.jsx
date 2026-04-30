@@ -6,18 +6,26 @@ import ActiveRound from './ActiveRound.jsx'
 // Standalone AugustaBoard route was removed 2026-04-30 (Path A) — every
 // match now renders the Augusta scorecard directly via LiveOuting.
 
-// ─── Augusta theme palette (used across all in-match scorecard rendering) ────
-// Path A landed 2026-04-30: every match scorecard IS the Augusta board now.
-// Standalone /board route is gone; LiveOuting renders an Augusta-style table.
-const AUGUSTA_GREEN      = '#0F3D1E'   // dark wood frame + dividers + page bg
-const AUGUSTA_GREEN_DEEP = '#0a2c14'   // deepest shadow line
-const AUGUSTA_TEAL       = '#A8C9C2'   // iconic Augusta panel color
-const AUGUSTA_TEAL_HOVER = '#9DC0B8'   // current-user row tint
-const AUGUSTA_CREAM      = '#E8DFC2'   // LEADERS banner cream
-const AUGUSTA_TILE       = '#F2EBD3'   // score tile (slightly warmer cream)
-const AUGUSTA_RED        = '#B22222'   // under-par red
-const AUGUSTA_INK        = '#0F0F0F'   // over-par + names
-const AUGUSTA_WOOD       = '#5a3a16'   // hand-painted wood frame edge
+// ─── Augusta theme palette ───────────────────────────────────────────────────
+// Tournament-board look (revised 2026-04-30 PM after the teal misread):
+// deep forest-green panels with white block-letter text, gold PAR numerals,
+// cream score tiles slotted into the board, dark wood frame.
+const AUGUSTA_GREEN       = '#0F3D1E'   // outer wood frame + footer plaque
+const AUGUSTA_GREEN_DEEP  = '#0a2c14'   // deepest shadow line
+const AUGUSTA_PANEL       = '#1A5230'   // main board panel (was teal)
+const AUGUSTA_PANEL_HI    = '#235C36'   // subtle light-from-above gradient top
+const AUGUSTA_PANEL_HOVER = '#2A6B40'   // current-user row tint (slightly lighter green)
+const AUGUSTA_GOLD        = '#E8C05A'   // PAR numerals + leader accents
+const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe / dimmed gold
+const AUGUSTA_CREAM       = '#EAE0BF'   // LEADERS banner cream
+const AUGUSTA_TILE        = '#F2EBD3'   // score tile (warmer cream)
+const AUGUSTA_RED         = '#B22222'   // under-par red
+const AUGUSTA_INK         = '#0F0F0F'   // over-par numerals on cream tiles
+const AUGUSTA_WOOD        = '#5a3a16'   // hand-painted wood frame edge
+
+// Backwards-compat aliases — older code still referenced these names
+const AUGUSTA_TEAL        = AUGUSTA_PANEL
+const AUGUSTA_TEAL_HOVER  = AUGUSTA_PANEL_HOVER
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function scoreColor(strokes, par) {
@@ -1303,6 +1311,12 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
         color, cursor: canEdit && !isSubtotal ? 'pointer' : 'default',
         flexShrink: 0, userSelect: 'none',
         position: 'relative',
+        // Subtle inset shadow gives score tiles the "slotted into the wood
+        // board" feel — like real Masters score cards. Subtotals (OUT/IN)
+        // get a deeper inset since they're on the dark green strip.
+        boxShadow: isSubtotal
+          ? 'inset 0 1px 2px rgba(0,0,0,0.50)'
+          : 'inset 0 1px 2px rgba(0,0,0,0.18), inset 0 -1px 0 rgba(255,255,255,0.40)',
       }}
     >
       {/* Birdie / Eagle: red circle (or two for eagle) */}
@@ -1832,29 +1846,48 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         )}
       </div>
 
-      {/* Augusta board frame — wood-bordered panel with cream LEADERS banner */}
+      {/* Tournament board frame — wood-bordered with cream LEADERS plaque,
+          gold pinstripe inside the wood for that broadcast-quality finish. */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
         margin: '12px 12px',
         borderRadius: 6,
         overflow: 'hidden',
-        background: AUGUSTA_TEAL,
+        background: AUGUSTA_PANEL,
         border: '3px solid ' + AUGUSTA_WOOD,
-        boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.4)',
+        // Outer drop-shadow for floating-on-the-page weight, inner ring of
+        // dimmed gold for the pinstripe, and a deeper inset shadow for grain.
+        boxShadow: [
+          '0 16px 50px rgba(0,0,0,0.55)',
+          '0 2px 6px rgba(0,0,0,0.35)',
+          `inset 0 0 0 1px ${AUGUSTA_GOLD_DIM}`,
+          'inset 0 0 0 2px rgba(0,0,0,0.45)',
+        ].join(', '),
       }}>
-        {/* Cream LEADERS banner — dark green block letters */}
+        {/* LEADERS plaque — embossed cream banner with gold rules above & below */}
         <div style={{
-          background: AUGUSTA_CREAM,
-          borderBottom: '3px solid ' + AUGUSTA_GREEN,
+          background: `linear-gradient(180deg, ${AUGUSTA_CREAM} 0%, #DDD2A8 100%)`,
+          borderBottom: '1px solid ' + AUGUSTA_GREEN,
           textAlign: 'center', padding: '10px 0 8px',
-          flexShrink: 0,
+          flexShrink: 0, position: 'relative',
+          boxShadow: 'inset 0 -1px 2px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.6)',
         }}>
+          {/* Top gold rule */}
+          <div style={{
+            position: 'absolute', top: 0, left: '12%', right: '12%',
+            height: 1, background: AUGUSTA_GOLD_DIM, opacity: 0.7,
+          }} />
           <div style={{
             fontSize: 36, fontWeight: 900, lineHeight: 1, color: AUGUSTA_GREEN,
-            letterSpacing: '0.16em',
-            fontFamily: '"Impact", "Arial Black", Arial, sans-serif',
-            textShadow: '0 1px 0 rgba(255,255,255,0.5)',
+            letterSpacing: '0.20em',
+            fontFamily: '"Georgia", "Times New Roman", serif',
+            textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 -1px 0 rgba(0,0,0,0.20)',
           }}>LEADERS</div>
+          {/* Bottom gold rule */}
+          <div style={{
+            position: 'absolute', bottom: 4, left: '20%', right: '20%',
+            height: 1, background: AUGUSTA_GOLD_DIM, opacity: 0.55,
+          }} />
         </div>
 
         {/* Scorecard tables — scroll horizontally if needed, vertically as one body */}
@@ -2025,38 +2058,43 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
 function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 60, NAME_COL = 88, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0 }) {
-  // Augusta-style table — teal panels for HOLE/PAR/name columns, dark green
-  // strip for OUT/IN subtotal columns, cream tiles for score cells.
+  // Tournament-board look: deep forest green panels with white block letters,
+  // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
+  // gives the panels light-from-above weight. (2026-04-30 PM revision)
+  const panelGradient = `linear-gradient(180deg, ${AUGUSTA_PANEL_HI} 0%, ${AUGUSTA_PANEL} 100%)`
   const headerRow = {
     display: 'flex', alignItems: 'center',
     borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
-    background: AUGUSTA_TEAL,
+    background: panelGradient,
   }
   const headerNameCol = {
     minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
-    fontSize: 12, fontWeight: 900, color: AUGUSTA_INK,
-    fontFamily: '"Arial Black", Arial, sans-serif',
-    textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
-  }
-  const headerHoleCell = {
-    minWidth: HOLE_COL, width: HOLE_COL, height: 32,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, fontWeight: 900, color: AUGUSTA_INK,
-    fontFamily: '"Arial Black", Arial, sans-serif',
-    flexShrink: 0,
-    borderLeft: '1px solid rgba(0,0,0,0.18)',
-  }
-  const subtotalHeaderCell = {
-    minWidth: SUB_COL, width: SUB_COL, height: 32,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 12, fontWeight: 900, color: '#fff',
     fontFamily: '"Arial Black", Arial, sans-serif',
-    background: AUGUSTA_GREEN, letterSpacing: '0.06em', flexShrink: 0,
+    textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0,
+    textShadow: '0 1px 1px rgba(0,0,0,0.40)',
+  }
+  const headerHoleCell = {
+    minWidth: HOLE_COL, width: HOLE_COL, height: 34,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, fontWeight: 900, color: '#fff',
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    flexShrink: 0,
+    borderLeft: '1px solid rgba(255,255,255,0.10)',
+    textShadow: '0 1px 1px rgba(0,0,0,0.40)',
+  }
+  const subtotalHeaderCell = {
+    minWidth: SUB_COL, width: SUB_COL, height: 34,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 12, fontWeight: 900, color: AUGUSTA_GOLD,
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    background: AUGUSTA_GREEN_DEEP, letterSpacing: '0.06em', flexShrink: 0,
+    textShadow: '0 1px 1px rgba(0,0,0,0.50)',
   }
 
   return (
     <div style={{ marginBottom: 0 }}>
-      {/* HOLE row — teal panel with black numerals + dark-green OUT/IN */}
+      {/* HOLE row — green panel with white numerals + gold OUT/IN */}
       <div style={headerRow}>
         <div style={headerNameCol}>{label}</div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
@@ -2067,14 +2105,14 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
         </div>
       </div>
 
-      {/* PAR row — black numerals on teal */}
+      {/* PAR row — gold numerals on green (the iconic Augusta detail) */}
       <div style={{ ...headerRow, borderBottom: '2px solid ' + AUGUSTA_GREEN_DEEP }}>
-        <div style={headerNameCol}>PAR</div>
+        <div style={{ ...headerNameCol, color: AUGUSTA_GOLD }}>PAR</div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
           {holes.map(h => (
-            <div key={h} style={headerHoleCell}>{holePars[h]}</div>
+            <div key={h} style={{ ...headerHoleCell, color: AUGUSTA_GOLD }}>{holePars[h]}</div>
           ))}
-          <div style={subtotalHeaderCell}>{subtotalPar}</div>
+          <div style={{ ...subtotalHeaderCell, color: AUGUSTA_GOLD }}>{subtotalPar}</div>
         </div>
       </div>
 
@@ -2094,18 +2132,19 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
           <div key={p.user_id} style={{
             display: 'flex', alignItems: 'center',
             borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
-            background: isMe ? AUGUSTA_TEAL_HOVER : AUGUSTA_TEAL,
-            borderLeft: isMe ? `4px solid ${AUGUSTA_GREEN}` : 'none',
+            background: isMe ? AUGUSTA_PANEL_HOVER : panelGradient,
+            borderLeft: isMe ? `4px solid ${AUGUSTA_GOLD}` : 'none',
             minHeight: rowH,
           }}>
             {/* Avatar cell — photo fills edge-to-edge, square box */}
             <div style={{
               minWidth: AVATAR_COL - (isMe ? 4 : 0), width: AVATAR_COL - (isMe ? 4 : 0),
               height: rowH, flexShrink: 0,
-              borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
-              background: isMe ? AUGUSTA_TEAL_HOVER : AUGUSTA_TEAL,
+              borderRight: '1px solid rgba(0,0,0,0.30)',
+              background: AUGUSTA_GREEN_DEEP,
               overflow: 'hidden',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
             }}>
               {p.avatar ? (
                 <img
@@ -2129,7 +2168,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 }}>{initials(p.name)}</div>
               )}
             </div>
-            {/* Name cell — surname caps on teal panel */}
+            {/* Name cell — white surname caps on green panel */}
             <div style={{
               minWidth: NAME_COL, width: NAME_COL, height: rowH,
               padding: '0 10px', flexShrink: 0, overflow: 'hidden',
@@ -2137,16 +2176,17 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 14, fontWeight: 900, color: AUGUSTA_INK,
+                  fontSize: 14, fontWeight: 900, color: '#fff',
                   fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  letterSpacing: '0.04em',
+                  letterSpacing: '0.05em',
+                  textShadow: '0 1px 1px rgba(0,0,0,0.45)',
                 }}>
                   {display}
                 </div>
                 {team && (
                   <div style={{
-                    fontSize: 10, color: AUGUSTA_INK, fontWeight: 700, opacity: 0.7,
+                    fontSize: 10, color: 'rgba(255,255,255,0.70)', fontWeight: 700,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     marginTop: 2,
                   }}>
@@ -2202,14 +2242,16 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
         <div key={`filler-${i}`} style={{
           display: 'flex', alignItems: 'center',
           borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
-          background: AUGUSTA_TEAL,
+          background: panelGradient,
           minHeight: rowH,
         }}>
-          {/* Empty avatar cell */}
+          {/* Empty avatar cell — deep green, hint of an empty slot */}
           <div style={{
             minWidth: AVATAR_COL, width: AVATAR_COL, height: rowH,
-            borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
+            background: AUGUSTA_GREEN_DEEP,
+            borderRight: '1px solid rgba(0,0,0,0.30)',
             flexShrink: 0,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.04)',
           }} />
           {/* Empty name cell */}
           <div style={{
