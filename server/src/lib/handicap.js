@@ -39,16 +39,26 @@ function isRoundCompleted(r) {
   return scores.every(s => s != null && Number(s) > 0)
 }
 
-// Per-round differential: prefer USGA when ratings are present,
-// fall back to par-based when not. Returns null when the round
-// can't be evaluated (e.g., total or par missing).
+// During testing (and for free-tier users when paid-tier ships), the
+// handicap formula uses the simpler par-based differential — no course
+// rating / slope adjustments. Flip this flag to true once paid-tier
+// is wired up; rated rounds will then use the USGA-method formula and
+// unrated rounds keep falling back to par-based. (2026-05-01)
+const USE_USGA_DIFFERENTIAL = false
+
+// Per-round differential. With USGA mode on AND the round has both
+// course_rating and slope_rating, returns (score-rating)*113/slope.
+// Otherwise (free-tier or unrated), returns score-course_par.
+// Null when the round lacks the data needed to evaluate either path.
 function differentialFor(r) {
   const total = Number(r.total)
   if (!Number.isFinite(total)) return null
-  const rating = Number(r.course_rating)
-  const slope  = Number(r.slope_rating)
-  if (Number.isFinite(rating) && Number.isFinite(slope) && slope > 0) {
-    return ((total - rating) * 113) / slope
+  if (USE_USGA_DIFFERENTIAL) {
+    const rating = Number(r.course_rating)
+    const slope  = Number(r.slope_rating)
+    if (Number.isFinite(rating) && Number.isFinite(slope) && slope > 0) {
+      return ((total - rating) * 113) / slope
+    }
   }
   const par = Number(r.course_par)
   if (Number.isFinite(par)) return total - par
