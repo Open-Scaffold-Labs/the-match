@@ -1475,13 +1475,17 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
         {onSaveAndEagleEye && (
           <button onClick={() => onSaveAndEagleEye(val)} style={{
             width: '100%', padding: 14, marginTop: 10, borderRadius: 'var(--tm-radius-lg)',
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(232,192,90,0.45)',
-            color: '#F5D78A', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+            // Solid green gradient + white text — matches the primary green
+            // button pattern used elsewhere in the app (CreateWizard "Next →",
+            // CodeShare "Open Match", etc.) for consistency and high contrast.
+            // (2026-05-01 — Matt feedback: gold-on-faint-white was hard to see)
+            background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))',
+            border: 'none',
+            color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>
             Save &amp; Eagle Eye · Hole {nextHoleDisplay}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         )}
       </div>
