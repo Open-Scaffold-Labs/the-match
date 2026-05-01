@@ -399,7 +399,15 @@ function LiveMatchCard({ o, userId, onResume, onCopyCode, copied, onDelete }) {
   // "Matt Lavin's Match" reads better as the title with "Waiting for players"
   // than the awkward "You vs Matt Lavin's Match".
   const title = opp ? `You vs ${opp}` : (o.name || 'New match')
-  const subtitle = opp ? null : 'Waiting for players'
+  // If the host set an expected player count, show how many slots are
+  // still empty. Falls back to the generic "Waiting for players" copy
+  // when expected_players wasn't recorded on this match.
+  const remaining = Number.isFinite(Number(o.expected_players)) && Number(o.expected_players) > 0
+    ? Math.max(0, Number(o.expected_players) - Number(o.player_count || 0))
+    : null
+  const subtitle = opp
+    ? (remaining > 0 ? `Waiting for ${remaining} more` : null)
+    : (remaining > 0 ? `Waiting for ${remaining} more` : 'Waiting for players')
 
   // 2026-05-01 — Matt: swipe-left to delete uncompleted matches the
   // user created. Only the host (creator) can delete, and only while
@@ -1258,6 +1266,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       format: 'stroke',
       team: 'individual',
       holes: 18,
+      // Expected total golfers in the match. Defaults to 1 + any
+      // pre-filled players (e.g. when this wizard was opened from a
+      // schedule modal that already knows the group size).
+      players: Math.max(2, Math.min(4, 1 + (pendingPlayers?.length || 0))),
       // Real course data captured by the picker; null when host opts out
       courseId:      slim?.courseId ?? null,
       courseTee:     slim?.courseTee ?? null,
@@ -1300,6 +1312,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         // stores nulls when the picked tee didn't carry them.
         courseRating:  form.courseRating ?? null,
         slopeRating:   form.slopeRating  ?? null,
+        // Expected total golfers in the match (host + opponents). Used
+        // by the Match page Live Now card to show "waiting for N more"
+        // until the slots fill in.
+        expectedPlayers: form.players,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1358,6 +1374,24 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Holes</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {[9,18].map(h => <button key={h} onClick={() => set('holes', h)} style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--tm-radius)', border: '1px solid', borderColor: form.holes === h ? 'var(--tm-green)' : 'var(--tm-border)', background: form.holes === h ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)', color: form.holes === h ? 'var(--tm-green-text)' : 'var(--tm-text-2)', fontWeight: 700 }}>{h} Holes</button>)}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Golfers</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[2,3,4].map(n => (
+            <button key={n} onClick={() => set('players', n)} style={{
+              flex: 1, padding: '12px 0',
+              borderRadius: 'var(--tm-radius)', border: '1px solid',
+              borderColor: form.players === n ? 'var(--tm-green)' : 'var(--tm-border)',
+              background:  form.players === n ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
+              color:       form.players === n ? 'var(--tm-green-text)' : 'var(--tm-text-2)',
+              fontWeight: 700,
+            }}>{n}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 6 }}>
+          Including you. Used to show "waiting for N more" on the Live card.
         </div>
       </div>
     </div>,

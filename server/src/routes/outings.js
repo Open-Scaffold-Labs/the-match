@@ -22,6 +22,9 @@ router.post('/', async (req, res) => {
     // the tee carries them (paid tier / GolfCourseAPI-sourced courses);
     // null otherwise — handicap then falls back to par-based differentials.
     courseRating, slopeRating,
+    // New (2026-05-01): expected total golfers in the match. Used by the
+    // Match page to show "Waiting for N more" until the field fills up.
+    expectedPlayers,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -35,14 +38,18 @@ router.post('/', async (req, res) => {
   const holes  = coursePar && coursePar <= 40 ? 9 : 18
   const state  = { holes, participants: [] }
 
+  // Clamp expected_players to 2-8 (sane match sizes). Skip if missing.
+  const expN = Number(expectedPlayers)
+  const expectedPlayersVal = Number.isFinite(expN) && expN >= 2 && expN <= 8 ? Math.round(expN) : null
+
   const row = await db.one(
     `INSERT INTO tm_outings (
        code, name, host_id, course_name, course_par,
        team_format, point_method, scoring_formats, state,
        course_id, course_tee, hole_pars, hole_yardages, hole_handicaps,
-       course_rating, slope_rating
+       course_rating, slope_rating, expected_players
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
      RETURNING *`,
     [
       code, name, req.user.id,
@@ -56,6 +63,7 @@ router.post('/', async (req, res) => {
       Array.isArray(holeHandicaps) ? JSON.stringify(holeHandicaps) : null,
       Number.isFinite(Number(courseRating)) ? Number(courseRating) : null,
       Number.isFinite(Number(slopeRating))  ? Number(slopeRating)  : null,
+      expectedPlayersVal,
     ]
   )
 
@@ -80,6 +88,7 @@ router.post('/', async (req, res) => {
 router.get('/recent', async (req, res) => {
   const rows = await db.many(
     `SELECT o.id, o.code, o.name, o.course_name, o.status, o.host_id,
+            o.expected_players,
             o.created_at, o.updated_at,
             (SELECT COUNT(*) FROM tm_outing_participants p WHERE p.outing_id = o.id) AS player_count,
             (SELECT COALESCE(json_agg(u.name ORDER BY u.name), '[]'::json)
