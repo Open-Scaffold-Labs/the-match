@@ -943,6 +943,42 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
     }
   }, [])
 
+  // Hybrid GPS auto-start on mount. Without this, GPS only kicks in when
+  // the user taps "Enable Location" — but the cross-tab flow (GET DISTANCES
+  // pill on the scorecard → land on Eye with a course already loaded) skips
+  // past the landing UI's Enable button, so GPS never starts and Eye sits
+  // empty. Strategy:
+  //   1. If Permissions API exists, query geolocation state. If 'granted',
+  //      iOS has cached the prior user-gesture grant — startGpsWatch
+  //      silently. If 'prompt' / 'denied', leave it to the user gesture
+  //      / existing error UI. Cleanest path on iOS 16+.
+  //   2. If no Permissions API (older Safari, etc.), just attempt
+  //      startGpsWatch directly. iOS will succeed if permission is cached;
+  //      otherwise watchPosition's onError fires and the existing GPS
+  //      error banner appears.
+  // First-time visitors (no cached permission, no Permissions API support)
+  // still see the Enable Location button as the explicit user-gesture path.
+  // (2026-05-01)
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    let cancelled = false
+    ;(async () => {
+      if (navigator.permissions?.query) {
+        try {
+          const result = await navigator.permissions.query({ name: 'geolocation' })
+          if (cancelled) return
+          if (result.state === 'granted') startGpsWatch()
+        } catch {
+          if (!cancelled) startGpsWatch()
+        }
+      } else {
+        startGpsWatch()
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function startGpsWatch() {
     if (!navigator.geolocation || watchIdRef.current != null) return
     watchIdRef.current = navigator.geolocation.watchPosition(
