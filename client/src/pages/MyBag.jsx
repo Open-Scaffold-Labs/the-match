@@ -21,6 +21,7 @@ export default function MyBag() {
   const [clubs, setClubs]       = useState([])  // [{ slot, brand, model }]
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]   = useState(null) // slot key when picker is open
+  const [completing, setCompleting] = useState(false) // "Bag Complete" celebratory overlay
 
   useEffect(() => {
     let alive = true
@@ -96,7 +97,33 @@ export default function MyBag() {
             />
           )
         })}
+
+        {/* Complete My Bag — only renders once at least one club is in.
+            Tapping opens a celebratory overlay with the bag summary. */}
+        {!loading && filledCount > 0 && (
+          <button
+            onClick={() => setCompleting(true)}
+            style={{
+              marginTop: 8, padding: '14px',
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              color: '#070C09', border: 'none', borderRadius: 14,
+              fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em',
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 6px 20px rgba(201,160,64,0.30)',
+            }}
+          >
+            Complete My Bag · {filledCount}/{SLOTS.length}
+          </button>
+        )}
       </div>
+
+      {completing && (
+        <BagCompleteOverlay
+          clubs={clubs}
+          totalSlots={SLOTS.length}
+          onClose={() => setCompleting(false)}
+        />
+      )}
 
       {editing && (
         <ClubPicker
@@ -110,6 +137,134 @@ export default function MyBag() {
         />
       )}
     </div>
+  )
+}
+
+// ─── Bag complete overlay ────────────────────────────────────────────────────
+// Celebratory confirmation when the user taps "Complete My Bag." Pop-in
+// animation, gold checkmark, club count, and a Done CTA. Doesn't lock
+// the bag — user can still edit afterward, this is a UX "you're set"
+// signal. (2026-05-01)
+function BagCompleteOverlay({ clubs, totalSlots, onClose }) {
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        padding: 20,
+      }}
+    >
+      <style>{`
+        @keyframes mb-pop-in {
+          0%   { opacity: 0; transform: scale(0.7); }
+          60%  { opacity: 1; transform: scale(1.06); }
+          100% { opacity: 1; transform: scale(1.00); }
+        }
+        @keyframes mb-check-draw {
+          0%   { stroke-dashoffset: 60; }
+          100% { stroke-dashoffset: 0; }
+        }
+        @keyframes mb-glow-pulse {
+          0%, 100% { box-shadow: 0 0 30px rgba(245,215,138,0.40), 0 0 60px rgba(201,160,64,0.20); }
+          50%      { box-shadow: 0 0 50px rgba(245,215,138,0.65), 0 0 100px rgba(201,160,64,0.40); }
+        }
+        .mb-card { animation: mb-pop-in 360ms cubic-bezier(0.34,1.56,0.64,1) both; }
+        .mb-glow { animation: mb-glow-pulse 2.4s ease-in-out infinite; }
+        .mb-check { stroke-dasharray: 60; stroke-dashoffset: 60; animation: mb-check-draw 520ms ease 220ms forwards; }
+      `}</style>
+
+      <div
+        className="mb-card"
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 360,
+          borderRadius: 22,
+          background: 'linear-gradient(160deg, #0F2814 0%, #0A1D0F 50%, #060E08 100%)',
+          border: '1px solid rgba(245,215,138,0.30)',
+          padding: '28px 24px 24px',
+          textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Top gold rule */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2, pointerEvents: 'none',
+          background: 'linear-gradient(90deg, transparent, rgba(245,215,138,0.7), transparent)',
+        }} />
+
+        {/* Animated check medallion */}
+        <div className="mb-glow" style={{
+          width: 80, height: 80, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #F5E070, #C9A040)',
+          margin: '0 auto 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <polyline
+              className="mb-check"
+              points="5 12 10 17 19 8"
+              stroke="#070C09" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.20em',
+          color: 'rgba(245,215,138,0.65)', marginBottom: 6,
+        }}>BAG COMPLETE</div>
+
+        <div style={{
+          fontSize: 22, fontWeight: 900, color: '#fff',
+          letterSpacing: '-0.01em', marginBottom: 8,
+        }}>You're set, Matt</div>
+
+        <div style={{
+          fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
+          marginBottom: 18,
+        }}>
+          {clubs.length} of {totalSlots} slots filled. Your bag is saved
+          and ready — distances will populate as you log shots.
+        </div>
+
+        {/* Mini summary chips */}
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center',
+          marginBottom: 20,
+        }}>
+          {clubs.slice(0, 6).map(c => (
+            <span key={c.slot} style={{
+              fontSize: 10, fontWeight: 700,
+              background: 'rgba(245,215,138,0.10)',
+              border: '1px solid rgba(245,215,138,0.25)',
+              color: '#F5D78A',
+              borderRadius: 999, padding: '4px 9px',
+            }}>{c.brand}</span>
+          ))}
+          {clubs.length > 6 && (
+            <span style={{
+              fontSize: 10, fontWeight: 700,
+              color: 'rgba(255,255,255,0.40)', padding: '4px 9px',
+            }}>+{clubs.length - 6} more</span>
+          )}
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%', padding: '13px',
+            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            color: '#070C09', border: 'none', borderRadius: 12,
+            fontSize: 15, fontWeight: 800, cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >Done</button>
+      </div>
+    </div>,
+    document.body
   )
 }
 
