@@ -438,32 +438,17 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     const landing = projectPoint(player, distMeters, brng)
     if (!landing) return
 
-    // Marker: a small fixed-pixel target circle (so it doesn't grow
-    // huge when zoomed in). Gold dashed ring + filled core.
-    landingZoneRef.current = L.circleMarker([landing.lat, landing.lon], {
-      radius: 11,
-      color: '#F5D78A',
-      weight: 2.5,
-      opacity: 0.95,
-      fillColor: '#C9A040',
-      fillOpacity: 0.55,
-      dashArray: '4 4',
+    // Pulsing yellow disc marker — projected to the landing point.
+    // No label box; the toggle UI on the right already shows which
+    // club is active. divIcon lets us pulse via CSS keyframes.
+    landingZoneRef.current = L.marker([landing.lat, landing.lon], {
       interactive: false,
-    }).addTo(map)
-
-    // Label floats above the landing marker showing club + yards.
-    const labelHtml = `<div style="
-      background: rgba(7,12,9,0.88);
-      border: 1px solid rgba(245,215,138,0.70);
-      color: #F5D78A;
-      padding: 3px 8px; border-radius: 6px;
-      font-weight: 800; font-size: 10px; letter-spacing: 0.06em;
-      white-space: nowrap; transform: translate(-50%, -130%);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.45);
-      ">${(clubLabel || '').toUpperCase()} · ${Math.round(yards)}y</div>`
-    landingLabelRef.current = L.marker([landing.lat, landing.lon], {
-      interactive: false,
-      icon: L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }),
+      icon: L.divIcon({
+        className: '',  // suppress Leaflet's default white square
+        html: '<div class="lz-marker"></div>',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      }),
     }).addTo(map)
   }, [
     clubYards, clubLabel,
@@ -1654,6 +1639,26 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
         @keyframes ee-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ee-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .ee-hole-chip::-webkit-scrollbar { display: none; }
+        /* Landing-zone marker — pulsing yellow disc shown along the
+           aim line at the active club's distance. No background box. */
+        @keyframes lz-pulse {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(245,224,112,0.55), 0 0 16px rgba(245,224,112,0.55);
+            transform: scale(0.95);
+          }
+          50% {
+            box-shadow: 0 0 0 14px rgba(245,224,112,0), 0 0 28px rgba(245,224,112,0.85);
+            transform: scale(1.08);
+          }
+        }
+        .lz-marker {
+          width: 36px; height: 36px;
+          border-radius: 50%;
+          background: radial-gradient(circle, #F5E070 0%, #E8C05A 60%, rgba(232,192,90,0.55) 100%);
+          border: 2px solid #F5E070;
+          animation: lz-pulse 1.5s ease-in-out infinite;
+          pointer-events: none;
+        }
       `}</style>
 
       {/* ── Status bar ── */}
@@ -2163,18 +2168,15 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
             fontFamily: 'inherit',
             cursor: 'pointer',
             boxShadow: '0 6px 18px rgba(201,160,64,0.45)',
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
             minWidth: 96,
           }}
         >
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.10em', opacity: 0.65 }}>
-            {SLOT_LABELS_TOGGLE[selected.slot] || 'CLUB'}
+          <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+            {SLOT_LABELS_TOGGLE[selected.slot] || 'Club'}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '-0.01em', marginTop: 1, lineHeight: 1.1 }}>
-            {selected.brand}
-          </span>
-          <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.80, lineHeight: 1.1 }}>
-            {selected.model} · {selected.avg_yards}y
+          <span style={{ fontSize: 11, fontWeight: 800, opacity: 0.80, lineHeight: 1.1, marginTop: 2 }}>
+            {selected.avg_yards}y
           </span>
         </button>
         <button
@@ -2199,11 +2201,11 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
 // Slot labels (compact map for the toggle's center button — keeps the
 // component self-contained without importing the full clubCatalog.)
 const SLOT_LABELS_TOGGLE = {
-  driver: 'DRIVER', '3w': '3 WOOD', '5w': '5 WOOD', '7w': '7 WOOD',
-  hybrid_1: 'HYBRID 1', hybrid_2: 'HYBRID 2',
-  iron_3: '3 IRON', iron_4: '4 IRON', iron_5: '5 IRON', iron_6: '6 IRON',
-  iron_7: '7 IRON', iron_8: '8 IRON', iron_9: '9 IRON',
-  pw: 'PITCHING W', gw: 'GAP WEDGE', sw: 'SAND WEDGE', lw: 'LOB WEDGE',
+  driver: 'Driver', '3w': '3 Wood', '5w': '5 Wood', '7w': '7 Wood',
+  hybrid_1: 'Hybrid', hybrid_2: 'Hybrid 2',
+  iron_3: '3 Iron', iron_4: '4 Iron', iron_5: '5 Iron', iron_6: '6 Iron',
+  iron_7: '7 Iron', iron_8: '8 Iron', iron_9: '9 Iron',
+  pw: 'PW', gw: 'Gap', sw: 'Sand', lw: 'Lob',
 }
 
 // ─── Bag picker bottom-sheet ────────────────────────────────────────────────
