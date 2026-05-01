@@ -1877,8 +1877,12 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
           />
 
-          {/* HUD overlay */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
+          {/* HUD overlay — z-index 800 keeps it safely above Leaflet's
+              tile/marker/popup panes (which max around 700). The
+              floating SCORECARD + BAG buttons sit at 1000 above this
+              so they always win. (2026-05-01 — Matt: yardage card +
+              Analyze Shot button should never be hidden by tiles.) */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none', zIndex: 800 }}>
 
             {/* ── Top: yardage card ── */}
             <div style={{ alignSelf: 'center', pointerEvents: 'auto', textAlign: 'center',
