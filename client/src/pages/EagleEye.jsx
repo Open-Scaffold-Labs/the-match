@@ -123,6 +123,24 @@ function calcBearing(from, to) {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360
 }
 
+// ─── Project a GPS point along a bearing (degrees) for a given distance (m) ─
+// Used by the bag-toggle landing-zone marker — given player position +
+// aim bearing + club distance, returns the lat/lon where the ball lands.
+function projectPoint(start, distMeters, bearingDeg) {
+  if (!start || !Number.isFinite(distMeters) || !Number.isFinite(bearingDeg)) return null
+  const R = 6371000
+  const lat1 = start.lat * Math.PI / 180
+  const lon1 = start.lon * Math.PI / 180
+  const brng = bearingDeg * Math.PI / 180
+  const d    = distMeters / R
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng))
+  const lon2 = lon1 + Math.atan2(
+    Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
+    Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+  )
+  return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI }
+}
+
 // ─── Cardinal direction label ─────────────────────────────────────────────────
 function bearingLabel(deg) {
   const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
@@ -376,74 +394,83 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // below treats null as "use the new hole's midpoint default."
   useEffect(() => { setAimPoint(null) }, [currentHole])
 
-  // Landing-zone ring — drawn at the player's GPS position (or the
-  // hole's tee, or the course center as fallbacks) with radius =
-  // clubYards. Destroy-and-recreate on every change so toggling clubs
-  // produces a guaranteed fresh circle (Leaflet's setRadius sometimes
-  // doesn't redraw cleanly when the rotate plugin is active).
-  // (2026-05-01 — Matt: ring should ALWAYS appear when a club is on
-  // the toggle, even if GPS hasn't resolved yet.)
+  // Landing-zone marker — projects a target along the aim line at the
+  // selected club's distance, so the player sees exactly where the
+  // ball would land if they hit this club toward the current aim.
+  // Updates live on every toggle press and whenever the aim point is
+  // dragged. (2026-05-01 — Matt: not a circle around the player; a
+  // marker in the direction of aim.)
   useEffect(() => {
     if (!mapRef.current || !window.L) return
     const L = window.L
     const map = mapRef.current
 
-    // Always tear down the previous ring + label first, so there's no
-    // chance of a stale circle hanging around at the old radius.
+    // Always tear down the previous marker + label first.
     if (landingZoneRef.current) { landingZoneRef.current.remove(); landingZoneRef.current = null }
     if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
 
     if (!Number.isFinite(Number(clubYards)) || Number(clubYards) <= 0) return
 
-    // Pick the best center available, in order:
-    //   1. Live GPS (most accurate)
-    //   2. Tee position for the current hole (from OSM)
-    //   3. Course center (fallback geocode)
-    // This guarantees the ring shows up the moment a club is toggled,
-    // not just when GPS has settled.
-    const tee = holePositions[currentHole]
-    let centerLat, centerLon
-    if (gps?.lat != null && gps?.lon != null) {
-      centerLat = gps.lat; centerLon = gps.lon
-    } else if (tee?.lat != null && tee?.lon != null) {
-      centerLat = tee.lat; centerLon = tee.lon
-    } else if (geocoded?.lat != null && geocoded?.lon != null) {
-      centerLat = geocoded.lat; centerLon = geocoded.lon
-    } else {
-      return
-    }
+    // Player position fallback chain — same priority order as before.
+    const teePt = holePositions[currentHole]
+    let player
+    if (gps?.lat != null && gps?.lon != null)        player = { lat: gps.lat, lon: gps.lon }
+    else if (teePt?.lat != null && teePt?.lon != null) player = teePt
+    else if (geocoded?.lat != null && geocoded?.lon != null) player = { lat: geocoded.lat, lon: geocoded.lon }
+    else return
 
+    // Aim direction: use the user's chosen aim point (state) if set;
+    // otherwise fall back to the hole's default aim (par-aware
+    // midpoint computed from OSM geometry).
+    const greenPt = greenPositions[currentHole]
+    const par     = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.par ?? 4
+    const totalYards = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage ?? 0
+    const geometry = holeGeometries[currentHole]
+    const aim = aimPoint || getDefaultAim({ par, totalYards, teePt, greenPt, geometry })
+    if (!aim) return
+
+    // Bearing from player → aim, project the landing point at distance
+    // = club avg yards along that bearing.
+    const brng = calcBearing(player, aim)
+    if (!Number.isFinite(brng)) return
     const yards = Number(clubYards)
-    const radiusMeters = yards * 0.9144
-    const center = [centerLat, centerLon]
+    const distMeters = yards * 0.9144
+    const landing = projectPoint(player, distMeters, brng)
+    if (!landing) return
 
-    landingZoneRef.current = L.circle(center, {
-      radius: radiusMeters,
+    // Marker: a small fixed-pixel target circle (so it doesn't grow
+    // huge when zoomed in). Gold dashed ring + filled core.
+    landingZoneRef.current = L.circleMarker([landing.lat, landing.lon], {
+      radius: 11,
       color: '#F5D78A',
-      weight: 2,
-      opacity: 0.85,
+      weight: 2.5,
+      opacity: 0.95,
       fillColor: '#C9A040',
-      fillOpacity: 0.08,
-      dashArray: '4 6',
+      fillOpacity: 0.55,
+      dashArray: '4 4',
+      interactive: false,
     }).addTo(map)
 
-    // Small label on the north edge of the ring showing the club +
-    // distance (e.g. "DRIVER · 245y").
-    const offsetLat = radiusMeters / 111000  // meters → degrees lat (approx)
-    const labelPos  = [centerLat + offsetLat, centerLon]
+    // Label floats above the landing marker showing club + yards.
     const labelHtml = `<div style="
-      background: rgba(7,12,9,0.85);
-      border: 1px solid rgba(245,215,138,0.65);
+      background: rgba(7,12,9,0.88);
+      border: 1px solid rgba(245,215,138,0.70);
       color: #F5D78A;
       padding: 3px 8px; border-radius: 6px;
       font-weight: 800; font-size: 10px; letter-spacing: 0.06em;
-      white-space: nowrap; transform: translate(-50%, -100%);
+      white-space: nowrap; transform: translate(-50%, -130%);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.45);
       ">${(clubLabel || '').toUpperCase()} · ${Math.round(yards)}y</div>`
-    landingLabelRef.current = L.marker(labelPos, {
+    landingLabelRef.current = L.marker([landing.lat, landing.lon], {
       interactive: false,
       icon: L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }),
     }).addTo(map)
-  }, [clubYards, clubLabel, gps?.lat, gps?.lon])
+  }, [
+    clubYards, clubLabel,
+    gps?.lat, gps?.lon,
+    aimPoint?.lat, aimPoint?.lon,
+    currentHole,
+  ])
 
   // Pan to current hole + update single marker (no 36-marker re-render)
   useEffect(() => {
