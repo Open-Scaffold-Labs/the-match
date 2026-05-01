@@ -205,10 +205,23 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   const markerRef         = useRef(null)   // GPS dot
   const holeMarkerRef     = useRef(null)   // gold tee pin
   const greenMarkerRef    = useRef(null)   // red flag on green
-  const lineRef           = useRef(null)   // white polyline tee → green
-  const distLabelRef      = useRef(null)   // yardage badge at line midpoint
+  const lineRef           = useRef(null)   // white polyline tee → aim → green
+  const distLabelRef      = useRef(null)   // tee → aim segment yardage
+  const aimToGreenLabelRef = useRef(null)  // aim → green segment yardage
+  const aimMarkerRef      = useRef(null)   // draggable target circle
+  // Live snapshot of tee/green/totalYards for the drag handler. The
+  // handler is attached once at marker creation; without a ref the
+  // closure would freeze the hole-1 values and aim-point drags on
+  // hole 2+ would compute against the wrong tee/green. (2026-05-01)
+  const livePosRef        = useRef({ teePt: null, greenPt: null, totalYards: 0 })
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
+  // Aim-point state. null means "use default" (midpoint of tee→green).
+  // When the user drags the target, dragend commits the new {lat, lon}
+  // here, which causes labels and line to re-render at the chosen spot.
+  // Reset to null when the hole changes so each hole starts at its own
+  // midpoint default. (2026-05-01)
+  const [aimPoint, setAimPoint] = useState(null)
 
   // Load Leaflet from CDN and init map — only once geocoded location is known
   useEffect(() => {
@@ -298,9 +311,15 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       greenMarkerRef.current = null
       lineRef.current = null
       distLabelRef.current = null
+      aimToGreenLabelRef.current = null
+      aimMarkerRef.current = null
       setMapReady(false)
     }
   }, [geocoded])
+
+  // Reset aim-point when the hole changes. The position-update effect
+  // below treats null as "use the new hole's midpoint default."
+  useEffect(() => { setAimPoint(null) }, [currentHole])
 
   // Pan to current hole + update single marker (no 36-marker re-render)
   useEffect(() => {
@@ -377,72 +396,167 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       greenMarkerRef.current = null
     }
 
-    // White polyline + yardage label connecting tee to green — playing-
-    // perspective view (tee at bottom of screen, green at top, line up the
-    // fairway). Mirrors the look of consumer rangefinder apps like
-    // 18Birdies. (2026-05-01)
+    // Polyline + aim-point + yardage labels — playing-perspective view
+    // (tee at bottom of screen, green at top). Three points: tee → aim →
+    // green. Two yardage badges: tee-to-aim and aim-to-green. Aim point
+    // defaults to the midpoint of tee→green; the user drags the target
+    // marker to reposition it. (2026-05-01 — aim-point feature)
     if (teePt && greenPt) {
-      const linePts = [[teePt.lat, teePt.lon], [greenPt.lat, greenPt.lon]]
+      // Effective aim position: user-set or midpoint default.
+      const aimLat = aimPoint?.lat ?? (teePt.lat + greenPt.lat) / 2
+      const aimLon = aimPoint?.lon ?? (teePt.lon + greenPt.lon) / 2
+      const aimLL  = { lat: aimLat, lon: aimLon }
+
+      // Polyline tee → aim → green
+      const linePts = [
+        [teePt.lat, teePt.lon],
+        [aimLat,    aimLon],
+        [greenPt.lat, greenPt.lon],
+      ]
       if (lineRef.current) {
         lineRef.current.setLatLngs(linePts)
       } else {
         lineRef.current = L.polyline(linePts, {
           color: '#fff', weight: 3, opacity: 0.9,
           dashArray: '8,6',
-          // Thin black halo for contrast on bright satellite imagery
-          // (drawn as a slight opacity layer; Leaflet doesn't have a
-          // built-in stroke-outside, so we'll let the dash + opacity
-          // give the line its readability).
         }).addTo(mapRef.current)
       }
-      // Yardage badge at the line midpoint. PREFER the official course-data
-      // yardage (matches the HOLE 1 · 340y · Par 4 card and the scorecard);
-      // fall back to the GPS-haversine distance only when no official
-      // yardage exists. The two can disagree by 20-40y because the OSM
-      // tee/green positions are point estimates, while the official
-      // yardage measures from the actual back-tee marker to the center
-      // of the green. (2026-05-01 — bug fix per Matt feedback)
-      const midLat = (teePt.lat + greenPt.lat) / 2
-      const midLon = (teePt.lon + greenPt.lon) / 2
-      const officialYardage = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage
-      const distYards = officialYardage ?? Math.round(haversineYards(teePt, greenPt) || 0)
-      const labelHtml = `<div style="
-        background: rgba(7,12,9,0.92);
-        color: #fff;
-        font-weight: 800;
-        font-size: 13px;
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(245,215,138,0.55);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.55);
-        white-space: nowrap;
-        line-height: 1.1;
-      ">${distYards}<span style='color: rgba(255,255,255,0.5); font-weight: 600; font-size: 10px; margin-left: 3px;'>YDS</span></div>`
-      const labelIcon = L.divIcon({
-        className: '',
-        html: labelHtml,
-        // Roughly center the badge on the midpoint. Width depends on digit
-        // count but the bg blob handles overflow visually.
-        iconSize:   [60, 22],
-        iconAnchor: [30, 11],
-      })
+
+      // Reusable label HTML builder. The bigger pill goes on the
+      // aim→green leg (it's the more important "what's left" number);
+      // the smaller pill goes on the tee→aim leg.
+      const officialTotal = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage
+      const haversineTotal = Math.round(haversineYards(teePt, greenPt) || 0)
+      // Use the official yardage as the source of truth for the SUM;
+      // split it proportionally to the actual aim-point position so
+      // segment labels add up to the official total.
+      const totalYards    = officialTotal ?? haversineTotal
+      const teeToAimRaw   = haversineYards(teePt, aimLL) || 0
+      const aimToGreenRaw = haversineYards(aimLL, greenPt) || 0
+      const measuredTotal = teeToAimRaw + aimToGreenRaw || 1
+      const teeToAimYds   = Math.round((teeToAimRaw   / measuredTotal) * totalYards)
+      const aimToGreenYds = Math.round((aimToGreenRaw / measuredTotal) * totalYards)
+      // Refresh the live ref so the drag handler reads the current
+      // hole's tee/green/total instead of whatever the closure froze.
+      livePosRef.current = { teePt, greenPt, totalYards }
+
+      function makeLabelIcon(yds, isPrimary) {
+        const html = `<div style="
+          background: ${isPrimary ? 'rgba(7,12,9,0.95)' : 'rgba(7,12,9,0.85)'};
+          color: #fff;
+          font-weight: 800;
+          font-size: ${isPrimary ? 14 : 12}px;
+          font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+          padding: ${isPrimary ? '5px 12px' : '3px 9px'};
+          border-radius: 999px;
+          border: 1px solid rgba(245,215,138,${isPrimary ? 0.65 : 0.45});
+          box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+          white-space: nowrap;
+          line-height: 1.1;
+        ">${yds}<span style='color: rgba(255,255,255,0.5); font-weight: 600; font-size: ${isPrimary ? 10 : 9}px; margin-left: 3px;'>YDS</span></div>`
+        return L.divIcon({
+          className: '',
+          html,
+          iconSize:   [isPrimary ? 64 : 56, isPrimary ? 24 : 20],
+          iconAnchor: [isPrimary ? 32 : 28, isPrimary ? 12 : 10],
+        })
+      }
+
+      // Tee → aim label at midpoint of that segment
+      const teeAimMidLat = (teePt.lat + aimLat) / 2
+      const teeAimMidLon = (teePt.lon + aimLon) / 2
+      const teeAimIcon = makeLabelIcon(teeToAimYds, false)
       if (distLabelRef.current) {
-        distLabelRef.current.setLatLng([midLat, midLon])
-        distLabelRef.current.setIcon(labelIcon)
+        distLabelRef.current.setLatLng([teeAimMidLat, teeAimMidLon])
+        distLabelRef.current.setIcon(teeAimIcon)
       } else {
-        distLabelRef.current = L.marker([midLat, midLon], {
-          icon: labelIcon,
-          interactive: false,    // don't intercept taps on the badge itself
-          keyboard: false,
+        distLabelRef.current = L.marker([teeAimMidLat, teeAimMidLon], {
+          icon: teeAimIcon, interactive: false, keyboard: false,
         }).addTo(mapRef.current)
+      }
+
+      // Aim → green label at midpoint of that segment (primary, bigger)
+      const aimGreenMidLat = (aimLat + greenPt.lat) / 2
+      const aimGreenMidLon = (aimLon + greenPt.lon) / 2
+      const aimGreenIcon = makeLabelIcon(aimToGreenYds, true)
+      if (aimToGreenLabelRef.current) {
+        aimToGreenLabelRef.current.setLatLng([aimGreenMidLat, aimGreenMidLon])
+        aimToGreenLabelRef.current.setIcon(aimGreenIcon)
+      } else {
+        aimToGreenLabelRef.current = L.marker([aimGreenMidLat, aimGreenMidLon], {
+          icon: aimGreenIcon, interactive: false, keyboard: false,
+        }).addTo(mapRef.current)
+      }
+
+      // Aim-point target marker — draggable. Larger touch target than
+      // a typical Leaflet circleMarker so it's reliably grabbable on
+      // mobile. Live drag updates the line + labels via the drag
+      // handler below; dragend commits to React state.
+      const targetIcon = L.divIcon({
+        className: '',
+        html: `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5))">
+          <circle cx="20" cy="20" r="18" fill="rgba(255,255,255,0.10)" stroke="#fff" stroke-width="2" stroke-dasharray="3,3"/>
+          <circle cx="20" cy="20" r="7"  fill="#C9A040" stroke="#fff" stroke-width="2"/>
+          <circle cx="20" cy="20" r="2.5" fill="#fff"/>
+        </svg>`,
+        iconSize:   [40, 40],
+        iconAnchor: [20, 20],
+      })
+      if (aimMarkerRef.current) {
+        aimMarkerRef.current.setLatLng([aimLat, aimLon])
+        aimMarkerRef.current.setIcon(targetIcon)
+      } else {
+        aimMarkerRef.current = L.marker([aimLat, aimLon], {
+          icon: targetIcon,
+          draggable: true,
+          autoPan: false,        // don't pan the map while dragging — keeps the line steady
+        }).addTo(mapRef.current)
+        // Live update during drag — recompute labels + polyline directly
+        // on Leaflet objects for smoothness; commit to React state on
+        // dragend so the next render is consistent. Reads tee/green/
+        // totalYards from livePosRef so a drag on hole 2+ uses the
+        // current hole's positions, not the hole-1 closure.
+        aimMarkerRef.current.on('drag', e => {
+          const ll = e.target.getLatLng()
+          const { teePt: t, greenPt: g, totalYards: total } = livePosRef.current
+          if (!t || !g) return
+          const liveAim  = { lat: ll.lat, lon: ll.lng }
+          const t2aRaw   = haversineYards(t, liveAim) || 0
+          const a2gRaw   = haversineYards(liveAim, g) || 0
+          const tot      = (t2aRaw + a2gRaw) || 1
+          const t2a      = Math.round((t2aRaw / tot) * total)
+          const a2g      = Math.round((a2gRaw / tot) * total)
+          // polyline
+          if (lineRef.current) {
+            lineRef.current.setLatLngs([
+              [t.lat, t.lon],
+              [ll.lat, ll.lng],
+              [g.lat, g.lon],
+            ])
+          }
+          // label positions + content
+          if (distLabelRef.current) {
+            distLabelRef.current.setLatLng([(t.lat + ll.lat)/2, (t.lon + ll.lng)/2])
+            distLabelRef.current.setIcon(makeLabelIcon(t2a, false))
+          }
+          if (aimToGreenLabelRef.current) {
+            aimToGreenLabelRef.current.setLatLng([(ll.lat + g.lat)/2, (ll.lng + g.lon)/2])
+            aimToGreenLabelRef.current.setIcon(makeLabelIcon(a2g, true))
+          }
+        })
+        aimMarkerRef.current.on('dragend', e => {
+          const ll = e.target.getLatLng()
+          setAimPoint({ lat: ll.lat, lon: ll.lng })
+        })
       }
     } else {
-      // No tee or no green — drop the line/label if they exist
-      if (lineRef.current) { lineRef.current.remove(); lineRef.current = null }
-      if (distLabelRef.current) { distLabelRef.current.remove(); distLabelRef.current = null }
+      // No tee or no green — drop everything aim-related
+      if (lineRef.current)            { lineRef.current.remove();            lineRef.current = null }
+      if (distLabelRef.current)       { distLabelRef.current.remove();       distLabelRef.current = null }
+      if (aimToGreenLabelRef.current) { aimToGreenLabelRef.current.remove(); aimToGreenLabelRef.current = null }
+      if (aimMarkerRef.current)       { aimMarkerRef.current.remove();       aimMarkerRef.current = null }
     }
-  }, [currentHole, holePositions, greenPositions, mapReady])
+  }, [currentHole, holePositions, greenPositions, mapReady, aimPoint])
 
   // Update GPS marker position without panning away from the course
   useEffect(() => {
