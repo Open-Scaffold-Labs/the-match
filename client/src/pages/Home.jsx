@@ -697,14 +697,26 @@ function AvailabilityCalendar({ uid, onScheduleGame }) {
 // ─── Upcoming Tee Times ───────────────────────────────────────────────────────
 function PlanSheet({ game, onClose, onCourseSaved }) {
   const [course, setCourse] = useState(game.course_name || '')
+  // Tee time as "HH:MM" — uses the native <input type="time"> picker.
+  // (2026-05-01 — Matt's rule: a game stays in Awaiting until a time
+  // is pinned. PlanSheet now sets both course AND time.)
+  const [time, setTime]     = useState(game.start_time ? game.start_time.slice(0, 5) : '')
   const [saving, setSaving] = useState(false)
 
   async function save() {
-    if (!course.trim()) return
+    if (!course.trim() && !time) return
     setSaving(true)
     try {
-      await put(`/api/games/${game.id}/course`, { course_name: course.trim() })
-      onCourseSaved(game.id, course.trim())
+      const trimmed = course.trim()
+      const tasks = []
+      if (trimmed && trimmed !== (game.course_name || '')) {
+        tasks.push(put(`/api/games/${game.id}/course`, { course_name: trimmed }))
+      }
+      if (time && time !== (game.start_time ? game.start_time.slice(0, 5) : '')) {
+        tasks.push(put(`/api/games/${game.id}/time`, { start_time: time }))
+      }
+      await Promise.all(tasks)
+      onCourseSaved(game.id, trimmed || game.course_name, time || game.start_time)
       onClose()
     } catch { /* ignore */ }
     setSaving(false)
@@ -752,8 +764,8 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
         </div>
 
         {/* Course input */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 8 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 8, fontWeight: 700 }}>
             {game.course_name ? 'CHANGE COURSE' : 'SET COURSE'}
           </div>
           <input
@@ -764,18 +776,35 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
             placeholder="e.g. Augusta National"
             style={{
               width: '100%', boxSizing: 'border-box',
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 12, color: '#fff', padding: '13px 16px', fontSize: 15, outline: 'none',
+              background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.18)',
+              borderRadius: 12, color: '#0D1F12', padding: '13px 16px', fontSize: 15, outline: 'none',
             }}
           />
         </div>
 
-        <button onClick={save} disabled={saving || !course.trim()} style={{
+        {/* Tee-time input */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 8, fontWeight: 700 }}>
+            {game.start_time ? 'CHANGE TEE TIME' : 'SET TEE TIME'}
+          </div>
+          <input
+            type="time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.18)',
+              borderRadius: 12, color: '#0D1F12', padding: '13px 16px', fontSize: 15, outline: 'none',
+            }}
+          />
+        </div>
+
+        <button onClick={save} disabled={saving || (!course.trim() && !time)} style={{
           width: '100%', padding: '14px',
-          background: course.trim() ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(255,255,255,0.07)',
-          color: course.trim() ? '#070C09' : 'rgba(255,255,255,0.3)',
+          background: (course.trim() || time) ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.07)',
+          color: (course.trim() || time) ? '#070C09' : 'rgba(13,31,18,0.3)',
           border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700,
-          cursor: course.trim() ? 'pointer' : 'default', transition: 'all 0.15s',
+          cursor: (course.trim() || time) ? 'pointer' : 'default', transition: 'all 0.15s',
         }}>{saving ? 'Saving…' : 'Lock It In'}</button>
       </div>
     </div>,
@@ -985,18 +1014,19 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
   )
 }
 
-// ─── Sent Requests (outgoing, awaiting reply) ─────────────────────────────────
-// Was previously inlined into UpcomingTeeTimes, which conflated "real
-// confirmed tee time" with "I sent a request and it hasn't been
-// answered yet." Matt 2026-05-01: only games with a real tee time
-// belong in Upcoming. Pending outgoing requests now live in their own
-// quieter section below.
-function SentRequests({ requests = [], onCancel }) {
-  // Only pending — accepted ones should ideally be promoted to a real
-  // game elsewhere; declined ones drop off. Past-dated rows already
-  // filtered server-side.
-  const pending = requests.filter(r => r.status === 'pending')
-  if (pending.length === 0) return null
+// ─── Awaiting Tee Time ────────────────────────────────────────────────────────
+// Matt 2026-05-01 rule: any outgoing request OR acceptance stays here
+// until a tee time is pinned. Once start_time is set, the row moves to
+// Upcoming Tee Times. Two card kinds:
+//   • Outgoing tm_tee_time_requests (pending or accepted, not declined)
+//   • tm_games rows where I'm in but no start_time has been set yet
+function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
+  // Outgoing tee-time requests: keep pending + accepted, drop declined.
+  const outgoing = requests.filter(r => r.status !== 'declined')
+  // Time-less games I'm part of (regardless of who created).
+  const timeless = games.filter(g => !g.start_time)
+  const total = outgoing.length + timeless.length
+  if (total === 0) return null
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -1006,20 +1036,28 @@ function SentRequests({ requests = [], onCancel }) {
           background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
           textShadow: '0 1px 1px rgba(255,255,255,0.4)',
         }}>
-          SENT · AWAITING REPLY
+          AWAITING TEE TIME
         </div>
         <span style={{
           background: '#C9A040', color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
-        }}>{pending.length}</span>
+        }}>{total}</span>
       </div>
 
-      {pending.map(tr => {
-        const dateLabel = new Date(tr.date + 'T12:00:00').toLocaleDateString('en-US', {
+      {/* Time-less tm_games — actionable cards with a "Set Tee Time" CTA. */}
+      {timeless.map(g => {
+        const dateLabel = new Date(g.date + 'T12:00:00').toLocaleDateString('en-US', {
           weekday: 'short', month: 'short', day: 'numeric',
         })
+        const accepted = (g.participants || []).filter(p => p.status === 'accepted')
+        const pending  = (g.participants || []).filter(p => p.status === 'pending')
+        const isOrganizer = String(g.created_by) === String(userId)
+        const otherAccepted = accepted.filter(p => String(p.user_id) !== String(userId))
+        const stateLabel = pending.length > 0
+          ? `Awaiting ${pending.length} ${pending.length === 1 ? 'reply' : 'replies'}`
+          : 'Everyone confirmed — set a time'
         return (
-          <div key={`sent-${tr.id}`} style={{
+          <div key={`g-${g.id}`} style={{
             background: 'rgba(255,255,255,0.78)',
             border: '1px dashed rgba(201,160,64,0.55)',
             borderRadius: 14, padding: '14px 16px', marginBottom: 8,
@@ -1029,12 +1067,56 @@ function SentRequests({ requests = [], onCancel }) {
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
                 color: '#7A5800', background: 'rgba(201,160,64,0.10)',
                 borderRadius: 5, padding: '2px 7px',
-              }}>WAITING FOR REPLY</span>
+              }}>{isOrganizer ? 'YOU INVITED' : 'YOU ACCEPTED'}</span>
+              <span style={{ color: '#7A5800', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: '#0D1F12' }}>
+              {otherAccepted.length > 0
+                ? otherAccepted.map(p => p.name).join(', ')
+                : (g.organizer_name || 'Match')}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(27,94,59,0.55)', marginBottom: 10 }}>
+              {stateLabel}{g.course_name ? ` · ${g.course_name}` : ''}
+            </div>
+            <button onClick={() => onPlan?.(g)} style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              border: 'none', borderRadius: 10, color: '#070C09',
+              fontSize: 13, fontWeight: 700, padding: '9px',
+              cursor: 'pointer',
+            }}>Set Tee Time</button>
+          </div>
+        )
+      })}
+
+      {/* Outgoing tm_tee_time_requests — quieter, no inline CTA yet
+          (those don't auto-create a tm_games row when accepted, so
+          there's no row to set a time on). Future work to bridge. */}
+      {outgoing.map(tr => {
+        const dateLabel = new Date(tr.date + 'T12:00:00').toLocaleDateString('en-US', {
+          weekday: 'short', month: 'short', day: 'numeric',
+        })
+        const accepted = tr.status === 'accepted'
+        return (
+          <div key={`tr-${tr.id}`} style={{
+            background: 'rgba(255,255,255,0.78)',
+            border: '1px dashed rgba(201,160,64,0.55)',
+            borderRadius: 14, padding: '14px 16px', marginBottom: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+                color: accepted ? '#1B5E3B' : '#7A5800',
+                background: accepted ? 'rgba(27,94,59,0.10)' : 'rgba(201,160,64,0.10)',
+                borderRadius: 5, padding: '2px 7px',
+              }}>{accepted ? 'ACCEPTED · COORDINATE TIME' : 'WAITING FOR REPLY'}</span>
               <span style={{ color: '#7A5800', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
               <span style={{ color: '#C9A040' }}>{tr.to_name}</span>
-              <span style={{ color: 'rgba(27,94,59,0.45)', fontSize: 12, fontWeight: 400 }}> hasn't responded yet</span>
+              <span style={{ color: 'rgba(27,94,59,0.45)', fontSize: 12, fontWeight: 400 }}>
+                {accepted ? ' is in — agree on a tee time' : " hasn't responded yet"}
+              </span>
             </div>
             {tr.course_name && <div style={{ color: 'rgba(13,31,18,0.40)', fontSize: 12 }}>{tr.course_name}</div>}
           </div>
@@ -2644,8 +2726,15 @@ export default function Home({ onNavigateToOuting }) {
           }}
         />
 
-        {/* Outgoing tee-time requests still waiting on a reply. */}
-        <SentRequests requests={teeRequests.outgoing} />
+        {/* Awaiting Tee Time — outgoing requests + time-less games.
+            Per Matt's rule, anything stays here until a tee time is
+            pinned, then it moves to Upcoming above. */}
+        <AwaitingTeeTime
+          requests={teeRequests.outgoing}
+          games={games.confirmed}
+          userId={profile?.id}
+          onPlan={setPlanGame}
+        />
 
         {/* Friends */}
         <FriendsPanel
@@ -2715,16 +2804,26 @@ export default function Home({ onNavigateToOuting }) {
         <EditProfileModal user={user} onSave={handleProfileSaved} onClose={() => setEditOpen(false)} />
       )}
 
-      {/* Plan / set course sheet */}
+      {/* Plan / set course + time sheet */}
       {planGame && (
         <PlanSheet
           game={planGame}
           onClose={() => setPlanGame(null)}
-          onCourseSaved={(id, course) => {
+          onCourseSaved={async (id, course, time) => {
+            // Optimistic local update so the card pops to Upcoming
+            // immediately…
             setGames(prev => ({
               ...prev,
-              confirmed: prev.confirmed.map(g => g.id === id ? { ...g, course_name: course } : g),
+              confirmed: prev.confirmed.map(g => g.id === id
+                ? { ...g, course_name: course, start_time: time ?? g.start_time }
+                : g),
             }))
+            // …then refetch so the row's authoritative state matches
+            // the server (handles concurrent participant updates etc).
+            try {
+              const g = await api('/api/games')
+              setGames(g ?? { incoming: [], confirmed: [] })
+            } catch { /* ignore */ }
             setPlanGame(null)
           }}
         />

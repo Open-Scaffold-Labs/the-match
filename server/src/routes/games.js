@@ -162,6 +162,37 @@ router.put('/:id/course', async (req, res) => {
   }
 })
 
+// ─── PUT /api/games/:id/time — set or change start_time ─────────────────────
+// Used by the Awaiting Tee Time section on Home: a game without a
+// start_time sits in "awaiting" until someone pins a time on it, at
+// which point it moves to Upcoming.
+router.put('/:id/time', async (req, res) => {
+  try {
+    const uid = req.user.id
+    let { start_time } = req.body
+    // Accept "HH:MM" or "HH:MM:SS"; null clears it.
+    if (start_time && !/^\d{2}:\d{2}(:\d{2})?$/.test(start_time)) {
+      return res.status(400).json({ error: 'Invalid time format' })
+    }
+
+    // Only a participant can update.
+    const part = await db.one(
+      `SELECT id FROM tm_game_participants WHERE game_id = $1 AND user_id = $2`,
+      [req.params.id, uid]
+    )
+    if (!part) return res.status(403).json({ error: 'Not a participant' })
+
+    await db.query(
+      `UPDATE tm_games SET start_time = $1 WHERE id = $2`,
+      [start_time || null, req.params.id]
+    )
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[games/time]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // ─── POST /api/games/:id/broadcast — send open-spot invite to all friends ────
 router.post('/:id/broadcast', async (req, res) => {
   try {
