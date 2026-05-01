@@ -2081,6 +2081,14 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
     display: 'flex', alignItems: 'center',
     borderBottom: '1px solid ' + dividerColor,
     background: panelGradient,
+    // Row sizes to its content so the borderBottom spans the full width of
+    // all cells (avatar + name + 9 hole cells + OUT subtotal). Without this
+    // the row only expands to the scroll container's width and the
+    // borderBottom cuts off mid-row when scrolled. (2026-04-30 PM round 4 —
+    // user noticed the cut-off after the AVATAR_COL split widened rows
+    // beyond the viewport.)
+    width: 'max-content',
+    minWidth: '100%',
   }
   const headerNameCol = {
     minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
@@ -2156,6 +2164,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             background: isMe ? AUGUSTA_PANEL_HOVER : panelGradient,
             borderLeft: isMe ? `4px solid ${AUGUSTA_GOLD}` : 'none',
             minHeight: rowH,
+            width: 'max-content', minWidth: '100%',
           }}>
             {/* Avatar cell — photo fills edge-to-edge, square box */}
             <div style={{
@@ -2265,6 +2274,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
           borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
           background: panelGradient,
           minHeight: rowH,
+          width: 'max-content', minWidth: '100%',
         }}>
           {/* Empty avatar cell — deep green, hint of an empty slot */}
           <div style={{
@@ -2313,6 +2323,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
         display: 'flex', alignItems: 'center',
         borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
         background: AUGUSTA_GREEN_DEEP,
+        width: 'max-content', minWidth: '100%',
       }}>
         <div style={{
           minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
@@ -2370,6 +2381,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
             display: 'flex', alignItems: 'center',
             borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
             background: AUGUSTA_GREEN,
+            width: 'max-content', minWidth: '100%',
           }}>
             {/* Avatar cell — photo fills edge-to-edge on the dark green strip */}
             <div style={{
