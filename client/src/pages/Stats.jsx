@@ -392,16 +392,24 @@ export function MiniTrendBar({ rounds }) {
 }
 
 // ── Glass stat tile ───────────────────────────────────────────────────────
-export function StatTile({ label, value, sub, accent }) {
+// theme='light' (default) — cream tile for the Home dashboard / legacy Stats
+// theme='dark'            — charcoal tile for the new dark Profile body
+export function StatTile({ label, value, sub, accent, theme = 'light' }) {
+  const isDark = theme === 'dark'
+  const tileBg     = isDark ? 'rgba(255,255,255,0.04)'             : 'rgba(255,255,255,0.85)'
+  const tileBorder = isDark ? '1px solid rgba(255,255,255,0.07)'   : '1px solid rgba(27,94,59,0.10)'
+  const tileShadow = isDark ? 'none'                                : '0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(27,94,59,0.07)'
+  const labelColor = isDark ? 'rgba(255,255,255,0.45)'             : 'rgba(13,31,18,0.35)'
+  const subColor   = isDark ? 'rgba(255,255,255,0.35)'             : 'rgba(13,31,18,0.35)'
   return (
     <div style={{
       borderRadius: 16,
-      background: 'rgba(255,255,255,0.85)',
-      border: '1px solid rgba(27,94,59,0.10)',
-      boxShadow: '0 2px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(27,94,59,0.07)',
+      background: tileBg,
+      border: tileBorder,
+      boxShadow: tileShadow,
       padding: '18px 14px', textAlign: 'center',
     }}>
-      <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.35)', fontWeight: 700,
+      <div style={{ fontSize: 10, color: labelColor, fontWeight: 700,
         textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>
         {label}
       </div>
@@ -416,7 +424,7 @@ export function StatTile({ label, value, sub, accent }) {
         {value}
       </div>
       {sub && (
-        <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.35)', marginTop: 5 }}>{sub}</div>
+        <div style={{ fontSize: 11, color: subColor, marginTop: 5 }}>{sub}</div>
       )}
     </div>
   )
