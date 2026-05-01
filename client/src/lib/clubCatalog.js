@@ -54,7 +54,7 @@ export const CATALOG = {
 
   fairway: {
     Callaway:   ['Paradym', 'Paradym Triple Diamond', 'Paradym Ai Smoke', 'Elyte', 'Rogue ST Max', 'Rogue ST Max Heaven'],
-    TaylorMade: ['Stealth 2', 'Stealth 2 Plus', 'Stealth 2 HD', 'Qi10', 'Qi10 Max', 'Qi10 Tour', 'Qi35'],
+    TaylorMade: ['Stealth 2', 'Stealth 2 Plus', 'Stealth 2 HD', 'Qi10', 'Qi10 Max', 'Qi10 Tour', 'Qi35', 'M6', 'M5', 'M4', 'M3', 'M2 (2017)', 'M1 (2017)', 'M2 (2016)', 'M1 (2016)'],
     Titleist:   ['TSR2', 'TSR3', 'GT2', 'GT3'],
     Ping:       ['G430 Max', 'G430 LST', 'G430 SFT', 'G440 Max', 'G440 LST', 'G440 SFT'],
     Cobra:      ['Aerojet', 'Aerojet LS', 'Aerojet Max', 'Darkspeed', 'Darkspeed LS', 'Darkspeed Max'],
