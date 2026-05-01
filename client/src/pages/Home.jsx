@@ -783,9 +783,11 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
   )
 }
 
-function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreateMatch, onSelectFriend, userId }) {
+function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFriend, userId }) {
   const [broadcasting, setBroadcasting] = useState({}) // { [gameId]: 'sending'|'sent' }
-  if ((!games || games.length === 0) && sentRequests.length === 0) return null
+  // Outgoing tee-requests no longer render here — they have their own
+  // SentRequests section. Upcoming now means actually-confirmed games.
+  if (!games || games.length === 0) return null
 
   async function broadcast(g) {
     setBroadcasting(s => ({ ...s, [g.id]: 'sending' }))
@@ -811,7 +813,7 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
         <span style={{
           background: '#1B5E3B', color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
-        }}>{games.length + sentRequests.length}</span>
+        }}>{games.length}</span>
       </div>
 
       {/* Per-card "#N of M" counter when multiple same-day matches lack
@@ -972,12 +974,46 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
         )
       })}
 
-      {/* Sent tee time requests (outgoing, pending reply) */}
-      {sentRequests.map(tr => {
-        const dateLabel = new Date(tr.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    </div>
+  )
+}
+
+// ─── Sent Requests (outgoing, awaiting reply) ─────────────────────────────────
+// Was previously inlined into UpcomingTeeTimes, which conflated "real
+// confirmed tee time" with "I sent a request and it hasn't been
+// answered yet." Matt 2026-05-01: only games with a real tee time
+// belong in Upcoming. Pending outgoing requests now live in their own
+// quieter section below.
+function SentRequests({ requests = [], onCancel }) {
+  // Only pending — accepted ones should ideally be promoted to a real
+  // game elsewhere; declined ones drop off. Past-dated rows already
+  // filtered server-side.
+  const pending = requests.filter(r => r.status === 'pending')
+  if (pending.length === 0) return null
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div style={{
+          color: '#7A5800', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+          textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+        }}>
+          SENT · AWAITING REPLY
+        </div>
+        <span style={{
+          background: '#C9A040', color: '#FFFFFF',
+          borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
+        }}>{pending.length}</span>
+      </div>
+
+      {pending.map(tr => {
+        const dateLabel = new Date(tr.date + 'T12:00:00').toLocaleDateString('en-US', {
+          weekday: 'short', month: 'short', day: 'numeric',
+        })
         return (
           <div key={`sent-${tr.id}`} style={{
-            background: 'rgba(255,255,255,0.88)',
+            background: 'rgba(255,255,255,0.78)',
             border: '1px dashed rgba(201,160,64,0.55)',
             borderRadius: 14, padding: '14px 16px', marginBottom: 8,
           }}>
@@ -2550,10 +2586,28 @@ export default function Home({ onNavigateToOuting }) {
           </div>
         </a>
 
-        {/* Upcoming confirmed games */}
+        {/* Pending game invites + tee time requests — moved up under
+            GolfNow so users discover the inbox surface immediately.
+            Always renders (with an empty-state placeholder) so it's
+            visible even when nothing is pending. */}
+        <GameInbox
+          games={games}
+          teeRequests={teeRequests.incoming}
+          onRespond={async (id, status) => {
+            await handleGameRespond(id, status)
+          }}
+          onRespondTeeRequest={async (id, status) => {
+            await post(`/api/availability/tee-requests/${id}`, { status })
+            const tr = await api('/api/availability/tee-requests')
+            setTeeRequests(tr ?? { incoming: [], outgoing: [] })
+          }}
+        />
+
+        {/* Upcoming confirmed games — only games with a real tee time
+            in tm_games. Outgoing pending requests live in their own
+            SentRequests section below. */}
         <UpcomingTeeTimes
           games={games.confirmed}
-          sentRequests={teeRequests.outgoing}
           onPlan={setPlanGame}
           userId={profile?.id}
           onCreateMatch={players => onNavigateToOuting?.(players)}
@@ -2568,19 +2622,8 @@ export default function Home({ onNavigateToOuting }) {
           }}
         />
 
-        {/* Pending game invites + tee time requests */}
-        <GameInbox
-          games={games}
-          teeRequests={teeRequests.incoming}
-          onRespond={async (id, status) => {
-            await handleGameRespond(id, status)
-          }}
-          onRespondTeeRequest={async (id, status) => {
-            await post(`/api/availability/tee-requests/${id}`, { status })
-            const tr = await api('/api/availability/tee-requests')
-            setTeeRequests(tr ?? { incoming: [], outgoing: [] })
-          }}
-        />
+        {/* Outgoing tee-time requests still waiting on a reply. */}
+        <SentRequests requests={teeRequests.outgoing} />
 
         {/* Friends */}
         <FriendsPanel
