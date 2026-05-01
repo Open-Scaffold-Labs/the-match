@@ -1297,6 +1297,11 @@ function cellColor(score, par, isSubtotal) {
 // 2px between them and looked misaligned with headers when scrolled).
 // (2026-04-30 PM border-cleanup)
 function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, overrideBorder, overrideColor, w = 32, h = 36 }) {
+  // Subtotal cells used to be `w + 4` for visual emphasis, but that made
+  // the body OUT/IN column 4px wider than the header OUT/IN column —
+  // so the body subtotal cells (LAVIN's 12, filler rows) stuck out past
+  // the header's OUT and the BACK-9 IN/36 cells. Now unified at w so
+  // the column lines up. (2026-04-30 PM round 5)
   const bg     = overrideBg     ?? cellBg(score, par, isSubtotal)
   const color  = overrideColor  ?? cellColor(score, par, isSubtotal)
   const diff   = (!isSubtotal && score && par) ? score - par : null
@@ -1311,7 +1316,7 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
     <div
       onClick={canEdit && !isSubtotal ? onTap : undefined}
       style={{
-        minWidth: isSubtotal ? w + 4 : w, width: isSubtotal ? w + 4 : w, height: h,
+        minWidth: w, width: w, height: h,
         background: bg,
         borderLeft,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2300,7 +2305,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
               }} />
             ))}
             <div style={{
-              minWidth: SUB_COL + 4, width: SUB_COL + 4, height: rowH,
+              minWidth: SUB_COL, width: SUB_COL, height: rowH,
               background: AUGUSTA_GREEN,
               borderLeft: '1px solid rgba(0,0,0,0.20)',
               flexShrink: 0,
