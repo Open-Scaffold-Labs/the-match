@@ -703,6 +703,54 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
   const [time, setTime]     = useState(game.start_time ? game.start_time.slice(0, 5) : '')
   const [saving, setSaving] = useState(false)
 
+  // Course typeahead — reuses /api/courses/search (GolfCourseAPI). Sorts
+  // results by distance when geolocation resolves so the closest courses
+  // float to the top. (2026-05-01 — Matt: "auto-populate as you type
+  // courses closest to you")
+  const [coords, setCoords]           = useState(null)
+  const [suggestions, setSuggestions] = useState([])
+  const [searching, setSearching]     = useState(false)
+  const [picked, setPicked]           = useState(!!game.course_name) // suppress dropdown right after a click
+
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { /* denied / unavailable — search still works without distance sort */ },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 5 * 60 * 1000 }
+    )
+  }, [])
+
+  useEffect(() => {
+    if (picked) return
+    const q = course.trim()
+    if (q.length < 2) { setSuggestions([]); setSearching(false); return }
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q })
+        if (coords) {
+          params.set('lat', String(coords.lat))
+          params.set('lng', String(coords.lng))
+        }
+        const res = await api(`/api/courses/search?${params.toString()}`)
+        setSuggestions(Array.isArray(res?.courses) ? res.courses.slice(0, 6) : [])
+      } catch {
+        setSuggestions([])
+      } finally {
+        setSearching(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [course, coords, picked])
+
+  function pickSuggestion(c) {
+    const name = c.club_name || c.course_name || ''
+    setCourse(name)
+    setSuggestions([])
+    setPicked(true)
+  }
+
   async function save() {
     if (!course.trim() && !time) return
     setSaving(true)
@@ -763,23 +811,82 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
           </div>
         </div>
 
-        {/* Course input */}
-        <div style={{ marginBottom: 12 }}>
+        {/* Course input + typeahead dropdown */}
+        <div style={{ marginBottom: 12, position: 'relative' }}>
           <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 8, fontWeight: 700 }}>
             {game.course_name ? 'CHANGE COURSE' : 'SET COURSE'}
           </div>
           <input
             autoFocus
             value={course}
-            onChange={e => setCourse(e.target.value)}
+            onChange={e => { setCourse(e.target.value); setPicked(false) }}
             onKeyDown={e => e.key === 'Enter' && save()}
-            placeholder="e.g. Augusta National"
+            placeholder="Start typing a course…"
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.18)',
               borderRadius: 12, color: '#0D1F12', padding: '13px 16px', fontSize: 15, outline: 'none',
             }}
           />
+          {!picked && course.trim().length >= 2 && (suggestions.length > 0 || searching) && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5,
+              marginTop: 4,
+              background: '#FFFFFF',
+              border: '1px solid rgba(27,94,59,0.18)',
+              borderRadius: 12,
+              boxShadow: '0 8px 28px rgba(0,0,0,0.16)',
+              overflow: 'hidden',
+              maxHeight: 240, overflowY: 'auto',
+            }}>
+              {searching && suggestions.length === 0 && (
+                <div style={{ padding: '12px 14px', color: 'rgba(13,31,18,0.45)', fontSize: 12 }}>
+                  Searching…
+                </div>
+              )}
+              {suggestions.map((c, i) => {
+                const name = c.club_name || c.course_name || ''
+                const where = [c.city, c.state].filter(Boolean).join(', ')
+                const distMi = Number.isFinite(c.distance_km) ? c.distance_km * 0.621371 : null
+                const dist = distMi != null
+                  ? `${distMi.toFixed(distMi < 10 ? 1 : 0)} mi`
+                  : null
+                return (
+                  <button
+                    key={c.id ?? i}
+                    type="button"
+                    onClick={() => pickSuggestion(c)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 14px',
+                      background: i % 2 === 0 ? '#FFFFFF' : 'rgba(27,94,59,0.03)',
+                      border: 'none', textAlign: 'left', cursor: 'pointer',
+                      borderBottom: i < suggestions.length - 1 ? '1px solid rgba(27,94,59,0.08)' : 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {name}
+                      </div>
+                      {where && (
+                        <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.50)', marginTop: 2 }}>
+                          {where}
+                        </div>
+                      )}
+                    </div>
+                    {dist && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, color: '#1B5E3B',
+                        background: 'rgba(27,94,59,0.08)', padding: '3px 8px', borderRadius: 999,
+                        flexShrink: 0,
+                      }}>{dist}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Tee-time input */}
