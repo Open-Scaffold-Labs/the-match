@@ -1005,17 +1005,38 @@ function UpcomingTeeTimes({ games, sentRequests = [], onPlan, onRefresh, onCreat
 function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) {
   const { incoming } = games
   const totalCount = (incoming?.length ?? 0) + teeRequests.length
-  if (totalCount === 0) return null
+  // 2026-05-01 — Matt: keep the inbox visible even when empty so users
+  // know it's there. Show a quiet "No invites at this time" placeholder
+  // instead of hiding the section.
+  const empty = totalCount === 0
 
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 11, letterSpacing: '0.1em', fontWeight: 600, marginBottom: 10 }}>
         INVITES
         <span style={{
-          marginLeft: 8, background: '#C9A040', color: '#FFFFFF',
+          marginLeft: 8,
+          background: empty ? 'rgba(27,94,59,0.18)' : '#C9A040',
+          color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
         }}>{totalCount}</span>
       </div>
+
+      {empty && (
+        <div style={{
+          background: 'rgba(255,255,255,0.55)',
+          border: '1px dashed rgba(27,94,59,0.18)',
+          borderRadius: 14, padding: '18px 16px',
+          textAlign: 'center',
+          color: 'rgba(27,94,59,0.50)',
+          fontSize: 13, fontWeight: 500,
+        }}>
+          No invites at this time.
+          <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.40)', marginTop: 4, fontWeight: 400 }}>
+            Match requests from friends will land here.
+          </div>
+        </div>
+      )}
 
       {/* Incoming tee time requests (from availability system) */}
       {teeRequests.map(tr => {
