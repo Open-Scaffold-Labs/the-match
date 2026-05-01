@@ -785,9 +785,16 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
 
 function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFriend, userId }) {
   const [broadcasting, setBroadcasting] = useState({}) // { [gameId]: 'sending'|'sent' }
+  // 2026-05-01 — Matt's rule: "upcoming tee times must be set with a
+  // tee time in order to populate in upcoming." A tm_games row without
+  // a start_time isn't really a confirmed booking yet, even if the
+  // current user accepted. Those rows still exist (shareable plans
+  // someone hasn't pinned a time on, or partially-replied invites)
+  // — they should live elsewhere, not here.
+  const realGames = (games || []).filter(g => !!g.start_time)
   // Outgoing tee-requests no longer render here — they have their own
   // SentRequests section. Upcoming now means actually-confirmed games.
-  if (!games || games.length === 0) return null
+  if (realGames.length === 0) return null
 
   async function broadcast(g) {
     setBroadcasting(s => ({ ...s, [g.id]: 'sending' }))
@@ -813,13 +820,13 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
         <span style={{
           background: '#1B5E3B', color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
-        }}>{games.length}</span>
+        }}>{realGames.length}</span>
       </div>
 
       {/* Per-card "#N of M" counter when multiple same-day matches lack
           start_time. Time-of-day is the primary disambiguator post-
           migration-005; this is the legacy-row fallback. (F-R6A) */}
-      {games.map((g, gIdx, gArr) => {
+      {realGames.map((g, gIdx, gArr) => {
         const dateLabel = new Date(g.date + 'T12:00:00').toLocaleDateString('en-US', {
           weekday: 'short', month: 'short', day: 'numeric',
         })
@@ -1060,16 +1067,31 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
 
       {empty && (
         <div style={{
-          background: 'rgba(255,255,255,0.55)',
-          border: '1px dashed rgba(27,94,59,0.18)',
-          borderRadius: 14, padding: '18px 16px',
-          textAlign: 'center',
-          color: 'rgba(27,94,59,0.50)',
-          fontSize: 13, fontWeight: 500,
+          borderRadius: 16,
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #F2EEE6 100%)',
+          border: '2px solid rgba(201,160,64,0.70)',
+          boxShadow: '0 2px 20px rgba(201,160,64,0.22)',
+          padding: '14px 18px',
+          display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          No invites at this time.
-          <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.40)', marginTop: 4, fontWeight: 400 }}>
-            Match requests from friends will land here.
+          {/* Envelope icon — visual peer to GolfNow's calendar icon. */}
+          <div style={{
+            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+            background: 'rgba(27,94,59,0.14)', border: '1.5px solid rgba(27,94,59,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>
+              No invites at this time
+            </div>
+            <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, fontWeight: 500, marginTop: 3 }}>
+              Match requests from friends will land here
+            </div>
           </div>
         </div>
       )}
