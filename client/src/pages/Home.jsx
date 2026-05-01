@@ -2060,6 +2060,16 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
+      {/* First-time coach mark on the Profile screen — explains the
+          four major features the user lands on (handicap chart, follow
+          counts, rivalries, availability calendar). Only shows once
+          per user; persisted via /api/onboarding/coach-mark. */}
+      <CoachMark
+        id="profile"
+        user={user}
+        title="Your profile, in pieces"
+        body="The big number at top is your handicap index — auto-recalculates from your last 20 rounds (5+ needed). The Following / Followers / Mutuals pills tap into a list of those users. Rivalries shows your head-to-head records vs friends with avg score comparisons. Calendar at the bottom = your availability — tap dates you're free and friends can request matches."
+      />
       {/* Top bar — gold "The Match" title now has a soft breathing
           drop-shadow halo so the white space feels alive instead of
           flat. Two stacked drop-shadows (tight + wide) animate together

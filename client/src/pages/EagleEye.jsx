@@ -1644,7 +1644,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         id="eagle_eye"
         user={user}
         title="Eagle Eye is your caddie"
-        body='Pick a course, then use the BAG button (right side) to pick a club. The pulsing yellow target on the map shows where the ball would land. Toggle ▲/▼ to swap clubs.'
+        body='Top card shows live GPS distance to the green once you reach the course. Tap "Analyze Shot" to use the AI rangefinder — point your camera at the flag and it returns the exact carry yardage (factoring wind/elevation). The BAG button on the right lets you toggle clubs to see expected landing zones on the map.'
         anchor="top"
       />
       <style>{`
