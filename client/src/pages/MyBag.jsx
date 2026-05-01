@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom'
 import { api, put, del } from '../lib/api.js'
 import { IconBag } from '../components/primitives/Icons.jsx'
 import { SLOTS, SLOT_LABELS, brandsForSlot, modelsForSlot } from '../lib/clubCatalog.js'
+import BagPhoto from '../components/BagPhoto.jsx'
 
 export default function MyBag() {
   const [clubs, setClubs]       = useState([])  // [{ slot, brand, model }]
@@ -71,6 +72,12 @@ export default function MyBag() {
             fontSize: 11, fontWeight: 700,
           }}>{filledCount} / {SLOTS.length}</span>
         </div>
+      </div>
+
+      {/* Bag illustration — auto-updates as clubs are added/removed.
+          Empty bag still renders the silhouette with a hint. */}
+      <div style={{ padding: '4px 16px 12px' }}>
+        <BagPhoto clubs={clubs} />
       </div>
 
       {/* Slot list */}
