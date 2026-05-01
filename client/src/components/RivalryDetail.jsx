@@ -42,6 +42,12 @@ export default function RivalryDetail({
   myName,
   myAvatar,
   myHandicap,
+  // Optional: when provided, the opponent avatar becomes tappable. Fires
+  // with { id, name, avatar } so the parent can route to that user's
+  // profile. Subject ("me") side is intentionally non-tappable since you
+  // are already viewing that profile. (2026-05-01 — Matt: tap a face in
+  // the H2H popup to open that player's profile.)
+  onSelectOpponent,
   onClose,
 }) {
   // Drive a "closing" state so we can reverse the animation before
@@ -51,6 +57,20 @@ export default function RivalryDetail({
   function handleClose() {
     setClosing(true)
     setTimeout(onClose, 180)
+  }
+  function handleOpponentTap() {
+    if (!onSelectOpponent) return
+    // Close the modal first so the route change feels clean — the parent
+    // gets the callback after the exit animation flushes.
+    setClosing(true)
+    setTimeout(() => {
+      onSelectOpponent({
+        id:     rivalry.opponent_id,
+        name:   rivalry.opponent_name,
+        avatar: rivalry.opponent_avatar,
+      })
+      onClose?.()
+    }, 180)
   }
 
   // Close on Escape for desktop / hardware keyboards
@@ -200,8 +220,28 @@ export default function RivalryDetail({
             letterSpacing: '0.06em',
           }}>VS</div>
 
-          {/* Opponent */}
-          <div className="rd-stagger-1" style={{ textAlign: 'center' }}>
+          {/* Opponent — tappable when onSelectOpponent is wired so the
+              user can jump straight to that player's profile. */}
+          <button
+            type="button"
+            onClick={onSelectOpponent ? handleOpponentTap : undefined}
+            disabled={!onSelectOpponent}
+            className="rd-stagger-1"
+            aria-label={onSelectOpponent ? `Open ${rivalry.opponent_name || 'player'}'s profile` : undefined}
+            style={{
+              textAlign: 'center',
+              background: 'transparent', border: 'none', padding: 0,
+              cursor: onSelectOpponent ? 'pointer' : 'default',
+              fontFamily: 'inherit',
+              borderRadius: 12,
+              transition: 'transform 120ms ease',
+            }}
+            onMouseDown={e => { if (onSelectOpponent) e.currentTarget.style.transform = 'scale(0.96)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+            onTouchStart={e => { if (onSelectOpponent) e.currentTarget.style.transform = 'scale(0.96)' }}
+            onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
+          >
             <PlayerAvatarBig name={rivalry.opponent_name} avatar={rivalry.opponent_avatar} ring={oppLeading ? '#4ADE80' : 'rgba(245,215,138,0.45)'} />
             <div className="rd-stagger-2" style={{
               marginTop: 10, fontSize: 13, fontWeight: 800, color: '#fff',
@@ -214,7 +254,13 @@ export default function RivalryDetail({
                   : `+${Math.abs(Number(rivalry.opponent_handicap)).toFixed(1)}`} hcp
               </div>
             )}
-          </div>
+            {onSelectOpponent && (
+              <div className="rd-stagger-2" style={{
+                marginTop: 4, fontSize: 9, fontWeight: 700, letterSpacing: '0.10em',
+                color: 'rgba(245,215,138,0.55)',
+              }}>VIEW PROFILE ›</div>
+            )}
+          </button>
         </div>
 
         {/* W-L-T record — big numbers, color-coded by lead */}

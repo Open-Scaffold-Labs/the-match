@@ -1679,7 +1679,7 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // header (big avatar + name + course + handicap + season W-L-T-AVG3 +
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
-function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard }) {
+function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend }) {
   // Golf handicap display convention (matches HcpBadge):
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
@@ -2246,6 +2246,10 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           myName={user?.name}
           myAvatar={user?.avatar}
           myHandicap={user?.handicap}
+          onSelectOpponent={onOpenFriend ? (opp) => {
+            setSelectedRivalry(null)
+            onOpenFriend(opp)
+          } : undefined}
           onClose={() => setSelectedRivalry(null)}
         />
       )}
@@ -2273,6 +2277,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           subjectHandicap={user?.handicap}
           selfLabel="You"
           oppLabel="Them"
+          onSelectOpponent={onOpenFriend}
           onClose={() => setRivalriesOpen(false)}
         />
       )}
@@ -2412,6 +2417,9 @@ export default function Home({ onNavigateToOuting }) {
           onBack={() => setView('home')}
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
+          // Tap an opponent face inside a rivalry popup → open that
+          // user's FriendProfile on top of this view.
+          onOpenFriend={setSelectedFriend}
         />
         {/* Edit profile modal — opens from the Profile view's Edit button */}
         {editOpen && (
@@ -2420,6 +2428,24 @@ export default function Home({ onNavigateToOuting }) {
         {/* Player card overlay — opens from the big avatar in the header */}
         {playerCardOpen && (
           <PlayerCard onClose={() => setPlayerCardOpen(false)} userId={profile?.id} />
+        )}
+        {/* Friend profile portal — also rendered here so tapping an
+            opponent face in a rivalry popup from My Profile opens their
+            FriendProfile without bouncing back to the home view. */}
+        {selectedFriend && (
+          <FriendProfile
+            friend={selectedFriend}
+            myName={user?.name}
+            confirmedGames={games.confirmed}
+            onClose={() => setSelectedFriend(null)}
+            onOpenFriend={(opp) => {
+              // Tapping an opponent inside a friend's rivalry popup. If
+              // it's me, close back to my own profile; otherwise swap to
+              // the new friend in place.
+              if (String(opp?.id) === String(user?.id)) setSelectedFriend(null)
+              else setSelectedFriend(opp)
+            }}
+          />
         )}
       </>
     )
@@ -2560,6 +2586,13 @@ export default function Home({ onNavigateToOuting }) {
           myName={user?.name}
           confirmedGames={games.confirmed}
           onClose={() => setSelectedFriend(null)}
+          onOpenFriend={(opp) => {
+            // From inside a FriendProfile's rivalry popup the opponent
+            // could be me — bounce back to my own profile in that case;
+            // otherwise swap to the new friend in place.
+            if (String(opp?.id) === String(user?.id)) setSelectedFriend(null)
+            else setSelectedFriend(opp)
+          }}
         />
       )}
 

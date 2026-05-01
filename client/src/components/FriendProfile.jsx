@@ -427,7 +427,7 @@ function TeeRequestSheet({ friend, date, onSend, onClose }) {
 // profile, just populated with their data. Friend-specific bits
 // (head-to-head bar, availability strip, request-match CTA) appended at
 // the bottom. (2026-05-01 — Matt: "appear the same way my profile looks")
-export default function FriendProfile({ friend: friendSummary, confirmedGames = [], onClose }) {
+export default function FriendProfile({ friend: friendSummary, confirmedGames = [], onClose, onOpenFriend }) {
   const [data, setData]         = useState(null)
   const [loading, setLoading]   = useState(true)
   const [teeDate, setTeeDate]   = useState(null) // date string when tee-request sheet is open
@@ -1051,6 +1051,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
           subjectHandicap={friend?.handicap}
           selfLabel={firstName}
           oppLabel="Opp"
+          onSelectOpponent={onOpenFriend}
           onClose={() => setRivalriesOpen(false)}
         />
       )}
@@ -1062,6 +1063,10 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
           myName={friend?.name}
           myAvatar={friend?.avatar}
           myHandicap={friend?.handicap}
+          onSelectOpponent={onOpenFriend ? (opp) => {
+            setSelectedRivalry(null)
+            onOpenFriend(opp)
+          } : undefined}
           onClose={() => setSelectedRivalry(null)}
         />
       )}

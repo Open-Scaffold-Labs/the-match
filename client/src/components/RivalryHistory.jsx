@@ -32,6 +32,10 @@ export default function RivalryHistory({
   // first name on a friend profile).
   selfLabel = 'You',
   oppLabel  = 'Them',
+  // Forwarded to the inner RivalryDetail so tapping the opponent face
+  // jumps to that player's profile. Closes this sheet first so we don't
+  // leave a stale stack behind. (2026-05-01)
+  onSelectOpponent,
   onClose,
 }) {
   const [selected, setSelected] = useState(null)
@@ -174,6 +178,13 @@ export default function RivalryHistory({
           myName={subjectName}
           myAvatar={subjectAvatar}
           myHandicap={subjectHandicap}
+          onSelectOpponent={onSelectOpponent ? (opp) => {
+            // Close both layers, then bubble up to the page parent so it
+            // can route to the opponent's profile.
+            setSelected(null)
+            onClose?.()
+            onSelectOpponent(opp)
+          } : undefined}
           onClose={() => setSelected(null)}
         />
       )}
