@@ -43,7 +43,7 @@ export const SLOT_CATEGORY = Object.fromEntries(SLOTS.map(s => [s.key, s.categor
 export const CATALOG = {
   driver: {
     Callaway:   ['Paradym', 'Paradym Triple Diamond', 'Paradym Ai Smoke', 'Paradym Ai Smoke Triple Diamond', 'Elyte', 'Elyte Triple Diamond', 'Rogue ST Max', 'Rogue ST Max LS'],
-    TaylorMade: ['Stealth 2', 'Stealth 2 Plus', 'Stealth 2 HD', 'Qi10', 'Qi10 Max', 'Qi10 LS', 'Qi35', 'Qi35 Max', 'Qi35 LS'],
+    TaylorMade: ['Stealth 2', 'Stealth 2 Plus', 'Stealth 2 HD', 'Qi10', 'Qi10 Max', 'Qi10 LS', 'Qi35', 'Qi35 Max', 'Qi35 LS', 'M6', 'M6 D-Type', 'M5', 'M5 Tour', 'M4', 'M4 D-Type', 'M3', 'M2 (2017)', 'M1 (2017)', 'M2 (2016)', 'M1 (2016)'],
     Titleist:   ['TSR1', 'TSR2', 'TSR3', 'TSR4', 'GT1', 'GT2', 'GT3', 'GT4'],
     Ping:       ['G430 Max', 'G430 LST', 'G430 SFT', 'G430 Max 10K', 'G440 Max', 'G440 LST', 'G440 SFT'],
     Cobra:      ['Aerojet', 'Aerojet LS', 'Aerojet Max', 'Darkspeed', 'Darkspeed LS', 'Darkspeed Max', 'DS-Adapt LS', 'DS-Adapt Max'],
@@ -74,7 +74,7 @@ export const CATALOG = {
 
   iron: {
     Callaway:   ['Apex Pro 24', 'Apex 24', 'Apex CB 24', 'Apex MB 24', 'Paradym Ai Smoke', 'Paradym Ai Smoke HL', 'Paradym X', 'Rogue ST Max', 'Rogue ST Max OS'],
-    TaylorMade: ['P770 (2024)', 'P790 (2024)', 'P7MC (2023)', 'P7MB (2023)', 'P-770', 'Qi (2024)', 'Qi HL', 'Stealth', 'Stealth HD'],
+    TaylorMade: ['P770 (2024)', 'P790 (2024)', 'P7MC (2023)', 'P7MB (2023)', 'P-770', 'Qi (2024)', 'Qi HL', 'Stealth', 'Stealth HD', 'M6', 'M5', 'M4', 'M3', 'M2 (2017)', 'M2 (2016)', 'M1 (2017)', 'M1 (2016)', 'M CGB'],
     Titleist:   ['T100 (2025)', 'T150 (2025)', 'T200 (2025)', 'T350 (2025)', 'T100 (2023)', 'T150 (2023)', 'T200 (2023)', 'T350 (2023)', '620 MB', '620 CB'],
     Ping:       ['Blueprint S', 'Blueprint T', 'i230', 'i530', 'i525', 'G430', 'G440'],
     Cobra:      ['King Tour', 'King Tour MIM', 'King MIM Tour', 'Forged Tec X', 'Darkspeed', 'Aerojet', 'Limit3d'],
