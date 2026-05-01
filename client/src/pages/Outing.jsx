@@ -2195,6 +2195,15 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   const isMatchPlay   = (outing.scoring_formats || []).includes('match') && participants.length === 2
   const matchPlayData = isMatchPlay ? computeMatchPlay(sorted[0], sorted[1], getScores, holePars) : null
 
+  // Current user's next-to-play hole (1-indexed). Used by the persistent
+  // GET DISTANCES floating pill so tapping it lands the user on Eye for
+  // their own next hole, regardless of where other players are. Returns
+  // null when the user isn't a participant or the round is complete.
+  // (2026-05-01)
+  const meParticipant = participants.find(p => String(p.user_id) === String(user?.id))
+  const myHolesPlayed = meParticipant ? getScores(meParticipant).filter(s => s > 0).length : 0
+  const myNextHole    = meParticipant && myHolesPlayed < holeCount ? myHolesPlayed + 1 : null
+
   // Net scoring helpers
   function netTotal(p) {
     const gross = getScores(p).reduce((s, v) => s + (v || 0), 0)
@@ -2713,6 +2722,31 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
             setShowGroups(false)
           }}
         />
+      )}
+
+      {/* Floating bottom-right GET DISTANCES pill — symmetric counterpart
+          to EagleEye's SCORECARD pill. Always visible during a live match
+          for the current user (when they have a next hole to play and no
+          modal is open). Tapping it jumps to Eye on the user's own next
+          hole, regardless of where other players are. (2026-05-01) */}
+      {onGoToEagleEye && myNextHole != null && !scoreModal && !showTeams && !showGroups && !showGuestModal && (
+        <button onClick={() => onGoToEagleEye(myNextHole)} style={{
+          position: 'absolute',
+          bottom: 16, right: 16,
+          background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
+          border: '1px solid rgba(245,215,138,0.6)',
+          borderRadius: 999, padding: '10px 16px',
+          color: '#0D1F12',
+          fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+          cursor: 'pointer',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: 'inherit',
+          zIndex: 30,
+        }}>
+          GET DISTANCES
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       )}
     </div>
   )
