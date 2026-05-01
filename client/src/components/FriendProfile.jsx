@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+import { HcpBadge, StatTile } from '../pages/Stats.jsx'
+import FollowPills from './FollowPills.jsx'
+import RoundScorecard from './RoundScorecard.jsx'
 
 // ── Nearby Course Picker ──────────────────────────────────────────────────────
 function CoursePicker({ value, onChange }) {
@@ -413,11 +416,19 @@ function TeeRequestSheet({ friend, date, onSend, onClose }) {
   )
 }
 
-// ── Main FriendProfile Modal ──────────────────────────────────────────────────
-export default function FriendProfile({ friend: friendSummary, myName, confirmedGames = [], onClose }) {
+// ── Main FriendProfile (full-page portal) ────────────────────────────────────
+//
+// Mirrors ProfileView's layout for visual continuity — tap a friend in
+// the FollowList / Friends panel / Rivalries card and you see the same
+// top bar + dark identity header + stats sections you'd see on your own
+// profile, just populated with their data. Friend-specific bits
+// (head-to-head bar, availability strip, request-match CTA) appended at
+// the bottom. (2026-05-01 — Matt: "appear the same way my profile looks")
+export default function FriendProfile({ friend: friendSummary, confirmedGames = [], onClose }) {
   const [data, setData]         = useState(null)
   const [loading, setLoading]   = useState(true)
-  const [teeDate, setTeeDate]   = useState(null) // date string when tee request sheet is open
+  const [teeDate, setTeeDate]   = useState(null) // date string when tee-request sheet is open
+  const [selectedRoundId, setSelectedRoundId] = useState(null)
 
   useEffect(() => {
     if (!friendSummary?.friend_id) return
@@ -427,162 +438,524 @@ export default function FriendProfile({ friend: friendSummary, myName, confirmed
       .finally(() => setLoading(false))
   }, [friendSummary?.friend_id])
 
+  // Compute the friend's handicap-display string with the same convention
+  // used elsewhere: high cap → "17.0", plus cap → "+3.5".
+  const friend     = data?.friend
+  const hcpNum     = friend?.handicap == null ? null : Number(friend.handicap)
+  const hcpDisplay = !Number.isFinite(hcpNum) ? '—'
+    : hcpNum >= 0 ? hcpNum.toFixed(1)
+    : `+${Math.abs(hcpNum).toFixed(1)}`
+
+  // Friend's first name for the H2H "THEM" label and the Request-Match CTA.
+  const firstName  = friend?.name?.split(' ')[0] || 'Player'
+
+  // Shared-games list (upcoming tee times the viewer has on the books with
+  // this friend) — kept from the original FriendProfile.
+  const sharedGames = confirmedGames.filter(g =>
+    (g.participants || []).some(p => String(p.user_id) === String(friend?.id))
+  )
+
   return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-    }} onClick={onClose}>
+      // Page-level wrapper. Top bar stays in the page's light theme
+      // (matching ProfileView), body adopts the dark friend-card palette.
+      background: '#0E1F13',  // dark fallback during initial paint
+      display: 'flex', justifyContent: 'center',
+      overflow: 'hidden',
+    }}>
       <div style={{
-        width: '100%', maxWidth: 430,
-        background: 'linear-gradient(180deg, #0E1F13, #070C09)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '22px 22px 0 0',
-        maxHeight: '88dvh', overflowY: 'auto',
-        padding: '20px 16px 32px',
-        WebkitOverflowScrolling: 'touch',
-      }} onClick={e => e.stopPropagation()}>
-
-        {/* Drag handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.15)', margin: '0 auto 20px' }} />
-
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ color: '#fff', fontSize: 17, fontWeight: 800, letterSpacing: '-0.02em' }}>
-            {friendSummary?.friend_name}
+        width: '100%', maxWidth: 430, height: '100%',
+        background: 'transparent',
+        position: 'relative',
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+      }}>
+        {teeDate ? (
+          // Tee-request sheet takes over the whole panel until done.
+          <div style={{
+            background: 'linear-gradient(180deg, #0E1F13, #070C09)',
+            minHeight: '100dvh', padding: '20px 16px 32px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <button onClick={() => setTeeDate(null)} style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: 18, fontWeight: 700,
+                padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
+                display: 'inline-flex', alignItems: 'center',
+              }}>←</button>
+              <div style={{ color: '#fff', fontSize: 16, fontWeight: 800, flex: 1, textAlign: 'center' }}>
+                Request a Match
+              </div>
+              <div style={{ width: 32 }} />
+            </div>
+            <TeeRequestSheet
+              friend={data.friend}
+              date={teeDate}
+              onSend={() => {}}
+              onClose={() => setTeeDate(null)}
+            />
           </div>
-          <button onClick={onClose} style={{
-            background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8,
-            color: 'rgba(255,255,255,0.5)', fontSize: 13, padding: '6px 12px', cursor: 'pointer',
-          }}>Close</button>
+        ) : (
+        <>
+        {/* Top bar — light theme, same as ProfileView. Back arrow on the
+            left, gold "The Match" title, follow placeholder on the right. */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '56px 20px 16px', gap: 12,
+          background: 'rgba(255,255,253,0.96)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+        }}>
+          <button onClick={onClose} aria-label="Back" style={{
+            background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
+            borderRadius: 10, color: '#1B5E3B', fontSize: 18, fontWeight: 700,
+            padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
+            display: 'inline-flex', alignItems: 'center',
+          }}>←</button>
+          <div style={{
+            fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
+            background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            flex: 1, textAlign: 'center',
+          }}>The Match</div>
+          {/* Spacer to mirror the Edit button's width on My Profile so the
+              gold title is centered the same way visually. */}
+          <div style={{ width: 64 }} />
         </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-            Loading…
-          </div>
-        ) : teeDate ? (
-          <TeeRequestSheet
-            friend={data.friend}
-            date={teeDate}
-            onSend={() => {}}
-            onClose={() => setTeeDate(null)}
-          />
-        ) : (
+        {/* Body — dark gradient matching ProfileView. */}
+        <div style={{
+          padding: '16px 16px 100px',
+          background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          minHeight: 'calc(100dvh - 88px)',
+        }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>
+              Loading…
+            </div>
+          ) : !friend ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#F87171', fontSize: 13 }}>
+              Couldn't load this profile.
+            </div>
+          ) : (
           <>
-            {/* Season card */}
-            <FriendSeasonCard friend={data?.friend} season={data?.season} avg3={data?.avg3} />
+          {/* Expanded identity card — same dark gradient as ProfileView. */}
+          <div style={{
+            borderRadius: 18,
+            overflow: 'hidden',
+            background: 'linear-gradient(155deg, #0F2814 0%, #0A1D0F 40%, #060E08 100%)',
+            border: '1px solid rgba(197,160,64,0.18)',
+            boxShadow: '0 0 30px rgba(197,160,64,0.05)',
+            position: 'relative',
+            marginBottom: 12,
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3, pointerEvents: 'none',
+              background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
+            }} />
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none',
+              background: 'radial-gradient(ellipse 70% 60% at 50% -10%, rgba(201,160,64,0.10) 0%, transparent 70%)',
+            }} />
 
-            {/* H2H */}
-            <H2HBar h2h={data?.h2h ?? { my_wins: 0, their_wins: 0, ties: 0 }} myName={myName} theirName={data?.friend?.name} />
+            <div style={{ padding: '20px 18px 18px', position: 'relative' }}>
+              <div style={{ color: 'rgba(245,215,138,0.75)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
+                SEASON {data?.season?.year}
+              </div>
 
-            {/* Recent rounds */}
-            {data?.recentRounds?.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+                {/* Big player card */}
+                <div style={{
+                  flexShrink: 0, width: 100, height: 140, borderRadius: 14, overflow: 'hidden',
+                  border: friend.avatar ? '1px solid rgba(201,160,64,0.45)' : '1px dashed rgba(255,255,255,0.15)',
+                  background: friend.avatar ? 'transparent' : 'rgba(255,255,255,0.03)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: friend.avatar ? '0 4px 18px rgba(0,0,0,0.30)' : 'none',
+                }}>
+                  {friend.avatar ? (
+                    <img src={friend.avatar} alt={friend.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }} />
+                  ) : (
+                    <span style={{ fontSize: 26, fontWeight: 900, color: '#F5D78A', letterSpacing: '0.04em' }}>
+                      {firstName?.[0]?.toUpperCase() || '·'}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{
+                    fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em',
+                    lineHeight: 1.1,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  }}>{friend.name}</div>
+
+                  {friend.home_course && (
+                    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      {friend.home_course}
+                    </div>
+                  )}
+
+                  <div style={{
+                    marginTop: 2,
+                    display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                    background: 'rgba(0,0,0,0.30)', borderRadius: 10, padding: '6px 12px',
+                    border: '1px solid rgba(197,160,64,0.35)',
+                    alignSelf: 'flex-start',
+                  }}>
+                    <div style={{
+                      fontSize: 28, fontWeight: 900, lineHeight: 1,
+                      background: 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)',
+                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                    }}>{hcpDisplay}</div>
+                    <div style={{ color: 'rgba(245,215,138,0.55)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Friend's own follow counts — non-interactive when shown
+                  on someone else's profile (the viewer's tap would open
+                  THEIR connections, which is confusing). Render as
+                  read-only stat pills. */}
               <div style={{
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
-                borderRadius: 14, padding: '14px 16px', marginBottom: 12,
+                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8,
+                marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)',
               }}>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: '0.12em', fontWeight: 600, marginBottom: 10 }}>RECENT ROUNDS</div>
-                {data.recentRounds.map((r, i) => {
-                  const diff = r.total - (r.course_par || 72)
-                  const diffStr = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : String(diff)
-                  const diffColor = diff < 0 ? '#4ADE80' : diff > 0 ? '#F87171' : '#F5D78A'
+                {[
+                  { key: 'following', label: 'Following', value: data?.followCounts?.following ?? 0 },
+                  { key: 'followers', label: 'Followers', value: data?.followCounts?.followers ?? 0 },
+                  { key: 'mutuals',   label: 'Mutuals',   value: data?.followCounts?.mutuals   ?? 0 },
+                ].map(p => (
+                  <div key={p.key} style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    borderRadius: 12, padding: '10px 8px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em' }}>{p.value}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase' }}>{p.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Season W-L-T-AVG3 */}
+              <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
+                {[
+                  { label: 'WINS',     value: data?.season?.wins   ?? 0,   color: '#4ADE80' },
+                  { label: 'LOSSES',   value: data?.season?.losses ?? 0,   color: '#F87171' },
+                  { label: 'TIES',     value: data?.season?.ties   ?? 0,   color: 'rgba(255,255,255,0.45)' },
+                  { label: '3-RND AVG', value: data?.avg3 != null ? data.avg3 : '—', color: '#F5D78A' },
+                ].map(({ label, value, color }, i) => (
+                  <div key={label} style={{
+                    flex: 1, textAlign: 'center',
+                    borderRight: i < 3 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+                    padding: '0 4px',
+                  }}>
+                    <div style={{ fontSize: 24, fontWeight: 900, color, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.09em', marginTop: 5, fontWeight: 600 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* HcpBadge with embedded trend chart — friend's data */}
+          <HcpBadge
+            hcp={data?.stats?.handicap ?? friend?.handicap ?? null}
+            roundCount={data?.stats?.roundCount}
+            rounds={data?.recentRounds}
+          />
+
+          {/* Avg / Best stat tiles (friend's stats) */}
+          {data?.stats && (() => {
+            const avgNum  = Number(data.stats.avgScore)
+            const bestNum = Number(data.stats.bestScore)
+            const avgDisplay  = Number.isFinite(avgNum)  ? avgNum.toFixed(1) : '—'
+            const bestDisplay = Number.isFinite(bestNum) ? bestNum            : '—'
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <StatTile theme="dark" label="Avg Score" value={avgDisplay}
+                  sub={`Par ${data.recentRounds?.[0]?.course_par ?? 72}`} />
+                <StatTile theme="dark" label="Best Round" value={bestDisplay}
+                  sub="All time" accent="#4ADE80" />
+              </div>
+            )
+          })()}
+
+          {/* Friend's top rivalries — same card, but "Avg N · Opp N" labels
+              instead of "You / Them" since the viewer is a third party. */}
+          {(() => {
+            const top = (data?.rivalries || []).slice(0, 3)
+            if (top.length === 0) return null
+            return (
+              <div style={{
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                overflow: 'hidden', marginBottom: 12,
+              }}>
+                <div style={{
+                  padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.12em' }}>RIVALRIES</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', letterSpacing: '0.06em' }}>TOP {top.length}</div>
+                </div>
+                {top.map((r, i) => {
+                  const myWins   = Number(r.my_wins  ?? 0)
+                  const oppWins  = Number(r.opp_wins ?? 0)
+                  const ties     = Number(r.ties     ?? 0)
+                  const myAvg    = r.my_avg  != null ? Number(r.my_avg)  : null
+                  const oppAvg   = r.opp_avg != null ? Number(r.opp_avg) : null
+                  const myAvgStr  = Number.isFinite(myAvg)  ? myAvg.toFixed(1)  : '—'
+                  const oppAvgStr = Number.isFinite(oppAvg) ? oppAvg.toFixed(1) : '—'
+                  const initials = (r.opponent_name || '·').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+                  const recordStr = ties > 0 ? `${myWins}-${oppWins}-${ties}` : `${myWins}-${oppWins}`
+                  const recordColor = myWins > oppWins ? '#4ADE80'
+                    : oppWins > myWins ? '#F87171'
+                    : 'rgba(255,255,255,0.50)'
                   return (
-                    <div key={i} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      paddingBottom: i < data.recentRounds.length - 1 ? 10 : 0,
-                      marginBottom: i < data.recentRounds.length - 1 ? 10 : 0,
-                      borderBottom: i < data.recentRounds.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    <div key={r.opponent_id ?? i} style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px',
+                      borderBottom: i < top.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
                     }}>
-                      <div>
-                        <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{r.course_name}</div>
-                        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 2 }}>
-                          {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      <div style={{
+                        width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+                        background: r.opponent_avatar ? 'transparent' : 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {r.opponent_avatar ? (
+                          <img src={r.opponent_avatar} alt={r.opponent_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: 13, fontWeight: 800, color: '#F5D78A' }}>{initials}</span>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.opponent_name || 'Player'}
+                        </div>
+                        <div style={{
+                          fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 2,
+                          display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                          <span>{firstName} <strong style={{ color: '#fff' }}>{myAvgStr}</strong></span>
+                          <span style={{ color: 'rgba(255,255,255,0.20)' }}>·</span>
+                          <span>Opp <strong style={{ color: '#fff' }}>{oppAvgStr}</strong></span>
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 20, fontWeight: 900, color: diffColor }}>{diffStr}</div>
-                        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>{r.total} strokes</div>
+                      <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                        <div style={{
+                          fontSize: 18, fontWeight: 900, color: recordColor, lineHeight: 1,
+                          fontFamily: '"Arial Black", Arial, sans-serif',
+                        }}>{recordStr}</div>
+                        <div style={{
+                          fontSize: 9, color: 'rgba(255,255,255,0.30)',
+                          letterSpacing: '0.10em', marginTop: 4, fontWeight: 700,
+                        }}>{ties > 0 ? 'W-L-T' : 'W-L'}</div>
                       </div>
                     </div>
                   )
                 })}
               </div>
-            )}
+            )
+          })()}
 
-            {/* Upcoming games with this friend */}
-            {(() => {
-              const fid = data?.friend?.id
-              const sharedGames = confirmedGames.filter(g =>
-                (g.participants || []).some(p => p.user_id === fid)
-              )
-              if (!sharedGames.length) return null
-              return (
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(74,222,128,0.07), rgba(74,222,128,0.03))',
-                  border: '1px solid rgba(74,222,128,0.2)',
-                  borderRadius: 14, padding: '14px 16px', marginBottom: 12,
+          {/* Friend's distances */}
+          {data?.stats?.topClubs?.length > 0 && (
+            <div style={{
+              borderRadius: 14,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              overflow: 'hidden', marginBottom: 12,
+            }}>
+              <div style={{
+                padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.40)',
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+              }}>{firstName}'s Distances</div>
+              {data.stats.topClubs.map((c, i) => (
+                <div key={i} style={{
+                  padding: '12px 16px',
+                  borderBottom: i < data.stats.topClubs.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
-                  <div style={{ color: 'rgba(74,222,128,0.8)', fontSize: 10, letterSpacing: '0.12em', fontWeight: 700, marginBottom: 10 }}>
-                    UPCOMING TEE TIMES TOGETHER
+                  <div>
+                    <span style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>{c.club}</span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', marginLeft: 8 }}>{c.shots} shots</span>
                   </div>
-                  {sharedGames.map((g, i) => {
-                    const dateLabel = new Date(g.date + 'T12:00:00').toLocaleDateString('en-US', {
-                      weekday: 'short', month: 'short', day: 'numeric',
-                    })
-                    const isMatch = g.request_type === 'availability_match'
-                    return (
-                      <div key={g.id} style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        paddingBottom: i < sharedGames.length - 1 ? 10 : 0,
-                        marginBottom: i < sharedGames.length - 1 ? 10 : 0,
-                        borderBottom: i < sharedGames.length - 1 ? '1px solid rgba(74,222,128,0.1)' : 'none',
-                      }}>
-                        <div>
-                          <div style={{ color: '#4ADE80', fontSize: 13, fontWeight: 600 }}>{dateLabel}</div>
-                          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
-                            {g.course_name || 'No course set'}
-                          </div>
-                        </div>
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-                          color: isMatch ? 'rgba(74,222,128,0.7)' : 'rgba(245,215,138,0.6)',
-                          background: isMatch ? 'rgba(74,222,128,0.1)' : 'rgba(245,215,138,0.08)',
-                          borderRadius: 5, padding: '2px 8px',
-                        }}>{isMatch ? 'CALENDAR' : 'TEE TIME'}</span>
-                      </div>
-                    )
-                  })}
+                  <div style={{ fontWeight: 800, color: '#F5D78A', fontSize: 15 }}>
+                    {c.avgYards}<span style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', marginLeft: 3 }}>y</span>
+                  </div>
                 </div>
-              )
-            })()}
+              ))}
+            </div>
+          )}
 
-            {/* Availability */}
-            <AvailabilityStrip
-              availability={data?.availability ?? []}
-              friendName={data?.friend?.name}
-              onRequestTeeTime={setTeeDate}
-            />
+          {/* Friend's Recent Rounds — tappable to open scorecards */}
+          {data?.recentRounds?.length > 0 && (
+            <div style={{
+              borderRadius: 14,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              overflow: 'hidden', marginBottom: 12,
+            }}>
+              <div style={{
+                padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.40)',
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+              }}>Recent Rounds</div>
+              {data.recentRounds.slice(0, 10).map((r, i) => {
+                const sc  = Number(r.score ?? r.total)
+                const par = Number(r.course_par)
+                const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
+                const diff = hasDiff ? sc - par : null
+                const diffColor = diff == null ? '#fff'
+                  : diff < 0 ? '#F5D78A'
+                  : diff === 0 ? '#4ADE80'
+                  : '#F87171'
+                return (
+                  <button
+                    key={r.id ?? i}
+                    onClick={() => r.id != null && setSelectedRoundId(r.id)}
+                    disabled={r.id == null}
+                    style={{
+                      width: '100%',
+                      background: 'transparent', border: 'none', textAlign: 'left',
+                      cursor: r.id != null ? 'pointer' : 'default',
+                      padding: '12px 16px',
+                      borderBottom: i < Math.min(data.recentRounds.length, 10) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                      fontFamily: 'inherit',
+                      transition: 'background 120ms ease',
+                    }}
+                    onMouseDown={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: '#fff', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.course_name ?? 'Round'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+                        {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        {r.holes ? ` · ${r.holes} holes` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        {diff != null && (
+                          <div style={{ fontSize: 20, fontWeight: 900, color: diffColor, lineHeight: 1 }}>
+                            {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', marginTop: 3 }}>
+                          {Number.isFinite(sc) ? `${sc} strokes` : '—'}
+                        </div>
+                      </div>
+                      {r.id != null && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
-            {/* Challenge button */}
-            <button
-              onClick={() => {
-                const nextFree = data?.availability?.[0]?.date?.slice(0, 10)
-                setTeeDate(nextFree || todayYMD())
-              }}
-              style={{
-                width: '100%', padding: '14px',
-                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
-                color: '#070C09', border: 'none', borderRadius: 14,
-                fontSize: 15, fontWeight: 700, cursor: 'pointer',
-                marginTop: 4,
-              }}
-            >
-              Request a Match with {data?.friend?.name?.split(' ')[0]}
-            </button>
+          {/* ── Friend-specific sections below ── */}
+
+          {/* H2H bar (viewer ↔ friend) */}
+          <H2HBar
+            h2h={data?.h2h ?? { my_wins: 0, their_wins: 0, ties: 0 }}
+            myName={undefined}
+            theirName={friend?.name}
+          />
+
+          {/* Upcoming tee times together (from confirmedGames passed in by Home) */}
+          {sharedGames.length > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(74,222,128,0.07), rgba(74,222,128,0.03))',
+              border: '1px solid rgba(74,222,128,0.2)',
+              borderRadius: 14, padding: '14px 16px', marginBottom: 12,
+            }}>
+              <div style={{ color: 'rgba(74,222,128,0.8)', fontSize: 10, letterSpacing: '0.12em', fontWeight: 700, marginBottom: 10 }}>
+                UPCOMING TEE TIMES TOGETHER
+              </div>
+              {sharedGames.map((g, i) => {
+                const dateLabel = new Date(g.date + 'T12:00:00').toLocaleDateString('en-US', {
+                  weekday: 'short', month: 'short', day: 'numeric',
+                })
+                const isMatch = g.request_type === 'availability_match'
+                return (
+                  <div key={g.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    paddingBottom: i < sharedGames.length - 1 ? 10 : 0,
+                    marginBottom: i < sharedGames.length - 1 ? 10 : 0,
+                    borderBottom: i < sharedGames.length - 1 ? '1px solid rgba(74,222,128,0.1)' : 'none',
+                  }}>
+                    <div>
+                      <div style={{ color: '#4ADE80', fontSize: 13, fontWeight: 600 }}>{dateLabel}</div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
+                        {g.course_name || 'No course set'}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
+                      color: isMatch ? 'rgba(74,222,128,0.7)' : 'rgba(245,215,138,0.6)',
+                      background: isMatch ? 'rgba(74,222,128,0.1)' : 'rgba(245,215,138,0.08)',
+                      borderRadius: 5, padding: '2px 8px',
+                    }}>{isMatch ? 'CALENDAR' : 'TEE TIME'}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Availability strip */}
+          <AvailabilityStrip
+            availability={data?.availability ?? []}
+            friendName={friend?.name}
+            onRequestTeeTime={setTeeDate}
+          />
+
+          {/* Request a Match CTA */}
+          <button
+            onClick={() => {
+              const nextFree = data?.availability?.[0]?.date?.slice(0, 10)
+              setTeeDate(nextFree || todayYMD())
+            }}
+            style={{
+              width: '100%', padding: '14px',
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              color: '#070C09', border: 'none', borderRadius: 14,
+              fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              marginTop: 4,
+            }}
+          >
+            Request a Match with {firstName}
+          </button>
           </>
+          )}
+        </div>
+        </>
         )}
       </div>
+
+      {/* RoundScorecard modal stacks on top of the FriendProfile when a
+          row in their Recent Rounds list is tapped. */}
+      {selectedRoundId != null && (
+        <RoundScorecard
+          roundId={selectedRoundId}
+          onClose={() => setSelectedRoundId(null)}
+        />
+      )}
     </div>,
     document.body
   )

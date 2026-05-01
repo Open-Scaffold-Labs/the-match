@@ -64,16 +64,20 @@ router.post('/', async (req, res) => {
 
 // GET /api/rounds/:id
 // Returns the round + per-hole par data from the linked outing (when
-// outing_id is set). The Profile's RoundScorecard modal needs hole_pars
-// to color-code each cell as eagle/birdie/par/bogey. Free-form rounds
-// (outing_id NULL) fall back to a synthetic distribution client-side.
+// outing_id is set). Any authenticated user can fetch any round —
+// scorecards aren't private (they show up on friend profiles via the
+// Recent Rounds list, and matches are inherently shared between
+// participants). Tighten this if/when round privacy becomes a thing.
+// (2026-05-01 — was r.user_id = req.user.id; loosened so the
+// FriendProfile's Recent Rounds list can open the same scorecards
+// the My Profile view opens.)
 router.get('/:id', async (req, res) => {
   const row = await db.one(
     `SELECT r.*, o.hole_pars, o.course_name AS outing_course_name
      FROM tm_rounds r
      LEFT JOIN tm_outings o ON o.id = r.outing_id
-     WHERE r.id = $1 AND r.user_id = $2`,
-    [req.params.id, req.user.id]
+     WHERE r.id = $1`,
+    [req.params.id]
   )
   if (!row) return res.status(404).json({ error: 'Not found' })
   res.json(row)
