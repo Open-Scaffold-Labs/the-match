@@ -1981,40 +1981,22 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
         </button>
       )}
 
-      {/* Bag icon — sits above the SCORECARD pill. Tap to pick a club
-          from the user's bag; the map then draws an expected-landing-
-          zone ring around GPS at radius=club.avg_yards. The button
-          shows the selected club's slot label as a small chip on the
-          right of the icon when a club is active. (2026-05-01) */}
+      {/* Club toggle — sits above the SCORECARD pill. Idle state:
+          single BAG button. Tap once → AI picks the best club match
+          for the current target yardage and a vertical toggle takes
+          over with ▲ (longer) and ▼ (shorter) arrows around the
+          selected club. Each toggle press updates the landing-zone
+          ring on the map. Tap the center to clear. (2026-05-01) */}
       {!showCamera && !showPicker && courseCtx && (
-        <button onClick={() => setBagOpen(true)} style={{
-          position: 'absolute',
-          bottom: onGoToScorecard ? 64 : 16, right: 16,
-          background: selectedClub
-            ? 'linear-gradient(135deg, rgba(245,215,138,0.95), rgba(201,160,64,0.95))'
-            : 'rgba(7,12,9,0.85)',
-          border: selectedClub ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(245,215,138,0.40)',
-          borderRadius: 999, padding: '10px 14px',
-          color: selectedClub ? '#0D1F12' : '#F5D78A',
-          fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
-          cursor: 'pointer',
-          boxShadow: '0 6px 18px rgba(0,0,0,0.50)',
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          fontFamily: 'inherit',
-          zIndex: 1000,
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke={selectedClub ? '#0D1F12' : '#F5D78A'} strokeWidth="2.2"
-            strokeLinecap="round" strokeLinejoin="round">
-            {/* Simple bag silhouette */}
-            <path d="M6 9h12v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z"/>
-            <path d="M9 9V5a3 3 0 0 1 6 0v4"/>
-            <line x1="12" y1="3" x2="12" y2="9" />
-          </svg>
-          {selectedClub
-            ? <span>{selectedClub.avg_yards}y</span>
-            : <span>BAG</span>}
-        </button>
+        <ClubToggle
+          bag={myBag}
+          selected={selectedClub}
+          targetYards={displayYards}
+          bottomOffset={onGoToScorecard ? 64 : 16}
+          onSelect={setSelectedClub}
+          onClear={() => setSelectedClub(null)}
+          onOpenSheet={() => setBagOpen(true)}
+        />
       )}
 
       {bagOpen && (
@@ -2028,6 +2010,160 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
       )}
     </div>
   )
+}
+
+// ─── Club toggle (right-edge floating UI) ───────────────────────────────────
+// Idle: single BAG button. Tap → recommend a club for the current
+// target yardage (closest avg_yards match). After selection it
+// morphs into a vertical 3-row pill: ▲ (longer club) / current /
+// ▼ (shorter club). Each ▲/▼ tap re-selects, which feeds the
+// landing-zone ring on the map. Center button = open the full bag
+// sheet for browsing. (2026-05-01)
+function ClubToggle({ bag = [], selected, targetYards, bottomOffset = 16, onSelect, onClear, onOpenSheet }) {
+  const usable = bag
+    .filter(c => c.slot !== 'putter' && Number.isFinite(Number(c.avg_yards)))
+    .sort((a, b) => Number(a.avg_yards) - Number(b.avg_yards)) // shortest → longest
+
+  // Recommend: pick the club whose avg_yards is closest to the target.
+  function recommend() {
+    if (!usable.length) {
+      onOpenSheet?.()  // empty bag — surface the sheet's empty-state hint
+      return
+    }
+    const t = Number(targetYards)
+    if (!Number.isFinite(t)) {
+      onSelect?.(usable[Math.floor(usable.length / 2)])
+      return
+    }
+    let best = usable[0]
+    let bestDiff = Math.abs(Number(usable[0].avg_yards) - t)
+    for (const c of usable) {
+      const diff = Math.abs(Number(c.avg_yards) - t)
+      if (diff < bestDiff) { best = c; bestDiff = diff }
+    }
+    onSelect?.(best)
+  }
+
+  // Idle state — single BAG button, tap to invoke recommendation
+  if (!selected) {
+    return (
+      <button onClick={recommend} style={{
+        position: 'absolute',
+        bottom: bottomOffset, right: 16,
+        background: 'rgba(7,12,9,0.85)',
+        border: '1px solid rgba(245,215,138,0.40)',
+        borderRadius: 999, padding: '10px 14px',
+        color: '#F5D78A',
+        fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+        cursor: 'pointer',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.50)',
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        fontFamily: 'inherit',
+        zIndex: 1000,
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="#F5D78A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9h12v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z"/>
+          <path d="M9 9V5a3 3 0 0 1 6 0v4"/>
+          <line x1="12" y1="3" x2="12" y2="9" />
+        </svg>
+        BAG
+      </button>
+    )
+  }
+
+  // Active state — vertical toggle column
+  const idx     = usable.findIndex(c => c.slot === selected.slot)
+  const upClub   = idx < usable.length - 1 ? usable[idx + 1] : null  // longer
+  const downClub = idx > 0 ? usable[idx - 1] : null                  // shorter
+
+  const arrowBtn = (label, club, disabled) => (
+    <button
+      disabled={disabled}
+      onClick={() => club && onSelect?.(club)}
+      style={{
+        background: disabled ? 'rgba(7,12,9,0.55)' : 'rgba(7,12,9,0.85)',
+        border: disabled ? '1px solid rgba(245,215,138,0.18)' : '1px solid rgba(245,215,138,0.55)',
+        color: disabled ? 'rgba(245,215,138,0.30)' : '#F5D78A',
+        borderRadius: 12, padding: '6px 10px',
+        fontSize: 11, fontWeight: 800, letterSpacing: '0.02em',
+        cursor: disabled ? 'default' : 'pointer',
+        fontFamily: 'inherit', minWidth: 96,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.45)',
+      }}
+    >
+      <span>{label}</span>
+      {club ? <span style={{ opacity: 0.85 }}>{club.avg_yards}y</span> : <span style={{ opacity: 0.30 }}>—</span>}
+    </button>
+  )
+
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: bottomOffset, right: 16,
+      display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
+      zIndex: 1000,
+    }}>
+      {arrowBtn('▲ LONGER', upClub, !upClub)}
+
+      {/* Center: current selection. Tap = open full bag sheet. Long-tap
+          fallback isn't supported on iOS easily, so we use a small ✕
+          on the right to clear instead. */}
+      <div style={{
+        display: 'flex', alignItems: 'stretch', gap: 6,
+      }}>
+        <button
+          onClick={onOpenSheet}
+          style={{
+            background: 'linear-gradient(135deg, rgba(245,215,138,0.97), rgba(201,160,64,0.97))',
+            border: '1px solid rgba(245,215,138,0.85)',
+            borderRadius: 12, padding: '10px 14px',
+            color: '#070C09',
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+            boxShadow: '0 6px 18px rgba(201,160,64,0.45)',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            minWidth: 96,
+          }}
+        >
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.10em', opacity: 0.65 }}>
+            {SLOT_LABELS_TOGGLE[selected.slot] || 'CLUB'}
+          </span>
+          <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '-0.01em', marginTop: 1, lineHeight: 1.1 }}>
+            {selected.brand}
+          </span>
+          <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.80, lineHeight: 1.1 }}>
+            {selected.model} · {selected.avg_yards}y
+          </span>
+        </button>
+        <button
+          onClick={onClear}
+          aria-label="Clear club"
+          style={{
+            background: 'rgba(7,12,9,0.85)',
+            border: '1px solid rgba(245,215,138,0.40)',
+            borderRadius: 12, padding: '0 10px',
+            color: '#F5D78A',
+            fontSize: 14, fontWeight: 800,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >✕</button>
+      </div>
+
+      {arrowBtn('▼ SHORTER', downClub, !downClub)}
+    </div>
+  )
+}
+
+// Slot labels (compact map for the toggle's center button — keeps the
+// component self-contained without importing the full clubCatalog.)
+const SLOT_LABELS_TOGGLE = {
+  driver: 'DRIVER', '3w': '3 WOOD', '5w': '5 WOOD', '7w': '7 WOOD',
+  hybrid_1: 'HYBRID 1', hybrid_2: 'HYBRID 2',
+  iron_3: '3 IRON', iron_4: '4 IRON', iron_5: '5 IRON', iron_6: '6 IRON',
+  iron_7: '7 IRON', iron_8: '8 IRON', iron_9: '9 IRON',
+  pw: 'PITCHING W', gw: 'GAP WEDGE', sw: 'SAND WEDGE', lw: 'LOB WEDGE',
 }
 
 // ─── Bag picker bottom-sheet ────────────────────────────────────────────────
