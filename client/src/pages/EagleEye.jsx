@@ -209,9 +209,6 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   const distLabelRef      = useRef(null)   // yardage badge at line midpoint
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
-  // Debug: surface what the rotation system actually did so we can verify
-  // course-up orientation is being applied. (2026-05-01)
-  const [debugInfo, setDebugInfo] = useState(null)
 
   // Load Leaflet from CDN and init map — only once geocoded location is known
   useEffect(() => {
@@ -327,29 +324,18 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     mapRef.current.setView([centerLat, centerLon], zoom, { animate: false })
 
     // setBearing MUST come AFTER setView — setView resets bearing to 0 (north-up).
-    // setBearing(b) puts compass bearing b at the top of the screen.
-    // leaflet-rotate applies CSS rotateZ(-b), which places bearing b at the top.
-    // "course-up": green at top → bearing = direction from tee to green.
-    let bearingApplied = null
-    let bearingActual = null
-    const expectedBearing = teePt && greenPt ? calcBearing(teePt, greenPt) : null
+    //
+    // leaflet-rotate@0.2.8 inverts the sign of what its README implies:
+    // setBearing(b) actually applies CSS rotateZ(+b) (clockwise), not
+    // rotateZ(-b). So passing the raw compass-bearing tee→green puts the
+    // tee at the top instead of the green. To get course-up (green at
+    // top of the screen, tee at the bottom), pass the NEGATED bearing.
+    // Verified empirically with the debug overlay 2026-05-01: hole 1 at
+    // Colts Neck (tee→green = 117° ESE) was rendering with tee top-right;
+    // negating fixes it to green-top, tee-bottom.
     if (teePt && greenPt && typeof mapRef.current.setBearing === 'function') {
-      mapRef.current.setBearing(expectedBearing)
-      bearingApplied = expectedBearing
-      bearingActual = typeof mapRef.current.getBearing === 'function'
-        ? mapRef.current.getBearing()
-        : 'no-getter'
+      mapRef.current.setBearing(-calcBearing(teePt, greenPt))
     }
-    setDebugInfo({
-      hasSetBearing: typeof mapRef.current.setBearing === 'function',
-      expected:   expectedBearing != null ? Math.round(expectedBearing) : null,
-      applied:    bearingApplied  != null ? Math.round(bearingApplied)  : null,
-      actual:     typeof bearingActual === 'number' ? Math.round(bearingActual) : bearingActual,
-      teeLat:     teePt?.lat?.toFixed(5) ?? null,
-      teeLon:     teePt?.lon?.toFixed(5) ?? null,
-      greenLat:   greenPt?.lat?.toFixed(5) ?? null,
-      greenLon:   greenPt?.lon?.toFixed(5) ?? null,
-    })
 
     const L = window.L
 
@@ -515,24 +501,6 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F5D78A', boxShadow: '0 0 6px #F5D78A' }} />
         <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>Your position</span>
       </div>
-      {/* Debug overlay — shows the rotation-state for one screenshot
-          loop so we can confirm leaflet-rotate is wired correctly.
-          Remove after orientation is verified. (2026-05-01) */}
-      {debugInfo && (
-        <div style={{
-          position: 'absolute', top: 90, left: 12, zIndex: 1000,
-          background: 'rgba(0,0,0,0.85)', color: '#fff', borderRadius: 6,
-          padding: '6px 10px', fontFamily: 'ui-monospace, Menlo, monospace',
-          fontSize: 10, lineHeight: 1.4, maxWidth: 220,
-        }}>
-          <div>setBearing: {debugInfo.hasSetBearing ? '✓ available' : '✗ MISSING'}</div>
-          <div>expected: {debugInfo.expected != null ? `${debugInfo.expected}°` : '—'}</div>
-          <div>applied: {debugInfo.applied != null ? `${debugInfo.applied}°` : '—'}</div>
-          <div>actual (getBearing): {debugInfo.actual != null ? (typeof debugInfo.actual === 'number' ? `${debugInfo.actual}°` : debugInfo.actual) : '—'}</div>
-          {debugInfo.teeLat && <div>tee:   {debugInfo.teeLat}, {debugInfo.teeLon}</div>}
-          {debugInfo.greenLat && <div>green: {debugInfo.greenLat}, {debugInfo.greenLon}</div>}
-        </div>
-      )}
     </div>
   )
 }
