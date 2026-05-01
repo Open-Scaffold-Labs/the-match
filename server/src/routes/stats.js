@@ -1,6 +1,7 @@
 const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
+const { isRoundCompletedAndRated, computeHandicapFromRounds } = require('../lib/handicap')
 
 router.use(requireAuth)
 
@@ -10,7 +11,7 @@ router.get('/summary', async (req, res) => {
 
   const [roundData, clubData] = await Promise.all([
     db.many(
-      `SELECT total, course_par, course_rating, slope_rating, date
+      `SELECT total, course_par, course_rating, slope_rating, date, scores
        FROM tm_rounds WHERE user_id = $1 ORDER BY date DESC LIMIT 20`,
       [uid]
     ),
@@ -19,19 +20,14 @@ router.get('/summary', async (req, res) => {
 
   if (!roundData.length) return res.json(null)
 
-  // Handicap index: avg of best 8 of last 20 differentials
-  const diffs = roundData
-    .filter(r => r.course_rating && r.slope_rating)
-    .map(r => ((r.total - r.course_rating) * 113) / r.slope_rating)
-    .sort((a, b) => a - b)
-    .slice(0, 8)
-
-  const handicap = diffs.length
-    ? parseFloat((diffs.reduce((s, d) => s + d, 0) / diffs.length * 0.96).toFixed(1))
-    : null
+  // Handicap index: best 8 of last 20 differentials × 0.96, but only
+  // counting fully-completed rated rounds (no partials, no unrated).
+  // Need 5+ to publish; below that, the seeded handicap stays.
+  const completed = roundData.filter(isRoundCompletedAndRated)
+  const handicap  = completed.length >= 5 ? computeHandicapFromRounds(completed) : null
 
   const avgScore = parseFloat(
-    (roundData.reduce((s, r) => s + r.total, 0) / roundData.length).toFixed(1)
+    (roundData.reduce((s, r) => s + Number(r.total || 0), 0) / roundData.length).toFixed(1)
   )
 
   // Top 5 clubs by average distance
@@ -45,7 +41,7 @@ router.get('/summary', async (req, res) => {
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 5)
 
-  const bestScore = Math.min(...roundData.map(r => r.total))
+  const bestScore = Math.min(...roundData.map(r => Number(r.total)).filter(Number.isFinite))
 
   res.json({
     handicap,

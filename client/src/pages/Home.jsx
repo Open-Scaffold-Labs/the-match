@@ -40,9 +40,14 @@ function ProfileHeroCard({ user, season, avg3, streak, followCounts, onCountsCha
   const seasonBanner = season && !season.seasonStarted && season.year === currentSeasonYear()
   const [banner] = useState(randomBanner)
 
-  const handicapDisplay = user?.handicap != null
-    ? (user.handicap > 0 ? `+${user.handicap}` : String(user.handicap))
-    : '—'
+  // Golf handicap display: high cap = "17.0" (no prefix); plus cap = "+3.5"
+  // (sign for scratch-or-better). Coerce — NUMERIC(4,1) arrives as string.
+  const hcpNum = user?.handicap == null ? null : Number(user.handicap)
+  const handicapDisplay = !Number.isFinite(hcpNum)
+    ? '—'
+    : hcpNum >= 0
+      ? hcpNum.toFixed(1)
+      : `+${Math.abs(hcpNum).toFixed(1)}`
 
   return (
     <div style={{
@@ -1669,9 +1674,16 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
 function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, onCountsChange, onBack, onEditProfile, onOpenCard }) {
-  const handicapDisplay = user?.handicap != null
-    ? (user.handicap > 0 ? `+${user.handicap}` : String(user.handicap))
-    : '—'
+  // Golf handicap display convention (matches HcpBadge):
+  //   high cap (≥0)  → "17.0"  (no prefix)
+  //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
+  // Coerce to Number — NUMERIC(4,1) arrives as a string from pg.
+  const hcpNum = user?.handicap == null ? null : Number(user.handicap)
+  const handicapDisplay = !Number.isFinite(hcpNum)
+    ? '—'
+    : hcpNum >= 0
+      ? hcpNum.toFixed(1)
+      : `+${Math.abs(hcpNum).toFixed(1)}`
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
