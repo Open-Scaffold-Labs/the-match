@@ -98,6 +98,54 @@ User shared a photo of the actual Masters scoreboard. The iconic Augusta panels 
 
 **Commit:** `1b24a77`. Touched: `client/src/components/AugustaBoard.jsx`. No new dependencies.
 
+## [2026-04-30] refactor | Scoreboard late-night polish marathon
+
+Major aesthetic overhaul of the in-match scoreboard (LiveOuting + ScorecardTable + TotalsRow). Captured here as one entry; individual commits below.
+
+**Premium tournament-board redesign** (`0a3997f`) — replaced the teal panel scheme with deep forest green panels, white block-letter HOLE row, gold PAR numerals, cream score tiles with inset shadows, embossed cream LEADERS plaque with gold rules, wood frame with gold pinstripe.
+
+**Border / alignment cleanup rounds** (`167b1bc`, `fd2e484`, `bbee166`, `7c910e4` reverted, `3e4265f`, `56b0dad`, `76625f6`, `509cc4e`):
+- Switched cell borders from full `border` (caused 2px between body cells vs 1px between header cells) to `borderLeft`-only so dividers run continuously through every cell.
+- Unified score cell bg to solid cream everywhere (was `rgba(...,0.55)` over a green gradient = murky olive that read as "row ran out").
+- Subtotal cells (OUT/IN) matched body color to header color (`AUGUSTA_GREEN_DEEP` everywhere) so the rightmost column reads as one continuous strip.
+- Removed the `inset 0 -1px 0` bottom highlight that was making score cells look 1px taller than subtotal cells next to them.
+- Each row now uses `width: max-content + minWidth: 100%` so the row's `borderBottom` spans the full content width, not just the visible scroll-container width — fixes the "lines cut off mid-row" bug after the avatar column was added.
+- Restored `cellBorder()` helper that ScoreModal still referenced (regression).
+
+**Tier-1 polish** (`c090480`):
+- New leftmost RANK_COL with leaderboard position (1, T2, 3…). Leader's badge gets a gold gradient.
+- Leader gold highlight on the surname (was just gold for current user).
+- THRU subtitle ("THRU 7" / "F") under the player's surname instead of buried in the bottom totals row.
+
+**Tier-2 polish** (`c6b2537`):
+- Wood-grain texture on the frame (vertical repeating-linear-gradient grain lines + highlights over a brown gradient).
+- Active-hole flag pin (small gold-flag SVG) sits on the HOLE row over the next-to-be-played hole.
+- Match-play status banner promoted from inside the header to a prominent broadcast-style banner above the wood frame.
+
+**Tier-3 polish** (`6f8ff99`):
+- Score reveal animation — every score numeral wrapped in a span keyed by `score+par`. When score changes, React remounts → triggers `tm-score-reveal` keyframe (380ms scaleY 0.10 → 1.15 → 1.0 with bounce). Mimics manual-flip Masters scoreboard.
+- Recent-event banner — when `saveScore` lands, a gold-or-green pill pops down for 4s with the player surname, score label (EAGLE/BIRDIE/PAR/BOGEY/DOUBLE), and hole number.
+
+**Tap hint + instruction removal** (`d18e06b`):
+- New `findTapHint()` walks sorted players to find the first empty cell the current user can edit. Returns null once any score has been entered.
+- `tm-tap-hint` keyframe pulses a 2px gold inset ring + outer gold glow on the matched cell so first-time users know where to tap.
+- Removed "Tap any cell to enter scores" instructional copy from the host-controls row — the pulsing cell teaches the same thing.
+
+**Color swap + translucency experiments** (`ddbc0bf`, `651dcd2`, `f2ce728`, `ca40c78`):
+- Green→white panel swap, white→green text swap.
+- AUGUSTA_TEXT bumped to a richer #1A6B28.
+- All AUGUSTA panel surfaces moved to rgba alphas (0.55–0.65) so the page fairway grass shows through. Cream tiles + wood frame translucent too. Backdrop-filter blur(10px) on the inner board for glass-morphism. `LiveOuting` page bg switched from dark green gradient to transparent so the fairway image is the new backdrop.
+
+**Bug fixes from feedback**:
+- `49c2680` — "You vs Matt Lavin's Match" string (when no opponents have joined): show "Waiting for players" subtitle instead.
+- Scrolled-right border misalignment: unified body + header cells to share borderLeft pattern.
+- LiveOuting header clipping behind iOS notch: `padding: calc(var(--safe-top) + 14px)` so it clears the safe-area-inset.
+
+**Session commits (15+ total today)**: `0a3997f` `167b1bc` `fd2e484` `bbee166` `3e4265f` `56b0dad` `76625f6` `509cc4e` `c090480` `c6b2537` `6f8ff99` `d18e06b` `ddbc0bf` `651dcd2` `f2ce728` `ca40c78` and supporting wiki/log entries.
+
+**Files touched**: primarily `client/src/pages/Outing.jsx` (the LiveOuting + ScorecardTable + TotalsRow) and `client/src/design/tokens.css` (3 new keyframes: `tm-score-reveal`, `tm-event-pop`, `tm-tap-hint`). No schema changes. No Eagle Eye changes.
+
+
 ## [2026-04-30] refactor | Path A — Augusta is the only scorecard
 
 User direction: "this needs to be the scorecard for every match you enter, it shouldnt have its own button it should be the only scorecard and the size of the rows can be a minimum of 4 rows that fit the screen if its a match of only 4 or less".
