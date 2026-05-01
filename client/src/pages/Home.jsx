@@ -524,7 +524,10 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
 }
 
 // ─── Availability Calendar ────────────────────────────────────────────────────
-function AvailabilityCalendar({ uid, onScheduleGame }) {
+// selfOnly = true is used by My Profile, where Matt only wants to see
+// his own availability. Home still uses the social view (friends' free
+// days surfacing as dots + day-sheet entries). 2026-05-01.
+function AvailabilityCalendar({ uid, onScheduleGame, selfOnly = false }) {
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
@@ -541,10 +544,11 @@ function AvailabilityCalendar({ uid, onScheduleGame }) {
     try {
       const data = await api(`/api/availability?month=${monthKey}`)
       setMine((data.mine ?? []).map(r => r.date.slice(0, 10)))
-      setFriendsAvail(data.friends ?? [])
+      // selfOnly suppresses the social layer entirely.
+      setFriendsAvail(selfOnly ? [] : (data.friends ?? []))
     } catch { /* ignore */ }
     setLoading(false)
-  }, [monthKey])
+  }, [monthKey, selfOnly])
 
   useEffect(() => { load() }, [load])
 
@@ -663,10 +667,12 @@ function AvailabilityCalendar({ uid, onScheduleGame }) {
             <div style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(201,160,64,0.35)' }} />
             <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>You're free</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#1B5E3B' }} />
-            <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>Friends available</span>
-          </div>
+          {!selfOnly && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#1B5E3B' }} />
+              <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>Friends available</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2501,6 +2507,13 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
             and club distances will start showing up here.
           </div>
         )}
+
+        {/* My Availability — selfOnly hides friends' availability so this
+            stays a personal calendar. The Home view still renders the
+            social version with friends' free days. (2026-05-01) */}
+        <div style={{ marginTop: 24 }}>
+          <AvailabilityCalendar uid={user?.id} selfOnly />
+        </div>
       </div>
 
       {/* Round scorecard modal — opened by tapping a row in the Recent
