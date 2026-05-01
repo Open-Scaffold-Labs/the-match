@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { post } from '../lib/api.js'
+import CoachMark from './CoachMark.jsx'
 
 // ─── Country flag definitions ──────────────────────────────────────────────────
 // iso = flagcdn.com ISO code (CORS-enabled, supports subdivisions like gb-eng)
@@ -266,6 +267,12 @@ export default function PlayerCard({ user, season, onClose, onSave, existingCard
       alignItems: 'center', justifyContent: 'flex-start',
       overflowY: 'auto',
     }}>
+      <CoachMark
+        id="player_card"
+        user={user}
+        title="Your AI player card"
+        body="Take a selfie and we'll cut out your body, drop in your country flag, and render a PGA Tour broadcast-style card. Used for the leaderboard and match recaps. Re-take anytime."
+      />
       {/* Header */}
       <div style={{
         width: '100%', maxWidth: 430,
