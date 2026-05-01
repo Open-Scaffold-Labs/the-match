@@ -95,9 +95,15 @@ function HandicapTrendLine({ rounds }) {
     : activeDiff === 0 ? '#fff'
     : '#F87171'
 
-  // Tooltip horizontal position as a percentage of the chart width.
-  // Clamped so the tooltip doesn't overflow either edge.
-  const tooltipPct = activePt ? Math.max(8, Math.min(92, (activePt.x / W) * 100)) : 50
+  // Tooltip positioning: keep the tooltip glued to the active point
+  // by setting `left` to the point's x-percent. Then slide its own
+  // transform from 0% (at the leftmost point — tooltip starts at the
+  // point, extends right) through -50% (centered in the middle) to
+  // -100% (at the rightmost point — tooltip ends at the point,
+  // extends left). This guarantees the tooltip stays within the
+  // chart bounds even on narrow screens. (2026-05-01)
+  const tooltipLeftPct  = activePt ? (activePt.x / W) * 100 : 50
+  const tooltipShiftPct = activePt ? -(activePt.x / W) * 100 : -50
 
   return (
     <div
@@ -122,40 +128,47 @@ function HandicapTrendLine({ rounds }) {
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseLeave}
     >
-      {/* Tooltip — absolutely positioned over the chart, clamped to
-          stay within bounds. Renders only while scrubbing. */}
+      {/* Tooltip — absolutely positioned over the chart, with a sliding
+          transform that anchors the tooltip toward the closer edge as
+          the active point approaches it. Compact two-line layout so it
+          stays narrow enough to fit within the chart on phones.
+          Renders only while scrubbing. */}
       {active && (
         <div style={{
           position: 'absolute',
-          left: `${tooltipPct}%`,
+          left: `${tooltipLeftPct}%`,
           top: 0,
-          transform: 'translateX(-50%)',
+          transform: `translateX(${tooltipShiftPct}%)`,
           background: 'rgba(7,18,9,0.96)',
           border: '1px solid rgba(232,192,90,0.45)',
           borderRadius: 8,
-          padding: '5px 10px',
+          padding: '5px 9px',
           boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-          whiteSpace: 'nowrap',
           pointerEvents: 'none',
           zIndex: 2,
-          fontSize: 11, fontWeight: 700, color: '#fff',
-          display: 'flex', alignItems: 'center', gap: 8,
+          maxWidth: 170,
+          display: 'flex', flexDirection: 'column', gap: 1,
         }}>
-          <span style={{
-            maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis',
-            color: '#fff',
+          <div style={{
+            fontSize: 11, fontWeight: 700, color: '#fff',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            maxWidth: '100%',
           }}>
             {active.course_name || 'Round'}
-          </span>
-          <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 500 }}>
-            {activeDateLabel}
-          </span>
-          <span style={{ color: '#F5E070', fontWeight: 900 }}>
-            {Number.isFinite(activeScore) ? activeScore : '—'}
-          </span>
-          <span style={{ color: activeDiffColor, fontWeight: 900 }}>
-            {activeDiffStr}
-          </span>
+          </div>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 6,
+            fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: 600,
+            whiteSpace: 'nowrap',
+          }}>
+            <span>{activeDateLabel}</span>
+            <span style={{ color: '#F5E070', fontWeight: 900, fontSize: 11 }}>
+              {Number.isFinite(activeScore) ? activeScore : '—'}
+            </span>
+            <span style={{ color: activeDiffColor, fontWeight: 900, fontSize: 11 }}>
+              {activeDiffStr}
+            </span>
+          </div>
         </div>
       )}
 
