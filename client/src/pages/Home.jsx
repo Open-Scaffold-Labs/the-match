@@ -5,6 +5,7 @@ import { TMEmblem, IconTarget, IconTrophy, IconFlag, IconChevronRight, IconPlus 
 import FriendProfile from '../components/FriendProfile.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
 import FollowPills from '../components/FollowPills.jsx'
+import RoundScorecard from '../components/RoundScorecard.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -1687,6 +1688,10 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
       ? hcpNum.toFixed(1)
       : `+${Math.abs(hcpNum).toFixed(1)}`
 
+  // Tap a recent round → open its scorecard. State scoped to this view
+  // so closing returns straight to the Profile.
+  const [selectedRoundId, setSelectedRoundId] = useState(null)
+
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
       {/* Top bar — same gold "The Match" title, with a back arrow on the
@@ -1941,11 +1946,24 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
               const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
               const diff = hasDiff ? sc - par : null
               return (
-                <div key={r.id ?? i} style={{
-                  padding: '13px 18px',
-                  borderBottom: i < Math.min(rounds.length, 10) - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
-                }}>
+                <button
+                  key={r.id ?? i}
+                  onClick={() => r.id != null && setSelectedRoundId(r.id)}
+                  disabled={r.id == null}
+                  style={{
+                    width: '100%',
+                    background: 'transparent', border: 'none', textAlign: 'left',
+                    cursor: r.id != null ? 'pointer' : 'default',
+                    padding: '13px 18px',
+                    borderBottom: i < Math.min(rounds.length, 10) - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                    fontFamily: 'inherit',
+                    transition: 'background 120ms ease',
+                  }}
+                  onMouseDown={e => { e.currentTarget.style.background = 'rgba(27,94,59,0.04)' }}
+                  onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
                       fontWeight: 700, color: '#0D1F12', fontSize: 14,
@@ -1956,18 +1974,25 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
                       {r.holes ? ` · ${r.holes} holes` : ''}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: '#0D1F12', lineHeight: 1 }}>{Number.isFinite(sc) ? sc : (r.score ?? '—')}</div>
-                    {diff != null && (
-                      <div style={{
-                        fontSize: 11, fontWeight: 700, marginTop: 3,
-                        color: diff < 0 ? '#C9A040' : diff === 0 ? '#1B5E3B' : '#DC2626',
-                      }}>
-                        {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
-                      </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#0D1F12', lineHeight: 1 }}>{Number.isFinite(sc) ? sc : (r.score ?? '—')}</div>
+                      {diff != null && (
+                        <div style={{
+                          fontSize: 11, fontWeight: 700, marginTop: 3,
+                          color: diff < 0 ? '#C9A040' : diff === 0 ? '#1B5E3B' : '#DC2626',
+                        }}>
+                          {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
+                        </div>
+                      )}
+                    </div>
+                    {r.id != null && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(27,94,59,0.40)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
                     )}
                   </div>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -1985,6 +2010,15 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
           </div>
         )}
       </div>
+
+      {/* Round scorecard modal — opened by tapping a row in the Recent
+          Rounds list above. Fetches from GET /api/rounds/:id. */}
+      {selectedRoundId != null && (
+        <RoundScorecard
+          roundId={selectedRoundId}
+          onClose={() => setSelectedRoundId(null)}
+        />
+      )}
     </div>
   )
 }
