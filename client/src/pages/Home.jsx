@@ -7,6 +7,7 @@ import PlayerCard from '../components/PlayerCard.jsx'
 import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
+import RoundHistory from '../components/RoundHistory.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -1694,6 +1695,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   const [selectedRoundId, setSelectedRoundId] = useState(null)
   // Tap a rivalry row → open the animated head-to-head face-off modal.
   const [selectedRivalry, setSelectedRivalry] = useState(null)
+  // Tap "See all rounds" → open the full RoundHistory bottom-sheet.
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
@@ -2093,7 +2096,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
             }}>
               Recent Rounds
             </div>
-            {rounds.slice(0, 10).map((r, i) => {
+            {rounds.slice(0, 3).map((r, i) => {
               // Coerce score / par from possible string NUMERICs
               const sc  = Number(r.score)
               const par = Number(r.course_par)
@@ -2115,7 +2118,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                     background: 'transparent', border: 'none', textAlign: 'left',
                     cursor: r.id != null ? 'pointer' : 'default',
                     padding: '12px 16px',
-                    borderBottom: i < Math.min(rounds.length, 10) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
                     fontFamily: 'inherit',
                     transition: 'background 120ms ease',
@@ -2154,6 +2157,30 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 </button>
               )
             })}
+
+            {/* See all rounds → opens RoundHistory bottom sheet with the
+                full list. (2026-05-01 — Matt: cap inline list to 3) */}
+            <button
+              onClick={() => setHistoryOpen(true)}
+              style={{
+                width: '100%',
+                background: 'transparent', border: 'none',
+                cursor: 'pointer', padding: '14px 16px',
+                fontFamily: 'inherit', textAlign: 'center',
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+                color: '#F5D78A', textTransform: 'uppercase',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                transition: 'background 120ms ease',
+              }}
+              onMouseDown={e => { e.currentTarget.style.background = 'rgba(245,215,138,0.06)' }}
+              onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              See all {rounds.length} round{rounds.length === 1 ? '' : 's'}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
           </div>
         )}
 
@@ -2189,6 +2216,17 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           myAvatar={user?.avatar}
           myHandicap={user?.handicap}
           onClose={() => setSelectedRivalry(null)}
+        />
+      )}
+
+      {/* Full round history — opened by tapping "See all N rounds"
+          beneath the truncated 3-row preview. Each row in the modal
+          taps into the same RoundScorecard. */}
+      {historyOpen && (
+        <RoundHistory
+          rounds={rounds}
+          title="Recent Rounds"
+          onClose={() => setHistoryOpen(false)}
         />
       )}
     </div>

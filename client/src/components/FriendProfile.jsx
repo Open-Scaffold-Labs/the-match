@@ -4,6 +4,7 @@ import { api, post } from '../lib/api.js'
 import { HcpBadge, StatTile } from '../pages/Stats.jsx'
 import FollowPills from './FollowPills.jsx'
 import RoundScorecard from './RoundScorecard.jsx'
+import RoundHistory from './RoundHistory.jsx'
 
 // ── Nearby Course Picker ──────────────────────────────────────────────────────
 function CoursePicker({ value, onChange }) {
@@ -429,6 +430,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
   const [loading, setLoading]   = useState(true)
   const [teeDate, setTeeDate]   = useState(null) // date string when tee-request sheet is open
   const [selectedRoundId, setSelectedRoundId] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   useEffect(() => {
     if (!friendSummary?.friend_id) return
@@ -809,7 +811,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                 fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.40)',
                 letterSpacing: '0.12em', textTransform: 'uppercase',
               }}>Recent Rounds</div>
-              {data.recentRounds.slice(0, 10).map((r, i) => {
+              {data.recentRounds.slice(0, 3).map((r, i) => {
                 const sc  = Number(r.score ?? r.total)
                 const par = Number(r.course_par)
                 const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
@@ -828,7 +830,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                       background: 'transparent', border: 'none', textAlign: 'left',
                       cursor: r.id != null ? 'pointer' : 'default',
                       padding: '12px 16px',
-                      borderBottom: i < Math.min(data.recentRounds.length, 10) - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
                       fontFamily: 'inherit',
                       transition: 'background 120ms ease',
@@ -866,6 +868,30 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                   </button>
                 )
               })}
+
+              {/* See all rounds → opens RoundHistory bottom sheet for the
+                  friend's full round history. (2026-05-01) */}
+              <button
+                onClick={() => setHistoryOpen(true)}
+                style={{
+                  width: '100%',
+                  background: 'transparent', border: 'none',
+                  cursor: 'pointer', padding: '14px 16px',
+                  fontFamily: 'inherit', textAlign: 'center',
+                  fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+                  color: '#F5D78A', textTransform: 'uppercase',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  transition: 'background 120ms ease',
+                }}
+                onMouseDown={e => { e.currentTarget.style.background = 'rgba(245,215,138,0.06)' }}
+                onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
+                See all {data.recentRounds.length} round{data.recentRounds.length === 1 ? '' : 's'}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
             </div>
           )}
 
@@ -954,6 +980,16 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
         <RoundScorecard
           roundId={selectedRoundId}
           onClose={() => setSelectedRoundId(null)}
+        />
+      )}
+
+      {/* Full round history — opened by tapping "See all N rounds" beneath
+          the truncated 3-row preview. */}
+      {historyOpen && (
+        <RoundHistory
+          rounds={data?.recentRounds ?? []}
+          title={`${friend?.name?.split(' ')[0] || 'Player'}'s Rounds`}
+          onClose={() => setHistoryOpen(false)}
         />
       )}
     </div>,
