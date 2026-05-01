@@ -370,25 +370,28 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
               </>
             )}
 
-            {(driverBrand && driverModel) && (
-              <>
-                <Label style={{ marginTop: 10 }}>Average Distance (yards)</Label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Input
-                    type="number" inputMode="numeric" min="0" max="400"
-                    value={driverYards}
-                    onChange={e => setDriverYards(e.target.value.replace(/[^\d]/g, ''))}
-                    placeholder="e.g. 245"
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{
-                    background: 'rgba(245,215,138,0.10)', color: '#F5D78A',
-                    padding: '8px 14px', borderRadius: 999,
-                    fontSize: 14, fontWeight: 700,
-                  }}>yds</span>
-                </div>
-              </>
-            )}
+            {/* Distance input — always visible on step 3 so the user
+                can't miss it. Validates on Add to Bag. */}
+            <Label style={{ marginTop: 14 }}>
+              Average Driver Distance (yards) <span style={{ color: '#FCA5A5' }}>*</span>
+            </Label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Input
+                type="number" inputMode="numeric" min="0" max="400"
+                value={driverYards}
+                onChange={e => setDriverYards(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="e.g. 245"
+                style={{ flex: 1 }}
+              />
+              <span style={{
+                background: 'rgba(245,215,138,0.10)', color: '#F5D78A',
+                padding: '8px 14px', borderRadius: 999,
+                fontSize: 14, fontWeight: 700,
+              }}>yds</span>
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>
+              Roughly how far you typically hit your driver. Used by Eagle Eye on the course.
+            </div>
           </Step>
         )}
 
