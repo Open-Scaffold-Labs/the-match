@@ -387,9 +387,12 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     // Center between tee and green so both are visible, not just the tee
     const centerLat = teePt && greenPt ? (teePt.lat + greenPt.lat) / 2 : panPos.lat
     const centerLon = teePt && greenPt ? (teePt.lon + greenPt.lon) / 2 : panPos.lon
-    // Zoom based on hole length — par 3s tighter, long par 5s wider
+    // Zoom based on hole length. Bumped 2026-05-01 per Matt: par 5s
+    // (typically 470-580y) at zoom 16 felt too zoomed-out — there was a
+    // lot of dead space around the line. Now only very long holes (>600y)
+    // drop to 16; standard par 5s and par 4s share zoom 17, par 3s stay at 18.
     const holeDist  = teePt && greenPt ? haversineYards(teePt, greenPt) : 0
-    const zoom = holeDist > 400 ? 16 : holeDist > 220 ? 17 : 18
+    const zoom = holeDist > 600 ? 16 : holeDist > 220 ? 17 : 18
 
     // animate:false = instant teleport to the hole
     mapRef.current.setView([centerLat, centerLon], zoom, { animate: false })
