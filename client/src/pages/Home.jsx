@@ -1831,21 +1831,28 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, onBack, onEdit
         {/* Stats body — handicap badge, tiles, trend, distances, rounds */}
         <HcpBadge hcp={stats?.handicap ?? user?.handicap ?? null} roundCount={stats?.roundCount} />
 
-        {stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-            <StatTile
-              label="Avg Score"
-              value={stats.avgScore != null ? stats.avgScore.toFixed(1) : '—'}
-              sub={`Par ${rounds[0]?.course_par ?? 72}`}
-            />
-            <StatTile
-              label="Best Round"
-              value={stats.bestScore ?? '—'}
-              sub="All time"
-              accent="#5ED47A"
-            />
-          </div>
-        )}
+        {stats && (() => {
+          // Coerce numeric fields — Postgres NUMERIC → string via pg.
+          const avgNum  = Number(stats.avgScore)
+          const bestNum = Number(stats.bestScore)
+          const avgDisplay  = Number.isFinite(avgNum)  ? avgNum.toFixed(1) : '—'
+          const bestDisplay = Number.isFinite(bestNum) ? bestNum            : '—'
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <StatTile
+                label="Avg Score"
+                value={avgDisplay}
+                sub={`Par ${rounds[0]?.course_par ?? 72}`}
+              />
+              <StatTile
+                label="Best Round"
+                value={bestDisplay}
+                sub="All time"
+                accent="#5ED47A"
+              />
+            </div>
+          )
+        })()}
 
         <MiniTrendBar rounds={rounds} />
 
@@ -1891,35 +1898,42 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, onBack, onEdit
             }}>
               Recent Rounds
             </div>
-            {rounds.slice(0, 10).map((r, i) => (
-              <div key={r.id ?? i} style={{
-                padding: '13px 18px',
-                borderBottom: i < Math.min(rounds.length, 10) - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
-              }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{
-                    fontWeight: 700, color: '#0D1F12', fontSize: 14,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{r.course_name ?? 'Round'}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.40)', marginTop: 2 }}>
-                    {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                    {r.holes ? ` · ${r.holes} holes` : ''}
+            {rounds.slice(0, 10).map((r, i) => {
+              // Coerce score / par from possible string NUMERICs
+              const sc  = Number(r.score)
+              const par = Number(r.course_par)
+              const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
+              const diff = hasDiff ? sc - par : null
+              return (
+                <div key={r.id ?? i} style={{
+                  padding: '13px 18px',
+                  borderBottom: i < Math.min(rounds.length, 10) - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{
+                      fontWeight: 700, color: '#0D1F12', fontSize: 14,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>{r.course_name ?? 'Round'}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.40)', marginTop: 2 }}>
+                      {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                      {r.holes ? ` · ${r.holes} holes` : ''}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: '#0D1F12', lineHeight: 1 }}>{Number.isFinite(sc) ? sc : (r.score ?? '—')}</div>
+                    {diff != null && (
+                      <div style={{
+                        fontSize: 11, fontWeight: 700, marginTop: 3,
+                        color: diff < 0 ? '#C9A040' : diff === 0 ? '#1B5E3B' : '#DC2626',
+                      }}>
+                        {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: '#0D1F12', lineHeight: 1 }}>{r.score ?? '—'}</div>
-                  {r.course_par && r.score != null && (
-                    <div style={{
-                      fontSize: 11, fontWeight: 700, marginTop: 3,
-                      color: r.score - r.course_par < 0 ? '#C9A040' : r.score - r.course_par === 0 ? '#1B5E3B' : '#DC2626',
-                    }}>
-                      {r.score - r.course_par === 0 ? 'E' : r.score - r.course_par > 0 ? `+${r.score - r.course_par}` : `${r.score - r.course_par}`}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 

@@ -11,11 +11,18 @@ function scoreColor(diff) {
 
 // ── Cinematic handicap hero card ──────────────────────────────────────────
 export function HcpBadge({ hcp, roundCount }) {
-  const display = hcp === null
+  // Coerce — handicap can arrive as a string from Postgres NUMERIC
+  // columns via the pg driver. Number() turns "17.0" into 17.0 and
+  // null/undefined into NaN; Number.isFinite skips both. Guards against
+  // the "o.toFixed is not a function" crash when a seeded handicap is
+  // displayed before any rounds are logged. (2026-05-01)
+  const hcpNum = hcp == null ? null : Number(hcp)
+  const valid  = hcpNum != null && Number.isFinite(hcpNum)
+  const display = !valid
     ? '—'
-    : hcp >= 0
-      ? hcp.toFixed(1)
-      : `+${Math.abs(hcp).toFixed(1)}`
+    : hcpNum >= 0
+      ? hcpNum.toFixed(1)
+      : `+${Math.abs(hcpNum).toFixed(1)}`
 
   return (
     <div style={{ margin: '0 0 16px', position: 'relative' }}>
