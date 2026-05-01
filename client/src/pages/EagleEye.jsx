@@ -885,13 +885,24 @@ function CoursePicker({ onSelect, onClose, gps }) {
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye() {
+export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
   const [weather, setWeather]       = useState(null)
   const [courseCtx, setCourseCtx]   = useState(null)
   const [currentHole, setCurrentHole] = useState(1)
+
+  // Cross-tab nudge from the live match's score modal: "user just scored
+  // hole N, take them to Eagle Eye on hole N+1." App.jsx sets the nudge,
+  // we pick it up here, advance currentHole, and tell App we've consumed
+  // it so it can clear. (2026-05-01)
+  useEffect(() => {
+    if (eyeHoleNudge == null) return
+    if (eyeHoleNudge !== currentHole) setCurrentHole(eyeHoleNudge)
+    onConsumeEyeHoleNudge?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eyeHoleNudge])
   const [showPicker, setShowPicker] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
   const [result, setResult]         = useState(null)
@@ -1232,6 +1243,22 @@ export default function EagleEye() {
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{temp}°</span>
               </div>
             )}
+            {/* Inline Scorecard pill — sits next to the conditions pills so
+                the user can pop into the live match's scorecard for the hole
+                they're currently looking at. (2026-05-01) */}
+            {onGoToScorecard && (
+              <button onClick={onGoToScorecard} style={{
+                background: 'rgba(232,192,90,0.14)',
+                border: '1px solid rgba(232,192,90,0.40)',
+                borderRadius: 20, padding: '4px 10px',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontFamily: 'inherit',
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#F5D78A', letterSpacing: '0.04em' }}>SCORECARD</span>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -1502,6 +1529,30 @@ export default function EagleEye() {
           onSelect={handleCourseSelect}
           gps={gps}
         />
+      )}
+
+      {/* Floating bottom-right Scorecard pill. Persistent across all Eagle
+          Eye view states — distance, map, camera-result. Sits above the
+          bottom nav. Only renders when the parent (App.jsx) provided
+          onGoToScorecard, so EagleEye still works standalone. (2026-05-01) */}
+      {onGoToScorecard && !showCamera && !showPicker && (
+        <button onClick={onGoToScorecard} style={{
+          position: 'absolute',
+          bottom: 16, right: 16,
+          background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
+          border: '1px solid rgba(245,215,138,0.6)',
+          borderRadius: 999, padding: '10px 16px',
+          color: '#0D1F12',
+          fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+          cursor: 'pointer',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: 'inherit',
+          zIndex: 30,
+        }}>
+          SCORECARD
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       )}
     </div>
   )

@@ -24,6 +24,15 @@ export default function App() {
   // where they left off. Cost is bounded to "tabs you've actually visited."
   // (2026-05-01)
   const [mountedTabs, setMountedTabs] = useState(() => new Set([TABS.HOME]))
+  // Cross-tab "next hole" nudge from the live match's score modal to Eagle
+  // Eye. When set, EagleEye picks it up via useEffect, calls setCurrentHole,
+  // and clears the nudge via onConsumeEyeHoleNudge. Tight loop:
+  //   tap Eagle Eye on Hole N -> see distance/strategy
+  //   tap "Scorecard" on Eye -> jump to scorecard
+  //   enter score on hole N -> tap "Save & Eagle Eye →"
+  //   land back on Eye, currentHole = N+1
+  // (2026-05-01 — Match-page completion plan extension)
+  const [eyeHoleNudge, setEyeHoleNudge] = useState(null)
 
   useEffect(() => {
     // Check for token in URL fragment (post-auth bounce). After parsing,
@@ -87,12 +96,22 @@ export default function App() {
         )}
         {mountedTabs.has(TABS.EYE) && (
           <TabPanel active={tab === TABS.EYE}>
-            <EagleEye user={user} />
+            <EagleEye
+              user={user}
+              onGoToScorecard={() => setTab(TABS.OUTING)}
+              eyeHoleNudge={eyeHoleNudge}
+              onConsumeEyeHoleNudge={() => setEyeHoleNudge(null)}
+            />
           </TabPanel>
         )}
         {mountedTabs.has(TABS.OUTING) && (
           <TabPanel active={tab === TABS.OUTING}>
-            <Outing user={user} pendingPlayers={pendingOutingPlayers} onClearPending={() => setPendingOutingPlayers([])} />
+            <Outing
+              user={user}
+              pendingPlayers={pendingOutingPlayers}
+              onClearPending={() => setPendingOutingPlayers([])}
+              onGoToEagleEye={hole => { setEyeHoleNudge(hole); setTab(TABS.EYE) }}
+            />
           </TabPanel>
         )}
         {mountedTabs.has(TABS.STATS) && (

@@ -1406,7 +1406,7 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrid
 }
 
 // Score entry modal — stepper + quick picks
-function ScoreModal({ playerName, hole, par, currentScore, onSave, onClose }) {
+function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, onSaveAndEagleEye, onClose }) {
   const [val, setVal] = useState(currentScore || par || 4)
 
   const quickPicks = [
@@ -1416,6 +1416,12 @@ function ScoreModal({ playerName, hole, par, currentScore, onSave, onClose }) {
     { label: 'Bogey',  diff: +1 },
     { label: 'Double', diff: +2 },
   ].map(q => ({ ...q, score: (par || 4) + q.diff })).filter(q => q.score >= 1)
+
+  // The "Save & Eagle Eye →" second action is enabled only when the parent
+  // wired it (i.e., user is scoring their own hole AND there's a next hole
+  // to advance to). The next hole label is hole+2 in 1-indexed display
+  // since `hole` is 0-indexed. (2026-05-01)
+  const nextHoleDisplay = hole + 2  // 1-indexed; safe — parent already capped
 
   return createPortal(
     <div style={{
@@ -1460,6 +1466,24 @@ function ScoreModal({ playerName, hole, par, currentScore, onSave, onClose }) {
           background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
           color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 16, border: 'none', cursor: 'pointer',
         }}>Save Score</button>
+
+        {/* Save & Eagle Eye → second action. Saves the score AND jumps to
+            Eagle Eye on the next hole — tightest one-tap loop for
+            "play hole, score it, look at next hole's strategy." Only
+            renders when parent supplied the callback (user scoring own
+            hole + next hole exists). (2026-05-01) */}
+        {onSaveAndEagleEye && (
+          <button onClick={() => onSaveAndEagleEye(val)} style={{
+            width: '100%', padding: 14, marginTop: 10, borderRadius: 'var(--tm-radius-lg)',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(232,192,90,0.45)',
+            color: '#F5D78A', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            Save &amp; Eagle Eye · Hole {nextHoleDisplay}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        )}
       </div>
     </div>,
     document.body
@@ -1911,7 +1935,7 @@ function MatchScoreboard({
 }
 
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
-function LiveOuting({ code, user, onBack, onMatchEnd }) {
+function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye }) {
   const [outing, setOuting] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showTeams, setShowTeams] = useState(false)
@@ -2552,6 +2576,26 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
             hole={scoreModal.hole}
             par={par}
             currentScore={current}
+            holeCount={holeCount}
+            // "Save & Eagle Eye →" only available when:
+            //   1. parent supplied the cross-tab nav callback
+            //   2. user is scoring their OWN hole (not host scoring someone else)
+            //   3. there's actually a next hole to advance to (not the last)
+            // Tightest one-tap loop: enter score, jump to Eye on next hole.
+            // hole is 0-indexed in scoreModal; eyeHoleNudge is 1-indexed,
+            // so "next hole" = scoreModal.hole + 2. (2026-05-01)
+            onSaveAndEagleEye={
+              onGoToEagleEye
+              && String(scoreModal.userId) === String(user?.id)
+              && scoreModal.hole + 1 < holeCount
+                ? async val => {
+                    const nextHole = scoreModal.hole + 2  // 1-indexed
+                    setScoreModal(null)
+                    await saveScore(scoreModal.hole, val, scoreModal.userId)
+                    onGoToEagleEye(nextHole)
+                  }
+                : null
+            }
             onSave={async val => {
               setScoreModal(null)
               await saveScore(scoreModal.hole, val, scoreModal.userId)
@@ -3560,7 +3604,7 @@ function CodeShare({ outing, onEnter }) {
 }
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
-export default function Outing({ user, pendingPlayers = [], onClearPending }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, onGoToEagleEye }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -3587,6 +3631,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending }) {
       user={user}
       onBack={() => setView('hub')}
       onMatchEnd={summary => { setEndSummary(summary); setView('end') }}
+      onGoToEagleEye={onGoToEagleEye}
     />
   )
   if (view === 'end' && endSummary) return (
