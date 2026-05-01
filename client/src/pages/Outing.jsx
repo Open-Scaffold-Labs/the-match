@@ -7,23 +7,22 @@ import ActiveRound from './ActiveRound.jsx'
 // match now renders the Augusta scorecard directly via LiveOuting.
 
 // ─── Augusta theme palette ───────────────────────────────────────────────────
-// SWAP MODE (2026-04-30 PM round 12 — visual experiment):
-// Greens flipped to whites, white text flipped to dark green.
-// TRANSLUCENT MODE (round 13): same colors, but rgba alpha so the page
-// fairway shows through. Cream tiles + gold + red stay solid.
-const AUGUSTA_GREEN       = 'rgba(255,255,255,0.78)'   // frame-stripe color (was #FFFFFF)
-const AUGUSTA_GREEN_DEEP  = 'rgba(232,232,232,0.78)'   // deepest panel (was #E8E8E8)
-const AUGUSTA_PANEL       = 'rgba(255,255,255,0.78)'   // main board panel (was #FFFFFF)
-const AUGUSTA_PANEL_HI    = 'rgba(250,250,250,0.82)'   // gradient top (was #FAFAFA)
-const AUGUSTA_PANEL_HOVER = 'rgba(240,240,240,0.82)'   // me-row tint (was #F0F0F0)
-const AUGUSTA_TEXT        = '#1A6B28'   // green for text on the white panels
-const AUGUSTA_GOLD        = '#E8C05A'   // PAR numerals + leader accents (unchanged)
-const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe / dimmed gold (unchanged)
-const AUGUSTA_CREAM       = '#EAE0BF'   // LEADERS banner cream (unchanged)
-const AUGUSTA_TILE        = '#F2EBD3'   // score tile (unchanged)
-const AUGUSTA_RED         = '#B22222'   // under-par red (unchanged)
-const AUGUSTA_INK         = '#0F0F0F'   // over-par ink on cream tiles (unchanged)
-const AUGUSTA_WOOD        = '#5a3a16'   // hand-painted wood frame edge (unchanged)
+// TRANSLUCENT MODE (round 13b): every surface translucent so the page
+// fairway grass shows through clearly. Solid colors only on numerals,
+// gold accents, and red under-par for readability.
+const AUGUSTA_GREEN       = 'rgba(255,255,255,0.55)'   // frame stripe panels
+const AUGUSTA_GREEN_DEEP  = 'rgba(232,232,232,0.55)'   // deepest panel (OUT/IN strip + headers)
+const AUGUSTA_PANEL       = 'rgba(255,255,255,0.55)'   // main board panel
+const AUGUSTA_PANEL_HI    = 'rgba(255,255,255,0.62)'   // gradient top
+const AUGUSTA_PANEL_HOVER = 'rgba(240,240,240,0.62)'   // me-row tint
+const AUGUSTA_TEXT        = '#1A6B28'   // green text — stays solid for legibility
+const AUGUSTA_GOLD        = '#E8C05A'   // PAR + leader accents — solid
+const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe — solid
+const AUGUSTA_CREAM       = 'rgba(234,224,191,0.55)'   // LEADERS banner cream — translucent
+const AUGUSTA_TILE        = 'rgba(242,235,211,0.65)'   // score tile cream — translucent
+const AUGUSTA_RED         = '#B22222'   // under-par red — solid
+const AUGUSTA_INK         = '#0F0F0F'   // over-par ink — solid
+const AUGUSTA_WOOD        = 'rgba(90,58,22,0.85)'      // wood frame — slight translucency
 
 // Backwards-compat aliases — older code still referenced these names
 const AUGUSTA_TEAL        = AUGUSTA_PANEL
