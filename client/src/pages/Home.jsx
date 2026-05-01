@@ -4,6 +4,7 @@ import { api, post, put } from '../lib/api.js'
 import { TMEmblem, IconTarget, IconTrophy, IconFlag, IconChevronRight, IconPlus } from '../components/primitives/Icons.jsx'
 import FriendProfile from '../components/FriendProfile.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
+import FollowPills from '../components/FollowPills.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -35,7 +36,7 @@ function todayYMD() { return toYMD(new Date()) }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ProfileHeroCard({ user, season, avg3, streak, onStartSeason, onEditProfile, onOpenCard }) {
+function ProfileHeroCard({ user, season, avg3, streak, followCounts, onCountsChange, onStartSeason, onEditProfile, onOpenCard }) {
   const seasonBanner = season && !season.seasonStarted && season.year === currentSeasonYear()
   const [banner] = useState(randomBanner)
 
@@ -164,8 +165,15 @@ function ProfileHeroCard({ user, season, avg3, streak, onStartSeason, onEditProf
           </div>
         </div>
 
+        {/* Follow pills — same Following / Followers / Mutuals as the
+            Profile view, just compact (size='sm'). Tappable; opens
+            FollowList overlay. (2026-05-01) */}
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(27,94,59,0.10)' }}>
+          <FollowPills counts={followCounts} size="sm" onCountsChange={onCountsChange} />
+        </div>
+
         {/* Season stats row */}
-        <div style={{ display: 'flex', marginTop: 16, borderTop: '1px solid rgba(27,94,59,0.10)', paddingTop: 14 }}>
+        <div style={{ display: 'flex', marginTop: 12, borderTop: '1px solid rgba(27,94,59,0.10)', paddingTop: 14 }}>
           {[
             { label: 'WINS', value: season?.wins ?? 0, color: '#1B5E3B' },
             { label: 'LOSSES', value: season?.losses ?? 0, color: '#DC2626' },
@@ -1660,7 +1668,7 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // header (big avatar + name + course + handicap + season W-L-T-AVG3 +
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
-function ProfileView({ user, season, avg3, streak, stats, rounds, onBack, onEditProfile, onOpenCard }) {
+function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, onCountsChange, onBack, onEditProfile, onOpenCard }) {
   const handicapDisplay = user?.handicap != null
     ? (user.handicap > 0 ? `+${user.handicap}` : String(user.handicap))
     : '—'
@@ -1790,6 +1798,14 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, onBack, onEdit
                   <div style={{ color: 'rgba(122,88,0,0.65)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
                 </div>
               </div>
+            </div>
+
+            {/* Follow pills — Following / Followers / Mutuals.
+                Tappable; opens FollowList overlay with the people in
+                that bucket. Counts are kept live by onCountsChange,
+                which re-fetches /api/follows/counts after any mutation. */}
+            <div style={{ marginBottom: 14, paddingTop: 14, borderTop: '1px solid rgba(27,94,59,0.10)' }}>
+              <FollowPills counts={followCounts} size="lg" onCountsChange={onCountsChange} />
             </div>
 
             {/* Season W-L-T-AVG3 */}
@@ -1974,11 +1990,23 @@ export default function Home({ onNavigateToOuting }) {
   // so the Profile screen renders instantly when the user taps "My Profile".
   const [stats, setStats]   = useState(null)
   const [rounds, setRounds] = useState([])
+  // Live follow counts — driven by /api/follows/counts. Shown in pills on
+  // the Profile view header AND on the Home ProfileHeroCard. Refreshed
+  // every time the user follows/unfollows from inside the FollowList
+  // overlay (passed down as onCountsChange). (2026-05-01 — follow Phase 1)
+  const [followCounts, setFollowCounts] = useState({ following: 0, followers: 0, mutuals: 0 })
+
+  const refreshFollowCounts = useCallback(async () => {
+    try {
+      const c = await api('/api/follows/counts')
+      setFollowCounts(c ?? { following: 0, followers: 0, mutuals: 0 })
+    } catch (e) { /* ignore — leave stale counts */ }
+  }, [])
 
   async function loadAll() {
     setLoading(true)
     try {
-      const [p, f, g, tr, s, r] = await Promise.all([
+      const [p, f, g, tr, s, r, fc] = await Promise.all([
         api('/api/profile'),
         api('/api/friends'),
         api('/api/games'),
@@ -1988,6 +2016,10 @@ export default function Home({ onNavigateToOuting }) {
         // logged any rounds yet.
         api('/api/stats/summary').catch(() => null),
         api('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
+        // Follow counts for the header pills (Following / Followers /
+        // Mutuals). Fail-soft to zeros so the rest of Home keeps loading
+        // if the follows endpoint hits a transient error.
+        api('/api/follows/counts').catch(() => null),
       ])
       setProfile(p)
       setFriends(f)
@@ -1995,6 +2027,7 @@ export default function Home({ onNavigateToOuting }) {
       setTeeRequests(tr ?? { incoming: [], outgoing: [] })
       setStats(s)
       setRounds(r?.rounds ?? [])
+      setFollowCounts(fc ?? { following: 0, followers: 0, mutuals: 0 })
     } catch (err) {
       console.error('[Home] load', err)
     }
@@ -2056,6 +2089,8 @@ export default function Home({ onNavigateToOuting }) {
         <ProfileView
           user={user} season={season} avg3={avg3} streak={streak}
           stats={stats} rounds={rounds}
+          followCounts={followCounts}
+          onCountsChange={refreshFollowCounts}
           onBack={() => setView('home')}
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
@@ -2095,6 +2130,8 @@ export default function Home({ onNavigateToOuting }) {
         {/* Profile hero */}
         <ProfileHeroCard
           user={user} season={season} avg3={avg3} streak={streak}
+          followCounts={followCounts}
+          onCountsChange={refreshFollowCounts}
           onStartSeason={handleStartSeason}
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
