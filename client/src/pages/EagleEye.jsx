@@ -376,11 +376,13 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // below treats null as "use the new hole's midpoint default."
   useEffect(() => { setAimPoint(null) }, [currentHole])
 
-  // Landing-zone ring — drawn at the player's GPS position with radius
-  // = clubYards. Destroy-and-recreate on every change so toggling
-  // clubs produces a guaranteed fresh circle (Leaflet's setRadius
-  // sometimes doesn't redraw cleanly when the rotate plugin is active).
-  // (2026-05-01 — Matt: ring updates live as clubs are toggled.)
+  // Landing-zone ring — drawn at the player's GPS position (or the
+  // hole's tee, or the course center as fallbacks) with radius =
+  // clubYards. Destroy-and-recreate on every change so toggling clubs
+  // produces a guaranteed fresh circle (Leaflet's setRadius sometimes
+  // doesn't redraw cleanly when the rotate plugin is active).
+  // (2026-05-01 — Matt: ring should ALWAYS appear when a club is on
+  // the toggle, even if GPS hasn't resolved yet.)
   useEffect(() => {
     if (!mapRef.current || !window.L) return
     const L = window.L
@@ -391,11 +393,29 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     if (landingZoneRef.current) { landingZoneRef.current.remove(); landingZoneRef.current = null }
     if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
 
-    if (!gps || !Number.isFinite(Number(clubYards)) || Number(clubYards) <= 0) return
+    if (!Number.isFinite(Number(clubYards)) || Number(clubYards) <= 0) return
+
+    // Pick the best center available, in order:
+    //   1. Live GPS (most accurate)
+    //   2. Tee position for the current hole (from OSM)
+    //   3. Course center (fallback geocode)
+    // This guarantees the ring shows up the moment a club is toggled,
+    // not just when GPS has settled.
+    const tee = holePositions[currentHole]
+    let centerLat, centerLon
+    if (gps?.lat != null && gps?.lon != null) {
+      centerLat = gps.lat; centerLon = gps.lon
+    } else if (tee?.lat != null && tee?.lon != null) {
+      centerLat = tee.lat; centerLon = tee.lon
+    } else if (geocoded?.lat != null && geocoded?.lon != null) {
+      centerLat = geocoded.lat; centerLon = geocoded.lon
+    } else {
+      return
+    }
 
     const yards = Number(clubYards)
     const radiusMeters = yards * 0.9144
-    const center = [gps.lat, gps.lon]
+    const center = [centerLat, centerLon]
 
     landingZoneRef.current = L.circle(center, {
       radius: radiusMeters,
@@ -410,7 +430,7 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     // Small label on the north edge of the ring showing the club +
     // distance (e.g. "DRIVER · 245y").
     const offsetLat = radiusMeters / 111000  // meters → degrees lat (approx)
-    const labelPos  = [gps.lat + offsetLat, gps.lon]
+    const labelPos  = [centerLat + offsetLat, centerLon]
     const labelHtml = `<div style="
       background: rgba(7,12,9,0.85);
       border: 1px solid rgba(245,215,138,0.65);
