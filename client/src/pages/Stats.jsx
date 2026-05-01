@@ -267,7 +267,11 @@ export function StatTile({ label, value, sub, accent }) {
       </div>
       <div style={{
         fontSize: 34, fontWeight: 900, lineHeight: 1,
-        color: accent ?? '#fff',
+        // Default to gold so the value reads against the light tile bg
+        // (rgba(255,255,255,0.85)). Callers can override via `accent`
+        // (e.g., Best Round uses green). Old default of #fff was
+        // invisible on the white card. (2026-05-01 — Matt feedback)
+        color: accent ?? '#C9A040',
       }}>
         {value}
       </div>
