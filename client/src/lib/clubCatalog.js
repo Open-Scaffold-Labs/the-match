@@ -77,7 +77,7 @@ export const CATALOG = {
     TaylorMade: ['P770 (2024)', 'P790 (2024)', 'P7MC (2023)', 'P7MB (2023)', 'P-770', 'Qi (2024)', 'Qi HL', 'Stealth', 'Stealth HD', 'M6', 'M5', 'M4', 'M3', 'M2 (2017)', 'M2 (2016)', 'M1 (2017)', 'M1 (2016)', 'M CGB'],
     Titleist:   ['T100 (2025)', 'T150 (2025)', 'T200 (2025)', 'T350 (2025)', 'T100 (2023)', 'T150 (2023)', 'T200 (2023)', 'T350 (2023)', '620 MB', '620 CB'],
     Ping:       ['Blueprint S', 'Blueprint T', 'i230', 'i530', 'i525', 'G430', 'G440'],
-    Cobra:      ['King Tour', 'King Tour MIM', 'King MIM Tour', 'Forged Tec X', 'Darkspeed', 'Aerojet', 'Limit3d'],
+    Cobra:      ['King Tour', 'King Tour MIM', 'King MIM Tour', 'Forged Tec X', 'Darkspeed', 'Aerojet', 'Limit3d', 'Speedzone', 'Speedzone One Length'],
     Mizuno:     ['JPX 925 Tour', 'JPX 925 Forged', 'JPX 925 Hot Metal', 'JPX 925 Hot Metal Pro', 'JPX 923 Tour', 'JPX 923 Forged', 'JPX 923 Hot Metal', 'Pro 241', 'Pro 243', 'Pro 245', 'MP-20 MMC'],
     Srixon:     ['ZX5 Mk II', 'ZX7 Mk II', 'ZX4 Mk II', 'ZXi5', 'ZXi7'],
     Wilson:     ['Staff Model Blade', 'Staff Model CB', 'Staff Model Utility', 'Dynapwr Forged', 'D9 Forged'],
