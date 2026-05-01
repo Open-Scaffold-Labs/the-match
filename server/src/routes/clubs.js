@@ -20,7 +20,7 @@ const VALID_SLOTS = new Set([
 router.get('/bag', async (req, res) => {
   try {
     const rows = await db.many(
-      `SELECT id, slot, brand, model, position, updated_at
+      `SELECT id, slot, brand, model, avg_yards, position, updated_at
        FROM tm_user_clubs
        WHERE user_id = $1
        ORDER BY position ASC, slot ASC`,
@@ -34,21 +34,32 @@ router.get('/bag', async (req, res) => {
 })
 
 // PUT /api/clubs/bag/:slot — upsert a single slot.
+// Body: { brand, model, avg_yards? }
 router.put('/bag/:slot', async (req, res) => {
   try {
     const slot = String(req.params.slot || '')
     if (!VALID_SLOTS.has(slot)) return res.status(400).json({ error: 'Invalid slot' })
-    const { brand, model } = req.body || {}
+    const { brand, model, avg_yards } = req.body || {}
     if (!brand || !model) return res.status(400).json({ error: 'brand and model required' })
 
+    let yardsVal = null
+    if (avg_yards !== undefined && avg_yards !== null && avg_yards !== '') {
+      const n = Number(avg_yards)
+      if (!Number.isFinite(n) || n < 0 || n > 400) {
+        return res.status(400).json({ error: 'avg_yards must be 0-400' })
+      }
+      yardsVal = Math.round(n)
+    }
+
     await db.query(
-      `INSERT INTO tm_user_clubs (user_id, slot, brand, model)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO tm_user_clubs (user_id, slot, brand, model, avg_yards)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (user_id, slot) DO UPDATE
-         SET brand = EXCLUDED.brand,
-             model = EXCLUDED.model,
+         SET brand      = EXCLUDED.brand,
+             model      = EXCLUDED.model,
+             avg_yards  = EXCLUDED.avg_yards,
              updated_at = NOW()`,
-      [req.user.id, slot, String(brand).trim(), String(model).trim()]
+      [req.user.id, slot, String(brand).trim(), String(model).trim(), yardsVal]
     )
     res.json({ ok: true })
   } catch (err) {

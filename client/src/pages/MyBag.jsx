@@ -16,7 +16,6 @@ import { createPortal } from 'react-dom'
 import { api, put, del } from '../lib/api.js'
 import { IconBag } from '../components/primitives/Icons.jsx'
 import { SLOTS, SLOT_LABELS, brandsForSlot, modelsForSlot } from '../lib/clubCatalog.js'
-import BagPhoto from '../components/BagPhoto.jsx'
 
 export default function MyBag() {
   const [clubs, setClubs]       = useState([])  // [{ slot, brand, model }]
@@ -36,11 +35,11 @@ export default function MyBag() {
   const bySlot = Object.fromEntries(clubs.map(c => [c.slot, c]))
   const filledCount = clubs.length
 
-  async function saveClub(slot, brand, model) {
-    await put(`/api/clubs/bag/${slot}`, { brand, model })
+  async function saveClub(slot, brand, model, avgYards) {
+    await put(`/api/clubs/bag/${slot}`, { brand, model, avg_yards: avgYards ?? null })
     setClubs(prev => {
       const others = prev.filter(c => c.slot !== slot)
-      return [...others, { slot, brand, model }]
+      return [...others, { slot, brand, model, avg_yards: avgYards ?? null }]
     })
   }
 
@@ -72,12 +71,6 @@ export default function MyBag() {
             fontSize: 11, fontWeight: 700,
           }}>{filledCount} / {SLOTS.length}</span>
         </div>
-      </div>
-
-      {/* Bag illustration — auto-updates as clubs are added/removed.
-          Empty bag still renders the silhouette with a hint. */}
-      <div style={{ padding: '4px 16px 12px' }}>
-        <BagPhoto clubs={clubs} />
       </div>
 
       {/* Slot list */}
@@ -137,8 +130,8 @@ export default function MyBag() {
           slot={editing}
           existing={bySlot[editing]}
           onClose={() => setEditing(null)}
-          onSave={async (brand, model) => {
-            await saveClub(editing, brand, model)
+          onSave={async (brand, model, avgYards) => {
+            await saveClub(editing, brand, model, avgYards)
             setEditing(null)
           }}
         />
@@ -333,7 +326,18 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
           <div style={{
             fontSize: 10, color: 'rgba(27,94,59,0.55)', fontWeight: 700,
             letterSpacing: '0.10em', textTransform: 'uppercase',
-          }}>{slot.label}</div>
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span>{slot.label}</span>
+            {Number.isFinite(Number(club.avg_yards)) && club.avg_yards != null && (
+              <span style={{
+                background: 'rgba(201,160,64,0.18)',
+                color: '#7A5800',
+                padding: '1px 7px', borderRadius: 999,
+                fontWeight: 800, fontSize: 10, letterSpacing: '0.04em',
+              }}>{club.avg_yards}y</span>
+            )}
+          </div>
           <div style={{
             fontSize: 14, fontWeight: 800, color: '#0D1F12', lineHeight: 1.25,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -362,9 +366,13 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
 function ClubPicker({ slot, existing, onClose, onSave }) {
   const slotMeta = SLOTS.find(s => s.key === slot)
   const brands   = brandsForSlot(slot)
+  // Putters don't have a meaningful "average distance" so we hide the
+  // yardage input entirely for that slot.
+  const showDistance = slot !== 'putter'
 
   const [brand, setBrand] = useState(existing?.brand && brands.includes(existing.brand) ? existing.brand : '')
   const [model, setModel] = useState(existing?.model || '')
+  const [yards, setYards] = useState(existing?.avg_yards != null ? String(existing.avg_yards) : '')
   const [saving, setSaving] = useState(false)
 
   const models = brand ? modelsForSlot(slot, brand) : []
@@ -380,7 +388,13 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
     if (!brand || !model || saving) return
     setSaving(true)
     try {
-      await onSave(brand.trim(), model.trim())
+      const yardsNum = yards.trim() === '' ? null : Number(yards)
+      const yardsOk  = yardsNum === null || (Number.isFinite(yardsNum) && yardsNum >= 0 && yardsNum <= 400)
+      if (!yardsOk) {
+        setSaving(false)
+        return
+      }
+      await onSave(brand.trim(), model.trim(), yardsNum)
     } catch {
       setSaving(false)
     }
@@ -483,6 +497,42 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
             )
           })}
         </div>
+
+        {/* Distance input — only for non-putter slots, only after a
+            model is picked (so the user has something to associate it
+            with). Optional; saves NULL if left blank. */}
+        {showDistance && model && (
+          <div style={{ padding: '6px 18px 14px', flexShrink: 0 }}>
+            <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>
+              AVERAGE DISTANCE <span style={{ fontWeight: 500, color: 'rgba(27,94,59,0.40)', letterSpacing: 0 }}>(optional)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="400"
+                step="1"
+                value={yards}
+                onChange={e => setYards(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="e.g. 245"
+                style={{
+                  flex: 1,
+                  background: 'rgba(27,94,59,0.04)',
+                  border: '1px solid rgba(27,94,59,0.18)',
+                  borderRadius: 12, padding: '12px 14px',
+                  fontSize: 15, fontFamily: 'inherit', color: '#0D1F12',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <span style={{
+                fontSize: 14, fontWeight: 700, color: '#1B5E3B',
+                background: 'rgba(27,94,59,0.08)', padding: '8px 14px',
+                borderRadius: 999,
+              }}>yds</span>
+            </div>
+          </div>
+        )}
 
         {/* Save */}
         <div style={{
