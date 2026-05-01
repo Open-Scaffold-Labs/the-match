@@ -1,7 +1,7 @@
 ---
 type: overview
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+created: 2026-04-29
+updated: 2026-05-01
 ---
 
 # Wiki Index
@@ -26,6 +26,6 @@ Content catalog — every page listed here.
 
 ## Synthesis
 
-- [[synthesis/audit-2026-04-29]] — full static audit + runtime click-through findings: 12 bugs + 8 runtime bugs + 11 UX issues + 10 tech-debt + 14 missing-feature candidates · 2026-04-29
-- [[synthesis/audit-fixes-proposal-2026-04-29]] — concrete fix proposals with file paths + diffs + risk levels, awaiting Matt's approval · 2026-04-29
+- [[synthesis/audit-2026-04-29]] — full static audit + runtime click-through findings: 12 bugs + 8 runtime bugs + 11 UX issues + 10 tech-debt + 14 missing-feature candidates. Priority list re-marked 2026-05-01 to show what's shipped vs still open · created 2026-04-29
+- [[synthesis/audit-fixes-proposal-2026-04-29]] — **CLOSED 2026-05-01** — every item in the original approval queue shipped (commits `1fa6ee4`, `8d74a76`, `93053ba` on 2026-04-29). Page preserved as historical record · created 2026-04-29
 - [[synthesis/claude-anti-patterns]] — institutional memory of mistakes (14 entries inherited from LimitlessStack base)

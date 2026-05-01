@@ -1,37 +1,60 @@
 ---
 type: synthesis
 created: 2026-04-29
-updated: 2026-04-29
-tags: [audit, fixes, the-match, approval-queue]
+updated: 2026-05-01
+status: closed
+tags: [audit, fixes, the-match, closed]
 ---
 
-# The Match — Audit Fixes Proposal (2026-04-29)
+# The Match — Audit Fixes Proposal (2026-04-29) — CLOSED
 
-> Concrete fix proposals for every bug + UX issue from `audit-2026-04-29.md`. Each proposal includes file path, exact diff or precise change description, test plan, and risk level. **No app code has been changed yet — this is a proposal awaiting Matt's approval.** Approve individual items or the full set; I'll execute in order.
+> **Status (2026-05-01): CLOSED — all queued items shipped.** Originally a proposal awaiting approval; everything in the TL;DR table below was implemented in commits `1fa6ee4`, `8d74a76`, and `93053ba` on 2026-04-29 (same day this proposal was written). The body is preserved as a historical record of what was proposed and why. For what's still open, see the bug/UX/tech-debt/missing-features sections of [[synthesis/audit-2026-04-29]] minus everything in the table below.
+>
+> **Shipping commits:**
+> - `1fa6ee4` — F-R3, F-R4, F-R7, F-R8, F-B1, F-B7, F-B11, F-R5, F-R2, F-R1, F-B3, F-B5 (12 of the 13 queue items)
+> - `8d74a76` — F-R6 part B (`tm_games.start_time` migration + UI tee-time picker + match-tab contrast pass)
+> - `93053ba` — F-R6A fallback "#N of M" numbering, plus bonus: F-U3, F-B9, F-T7, F-T5; discovered F-U5 + F-U10 already done
+>
+> **Original proposal text below (preserved):** Concrete fix proposals for every bug + UX issue from `audit-2026-04-29.md`. Each proposal includes file path, exact diff or precise change description, test plan, and risk level.
 
-## Approval queue (TL;DR table)
+## Approval queue (TL;DR table) — all shipped
 
-| # | Bug | File | Risk | Effort | Recommend |
-|---|---|---|---|---|---|
-| **F-R3** | Tee selector duplicates | `client/src/pages/EagleEye.jsx:766` | Low | 5 min | ✅ approve |
-| **F-R4** | Home/Stats handicap inconsistency | `client/src/pages/Stats.jsx:197` | Low | 10 min | ✅ approve |
-| **F-R8** | "Integration coming soon" stub copy | `client/src/pages/Home.jsx:1738` | Low | 2 min | ✅ approve |
-| **F-R7** | "RD 0" pre-tournament label | `client/src/pages/PGAScores.jsx:312` | Low | 5 min | ✅ approve |
-| **F-B1** | CLAUDE.md feature status stale | `CLAUDE.md` (the-match repo) | Low | 5 min | ✅ approve |
-| **F-B7** | 57 production console.log | 6 client files | Low | 15 min | ✅ approve |
-| **F-R5** | Background contrast (Stats + Tour) | `Stats.jsx`, `PGAScores.jsx` | Low | 10 min | ✅ approve |
-| **F-B11** | No React error boundary | `client/src/main.jsx` (new file) | Low | 15 min | ✅ approve |
-| **F-R2** | Modals escape mobile container | `client/src/pages/EagleEye.jsx` (multiple portals) | Medium | 20 min | ✅ approve |
-| **F-R1** | Match tab buttons overlap | `client/src/pages/Outing.jsx` (Hub view) | Medium | 15 min | ✅ approve |
-| **F-R6** | Tee-time entries indistinguishable | `client/src/pages/Home.jsx` + maybe schema | Medium | 30 min + DB migration | ⚠ discuss |
-| **F-B3** | Token in URL fragment | `client/src/App.jsx:24` | Low | 5 min | ✅ approve |
-| **F-B5** | Rate-limit auth endpoints | `server/src/routes/auth.js` + `server/package.json` | Medium | 20 min | ✅ approve |
+| # | Bug | Status | Commit |
+|---|---|---|---|
+| **F-R3** | Tee selector duplicates | ✅ Shipped | `1fa6ee4` |
+| **F-R4** | Home/Stats handicap inconsistency | ✅ Shipped | `1fa6ee4` |
+| **F-R8** | "Integration coming soon" stub copy | ✅ Shipped | `1fa6ee4` |
+| **F-R7** | "RD 0" pre-tournament label | ✅ Shipped | `1fa6ee4` |
+| **F-B1** | CLAUDE.md feature status stale | ✅ Shipped | `1fa6ee4` |
+| **F-B7** | 57 production console.log | ✅ Shipped (logger.js + 5 swept) | `1fa6ee4` |
+| **F-R5** | Background contrast (Stats + Tour) | ✅ Shipped | `1fa6ee4` |
+| **F-B11** | No React error boundary | ✅ Shipped | `1fa6ee4` |
+| **F-R2** | Modals escape mobile container | ✅ Shipped | `1fa6ee4` |
+| **F-R1** | Match tab buttons overlap | ✅ Shipped (root cause: `.page-scroll` flex) | `1fa6ee4`, `8d74a76` |
+| **F-R6** | Tee-time entries indistinguishable | ✅ Shipped (Part B schema migration too) | `8d74a76` |
+| **F-R6A** | Same-day fallback "#N of M" numbering | ✅ Shipped (autonomous batch) | `93053ba` |
+| **F-B3** | Token in URL fragment | ✅ Shipped | `1fa6ee4` |
+| **F-B5** | Rate-limit auth endpoints | ✅ Shipped (in-memory phase 1) | `1fa6ee4` |
 
-**Deferred (need bigger conversation):**
-- F-U1 Split Outing.jsx + Home.jsx (1500+ lines each)
+**Bonus shipped in autonomous batch (`93053ba`):**
+- F-U3 friend list empty state + "Find a friend" CTA
+- F-B9 Eagle Eye Overpass defensive client handling (`safeOsm` helper)
+- F-T7 structured server logging (pino + pino-http)
+- F-T5 CI/CD GitHub Actions skeleton
+- F-U5 PWA manifest — discovered already done
+- F-U10 geolocation permission UX — discovered already done
+
+**Still deferred (need their own scoped sessions):**
+- **F-U1** Split Outing.jsx + Home.jsx — *getting worse*: Outing.jsx grew from 2,020 → 3,324 lines after the scoreboard / Augusta-board work landed inside the monolith. Strong candidate for next focused session.
 - F-B8 Add React Router
 - F-B4/B6 Auth security overhaul (HttpOnly cookies + 6-digit PIN or OAuth)
-- F-T1 Test suite
+- F-T1 Test suite (Playwright E2E)
+
+**Still open from the full audit (not in original proposal):**
+- B2 hardcoded Unsplash background, B10 explicit Anthropic apiKey, B12 `db.one` null-handling sweep
+- U2 loading skeletons, U4 mobile-only acceptance, U6 offline mode, U7 AugustaBoard discoverability, U8 ESPN API server-proxy, U9 avatar upload UX, U11 Stats handicap explainer
+- T2 inline-styles → Tailwind, T3 use design-system primitives, T4 self-heal phase declaration, T6 down-migrations, T8/T9/T10 smaller cleanups
+- All F1-F14 missing-feature candidates
 
 ---
 
