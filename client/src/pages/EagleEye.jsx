@@ -1264,6 +1264,10 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
     }).catch(() => {})
     return () => { alive = false }
   }, [])
+  // Reset the active club whenever the user switches holes — each hole
+  // starts fresh with the toggle in its idle BAG state, ready for a
+  // new recommendation. (2026-05-01)
+  useEffect(() => { setSelectedClub(null) }, [currentHole])
 
   // OSM course data: geocoded position, tee coords, green coords
   const [courseGeocoded, setCourseGeocoded] = useState(null)
