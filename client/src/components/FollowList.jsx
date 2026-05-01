@@ -15,6 +15,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, del } from '../lib/api.js'
+import FriendProfile from './FriendProfile.jsx'
 
 const TITLES = {
   following: 'Following',
@@ -32,6 +33,11 @@ export default function FollowList({ type, onClose, onCountsChange }) {
   const [users, setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
   const [busyIds, setBusyIds] = useState(() => new Set())
+  // Tapping a row opens the user's FriendProfile on top of this sheet.
+  // Closing the FriendProfile returns to the FollowList; closing the
+  // FollowList from there returns to the Profile / Home view that
+  // launched it. Modal stacking via separate document.body portals.
+  const [selectedFriend, setSelectedFriend] = useState(null)
 
   async function loadList() {
     setLoading(true)
@@ -161,40 +167,71 @@ export default function FollowList({ type, onClose, onCountsChange }) {
               padding: '14px 20px',
               borderBottom: '1px solid rgba(27,94,59,0.07)',
             }}>
-              {/* Avatar */}
-              <div style={{
-                width: 44, height: 44, borderRadius: '50%',
-                background: u.avatar ? 'transparent' : 'rgba(27,94,59,0.12)',
-                border: '1px solid rgba(27,94,59,0.15)',
-                overflow: 'hidden', flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {u.avatar ? (
-                  <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ fontSize: 14, fontWeight: 800, color: '#1B5E3B' }}>
-                    {u.name?.split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'}
-                  </span>
-                )}
-              </div>
-
-              {/* Name + meta */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {u.name}
+              {/* Tappable area — avatar + name. Opens the user's
+                  FriendProfile on top of this sheet. The Action
+                  cell to the right captures its own clicks via
+                  stopPropagation so Follow / Unfollow doesn't
+                  also open the profile. */}
+              <button
+                onClick={() => setSelectedFriend({ friend_id: u.id, friend_name: u.name })}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  flex: 1, minWidth: 0,
+                  background: 'transparent', border: 'none',
+                  padding: 0, margin: 0, cursor: 'pointer',
+                  fontFamily: 'inherit', textAlign: 'left',
+                }}
+              >
+                {/* Avatar */}
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: u.avatar ? 'transparent' : 'rgba(27,94,59,0.12)',
+                  border: '1px solid rgba(27,94,59,0.15)',
+                  overflow: 'hidden', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {u.avatar ? (
+                    <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#1B5E3B' }}>
+                      {u.name?.split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'}
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.45)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {u.handicap != null ? `${Number(u.handicap) >= 0 ? '+' : ''}${Number(u.handicap).toFixed(1)} hcp` : ''}
-                  {u.home_course ? `${u.handicap != null ? ' · ' : ''}${u.home_course}` : ''}
-                </div>
-              </div>
 
-              {/* Action */}
-              <div style={{ flexShrink: 0 }}>{renderAction(u)}</div>
+                {/* Name + meta */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.45)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {u.handicap != null ? `${Number(u.handicap) >= 0 ? '+' : ''}${Number(u.handicap).toFixed(1)} hcp` : ''}
+                    {u.home_course ? `${u.handicap != null ? ' · ' : ''}${u.home_course}` : ''}
+                  </div>
+                </div>
+              </button>
+
+              {/* Action — wrapped so its onClick doesn't bubble to the
+                  row tap and double-trigger as "open profile + follow." */}
+              <div
+                style={{ flexShrink: 0 }}
+                onClick={e => e.stopPropagation()}
+              >
+                {renderAction(u)}
+              </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* FriendProfile modal — stacks on top of this sheet via its own
+          document.body portal. Closing returns to the FollowList. */}
+      {selectedFriend && (
+        <FriendProfile
+          friend={selectedFriend}
+          onClose={() => setSelectedFriend(null)}
+        />
+      )}
     </div>,
     document.body
   )
