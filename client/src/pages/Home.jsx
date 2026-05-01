@@ -534,10 +534,59 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
 export function AvailabilityCalendar({
   uid, onScheduleGame, selfOnly = false,
   viewUserId = null, viewUserName = null, onDayTap = null,
+  theme = 'light',
 }) {
   // viewUserId implies a read-only friend view — no toggling, no social
   // layer, fetch from the per-user endpoint.
   const friendView = !!viewUserId
+
+  // 2026-05-01 — Matt: dark variant matches the profile body's
+  // dark-card palette (Recent Rounds, Distances, etc.). Same
+  // component, two themes.
+  const dark = theme === 'dark'
+  const C = dark ? {
+    headingColor:  '#F5D78A',
+    headingBg:     'rgba(0,0,0,0.30)',
+    headingShadow: 'none',
+    cardBg:        'rgba(255,255,255,0.03)',
+    cardBorder:    '1px solid rgba(255,255,255,0.07)',
+    divider:       'rgba(255,255,255,0.07)',
+    monthArrow:    'rgba(255,255,255,0.40)',
+    monthText:     '#fff',
+    dayLabel:      'rgba(255,255,255,0.30)',
+    dayText:       'rgba(255,255,255,0.85)',
+    pastText:      'rgba(255,255,255,0.18)',
+    freeText:      '#F5D78A',
+    freeGradFrom:  'rgba(201,160,64,0.32)',
+    freeGradTo:    'rgba(201,160,64,0.16)',
+    friendBg:      'rgba(255,255,255,0.04)',
+    todayOutline:  'rgba(245,215,138,0.65)',
+    legendText:    'rgba(255,255,255,0.45)',
+    legendSwatch:  'rgba(201,160,64,0.40)',
+    friendDotMine: '#F5D78A',
+    friendDot:     '#F5D78A',
+  } : {
+    headingColor:  '#1B5E3B',
+    headingBg:     'rgba(255,253,248,0.85)',
+    headingShadow: '0 1px 1px rgba(255,255,255,0.4)',
+    cardBg:        'rgba(255,255,255,0.88)',
+    cardBorder:    '1px solid rgba(27,94,59,0.10)',
+    divider:       'rgba(27,94,59,0.10)',
+    monthArrow:    'rgba(27,94,59,0.45)',
+    monthText:     '#1B5E3B',
+    dayLabel:      'rgba(27,94,59,0.40)',
+    dayText:       '#0D1F12',
+    pastText:      'rgba(27,94,59,0.20)',
+    freeText:      '#7A5800',
+    freeGradFrom:  'rgba(201,160,64,0.30)',
+    freeGradTo:    'rgba(201,160,64,0.15)',
+    friendBg:      'rgba(27,94,59,0.06)',
+    todayOutline:  'rgba(201,160,64,0.6)',
+    legendText:    'rgba(27,94,59,0.50)',
+    legendSwatch:  'rgba(201,160,64,0.35)',
+    friendDotMine: '#C9A040',
+    friendDot:     '#1B5E3B',
+  }
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
@@ -601,32 +650,32 @@ export function AvailabilityCalendar({
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{
-        color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+        color: C.headingColor, fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
         marginBottom: 10,
-        background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
-        display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+        background: C.headingBg, padding: '4px 10px', borderRadius: 6,
+        display: 'inline-block', textShadow: C.headingShadow,
       }}>
         AVAILABILITY CALENDAR
       </div>
 
       <div style={{
-        background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(27,94,59,0.10)',
+        background: C.cardBg, border: C.cardBorder,
         borderRadius: 16, overflow: 'hidden',
       }}>
         {/* Month navigation */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px', borderBottom: '1px solid rgba(27,94,59,0.10)',
+          padding: '12px 16px', borderBottom: `1px solid ${C.divider}`,
         }}>
-          <button onClick={prevMonth} style={{ background: 'none', border: 'none', color: 'rgba(27,94,59,0.45)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>‹</button>
-          <span style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>{monthName}</span>
-          <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: 'rgba(27,94,59,0.45)', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>›</button>
+          <button onClick={prevMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>‹</button>
+          <span style={{ color: C.monthText, fontSize: 13, fontWeight: 700 }}>{monthName}</span>
+          <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>›</button>
         </div>
 
         {/* Day labels */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '8px 8px 0' }}>
           {['S','M','T','W','T','F','S'].map((d, i) => (
-            <div key={i} style={{ textAlign: 'center', color: 'rgba(27,94,59,0.40)', fontSize: 10, paddingBottom: 4 }}>{d}</div>
+            <div key={i} style={{ textAlign: 'center', color: C.dayLabel, fontSize: 10, paddingBottom: 4 }}>{d}</div>
           ))}
         </div>
 
@@ -654,12 +703,12 @@ export function AvailabilityCalendar({
                   position: 'relative',
                   aspectRatio: '1', border: 'none', borderRadius: 8, cursor: isPast ? 'default' : 'pointer',
                   background: isMine
-                    ? 'linear-gradient(135deg, rgba(201,160,64,0.30), rgba(201,160,64,0.15))'
+                    ? `linear-gradient(135deg, ${C.freeGradFrom}, ${C.freeGradTo})`
                     : hasFriend
-                      ? 'rgba(27,94,59,0.06)'
+                      ? C.friendBg
                       : 'transparent',
-                  outline: isToday ? '2px solid rgba(201,160,64,0.6)' : 'none',
-                  color: isPast ? 'rgba(27,94,59,0.20)' : isMine ? '#7A5800' : '#0D1F12',
+                  outline: isToday ? `2px solid ${C.todayOutline}` : 'none',
+                  color: isPast ? C.pastText : isMine ? C.freeText : C.dayText,
                   fontSize: 12, fontWeight: isToday ? 700 : 400,
                   transition: 'background 0.15s',
                   padding: 0,
@@ -671,7 +720,7 @@ export function AvailabilityCalendar({
                 {hasFriend && !isPast && (
                   <div style={{
                     width: 4, height: 4, borderRadius: '50%',
-                    background: isMine ? '#C9A040' : '#1B5E3B',
+                    background: isMine ? C.friendDotMine : C.friendDot,
                     position: 'absolute', bottom: 3,
                   }} />
                 )}
@@ -683,18 +732,18 @@ export function AvailabilityCalendar({
         {/* Legend */}
         <div style={{
           display: 'flex', gap: 14, padding: '8px 16px 12px',
-          borderTop: '1px solid rgba(27,94,59,0.08)',
+          borderTop: `1px solid ${C.divider}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(201,160,64,0.35)' }} />
-            <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 3, background: C.legendSwatch }} />
+            <span style={{ color: C.legendText, fontSize: 10 }}>
               {friendView ? `${viewUserName || 'They'}'re free` : "You're free"}
             </span>
           </div>
           {!selfOnly && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#1B5E3B' }} />
-              <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>Friends available</span>
+              <div style={{ width: 4, height: 4, borderRadius: '50%', background: C.friendDot }} />
+              <span style={{ color: C.legendText, fontSize: 10 }}>Friends available</span>
             </div>
           )}
         </div>
@@ -2563,10 +2612,12 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         )}
 
         {/* My Availability — selfOnly hides friends' availability so this
-            stays a personal calendar. The Home view still renders the
-            social version with friends' free days. (2026-05-01) */}
+            stays a personal calendar. theme=dark matches the rest of
+            the profile body (Recent Rounds, Distances). The Home view
+            still renders the social version with friends' free days
+            in the original light theme. (2026-05-01) */}
         <div style={{ marginTop: 24 }}>
-          <AvailabilityCalendar uid={user?.id} selfOnly />
+          <AvailabilityCalendar uid={user?.id} selfOnly theme="dark" />
         </div>
       </div>
 

@@ -1002,13 +1002,14 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
 
           {/* Availability — full calendar in read-only friend-view mode.
               Tapping a day opens the existing TeeRequestSheet with that
-              date pre-filled. (2026-05-01 — replaces the 14-day
-              AvailabilityStrip.) */}
+              date pre-filled. Dark theme matches the friend body.
+              (2026-05-01 — replaces the 14-day AvailabilityStrip.) */}
           <div style={{ marginTop: 8, marginBottom: 12 }}>
             <AvailabilityCalendar
               viewUserId={friend?.id}
               viewUserName={firstName}
               onDayTap={(ymd) => setTeeDate(ymd)}
+              theme="dark"
             />
           </div>
 
