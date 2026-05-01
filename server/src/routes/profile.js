@@ -100,22 +100,24 @@ router.get('/', async (req, res) => {
 // POST /api/profile/update — edit home course / bio / handicap
 router.post('/update', async (req, res) => {
   try {
-    const { home_course, bio, handicap } = req.body
+    const { home_course, bio, handicap, name } = req.body
     // Parse handicap — accept "+2.1", "8.4", null/undefined
     let hcp = null
     if (handicap !== undefined && handicap !== null && handicap !== '') {
       const parsed = parseFloat(String(handicap).replace(/^\+/, ''))
       if (!isNaN(parsed)) hcp = parsed
     }
+    const cleanName = (typeof name === 'string') ? name.trim() : null
     const user = await db.one(
       `UPDATE tm_users SET
+         name        = COALESCE($5, name),
          home_course = COALESCE($1, home_course),
          bio         = COALESCE($2, bio),
          handicap    = CASE WHEN $3::numeric IS NOT NULL THEN $3::numeric ELSE handicap END,
          updated_at  = NOW()
        WHERE id = $4
        RETURNING id, name, email, role, home_course, bio, handicap`,
-      [home_course ?? null, bio ?? null, hcp, req.user.id]
+      [home_course ?? null, bio ?? null, hcp, req.user.id, cleanName || null]
     )
     res.json({ user })
   } catch (err) {

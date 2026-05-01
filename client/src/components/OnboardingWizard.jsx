@@ -16,6 +16,9 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api, put, post } from '../lib/api.js'
+// Profile saves go through POST /api/profile/update (not PUT /api/profile);
+// renamed locally for readability inside this wizard.
+const saveProfile = (body) => post('/api/profile/update', body)
 import { brandsForSlot, modelsForSlot } from '../lib/clubCatalog.js'
 
 const HANDICAP_RANGES = [
@@ -110,7 +113,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
         const trimmed = name.trim()
         if (!trimmed) { setError('Pick a display name'); setBusy(false); return }
         if (trimmed !== user?.name) {
-          await put('/api/profile', { name: trimmed })
+          await saveProfile({ name: trimmed })
         }
         await markStep('welcome')
         onUserUpdate?.({ ...user, name: trimmed })
@@ -121,13 +124,13 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
         // Only persist a numeric handicap when the user picked a real range.
         // 'unknown' just records the step; handicap stays null.
         if (meta?.midpoint != null) {
-          await put('/api/profile', { handicap: meta.midpoint })
+          await saveProfile({ handicap: meta.midpoint })
         }
         await markStep('handicap')
         setStep(2)
       } else if (step === 2) {
         if (!homeCourse.trim()) { setError('Pick a course or type a name'); setBusy(false); return }
-        await put('/api/profile', { home_course: homeCourse.trim() })
+        await saveProfile({ home_course: homeCourse.trim() })
         await markStep('home_course')
         setStep(3)
       } else if (step === 3) {
