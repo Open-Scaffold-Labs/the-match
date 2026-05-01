@@ -129,37 +129,72 @@ export default function PGAScores() {
         // Extract cut line if present
         const cutVal = comp?.situation?.cutLine ?? null
 
-        const players = (comp?.competitors ?? [])
-          .filter(p => !['CUT','WD','DQ'].includes(p.status?.type?.shortDetail))
-          .map(p => {
-            const tot  = parseScore(p.status?.displayValue)
-            const today = parseScore(p.linescores?.[round - 1]?.displayValue)
-            const thru  = p.status?.thru ?? null
-            const pos   = p.status?.position?.displayName ?? '—'
-            return {
-              id:       p.id,
-              name:     p.athlete?.displayName ?? '—',
-              short:    p.athlete?.shortName ?? p.athlete?.displayName ?? '—',
-              country:  p.athlete?.flag?.href ?? null,
-              countryName: p.athlete?.flag?.alt ?? '',
-              pos,
-              total:    tot,
-              today:    today,
-              thru:     thru === 18 ? 'F' : thru != null ? String(thru) : '—',
-              isTied:   pos.startsWith('T'),
-              status:   p.status?.type?.shortDetail ?? '',
-            }
-          })
-          .sort((a, b) => (a.total ?? 99) - (b.total ?? 99))
+        // 2026-05-01 — ESPN moved the per-player live data. The
+        // /scoreboard endpoint stopped populating `competitor.status`
+        // (no more position/displayValue/thru there). Live data now
+        // lives at:
+        //   • competitor.score         → total to par (e.g. "-13")
+        //   • competitor.linescores[round-1].displayValue → round to par
+        //   • competitor.linescores[round-1].linescores   → per-hole rows;
+        //                                                    .length = thru
+        //   • competitor.order         → leaderboard rank (sequential,
+        //                                so we compute T-ties locally)
+        // Cut/WD/DQ markers no longer appear in this payload — fall
+        // back to including everyone returned by ESPN.
+        const rawCompetitors = comp?.competitors ?? []
+        const mapped = rawCompetitors.map(p => {
+          const tot   = parseScore(p.score)
+          const round0 = (p.linescores ?? [])[round - 1] ?? {}
+          const today = parseScore(round0.displayValue)
+          const holesPlayed = Array.isArray(round0.linescores) ? round0.linescores.length : 0
+          return {
+            id:       p.id,
+            name:     p.athlete?.displayName ?? '—',
+            short:    p.athlete?.shortName ?? p.athlete?.displayName ?? '—',
+            country:  p.athlete?.flag?.href ?? null,
+            countryName: p.athlete?.flag?.alt ?? '',
+            order:    p.order ?? 999,
+            total:    tot,
+            today:    today,
+            thru:     holesPlayed >= 18 ? 'F' : holesPlayed > 0 ? String(holesPlayed) : '—',
+            // pos / isTied filled in below after we know the full sort
+            pos:      '—',
+            isTied:   false,
+            status:   '',
+          }
+        })
 
-        const cutPlayers = (comp?.competitors ?? [])
-          .filter(p => ['CUT'].includes(p.status?.type?.shortDetail))
-          .map(p => ({
-            id:    p.id,
-            name:  p.athlete?.displayName ?? '—',
-            total: parseScore(p.status?.displayValue),
-            pos:   'CUT',
-          }))
+        // Sort by total to par (lower = better; nulls sink to the
+        // bottom) and assign positions with ties — players sharing
+        // the same total all get a "T2" / "T15" prefix.
+        mapped.sort((a, b) => (a.total ?? 99) - (b.total ?? 99))
+        let curRank = 0, prevTotal = null, tiedRunStart = 0
+        for (let i = 0; i < mapped.length; i++) {
+          const m = mapped[i]
+          if (m.total !== prevTotal) {
+            curRank = i + 1
+            tiedRunStart = i
+            prevTotal = m.total
+          }
+        }
+        // Re-walk to mark ties (group by total)
+        const totalsCount = {}
+        for (const m of mapped) {
+          if (m.total != null) totalsCount[m.total] = (totalsCount[m.total] || 0) + 1
+        }
+        let rank = 0, last = Symbol()
+        for (let i = 0; i < mapped.length; i++) {
+          const m = mapped[i]
+          if (m.total !== last) { rank = i + 1; last = m.total }
+          const tied = m.total != null && totalsCount[m.total] > 1
+          m.pos = m.total == null ? '—' : (tied ? 'T' : '') + rank
+          m.isTied = tied
+        }
+        const players = mapped
+
+        // Cut markers aren't currently exposed by ESPN's response;
+        // leave the cut list empty so the UI still renders cleanly.
+        const cutPlayers = []
 
         return {
           id:          ev.id,
