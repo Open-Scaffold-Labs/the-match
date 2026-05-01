@@ -84,6 +84,20 @@ function wlLabel(w, l, t) {
   return `${w}-${l}${t ? `-${t}` : ''}`
 }
 
+// Score-vs-par label used by the recent-event banner. Returns "EAGLE",
+// "BIRDIE", "PAR", "BOGEY", "DOUBLE BOGEY", or "+N". (2026-04-30 PM round 10)
+function scoreLabel(score, par) {
+  const d = score - par
+  if (d <= -3) return 'ALBATROSS'
+  if (d === -2) return 'EAGLE'
+  if (d === -1) return 'BIRDIE'
+  if (d === 0)  return 'PAR'
+  if (d === 1)  return 'BOGEY'
+  if (d === 2)  return 'DOUBLE'
+  if (d === 3)  return 'TRIPLE'
+  return `+${d}`
+}
+
 // "Today" / "Yesterday" / "Mar 12" — used by Recent Matches cards
 function relDate(iso) {
   if (!iso) return ''
@@ -1364,7 +1378,18 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
         <div style={{ position: 'absolute', inset: 2, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', inset: 6, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
       </>}
-      {score || (isSubtotal ? '' : '')}
+      {/* Score numeral — keyed by score so React remounts it when the
+          score changes, which retriggers the tm-score-reveal animation
+          (a small scale-up flip mimicking the Masters card-flip). */}
+      {(score || isSubtotal) ? (
+        <span
+          key={`s${score ?? ''}-p${par ?? ''}`}
+          className="tm-score-reveal"
+          style={{ display: 'inline-block', position: 'relative' }}
+        >
+          {score || ''}
+        </span>
+      ) : null}
     </div>
   )
 }
@@ -1619,6 +1644,9 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const [netMode, setNetMode] = useState(false)
   const [ending, setEnding] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Most recent score event — pops a broadcast banner at the top of the
+  // board for ~4s when a score is entered. (2026-04-30 PM round 10)
+  const [recentEvent, setRecentEvent] = useState(null)
 
   const loadOuting = useCallback(async () => {
     try {
@@ -1634,6 +1662,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
     const t = setInterval(loadOuting, 5000)
     return () => clearInterval(t)
   }, [loadOuting])
+  // Auto-clear the recent-event banner ~4s after it pops
+  useEffect(() => {
+    if (!recentEvent) return
+    const t = setTimeout(() => setRecentEvent(null), 4000)
+    return () => clearTimeout(t)
+  }, [recentEvent])
   // Auto-open team setup for host when outing has a team format but no teams yet
   useEffect(() => {
     if (!outing) return
@@ -1674,6 +1708,16 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
       } else {
         // Non-marker: submit own score only
         await put(`/api/outings/${code}/scores`, { hole, score })
+      }
+      // Pop the recent-event banner — broadcast feel when a score lands.
+      // Looks up the par from current outing state, and the player name.
+      const targetPlayer = (outing?.state?.participants || []).find(p => String(p.user_id) === String(targetUserId))
+      const parsForLookup = estimateHolePars(outing?.course_par ?? 72, outing?.state?.holes ?? 18)
+      const parForHole = (Array.isArray(outing?.hole_pars) && outing.hole_pars[hole])
+        ? outing.hole_pars[hole]
+        : parsForLookup[hole] || 4
+      if (targetPlayer && score > 0) {
+        setRecentEvent({ name: targetPlayer.name, hole, score, par: parForHole, ts: Date.now() })
       }
       await loadOuting()
     } catch (e) { console.error(e) }
@@ -1937,6 +1981,40 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           </span>
         </div>
       )}
+
+      {/* Recent score event banner — pops down from above the board for ~4s
+          when any score is entered. Broadcast lower-third feel.
+          (2026-04-30 PM round 10) */}
+      {recentEvent && (() => {
+        const lastName = (recentEvent.name || '').trim().split(/\s+/).slice(-1)[0]?.toUpperCase() || '—'
+        const label = scoreLabel(recentEvent.score, recentEvent.par)
+        const isUnder = recentEvent.score < recentEvent.par
+        return (
+          <div
+            key={recentEvent.ts}
+            className="tm-event-pop"
+            style={{
+              position: 'absolute', top: 100, left: '50%',
+              transform: 'translateX(-50%)',
+              background: isUnder
+                ? `linear-gradient(135deg, ${AUGUSTA_GOLD} 0%, #C8A33C 100%)`
+                : `linear-gradient(135deg, ${AUGUSTA_GREEN_DEEP} 0%, ${AUGUSTA_GREEN} 100%)`,
+              color: isUnder ? AUGUSTA_GREEN_DEEP : '#fff',
+              border: `1px solid ${AUGUSTA_GOLD_DIM}`,
+              padding: '8px 18px',
+              borderRadius: 24,
+              fontSize: 13, fontWeight: 900,
+              fontFamily: '"Arial Black", Arial, sans-serif',
+              letterSpacing: '0.08em',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.40)',
+              zIndex: 5,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}>
+            {lastName} · {label} · HOLE {recentEvent.hole + 1}
+          </div>
+        )
+      })()}
 
       {/* Tournament board frame — outer wood wrapper has a real wood-grain
           texture (repeating vertical-line gradient over a brown gradient),
