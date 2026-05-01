@@ -4,6 +4,10 @@ import { api, post, put } from '../lib/api.js'
 import { TMEmblem, IconTarget, IconTrophy, IconFlag, IconChevronRight, IconPlus } from '../components/primitives/Icons.jsx'
 import FriendProfile from '../components/FriendProfile.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
+// Helpers from Stats.jsx — used by the Profile view that replaced the
+// Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
+// but is no longer in the bottom nav; Profile is the canonical surface.
+import { HcpBadge, MiniTrendBar, StatTile } from './Stats.jsx'
 
 // ─── Season helpers ───────────────────────────────────────────────────────────
 function currentSeasonYear() {
@@ -1649,6 +1653,292 @@ function PlayerCardTeaser({ avatar, onOpen }) {
   )
 }
 
+// ─── Profile view (full-page user profile inside the Home tab) ────────────────
+//
+// Opened from Home's "My Profile" top-bar button. Replaces the standalone
+// Stats tab — its content lives here now, below an expanded identity
+// header (big avatar + name + course + handicap + season W-L-T-AVG3 +
+// streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
+// Distances card, Recent rounds. (2026-05-01)
+function ProfileView({ user, season, avg3, streak, stats, rounds, onBack, onEditProfile, onOpenCard }) {
+  const handicapDisplay = user?.handicap != null
+    ? (user.handicap > 0 ? `+${user.handicap}` : String(user.handicap))
+    : '—'
+
+  return (
+    <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
+      {/* Top bar — same gold "The Match" title, with a back arrow on the
+          left and Edit Profile pill on the right. Mirrors Home's top bar
+          layout so the user reads them as one continuous surface. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '56px 20px 16px', gap: 12,
+      }}>
+        <button onClick={onBack} aria-label="Back" style={{
+          background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
+          borderRadius: 10, color: '#1B5E3B', fontSize: 18, fontWeight: 700,
+          padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
+          display: 'inline-flex', alignItems: 'center',
+        }}>←</button>
+        <div style={{
+          fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
+          background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          flex: 1, textAlign: 'center',
+        }}>The Match</div>
+        <button onClick={onEditProfile} style={{
+          background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
+          borderRadius: 10, color: '#1B5E3B', fontSize: 12,
+          padding: '7px 12px', cursor: 'pointer',
+        }}>Edit</button>
+      </div>
+
+      <div style={{ padding: '0 16px' }}>
+        {/* Expanded identity header — bigger avatar, larger name, the same
+            season W-L-T-AVG3 row, and streak chip. Translucent glass card
+            matches the rest of the app. */}
+        <div style={{
+          borderRadius: 22,
+          overflow: 'hidden',
+          background: 'rgba(255,255,255,0.22)',
+          border: '1px solid rgba(255,255,255,0.45)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          position: 'relative',
+          marginBottom: 16,
+        }}>
+          {/* Top gold accent line */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 3, pointerEvents: 'none',
+            background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
+          }} />
+          {/* Radial gold glow */}
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'radial-gradient(ellipse 70% 60% at 50% -10%, rgba(201,160,64,0.10) 0%, transparent 70%)',
+          }} />
+
+          <div style={{ padding: '24px 22px 20px', position: 'relative' }}>
+            <div style={{ color: '#1B5E3B', fontSize: 11, letterSpacing: '0.12em', fontWeight: 800, marginBottom: 12 }}>
+              SEASON {season?.year ?? currentSeasonYear()}
+            </div>
+
+            {/* Top row: big avatar + name/course on the right */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+              {/* Big player card — taps open the PlayerCard overlay, same
+                  behavior as the small one on the Home dashboard. */}
+              <div
+                onClick={onOpenCard}
+                style={{
+                  flexShrink: 0, width: 100, height: 140, borderRadius: 14, overflow: 'hidden',
+                  border: user?.avatar
+                    ? '1px solid rgba(201,160,64,0.45)'
+                    : '1px dashed rgba(27,94,59,0.25)',
+                  background: user?.avatar ? 'transparent' : 'rgba(27,94,59,0.04)',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: user?.avatar ? '0 4px 18px rgba(0,0,0,0.20)' : 'none',
+                }}
+              >
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="Player card" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }} />
+                ) : (
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(27,94,59,0.30)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                )}
+              </div>
+
+              {/* Name + course + handicap stacked */}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{
+                  fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em',
+                  lineHeight: 1.1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                }}>{user?.name ?? '—'}</div>
+
+                {user?.home_course ? (
+                  <div style={{ color: 'rgba(27,94,59,0.65)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    {user.home_course}
+                  </div>
+                ) : (
+                  <button onClick={onEditProfile} style={{
+                    background: 'none', border: 'none', color: 'rgba(122,88,0,0.7)',
+                    fontSize: 12, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4,
+                    alignSelf: 'flex-start',
+                  }}>
+                    <span>+ Add home course</span>
+                  </button>
+                )}
+
+                <div style={{
+                  marginTop: 2,
+                  display: 'inline-flex', alignItems: 'baseline', gap: 8,
+                  background: 'rgba(201,160,64,0.10)', borderRadius: 10, padding: '6px 12px',
+                  border: '1px solid rgba(201,160,64,0.28)',
+                  alignSelf: 'flex-start',
+                }}>
+                  <div style={{
+                    fontSize: 28, fontWeight: 900, lineHeight: 1,
+                    background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  }}>{handicapDisplay}</div>
+                  <div style={{ color: 'rgba(122,88,0,0.65)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Season W-L-T-AVG3 */}
+            <div style={{ display: 'flex', borderTop: '1px solid rgba(27,94,59,0.10)', paddingTop: 14 }}>
+              {[
+                { label: 'WINS', value: season?.wins ?? 0, color: '#1B5E3B' },
+                { label: 'LOSSES', value: season?.losses ?? 0, color: '#DC2626' },
+                { label: 'TIES', value: season?.ties ?? 0, color: 'rgba(13,31,18,0.45)' },
+                { label: '3-RND AVG', value: avg3 != null ? avg3 : '—', color: '#7A5800' },
+              ].map(({ label, value, color }, i) => (
+                <div key={label} style={{
+                  flex: 1, textAlign: 'center',
+                  borderRight: i < 3 ? '1px solid rgba(27,94,59,0.08)' : 'none',
+                  padding: '0 4px',
+                }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</div>
+                  <div style={{ fontSize: 9, color: 'rgba(13,31,18,0.40)', letterSpacing: '0.09em', marginTop: 5, fontWeight: 600 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Streak chip */}
+            {streak > 0 && (
+              <div style={{
+                marginTop: 12, display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(201,160,64,0.10)', border: '1px solid rgba(201,160,64,0.28)',
+                borderRadius: 10, padding: '8px 14px',
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#C9A040" stroke="none"><path d="M12 2c0 0-5 5.5-5 10a5 5 0 0 0 10 0c0-4.5-5-10-5-10zm0 13a2 2 0 0 1-2-2c0-2 2-5 2-5s2 3 2 5a2 2 0 0 1-2 2z"/></svg>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#7A5800' }}>{streak}-day streak</span>
+                  <span style={{ fontSize: 11, color: 'rgba(122,88,0,0.55)', marginLeft: 6 }}>· keep it alive</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats body — handicap badge, tiles, trend, distances, rounds */}
+        <HcpBadge hcp={stats?.handicap ?? user?.handicap ?? null} roundCount={stats?.roundCount} />
+
+        {stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <StatTile
+              label="Avg Score"
+              value={stats.avgScore != null ? stats.avgScore.toFixed(1) : '—'}
+              sub={`Par ${rounds[0]?.course_par ?? 72}`}
+            />
+            <StatTile
+              label="Best Round"
+              value={stats.bestScore ?? '—'}
+              sub="All time"
+              accent="#5ED47A"
+            />
+          </div>
+        )}
+
+        <MiniTrendBar rounds={rounds} />
+
+        {stats?.topClubs?.length > 0 && (
+          <div style={{
+            borderRadius: 18,
+            background: 'rgba(255,255,255,0.80)',
+            border: '1px solid rgba(27,94,59,0.10)',
+            overflow: 'hidden', marginBottom: 16,
+          }}>
+            <div style={{
+              padding: '14px 18px', borderBottom: '1px solid rgba(27,94,59,0.08)',
+              fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)',
+            }}>
+              Your Distances
+            </div>
+            {stats.topClubs.map((c, i) => (
+              <div key={i} style={{
+                padding: '13px 18px',
+                borderBottom: i < stats.topClubs.length - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div>
+                  <span style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{c.club}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(13,31,18,0.35)', marginLeft: 8 }}>{c.shots} shots</span>
+                </div>
+                <div style={{ fontWeight: 800, color: '#1B5E3B', fontSize: 15 }}>{c.avgYards}<span style={{ fontSize: 11, color: 'rgba(13,31,18,0.35)', marginLeft: 3 }}>y</span></div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {rounds.length > 0 && (
+          <div style={{
+            borderRadius: 18,
+            background: 'rgba(255,255,255,0.80)',
+            border: '1px solid rgba(27,94,59,0.10)',
+            overflow: 'hidden', marginBottom: 16,
+          }}>
+            <div style={{
+              padding: '14px 18px', borderBottom: '1px solid rgba(27,94,59,0.08)',
+              fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)',
+            }}>
+              Recent Rounds
+            </div>
+            {rounds.slice(0, 10).map((r, i) => (
+              <div key={r.id ?? i} style={{
+                padding: '13px 18px',
+                borderBottom: i < Math.min(rounds.length, 10) - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+              }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    fontWeight: 700, color: '#0D1F12', fontSize: 14,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>{r.course_name ?? 'Round'}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.40)', marginTop: 2 }}>
+                    {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    {r.holes ? ` · ${r.holes} holes` : ''}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#0D1F12', lineHeight: 1 }}>{r.score ?? '—'}</div>
+                  {r.course_par && r.score != null && (
+                    <div style={{
+                      fontSize: 11, fontWeight: 700, marginTop: 3,
+                      color: r.score - r.course_par < 0 ? '#C9A040' : r.score - r.course_par === 0 ? '#1B5E3B' : '#DC2626',
+                    }}>
+                      {r.score - r.course_par === 0 ? 'E' : r.score - r.course_par > 0 ? `+${r.score - r.course_par}` : `${r.score - r.course_par}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!stats && rounds.length === 0 && (
+          <div style={{
+            background: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(27,94,59,0.10)',
+            borderRadius: 16, padding: 20, textAlign: 'center',
+            color: 'rgba(13,31,18,0.55)', fontSize: 13, lineHeight: 1.55,
+          }}>
+            No rounds yet. Log your first round and your stats, trend chart,
+            and club distances will start showing up here.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Home({ onNavigateToOuting }) {
   const [profile, setProfile] = useState(null)
   const [friends, setFriends] = useState({ friends: [], incoming: [], activity: [] })
@@ -1662,20 +1952,35 @@ export default function Home({ onNavigateToOuting }) {
   const [createGameOpen, setCreateGameOpen] = useState(false)
   const [createGameDate, setCreateGameDate] = useState(null)
   const [playerCardOpen, setPlayerCardOpen] = useState(false)
+  // 'home' = dashboard, 'profile' = full profile + stats screen.
+  // Profile is a sibling view inside the Home tab (not a top-level tab).
+  // (2026-05-01)
+  const [view, setView] = useState('home')
+  // Stats data for the Profile view. Loaded alongside the dashboard data
+  // so the Profile screen renders instantly when the user taps "My Profile".
+  const [stats, setStats]   = useState(null)
+  const [rounds, setRounds] = useState([])
 
   async function loadAll() {
     setLoading(true)
     try {
-      const [p, f, g, tr] = await Promise.all([
+      const [p, f, g, tr, s, r] = await Promise.all([
         api('/api/profile'),
         api('/api/friends'),
         api('/api/games'),
         api('/api/availability/tee-requests'),
+        // Stats summary + recent rounds for the Profile view. Both .catch
+        // to null/empty so the dashboard doesn't fail if the user hasn't
+        // logged any rounds yet.
+        api('/api/stats/summary').catch(() => null),
+        api('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
       ])
       setProfile(p)
       setFriends(f)
       setGames(g ?? { incoming: [], confirmed: [] })
       setTeeRequests(tr ?? { incoming: [], outgoing: [] })
+      setStats(s)
+      setRounds(r?.rounds ?? [])
     } catch (err) {
       console.error('[Home] load', err)
     }
@@ -1730,6 +2035,29 @@ export default function Home({ onNavigateToOuting }) {
 
   const { user, season, avg3, streak } = profile ?? {}
 
+  // Profile view — full-page user profile + stats inside the Home tab.
+  if (view === 'profile') {
+    return (
+      <>
+        <ProfileView
+          user={user} season={season} avg3={avg3} streak={streak}
+          stats={stats} rounds={rounds}
+          onBack={() => setView('home')}
+          onEditProfile={() => setEditOpen(true)}
+          onOpenCard={() => setPlayerCardOpen(true)}
+        />
+        {/* Edit profile modal — opens from the Profile view's Edit button */}
+        {editOpen && (
+          <EditProfileModal user={user} onSave={handleProfileSaved} onClose={() => setEditOpen(false)} />
+        )}
+        {/* Player card overlay — opens from the big avatar in the header */}
+        {playerCardOpen && (
+          <PlayerCard onClose={() => setPlayerCardOpen(false)} userId={profile?.id} />
+        )}
+      </>
+    )
+  }
+
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
       {/* Header */}
@@ -1742,11 +2070,11 @@ export default function Home({ onNavigateToOuting }) {
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>The Match</div>
-        <button onClick={() => setEditOpen(true)} style={{
+        <button onClick={() => setView('profile')} style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
           borderRadius: 10, color: '#1B5E3B', fontSize: 12,
           padding: '7px 12px', cursor: 'pointer',
-        }}>Edit Profile</button>
+        }}>My Profile</button>
       </div>
 
       <div style={{ padding: '0 16px' }}>

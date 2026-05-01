@@ -10,7 +10,7 @@ function scoreColor(diff) {
 }
 
 // ── Cinematic handicap hero card ──────────────────────────────────────────
-function HcpBadge({ hcp, roundCount }) {
+export function HcpBadge({ hcp, roundCount }) {
   const display = hcp === null
     ? '—'
     : hcp >= 0
@@ -90,7 +90,7 @@ function HcpBadge({ hcp, roundCount }) {
 }
 
 // ── Score trend SVG chart ─────────────────────────────────────────────────
-function MiniTrendBar({ rounds }) {
+export function MiniTrendBar({ rounds }) {
   if (!rounds || rounds.length < 2) return null
   const diffs = rounds.slice().reverse().map(r => r.total - (r.course_par || 72))
   const max = Math.max(...diffs)
@@ -143,7 +143,7 @@ function MiniTrendBar({ rounds }) {
 }
 
 // ── Glass stat tile ───────────────────────────────────────────────────────
-function StatTile({ label, value, sub, accent }) {
+export function StatTile({ label, value, sub, accent }) {
   return (
     <div style={{
       borderRadius: 16,

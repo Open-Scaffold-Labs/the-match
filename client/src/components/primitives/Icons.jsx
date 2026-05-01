@@ -98,6 +98,25 @@ export function IconTour({ size = 24, color = 'currentColor', strokeWidth = 1.6 
   )
 }
 
+// Golf-bag icon — tall cylinder body with grips poking out the top.
+// Used by the My Bag bottom-nav tab. (2026-05-01)
+export function IconBag({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      {/* Bag body */}
+      <path d="M7 7h10a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 17 21H7a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 7 7z" />
+      {/* Strap on left */}
+      <path d="M5.5 11l-1.5 1v4l1.5 1" />
+      {/* Pocket / belt across body */}
+      <line x1="6" y1="14" x2="18" y2="14" />
+      {/* Club grips poking out the top */}
+      <line x1="9" y1="3" x2="9" y2="7" />
+      <line x1="12" y1="2" x2="12" y2="7" />
+      <line x1="15" y1="3" x2="15" y2="7" />
+    </svg>
+  )
+}
+
 // The Match emblem — TM monogram in a circle
 export function TMEmblem({ size = 48, gold = false }) {
   const accent = gold ? '#E8C05A' : '#5ED47A'

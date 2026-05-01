@@ -1,11 +1,11 @@
 import { TABS } from '../../constants.js'
-import { IconHome, IconTrophy, IconTarget, IconFlag, IconBarChart, IconTour } from '../primitives/Icons.jsx'
+import { IconHome, IconTrophy, IconTarget, IconBag, IconTour } from '../primitives/Icons.jsx'
 
 const NAV_ITEMS = [
   { tab: TABS.HOME,   Icon: IconHome,      label: 'Home'      },
   { tab: TABS.OUTING, Icon: IconTrophy,    label: 'Match'     },
   { tab: TABS.EYE,    Icon: IconTarget,    label: 'Eagle Eye', center: true },
-  { tab: TABS.STATS,  Icon: IconBarChart,  label: 'Stats'     },
+  { tab: TABS.BAG,    Icon: IconBag,       label: 'My Bag'    },
   { tab: TABS.TOUR,   Icon: IconTour,      label: 'Tour'      },
 ]
 
