@@ -295,6 +295,7 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
         rotate: true,           // leaflet-rotate: enable bearing control
         touchRotate: false,     // disable confusing pinch-rotate gesture
         bearing: 0,
+        zoomSnap: 0.5,          // allow fractional zoom levels (e.g. 16.5)
       })
 
       // ESRI satellite imagery — keepBuffer:4 keeps more tiles in memory during pans
@@ -387,13 +388,14 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     // Center between tee and green so both are visible, not just the tee
     const centerLat = teePt && greenPt ? (teePt.lat + greenPt.lat) / 2 : panPos.lat
     const centerLon = teePt && greenPt ? (teePt.lon + greenPt.lon) / 2 : panPos.lon
-    // Zoom based on hole length. Bumped 2026-05-01 per Matt: par 5s
-    // (typically 470-580y) at zoom 16 felt too zoomed-out — there was a
-    // lot of dead space around the line. Threshold now 550y so only the
-    // longest par 5s drop to 16; everything 220-550 (par 4s and most
-    // par 5s) shares zoom 17, par 3s stay at 18.
+    // Zoom based on hole length. Tuned 2026-05-01 per Matt: par 5s
+    // (typically 470-580y) at zoom 16 felt too zoomed-out, but the
+    // longest holes still need a wider view than par 4s. Fractional
+    // zoom enabled via zoomSnap:0.5 in the map options. Threshold is
+    // 550y → 16.5 (a touch tighter than 16, looser than 17), 220-550y
+    // → 17 (par 4 + standard par 5), ≤220y → 18 (par 3).
     const holeDist  = teePt && greenPt ? haversineYards(teePt, greenPt) : 0
-    const zoom = holeDist > 550 ? 16 : holeDist > 220 ? 17 : 18
+    const zoom = holeDist > 550 ? 16.5 : holeDist > 220 ? 17 : 18
 
     // animate:false = instant teleport to the hole
     mapRef.current.setView([centerLat, centerLon], zoom, { animate: false })
