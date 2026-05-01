@@ -2008,30 +2008,51 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
-      {/* Top bar — same gold "The Match" title with a back arrow + Edit
-          Profile pill. Stays in the page's light theme so it visually
-          matches the Home dashboard's top bar. The dark friends-card
-          theme starts BELOW this header. */}
+      {/* Top bar — gold "The Match" title now has a soft breathing
+          drop-shadow halo so the white space feels alive instead of
+          flat. Two stacked drop-shadows (tight + wide) animate together
+          on a slow 3.5s ease-in-out cycle. (2026-05-01) */}
+      <style>{`
+        @keyframes tm-title-glow {
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(245,215,138,0.55)) drop-shadow(0 0 18px rgba(201,160,64,0.30)); }
+          50%      { filter: drop-shadow(0 0 14px rgba(245,215,138,0.85)) drop-shadow(0 0 30px rgba(201,160,64,0.55)); }
+        }
+        .tm-profile-title { animation: tm-title-glow 3.5s ease-in-out infinite; }
+      `}</style>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '56px 20px 16px', gap: 12,
+        position: 'relative',
       }}>
+        {/* Soft radial warmth behind the title so the white area picks
+            up a hint of gold even between glow pulses. */}
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, calc(-50% + 8px))',
+          width: 240, height: 80, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse, rgba(201,160,64,0.14) 0%, rgba(245,215,138,0.06) 35%, transparent 70%)',
+          filter: 'blur(2px)',
+          zIndex: 0,
+        }} />
         <button onClick={onBack} aria-label="Back" style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
           borderRadius: 10, color: '#1B5E3B', fontSize: 18, fontWeight: 700,
           padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
           display: 'inline-flex', alignItems: 'center',
+          position: 'relative', zIndex: 1,
         }}>←</button>
-        <div style={{
+        <div className="tm-profile-title" style={{
           fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           flex: 1, textAlign: 'center',
+          position: 'relative', zIndex: 1,
         }}>The Match</div>
         <button onClick={onEditProfile} style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
           borderRadius: 10, color: '#1B5E3B', fontSize: 12,
           padding: '7px 12px', cursor: 'pointer',
+          position: 'relative', zIndex: 1,
         }}>Edit</button>
       </div>
 
