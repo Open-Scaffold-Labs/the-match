@@ -1326,7 +1326,7 @@ function cellBorder(score, par) {
 // (matches the header rows' borderLeft scheme; otherwise body cells stacked
 // 2px between them and looked misaligned with headers when scrolled).
 // (2026-04-30 PM border-cleanup)
-function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, overrideBorder, overrideColor, w = 32, h = 36 }) {
+function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrideBg, overrideBorder, overrideColor, w = 32, h = 36 }) {
   // Subtotal cells used to be `w + 4` for visual emphasis, but that made
   // the body OUT/IN column 4px wider than the header OUT/IN column —
   // so the body subtotal cells (LAVIN's 12, filler rows) stuck out past
@@ -1345,6 +1345,7 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
   return (
     <div
       onClick={canEdit && !isSubtotal ? onTap : undefined}
+      className={isHint ? 'tm-tap-hint' : undefined}
       style={{
         minWidth: w, width: w, height: h,
         background: bg,
@@ -1361,9 +1362,14 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
         // didn't exist on subtotal cells, making them appear visually
         // misaligned with the OUT/IN box next to them. (2026-04-30 PM
         // round 6 — user: "make them line up perfectly")
-        boxShadow: isSubtotal
-          ? 'inset 0 1px 2px rgba(0,0,0,0.50)'
-          : 'inset 0 1px 2px rgba(0,0,0,0.18)',
+        // When isHint is active, skip inline shadow so the tm-tap-hint
+        // keyframe (which animates box-shadow) takes over without being
+        // overridden by an inline style.
+        boxShadow: isHint
+          ? undefined
+          : isSubtotal
+            ? 'inset 0 1px 2px rgba(0,0,0,0.50)'
+            : 'inset 0 1px 2px rgba(0,0,0,0.18)',
       }}
     >
       {/* Birdie / Eagle: red circle (or two for eagle) */}
@@ -1584,6 +1590,30 @@ function GuestModal({ code, onAdd, onAppUserAdded, onClose }) {
     </div>,
     document.body
   )
+}
+
+// Find the first cell the current user can tap to enter a score — used
+// to render a pulsing gold tap-hint on it. Walks sorted players in order;
+// for each player the user can edit, picks the first unscored hole.
+// Returns { userId, hole } or null when nothing's tappable. Skips the hint
+// once any score has been entered (the empty-board prompt only). (2026-04-30 PM round 11)
+function findTapHint({ sorted, getScores, isHost, isMarkerFor, userId }) {
+  if (!Array.isArray(sorted) || sorted.length === 0) return null
+  // If any score exists anywhere, no hint — the user already knows.
+  const anyScored = sorted.some(p => (getScores(p) || []).some(s => s > 0))
+  if (anyScored) return null
+  for (const p of sorted) {
+    const isMe   = String(p.user_id) === String(userId)
+    const canEdit = isHost
+      || (isMarkerFor ? isMarkerFor(String(userId), String(p.user_id)) : false)
+      || isMe
+    if (!canEdit) continue
+    const sc = getScores(p) || []
+    for (let h = 0; h < Math.max(18, sc.length); h++) {
+      if (!sc[h]) return { userId: p.user_id, hole: h }
+    }
+  }
+  return null
 }
 
 // Compute leaderboard positions for an already-sorted player array.
@@ -1856,6 +1886,10 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const maxPlayed = Math.max(0, ...participants.map(p => getScores(p).filter(s => s > 0).length))
   const activeHole = maxPlayed >= holeCount ? null : maxPlayed   // 0-indexed
 
+  // Tap hint — the first empty cell the user can edit, on a fresh board.
+  // Pulses gold so first-time users know where to start. (2026-04-30 PM round 11)
+  const tapHint = findTapHint({ sorted, getScores, isHost, isMarkerFor, userId: user?.id })
+
   // Row sizing: minimum 4 rows fill the screen. Each row is ~80-90px; if
   // fewer than 4 players, we render empty placeholder rows below them
   // (instead of stretching the real rows huge, which read weirdly).
@@ -1903,7 +1937,10 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         {isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 11, color: 'var(--tm-text-3)', flex: 1 }}>
-              {markers.length > 0 ? `${markers.length} marker${markers.length !== 1 ? 's' : ''} assigned` : 'Tap any cell to enter scores'}
+              {/* "Tap any cell to enter scores" removed 2026-04-30 PM round 11 —
+                  the pulsing gold tap-hint on the first empty cell teaches
+                  the same thing without instructional copy. */}
+              {markers.length > 0 ? `${markers.length} marker${markers.length !== 1 ? 's' : ''} assigned` : ''}
             </div>
             <button onClick={() => setShowGroups(true)} style={{
               background: markers.length > 0 ? 'rgba(138,180,248,0.12)' : 'rgba(255,255,255,0.07)',
@@ -2104,6 +2141,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 SUB_COL={SUB_COL}
                 positions={positions}
                 activeHole={activeHole}
+                tapHint={tapHint}
                 rowH={ROW_H}
                 fillerRows={fillerRows}
               />
@@ -2153,6 +2191,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 SUB_COL={SUB_COL}
                 positions={positions}
                 activeHole={activeHole}
+                tapHint={tapHint}
               />
             </div>
           )}
@@ -2244,7 +2283,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -2473,6 +2512,9 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                     else { mpBg = AUGUSTA_TILE; mpBorder = '1px dashed rgba(0,0,0,0.45)'; mpColor = 'rgba(0,0,0,0.55)' }
                   }
                 }
+                const isHint = tapHint
+                  && String(tapHint.userId) === String(p.user_id)
+                  && tapHint.hole === h
                 return (
                   <ScorecardCell
                     key={h}
@@ -2481,6 +2523,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                     canEdit={canEdit}
                     onTap={() => onCellTap(p, h)}
                     isSubtotal={false}
+                    isHint={isHint}
                     w={HOLE_COL}
                     h={rowH}
                     overrideBg={mpBg}
