@@ -2043,7 +2043,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           cards use") */}
       <div style={{
         padding: '16px 16px 8px',
-        background: 'linear-gradient(180deg, #28210F 0%, #1A1206 100%)',
+        background: 'linear-gradient(180deg, #3D2D00 0%, #1A1200 100%)',
         borderTop: '1px solid rgba(255,255,255,0.06)',
       }}>
         {/* Expanded identity header — bigger avatar, larger name, the same
@@ -2052,7 +2052,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <div style={{
           borderRadius: 18,
           overflow: 'hidden',
-          background: 'linear-gradient(155deg, #33280E 0%, #1F1808 40%, #180E03 100%)',
+          background: 'linear-gradient(155deg, #5C4500 0%, #332500 40%, #180F00 100%)',
           border: '1px solid rgba(27,94,59,0.18)',
           boxShadow: '0 0 30px rgba(27,94,59,0.05)',
           position: 'relative',
