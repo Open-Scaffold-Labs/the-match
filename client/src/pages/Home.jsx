@@ -2014,8 +2014,16 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           on a slow 3.5s ease-in-out cycle. (2026-05-01) */}
       <style>{`
         @keyframes tm-title-glow {
-          0%, 100% { filter: drop-shadow(0 0 8px rgba(245,215,138,0.55)) drop-shadow(0 0 18px rgba(201,160,64,0.30)); }
-          50%      { filter: drop-shadow(0 0 14px rgba(245,215,138,0.85)) drop-shadow(0 0 30px rgba(201,160,64,0.55)); }
+          0%, 100% {
+            filter: drop-shadow(0 0 14px rgba(245,215,138,0.65))
+                    drop-shadow(0 0 36px rgba(201,160,64,0.40))
+                    drop-shadow(0 0 68px rgba(201,160,64,0.20));
+          }
+          50% {
+            filter: drop-shadow(0 0 22px rgba(245,215,138,0.90))
+                    drop-shadow(0 0 56px rgba(201,160,64,0.65))
+                    drop-shadow(0 0 96px rgba(245,215,138,0.32));
+          }
         }
         .tm-profile-title { animation: tm-title-glow 3.5s ease-in-out infinite; }
       `}</style>
@@ -2025,13 +2033,14 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         position: 'relative',
       }}>
         {/* Soft radial warmth behind the title so the white area picks
-            up a hint of gold even between glow pulses. */}
+            up a hint of gold even between glow pulses. Sized big so it
+            spreads across most of the top-bar width. */}
         <div style={{
           position: 'absolute', top: '50%', left: '50%',
           transform: 'translate(-50%, calc(-50% + 8px))',
-          width: 240, height: 80, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse, rgba(201,160,64,0.14) 0%, rgba(245,215,138,0.06) 35%, transparent 70%)',
-          filter: 'blur(2px)',
+          width: 420, height: 180, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse, rgba(201,160,64,0.22) 0%, rgba(245,215,138,0.12) 30%, rgba(201,160,64,0.05) 55%, transparent 75%)',
+          filter: 'blur(4px)',
           zIndex: 0,
         }} />
         <button onClick={onBack} aria-label="Back" style={{
