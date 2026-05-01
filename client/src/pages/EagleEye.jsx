@@ -1610,7 +1610,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
   const teeHoles = courseCtx?.tee?.holes ?? []
 
   return (
-    <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
       <style>{`
         @keyframes ee-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ee-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1974,7 +1974,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
           boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
           display: 'inline-flex', alignItems: 'center', gap: 6,
           fontFamily: 'inherit',
-          zIndex: 30,
+          zIndex: 1000,
         }}>
           SCORECARD
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1986,7 +1986,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
           zone ring around GPS at radius=club.avg_yards. The button
           shows the selected club's slot label as a small chip on the
           right of the icon when a club is active. (2026-05-01) */}
-      {!showCamera && !showPicker && (
+      {!showCamera && !showPicker && courseCtx && (
         <button onClick={() => setBagOpen(true)} style={{
           position: 'absolute',
           bottom: onGoToScorecard ? 64 : 16, right: 16,
@@ -2001,7 +2001,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
           boxShadow: '0 6px 18px rgba(0,0,0,0.50)',
           display: 'inline-flex', alignItems: 'center', gap: 8,
           fontFamily: 'inherit',
-          zIndex: 30,
+          zIndex: 1000,
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke={selectedClub ? '#0D1F12' : '#F5D78A'} strokeWidth="2.2"
