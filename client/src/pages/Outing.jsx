@@ -1806,6 +1806,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   // Players with no scores yet get "—". Ties get a "T" prefix.
   const positions = computePositions(sorted, getScores, holePars)
 
+  // Active hole — next hole to be played. = max(holes_played) + 1, capped
+  // at the last hole. Used to show a green flag pin under the hole number
+  // in the HOLE row. (2026-04-30 PM round 9 — Tier 2)
+  const maxPlayed = Math.max(0, ...participants.map(p => getScores(p).filter(s => s > 0).length))
+  const activeHole = maxPlayed >= holeCount ? null : maxPlayed   // 0-indexed
+
   // Row sizing: minimum 4 rows fill the screen. Each row is ~80-90px; if
   // fewer than 4 players, we render empty placeholder rows below them
   // (instead of stretching the real rows huge, which read weirdly).
@@ -1888,45 +1894,78 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           </div>
         )}
 
-        {/* Match Play status banner */}
-        {isMatchPlay && matchPlayData && matchPlayData.played > 0 && (
-          <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 10, textAlign: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <span style={{
-              fontSize: 14, fontWeight: 900,
-              color: matchPlayData.p1HolesUp === 0 ? 'var(--tm-text-2)' : matchPlayData.p1HolesUp > 0 ? '#C9A040' : '#F87171',
-            }}>
-              {matchPlayData.p1HolesUp === 0
-                ? 'ALL SQUARE'
-                : matchPlayData.dormie
-                ? `${matchPlayData.p1HolesUp > 0 ? sorted[0].name?.split(' ')[0] : sorted[1].name?.split(' ')[0]} DORMY ${Math.abs(matchPlayData.p1HolesUp)}`
-                : `${matchPlayData.p1HolesUp > 0 ? sorted[0].name?.split(' ')[0] : sorted[1].name?.split(' ')[0]} ${Math.abs(matchPlayData.p1HolesUp)} UP`
-              }
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--tm-text-3)', marginLeft: 8 }}>
-              THRU {matchPlayData.played}
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* Tournament board frame — wood-bordered with cream LEADERS plaque,
-          gold pinstripe inside the wood for that broadcast-quality finish. */}
+      {/* Match Play status banner — promoted to a broadcast-style banner
+          ABOVE the wood frame when match-play is active. Big bold gold
+          status text, dark green gradient pulled toward the rest of the
+          board, italic THRU N to the right. (2026-04-30 PM round 9) */}
+      {isMatchPlay && matchPlayData && matchPlayData.played > 0 && (
+        <div style={{
+          margin: '8px 12px 0',
+          padding: '10px 16px',
+          borderRadius: 6,
+          background: `linear-gradient(135deg, ${AUGUSTA_GREEN_DEEP} 0%, ${AUGUSTA_GREEN} 100%)`,
+          border: `1px solid ${AUGUSTA_GOLD_DIM}`,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.10)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          flexShrink: 0,
+        }}>
+          <span style={{
+            fontSize: 18, fontWeight: 900,
+            color: matchPlayData.p1HolesUp === 0
+              ? '#fff'
+              : matchPlayData.p1HolesUp > 0 ? AUGUSTA_GOLD : '#FFB4B4',
+            fontFamily: '"Arial Black", Arial, sans-serif',
+            letterSpacing: '0.06em',
+            textShadow: '0 1px 2px rgba(0,0,0,0.45)',
+          }}>
+            {matchPlayData.p1HolesUp === 0
+              ? 'ALL SQUARE'
+              : matchPlayData.dormie
+              ? `${(matchPlayData.p1HolesUp > 0 ? sorted[0].name : sorted[1].name)?.split(' ').slice(-1)[0]?.toUpperCase()} DORMY ${Math.abs(matchPlayData.p1HolesUp)}`
+              : `${(matchPlayData.p1HolesUp > 0 ? sorted[0].name : sorted[1].name)?.split(' ').slice(-1)[0]?.toUpperCase()} ${Math.abs(matchPlayData.p1HolesUp)} UP`
+            }
+          </span>
+          <span style={{
+            fontSize: 13, fontWeight: 700,
+            color: 'rgba(255,255,255,0.65)',
+            fontFamily: '"Georgia", serif', fontStyle: 'italic',
+            letterSpacing: '0.08em',
+          }}>
+            THRU {matchPlayData.played}
+          </span>
+        </div>
+      )}
+
+      {/* Tournament board frame — outer wood wrapper has a real wood-grain
+          texture (repeating vertical-line gradient over a brown gradient),
+          inner div is the board panel. The gold pinstripe + dark inset
+          rings live on the inner div so they sit just inside the wood.
+          (2026-04-30 PM round 9 — Tier 2 polish, real wood look) */}
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
         margin: '12px 12px',
-        borderRadius: 6,
-        overflow: 'hidden',
-        background: AUGUSTA_PANEL,
-        border: '3px solid ' + AUGUSTA_WOOD,
-        // Outer drop-shadow for floating-on-the-page weight, inner ring of
-        // dimmed gold for the pinstripe, and a deeper inset shadow for grain.
-        boxShadow: [
-          '0 16px 50px rgba(0,0,0,0.55)',
-          '0 2px 6px rgba(0,0,0,0.35)',
-          `inset 0 0 0 1px ${AUGUSTA_GOLD_DIM}`,
-          'inset 0 0 0 2px rgba(0,0,0,0.45)',
+        padding: 4,
+        borderRadius: 7,
+        backgroundColor: AUGUSTA_WOOD,
+        backgroundImage: [
+          // Vertical wood-grain lines — narrow dark lines + slight light highlights
+          'repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(0,0,0,0.18) 3px, rgba(0,0,0,0.18) 3.6px, transparent 3.6px, transparent 7px, rgba(255,255,255,0.05) 7px, rgba(255,255,255,0.05) 7.4px, transparent 7.4px, transparent 13px)',
+          // Subtle horizontal warmth/shadow
+          'linear-gradient(180deg, #6b4519 0%, #5a3a16 50%, #4a2f0e 100%)',
         ].join(', '),
+        boxShadow: '0 16px 50px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
       }}>
+        <div style={{
+          flex: 1, display: 'flex', flexDirection: 'column',
+          borderRadius: 4,
+          overflow: 'hidden',
+          background: AUGUSTA_PANEL,
+          // Gold pinstripe + dark inner ring INSIDE the wood for that
+          // broadcast-quality finish.
+          boxShadow: `inset 0 0 0 1px ${AUGUSTA_GOLD_DIM}, inset 0 0 0 2px rgba(0,0,0,0.45)`,
+        }}>
         {/* LEADERS plaque — embossed cream banner with gold rules above & below */}
         <div style={{
           background: `linear-gradient(180deg, ${AUGUSTA_CREAM} 0%, #DDD2A8 100%)`,
@@ -1986,6 +2025,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
                 positions={positions}
+                activeHole={activeHole}
                 rowH={ROW_H}
                 fillerRows={fillerRows}
               />
@@ -2034,6 +2074,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
                 positions={positions}
+                activeHole={activeHole}
               />
             </div>
           )}
@@ -2059,6 +2100,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
           }}>M</span>
+        </div>
         </div>
       </div>
 
@@ -2124,7 +2166,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [] }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -2181,12 +2223,27 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
 
   return (
     <div style={{ marginBottom: 0 }}>
-      {/* HOLE row — green panel with white numerals + gold OUT/IN */}
+      {/* HOLE row — green panel with white numerals + gold OUT/IN.
+          Active hole gets a small green flag pin on top of the numeral. */}
       <div style={headerRow}>
         <div style={headerNameCol}>{label}</div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
           {holes.map(h => (
-            <div key={h} style={headerHoleCell}>{h + 1}</div>
+            <div key={h} style={{ ...headerHoleCell, position: 'relative' }}>
+              {h + 1}
+              {activeHole === h && (
+                <span style={{
+                  position: 'absolute', top: -6, right: 2,
+                  width: 9, height: 12,
+                  pointerEvents: 'none',
+                }} aria-label="Active hole">
+                  <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
+                    <line x1="1" y1="0" x2="1" y2="12" stroke="#fff" strokeWidth="1" />
+                    <path d="M1 1 L8 3 L1 5 Z" fill={AUGUSTA_GOLD} stroke="#000" strokeWidth="0.5" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+            </div>
           ))}
           <div style={subtotalHeaderCell}>{label === 'BACK 9' ? 'IN' : 'OUT'}</div>
         </div>
