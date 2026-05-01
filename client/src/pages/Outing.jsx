@@ -16,7 +16,7 @@ const AUGUSTA_GREEN_DEEP  = '#E8E8E8'   // was #0a2c14 — deepest shadow line
 const AUGUSTA_PANEL       = '#FFFFFF'   // was #1A5230 — main board panel
 const AUGUSTA_PANEL_HI    = '#FAFAFA'   // was #235C36 — gradient top
 const AUGUSTA_PANEL_HOVER = '#F0F0F0'   // was #2A6B40 — me-row tint
-const AUGUSTA_TEXT        = '#0F3D1E'   // NEW — green ink replacing white text
+const AUGUSTA_TEXT        = '#1A6B28'   // greener green for text on the white panels (was #0F3D1E)
 const AUGUSTA_GOLD        = '#E8C05A'   // PAR numerals + leader accents (unchanged)
 const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe / dimmed gold (unchanged)
 const AUGUSTA_CREAM       = '#EAE0BF'   // LEADERS banner cream (unchanged)
@@ -1919,7 +1919,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           <button onClick={onBack} style={{ background: 'none', border: 'none', color: AUGUSTA_TEXT, fontSize: 22, padding: '0 4px', cursor: 'pointer' }}>←</button>
           <div style={{ textAlign: 'center', flex: 1, padding: '0 8px' }}>
             <div style={{ fontWeight: 900, color: AUGUSTA_TEXT, fontSize: 15, lineHeight: 1.2, fontFamily: '"Georgia", serif', fontStyle: 'italic', letterSpacing: '0.03em' }}>{outing.name}</div>
-            <div style={{ fontSize: 11, color: 'rgba(15,61,30,0.65)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
+            <div style={{ fontSize: 11, color: 'rgba(26,107,40,0.65)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <div style={{ background: '#FFD700', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, letterSpacing: 2, fontFamily: '"Arial Black", Arial, sans-serif' }}>{code}</div>
@@ -2011,7 +2011,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           </span>
           <span style={{
             fontSize: 13, fontWeight: 700,
-            color: 'rgba(15,61,30,0.65)',
+            color: 'rgba(26,107,40,0.65)',
             fontFamily: '"Georgia", serif', fontStyle: 'italic',
             letterSpacing: '0.08em',
           }}>
@@ -2476,7 +2476,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 {/* THRU indicator if scores exist; team name otherwise */}
                 {thruText && (
                   <div style={{
-                    fontSize: 10, color: 'rgba(15,61,30,0.65)', fontWeight: 700,
+                    fontSize: 10, color: 'rgba(26,107,40,0.65)', fontWeight: 700,
                     letterSpacing: '0.08em',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     marginTop: 2,
@@ -2486,7 +2486,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 )}
                 {!thruText && team && (
                   <div style={{
-                    fontSize: 10, color: 'rgba(15,61,30,0.70)', fontWeight: 700,
+                    fontSize: 10, color: 'rgba(26,107,40,0.70)', fontWeight: 700,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     marginTop: 2,
                   }}>
@@ -2726,7 +2726,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   letterSpacing: '0.04em',
                 }}>{display}</div>
-                {team && <div style={{ fontSize: 10, color: 'rgba(15,61,30,0.65)', fontWeight: 700, marginTop: 2 }}>{team.name}</div>}
+                {team && <div style={{ fontSize: 10, color: 'rgba(26,107,40,0.65)', fontWeight: 700, marginTop: 2 }}>{team.name}</div>}
                 {netMode && p.handicap != null && !p.is_guest && (
                   <div style={{ fontSize: 9, color: AUGUSTA_GOLD_DIM, fontWeight: 700, marginTop: 1 }}>HCP {p.handicap}</div>
                 )}
@@ -2750,7 +2750,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
               </div>
               <div style={{
                 minWidth: 52, textAlign: 'center', fontSize: 14, fontWeight: 800,
-                color: 'rgba(15,61,30,0.85)', flexShrink: 0,
+                color: 'rgba(26,107,40,0.85)', flexShrink: 0,
               }}>
                 {holesPlayed || '—'}
               </div>
