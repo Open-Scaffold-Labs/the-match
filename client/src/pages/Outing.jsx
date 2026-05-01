@@ -8,15 +8,15 @@ import ActiveRound from './ActiveRound.jsx'
 
 // ─── Augusta theme palette ───────────────────────────────────────────────────
 // SWAP MODE (2026-04-30 PM round 12 — visual experiment):
-// Greens flipped to whites, white text flipped to dark green. Cream tiles,
-// gold, and red stay. To revert, just restore the original hex values
-// (kept in the trailing comments as 'was …').
-const AUGUSTA_GREEN       = '#FFFFFF'   // was #0F3D1E — frame + footer plaque
-const AUGUSTA_GREEN_DEEP  = '#E8E8E8'   // was #0a2c14 — deepest shadow line
-const AUGUSTA_PANEL       = '#FFFFFF'   // was #1A5230 — main board panel
-const AUGUSTA_PANEL_HI    = '#FAFAFA'   // was #235C36 — gradient top
-const AUGUSTA_PANEL_HOVER = '#F0F0F0'   // was #2A6B40 — me-row tint
-const AUGUSTA_TEXT        = '#1A6B28'   // greener green for text on the white panels (was #0F3D1E)
+// Greens flipped to whites, white text flipped to dark green.
+// TRANSLUCENT MODE (round 13): same colors, but rgba alpha so the page
+// fairway shows through. Cream tiles + gold + red stay solid.
+const AUGUSTA_GREEN       = 'rgba(255,255,255,0.78)'   // frame-stripe color (was #FFFFFF)
+const AUGUSTA_GREEN_DEEP  = 'rgba(232,232,232,0.78)'   // deepest panel (was #E8E8E8)
+const AUGUSTA_PANEL       = 'rgba(255,255,255,0.78)'   // main board panel (was #FFFFFF)
+const AUGUSTA_PANEL_HI    = 'rgba(250,250,250,0.82)'   // gradient top (was #FAFAFA)
+const AUGUSTA_PANEL_HOVER = 'rgba(240,240,240,0.82)'   // me-row tint (was #F0F0F0)
+const AUGUSTA_TEXT        = '#1A6B28'   // green for text on the white panels
 const AUGUSTA_GOLD        = '#E8C05A'   // PAR numerals + leader accents (unchanged)
 const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe / dimmed gold (unchanged)
 const AUGUSTA_CREAM       = '#EAE0BF'   // LEADERS banner cream (unchanged)
@@ -1903,7 +1903,9 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
-      background: 'linear-gradient(180deg, #0a2410 0%, #0F3D1E 100%)',
+      // Translucent panels over the page-level fairway grass image —
+      // matches the rest of the app's glass cards. (2026-04-30 PM round 13)
+      background: 'transparent',
     }}>
       {/* Header — dark green strip with white title, gold code chip.
           calc(safe-top + 14px) clears the iOS notch / Android status bar
@@ -2081,6 +2083,9 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           // Gold pinstripe + dark inner ring INSIDE the wood for that
           // broadcast-quality finish.
           boxShadow: `inset 0 0 0 1px ${AUGUSTA_GOLD_DIM}, inset 0 0 0 2px rgba(0,0,0,0.45)`,
+          // Glass-morphism: blur whatever's behind the translucent panel
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
         }}>
         {/* LEADERS plaque — embossed cream banner with gold rules above & below */}
         <div style={{
