@@ -5,6 +5,8 @@ import { HcpBadge, StatTile } from '../pages/Stats.jsx'
 import FollowPills from './FollowPills.jsx'
 import RoundScorecard from './RoundScorecard.jsx'
 import RoundHistory from './RoundHistory.jsx'
+import RivalryHistory from './RivalryHistory.jsx'
+import RivalryDetail from './RivalryDetail.jsx'
 
 // ── Nearby Course Picker ──────────────────────────────────────────────────────
 function CoursePicker({ value, onChange }) {
@@ -431,6 +433,8 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
   const [teeDate, setTeeDate]   = useState(null) // date string when tee-request sheet is open
   const [selectedRoundId, setSelectedRoundId] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [rivalriesOpen, setRivalriesOpen] = useState(false)
+  const [selectedRivalry, setSelectedRivalry] = useState(null)
 
   useEffect(() => {
     if (!friendSummary?.friend_id) return
@@ -720,11 +724,22 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                     : oppWins > myWins ? '#F87171'
                     : 'rgba(255,255,255,0.50)'
                   return (
-                    <div key={r.opponent_id ?? i} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 16px',
-                      borderBottom: i < top.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                    }}>
+                    <button
+                      key={r.opponent_id ?? i}
+                      onClick={() => setSelectedRivalry(r)}
+                      style={{
+                        width: '100%',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 16px',
+                        borderBottom: i < top.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                        background: 'transparent', border: 'none', textAlign: 'left',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                        transition: 'background 120ms ease',
+                      }}
+                      onMouseDown={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                      onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                    >
                       <div style={{
                         width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
                         background: r.opponent_avatar ? 'transparent' : 'rgba(255,255,255,0.05)',
@@ -750,19 +765,50 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                           <span>Opp <strong style={{ color: '#fff' }}>{oppAvgStr}</strong></span>
                         </div>
                       </div>
-                      <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                        <div style={{
-                          fontSize: 18, fontWeight: 900, color: recordColor, lineHeight: 1,
-                          fontFamily: '"Arial Black", Arial, sans-serif',
-                        }}>{recordStr}</div>
-                        <div style={{
-                          fontSize: 9, color: 'rgba(255,255,255,0.30)',
-                          letterSpacing: '0.10em', marginTop: 4, fontWeight: 700,
-                        }}>{ties > 0 ? 'W-L-T' : 'W-L'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{
+                            fontSize: 18, fontWeight: 900, color: recordColor, lineHeight: 1,
+                            fontFamily: '"Arial Black", Arial, sans-serif',
+                          }}>{recordStr}</div>
+                          <div style={{
+                            fontSize: 9, color: 'rgba(255,255,255,0.30)',
+                            letterSpacing: '0.10em', marginTop: 4, fontWeight: 700,
+                          }}>{ties > 0 ? 'W-L-T' : 'W-L'}</div>
+                        </div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="9 18 15 12 9 6"/>
+                        </svg>
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
+
+                {/* See all rivalries → opens RivalryHistory */}
+                {(data?.rivalries?.length ?? 0) > top.length && (
+                  <button
+                    onClick={() => setRivalriesOpen(true)}
+                    style={{
+                      width: '100%',
+                      background: 'transparent', border: 'none',
+                      borderTop: '1px solid rgba(255,255,255,0.06)',
+                      cursor: 'pointer', padding: '14px 16px',
+                      fontFamily: 'inherit', textAlign: 'center',
+                      fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+                      color: '#F5D78A', textTransform: 'uppercase',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      transition: 'background 120ms ease',
+                    }}
+                    onMouseDown={e => { e.currentTarget.style.background = 'rgba(245,215,138,0.06)' }}
+                    onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    See all {data.rivalries.length} {data.rivalries.length === 1 ? 'rival' : 'rivals'}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </button>
+                )}
               </div>
             )
           })()}
@@ -990,6 +1036,33 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
           rounds={data?.recentRounds ?? []}
           title={`${friend?.name?.split(' ')[0] || 'Player'}'s Rounds`}
           onClose={() => setHistoryOpen(false)}
+        />
+      )}
+
+      {/* Full rivalries list — opened by tapping "See all N rivals".
+          Subject is the friend (their profile, their rivalries), so the
+          face-off detail uses the friend as the "you" side. */}
+      {rivalriesOpen && (
+        <RivalryHistory
+          rivalries={data?.rivalries ?? []}
+          title={`${firstName}'s Rivalries`}
+          subjectName={friend?.name}
+          subjectAvatar={friend?.avatar}
+          subjectHandicap={friend?.handicap}
+          selfLabel={firstName}
+          oppLabel="Opp"
+          onClose={() => setRivalriesOpen(false)}
+        />
+      )}
+
+      {/* RivalryDetail when tapped from the inline top-3 list */}
+      {selectedRivalry && (
+        <RivalryDetail
+          rivalry={selectedRivalry}
+          myName={friend?.name}
+          myAvatar={friend?.avatar}
+          myHandicap={friend?.handicap}
+          onClose={() => setSelectedRivalry(null)}
         />
       )}
     </div>,

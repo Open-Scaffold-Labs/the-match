@@ -8,6 +8,7 @@ import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
 import RoundHistory from '../components/RoundHistory.jsx'
+import RivalryHistory from '../components/RivalryHistory.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -1697,6 +1698,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   const [selectedRivalry, setSelectedRivalry] = useState(null)
   // Tap "See all rounds" → open the full RoundHistory bottom-sheet.
   const [historyOpen, setHistoryOpen] = useState(false)
+  // Tap "See all rivalries" → open the full RivalryHistory bottom-sheet.
+  const [rivalriesOpen, setRivalriesOpen] = useState(false)
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
@@ -2048,6 +2051,34 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   </button>
                 )
               })}
+
+              {/* See all rivalries → opens RivalryHistory bottom sheet
+                  with the full list. Only renders when there are MORE
+                  than the top-3 already shown. (2026-05-01) */}
+              {rivalries.length > top.length && (
+                <button
+                  onClick={() => setRivalriesOpen(true)}
+                  style={{
+                    width: '100%',
+                    background: 'transparent', border: 'none',
+                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                    cursor: 'pointer', padding: '14px 16px',
+                    fontFamily: 'inherit', textAlign: 'center',
+                    fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+                    color: '#F5D78A', textTransform: 'uppercase',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    transition: 'background 120ms ease',
+                  }}
+                  onMouseDown={e => { e.currentTarget.style.background = 'rgba(245,215,138,0.06)' }}
+                  onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  See all {rivalries.length} {rivalries.length === 1 ? 'rival' : 'rivals'}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              )}
             </div>
           )
         })()}
@@ -2227,6 +2258,22 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           rounds={rounds}
           title="Recent Rounds"
           onClose={() => setHistoryOpen(false)}
+        />
+      )}
+
+      {/* Full rivalries list — opened by tapping "See all N rivals"
+          beneath the truncated top-3. Each row taps into the same
+          animated RivalryDetail face-off modal. */}
+      {rivalriesOpen && (
+        <RivalryHistory
+          rivalries={rivalries}
+          title="Rivalries"
+          subjectName={user?.name}
+          subjectAvatar={user?.avatar}
+          subjectHandicap={user?.handicap}
+          selfLabel="You"
+          oppLabel="Them"
+          onClose={() => setRivalriesOpen(false)}
         />
       )}
     </div>
