@@ -2043,7 +2043,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           cards use") */}
       <div style={{
         padding: '16px 16px 8px',
-        background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+        background: 'linear-gradient(180deg, #28210F 0%, #1A1206 100%)',
         borderTop: '1px solid rgba(255,255,255,0.06)',
       }}>
         {/* Expanded identity header — bigger avatar, larger name, the same
@@ -2052,25 +2052,25 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <div style={{
           borderRadius: 18,
           overflow: 'hidden',
-          background: 'linear-gradient(155deg, #0F2814 0%, #0A1D0F 40%, #060E08 100%)',
-          border: '1px solid rgba(197,160,64,0.18)',
-          boxShadow: '0 0 30px rgba(197,160,64,0.05)',
+          background: 'linear-gradient(155deg, #33280E 0%, #1F1808 40%, #180E03 100%)',
+          border: '1px solid rgba(27,94,59,0.18)',
+          boxShadow: '0 0 30px rgba(27,94,59,0.05)',
           position: 'relative',
           marginBottom: 12,
         }}>
           {/* Top gold accent line */}
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: 3, pointerEvents: 'none',
-            background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(27,94,59,0.7), rgba(91,194,135,1.0), rgba(27,94,59,0.7), transparent)',
           }} />
           {/* Radial gold glow */}
           <div style={{
             position: 'absolute', inset: 0, pointerEvents: 'none',
-            background: 'radial-gradient(ellipse 70% 60% at 50% -10%, rgba(201,160,64,0.10) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse 70% 60% at 50% -10%, rgba(27,94,59,0.10) 0%, transparent 70%)',
           }} />
 
           <div style={{ padding: '20px 18px 18px', position: 'relative' }}>
-            <div style={{ color: 'rgba(245,215,138,0.75)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
+            <div style={{ color: 'rgba(134,229,181,0.75)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
               SEASON {season?.year ?? currentSeasonYear()}
             </div>
 
@@ -2083,9 +2083,9 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 style={{
                   flexShrink: 0, width: 100, height: 140, borderRadius: 14, overflow: 'hidden',
                   border: user?.avatar
-                    ? '1px solid rgba(201,160,64,0.45)'
-                    : '1px dashed rgba(27,94,59,0.25)',
-                  background: user?.avatar ? 'transparent' : 'rgba(27,94,59,0.04)',
+                    ? '1px solid rgba(27,94,59,0.45)'
+                    : '1px dashed rgba(201,160,64,0.25)',
+                  background: user?.avatar ? 'transparent' : 'rgba(201,160,64,0.04)',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: user?.avatar ? '0 4px 18px rgba(0,0,0,0.20)' : 'none',
                 }}
@@ -2093,7 +2093,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 {user?.avatar ? (
                   <img src={user.avatar} alt="Player card" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }} />
                 ) : (
-                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(27,94,59,0.30)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(201,160,64,0.30)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="3"/>
                     <circle cx="9" cy="9" r="2"/>
                     <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
@@ -2107,7 +2107,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em',
                   lineHeight: 1.1,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                  background: 'linear-gradient(135deg, #A07828, #1B5E3B, #5BC287)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}>{user?.name ?? '—'}</div>
 
@@ -2118,7 +2118,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   </div>
                 ) : (
                   <button onClick={onEditProfile} style={{
-                    background: 'none', border: 'none', color: 'rgba(245,215,138,0.65)',
+                    background: 'none', border: 'none', color: 'rgba(134,229,181,0.65)',
                     fontSize: 12, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4,
                     alignSelf: 'flex-start',
                   }}>
@@ -2130,15 +2130,15 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   marginTop: 2,
                   display: 'inline-flex', alignItems: 'baseline', gap: 8,
                   background: 'rgba(0,0,0,0.30)', borderRadius: 10, padding: '6px 12px',
-                  border: '1px solid rgba(197,160,64,0.35)',
+                  border: '1px solid rgba(27,94,59,0.35)',
                   alignSelf: 'flex-start',
                 }}>
                   <div style={{
                     fontSize: 28, fontWeight: 900, lineHeight: 1,
-                    background: 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)',
+                    background: 'linear-gradient(135deg, #86E5B5, #5BC287, #1B5E3B)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                   }}>{handicapDisplay}</div>
-                  <div style={{ color: 'rgba(245,215,138,0.55)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
+                  <div style={{ color: 'rgba(134,229,181,0.55)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
                 </div>
               </div>
             </div>
@@ -2154,10 +2154,10 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 FriendSeasonCard color tokens. */}
             <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
               {[
-                { label: 'WINS',     value: season?.wins   ?? 0,            color: '#4ADE80' },
+                { label: 'WINS',     value: season?.wins   ?? 0,            color: '#F5E070' },
                 { label: 'LOSSES',   value: season?.losses ?? 0,            color: '#F87171' },
                 { label: 'TIES',     value: season?.ties   ?? 0,            color: 'rgba(255,255,255,0.45)' },
-                { label: '3-RND AVG', value: avg3 != null ? avg3 : '—',     color: '#F5D78A' },
+                { label: '3-RND AVG', value: avg3 != null ? avg3 : '—',     color: '#86E5B5' },
               ].map(({ label, value, color }, i) => (
                 <div key={label} style={{
                   flex: 1, textAlign: 'center',
@@ -2174,13 +2174,13 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
             {streak > 0 && (
               <div style={{
                 marginTop: 12, display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(245,215,138,0.10)', border: '1px solid rgba(245,215,138,0.28)',
+                background: 'rgba(134,229,181,0.10)', border: '1px solid rgba(134,229,181,0.28)',
                 borderRadius: 10, padding: '8px 14px',
               }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="#F5D78A" stroke="none"><path d="M12 2c0 0-5 5.5-5 10a5 5 0 0 0 10 0c0-4.5-5-10-5-10zm0 13a2 2 0 0 1-2-2c0-2 2-5 2-5s2 3 2 5a2 2 0 0 1-2 2z"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#86E5B5" stroke="none"><path d="M12 2c0 0-5 5.5-5 10a5 5 0 0 0 10 0c0-4.5-5-10-5-10zm0 13a2 2 0 0 1-2-2c0-2 2-5 2-5s2 3 2 5a2 2 0 0 1-2 2z"/></svg>
                 <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#F5D78A' }}>{streak}-day streak</span>
-                  <span style={{ fontSize: 11, color: 'rgba(245,215,138,0.55)', marginLeft: 6 }}>· keep it alive</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#86E5B5' }}>{streak}-day streak</span>
+                  <span style={{ fontSize: 11, color: 'rgba(134,229,181,0.55)', marginLeft: 6 }}>· keep it alive</span>
                 </div>
               </div>
             )}
@@ -2214,7 +2214,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 label="Best Round"
                 value={bestDisplay}
                 sub="All time"
-                accent="#4ADE80"
+                accent="#F5E070"
               />
             </div>
           )
@@ -2280,7 +2280,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   ? `${myWins}-${oppWins}-${ties}`
                   : `${myWins}-${oppWins}`
                 // Color the record based on lead — green/red on dark
-                const recordColor = myWins > oppWins ? '#4ADE80'
+                const recordColor = myWins > oppWins ? '#F5E070'
                   : oppWins > myWins ? '#F87171'
                   : 'rgba(255,255,255,0.50)'
                 return (
@@ -2314,7 +2314,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                         <img src={r.opponent_avatar} alt={r.opponent_name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
-                        <span style={{ fontSize: 13, fontWeight: 800, color: '#F5D78A' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#86E5B5' }}>
                           {initials}
                         </span>
                       )}
@@ -2370,11 +2370,11 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                     cursor: 'pointer', padding: '14px 16px',
                     fontFamily: 'inherit', textAlign: 'center',
                     fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
-                    color: '#F5D78A', textTransform: 'uppercase',
+                    color: '#86E5B5', textTransform: 'uppercase',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     transition: 'background 120ms ease',
                   }}
-                  onMouseDown={e => { e.currentTarget.style.background = 'rgba(245,215,138,0.06)' }}
+                  onMouseDown={e => { e.currentTarget.style.background = 'rgba(134,229,181,0.06)' }}
                   onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
@@ -2412,7 +2412,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   <span style={{ fontWeight: 700, color: '#fff', fontSize: 14 }}>{c.club}</span>
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.40)', marginLeft: 8 }}>{c.shots} shots</span>
                 </div>
-                <div style={{ fontWeight: 800, color: '#F5D78A', fontSize: 15 }}>{c.avgYards}<span style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', marginLeft: 3 }}>y</span></div>
+                <div style={{ fontWeight: 800, color: '#86E5B5', fontSize: 15 }}>{c.avgYards}<span style={{ fontSize: 11, color: 'rgba(255,255,255,0.30)', marginLeft: 3 }}>y</span></div>
               </div>
             ))}
           </div>
@@ -2441,8 +2441,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
               // Diff color tokens for the dark surface — gold under-par,
               // green for E, red for over-par. Mirrors FriendProfile.
               const diffColor = diff == null ? '#fff'
-                : diff < 0 ? '#F5D78A'
-                : diff === 0 ? '#4ADE80'
+                : diff < 0 ? '#86E5B5'
+                : diff === 0 ? '#F5E070'
                 : '#F87171'
               return (
                 <button
@@ -2504,11 +2504,11 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 cursor: 'pointer', padding: '14px 16px',
                 fontFamily: 'inherit', textAlign: 'center',
                 fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
-                color: '#F5D78A', textTransform: 'uppercase',
+                color: '#86E5B5', textTransform: 'uppercase',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 transition: 'background 120ms ease',
               }}
-              onMouseDown={e => { e.currentTarget.style.background = 'rgba(245,215,138,0.06)' }}
+              onMouseDown={e => { e.currentTarget.style.background = 'rgba(134,229,181,0.06)' }}
               onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
