@@ -106,6 +106,16 @@ export const CATALOG = {
 
 // Helpers --------------------------------------------------------------
 
+// Some slots draw from multiple catalog categories. Iron sets typically
+// come with a matched PW (and sometimes GW/SW) — so the PW/GW/SW slots
+// surface BOTH iron-set brands+models and dedicated wedge brands+models.
+// LW stays wedge-only since lob wedges are almost never sold in a set.
+const SLOT_MERGED_CATEGORIES = {
+  pw: ['iron', 'wedge'],
+  gw: ['iron', 'wedge'],
+  sw: ['iron', 'wedge'],
+}
+
 export function brandsFor(category) {
   return Object.keys(CATALOG[category] ?? {}).sort()
 }
@@ -116,4 +126,37 @@ export function modelsFor(category, brand) {
 
 export function categoryForSlot(slot) {
   return SLOT_CATEGORY[slot] ?? null
+}
+
+// Slot-aware brand list — merges + dedupes when the slot draws from
+// multiple categories.
+export function brandsForSlot(slot) {
+  const merged = SLOT_MERGED_CATEGORIES[slot]
+  if (merged) {
+    const set = new Set()
+    for (const cat of merged) {
+      Object.keys(CATALOG[cat] ?? {}).forEach(b => set.add(b))
+    }
+    return [...set].sort()
+  }
+  return brandsFor(categoryForSlot(slot))
+}
+
+// Slot-aware model list — merges models from all relevant categories
+// for that brand. Order: iron-set models first (since wedges in a set
+// usually share their iron model name), then any wedge-specific
+// models that aren't already included.
+export function modelsForSlot(slot, brand) {
+  const merged = SLOT_MERGED_CATEGORIES[slot]
+  if (merged) {
+    const seen = new Set()
+    const out = []
+    for (const cat of merged) {
+      for (const m of CATALOG[cat]?.[brand] ?? []) {
+        if (!seen.has(m)) { seen.add(m); out.push(m) }
+      }
+    }
+    return out
+  }
+  return modelsFor(categoryForSlot(slot), brand)
 }

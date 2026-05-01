@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api, put, del } from '../lib/api.js'
 import { IconBag } from '../components/primitives/Icons.jsx'
-import { SLOTS, SLOT_LABELS, brandsFor, modelsFor, categoryForSlot } from '../lib/clubCatalog.js'
+import { SLOTS, SLOT_LABELS, brandsForSlot, modelsForSlot } from '../lib/clubCatalog.js'
 
 export default function MyBag() {
   const [clubs, setClubs]       = useState([])  // [{ slot, brand, model }]
@@ -199,20 +199,19 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
 // ─── Club picker modal ────────────────────────────────────────────────────────
 function ClubPicker({ slot, existing, onClose, onSave }) {
   const slotMeta = SLOTS.find(s => s.key === slot)
-  const category = categoryForSlot(slot)
-  const brands   = brandsFor(category)
+  const brands   = brandsForSlot(slot)
 
   const [brand, setBrand] = useState(existing?.brand && brands.includes(existing.brand) ? existing.brand : '')
   const [model, setModel] = useState(existing?.model || '')
   const [saving, setSaving] = useState(false)
 
-  const models = brand ? modelsFor(category, brand) : []
+  const models = brand ? modelsForSlot(slot, brand) : []
 
   function pickBrand(b) {
     setBrand(b)
     // If switching brand, reset model unless the same model exists in
     // the new brand (rare but possible — e.g., "Apex" across years).
-    if (!modelsFor(category, b).includes(model)) setModel('')
+    if (!modelsForSlot(slot, b).includes(model)) setModel('')
   }
 
   async function save() {
