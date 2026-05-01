@@ -251,7 +251,7 @@ function getDefaultAim({ par, totalYards, teePt, greenPt, geometry }) {
   }
 }
 
-function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, greenPositions = {}, holeGeometries = {} }) {
+function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, greenPositions = {}, holeGeometries = {}, clubYards = null, clubLabel = null }) {
   const containerRef      = useRef(null)
   const mapRef            = useRef(null)
   const markerRef         = useRef(null)   // GPS dot
@@ -261,6 +261,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   const distLabelRef      = useRef(null)   // tee → aim segment yardage
   const aimToGreenLabelRef = useRef(null)  // aim → green segment yardage
   const aimMarkerRef      = useRef(null)   // draggable target circle
+  const landingZoneRef    = useRef(null)   // gold ring at GPS, radius = club avg
+  const landingLabelRef   = useRef(null)   // small label on the ring
   // Live snapshot of tee/green/totalYards for the drag handler. The
   // handler is attached once at marker creation; without a ref the
   // closure would freeze the hole-1 values and aim-point drags on
@@ -373,6 +375,63 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // Reset aim-point when the hole changes. The position-update effect
   // below treats null as "use the new hole's midpoint default."
   useEffect(() => { setAimPoint(null) }, [currentHole])
+
+  // Landing-zone ring — drawn at the player's GPS position with radius
+  // = clubYards. Updates as GPS drifts and as the player swaps clubs.
+  // Removed when no club is selected. (2026-05-01 — Matt: bag picker
+  // shows expected landing zone for the chosen club.)
+  useEffect(() => {
+    if (!mapRef.current || !window.L) return
+    const L = window.L
+    const map = mapRef.current
+
+    if (!gps || !Number.isFinite(Number(clubYards)) || clubYards <= 0) {
+      if (landingZoneRef.current) { landingZoneRef.current.remove(); landingZoneRef.current = null }
+      if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
+      return
+    }
+
+    const radiusMeters = Number(clubYards) * 0.9144
+    const center = [gps.lat, gps.lon]
+
+    if (landingZoneRef.current) {
+      landingZoneRef.current.setLatLng(center).setRadius(radiusMeters)
+    } else {
+      landingZoneRef.current = L.circle(center, {
+        radius: radiusMeters,
+        color: '#F5D78A',
+        weight: 2,
+        opacity: 0.85,
+        fillColor: '#C9A040',
+        fillOpacity: 0.08,
+        dashArray: '4 6',
+      }).addTo(map)
+    }
+
+    // Small label on the north edge of the ring showing the club +
+    // distance (e.g. "DRIVER · 245y").
+    const offsetLat = (radiusMeters / 111000) // meters → degrees lat
+    const labelPos  = [gps.lat + offsetLat, gps.lon]
+    const labelHtml = `<div style="
+      background: rgba(7,12,9,0.85);
+      border: 1px solid rgba(245,215,138,0.65);
+      color: #F5D78A;
+      padding: 3px 8px; border-radius: 6px;
+      font-weight: 800; font-size: 10px; letter-spacing: 0.06em;
+      white-space: nowrap; transform: translate(-50%, -100%);
+      ">${(clubLabel || '').toUpperCase()} · ${Math.round(clubYards)}y</div>`
+    if (landingLabelRef.current) {
+      landingLabelRef.current.setLatLng(labelPos)
+      landingLabelRef.current.setIcon(L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }))
+    } else {
+      landingLabelRef.current = L.marker(labelPos, {
+        interactive: false,
+        icon: L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }),
+      }).addTo(map)
+    }
+
+    return () => { /* keep markers; cleared above when conditions fail */ }
+  }, [clubYards, clubLabel, gps?.lat, gps?.lon])
 
   // Pan to current hole + update single marker (no 36-marker re-render)
   useEffect(() => {
@@ -1167,6 +1226,21 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
   const [result, setResult]         = useState(null)
   const [viewMode, setViewMode]     = useState('distance') // 'distance' | 'map'
 
+  // ─── Bag picker (2026-05-01) ───
+  // Pulls the user's bag once on mount. When a club is picked, HoleMap
+  // draws an expected-landing-zone ring at the player's GPS position
+  // with radius = club.avg_yards.
+  const [myBag, setMyBag]           = useState([])
+  const [bagOpen, setBagOpen]       = useState(false)
+  const [selectedClub, setSelectedClub] = useState(null)
+  useEffect(() => {
+    let alive = true
+    api('/api/clubs/bag').then(d => {
+      if (alive) setMyBag(d?.clubs ?? [])
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+
   // OSM course data: geocoded position, tee coords, green coords
   const [courseGeocoded, setCourseGeocoded] = useState(null)
   const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
@@ -1735,7 +1809,17 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
           {/* Full-screen satellite map */}
-          <HoleMap courseCtx={courseCtx} currentHole={currentHole} gps={gps} geocoded={courseGeocoded} holePositions={holePositions} greenPositions={greenPositions} holeGeometries={holeGeometries} />
+          <HoleMap
+            courseCtx={courseCtx}
+            currentHole={currentHole}
+            gps={gps}
+            geocoded={courseGeocoded}
+            holePositions={holePositions}
+            greenPositions={greenPositions}
+            holeGeometries={holeGeometries}
+            clubYards={selectedClub ? Number(selectedClub.avg_yards) : null}
+            clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
+          />
 
           {/* HUD overlay */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
@@ -1896,6 +1980,178 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       )}
+
+      {/* Bag icon — sits above the SCORECARD pill. Tap to pick a club
+          from the user's bag; the map then draws an expected-landing-
+          zone ring around GPS at radius=club.avg_yards. The button
+          shows the selected club's slot label as a small chip on the
+          right of the icon when a club is active. (2026-05-01) */}
+      {!showCamera && !showPicker && (
+        <button onClick={() => setBagOpen(true)} style={{
+          position: 'absolute',
+          bottom: onGoToScorecard ? 64 : 16, right: 16,
+          background: selectedClub
+            ? 'linear-gradient(135deg, rgba(245,215,138,0.95), rgba(201,160,64,0.95))'
+            : 'rgba(7,12,9,0.85)',
+          border: selectedClub ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(245,215,138,0.40)',
+          borderRadius: 999, padding: '10px 14px',
+          color: selectedClub ? '#0D1F12' : '#F5D78A',
+          fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+          cursor: 'pointer',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.50)',
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          fontFamily: 'inherit',
+          zIndex: 30,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke={selectedClub ? '#0D1F12' : '#F5D78A'} strokeWidth="2.2"
+            strokeLinecap="round" strokeLinejoin="round">
+            {/* Simple bag silhouette */}
+            <path d="M6 9h12v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z"/>
+            <path d="M9 9V5a3 3 0 0 1 6 0v4"/>
+            <line x1="12" y1="3" x2="12" y2="9" />
+          </svg>
+          {selectedClub
+            ? <span>{selectedClub.avg_yards}y</span>
+            : <span>BAG</span>}
+        </button>
+      )}
+
+      {bagOpen && (
+        <BagSheet
+          clubs={myBag}
+          selectedSlot={selectedClub?.slot}
+          onPick={(c) => { setSelectedClub(c); setBagOpen(false) }}
+          onClear={() => { setSelectedClub(null); setBagOpen(false) }}
+          onClose={() => setBagOpen(false)}
+        />
+      )}
     </div>
+  )
+}
+
+// ─── Bag picker bottom-sheet ────────────────────────────────────────────────
+// Lists the user's bag (filled slots only), excluding the putter (no
+// meaningful avg distance). Sorted longest to shortest so the player
+// scans by reach. Tap a row to set as the active landing-zone club;
+// "Clear" wipes the active selection so the ring disappears.
+function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose }) {
+  const SLOT_LABELS = {
+    driver: 'Driver', '3w': '3 Wood', '5w': '5 Wood', '7w': '7 Wood',
+    hybrid_1: 'Hybrid 1', hybrid_2: 'Hybrid 2',
+    iron_3: '3 Iron', iron_4: '4 Iron', iron_5: '5 Iron', iron_6: '6 Iron',
+    iron_7: '7 Iron', iron_8: '8 Iron', iron_9: '9 Iron',
+    pw: 'Pitching Wedge', gw: 'Gap Wedge', sw: 'Sand Wedge', lw: 'Lob Wedge',
+    putter: 'Putter',
+  }
+  const usable = clubs
+    .filter(c => c.slot !== 'putter' && Number.isFinite(Number(c.avg_yards)))
+    .sort((a, b) => Number(b.avg_yards) - Number(a.avg_yards))
+
+  return createPortal(
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 480,
+        maxHeight: '78vh',
+        display: 'flex', flexDirection: 'column',
+        background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+        border: '1px solid rgba(245,215,138,0.25)',
+        borderRadius: '20px 20px 0 0',
+        overflow: 'hidden',
+      }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(245,215,138,0.30)', margin: '12px auto 8px', flexShrink: 0 }} />
+
+        <div style={{
+          padding: '4px 18px 14px', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}>
+          <div>
+            <div style={{ fontSize: 10, color: 'rgba(245,215,138,0.60)', fontWeight: 700, letterSpacing: '0.20em' }}>
+              MY BAG
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginTop: 2 }}>
+              Pick a club for landing zone
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 10, color: 'rgba(255,255,255,0.70)', fontSize: 16,
+            cursor: 'pointer', padding: '4px 10px', height: 32, lineHeight: 1,
+            fontFamily: 'inherit',
+          }}>✕</button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, padding: '8px 12px 12px' }}>
+          {usable.length === 0 && (
+            <div style={{
+              padding: '32px 16px', textAlign: 'center',
+              color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 1.55,
+            }}>
+              Your bag is empty (or no distances saved yet).<br/>
+              Add clubs in the <strong>My Bag</strong> tab to use this picker.
+            </div>
+          )}
+          {usable.map(c => {
+            const active = c.slot === selectedSlot
+            return (
+              <button key={c.slot} onClick={() => onPick(c)} style={{
+                width: '100%', textAlign: 'left',
+                background: active ? 'rgba(245,215,138,0.10)' : 'rgba(255,255,255,0.03)',
+                border: active ? '1px solid rgba(245,215,138,0.55)' : '1px solid rgba(255,255,255,0.06)',
+                borderRadius: 12, padding: '12px 14px',
+                marginBottom: 6,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{
+                    fontSize: 10, color: 'rgba(245,215,138,0.65)', fontWeight: 700,
+                    letterSpacing: '0.10em', textTransform: 'uppercase',
+                  }}>{SLOT_LABELS[c.slot] || c.slot}</div>
+                  <div style={{
+                    fontSize: 14, fontWeight: 800, color: '#fff',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {c.brand} <span style={{ color: 'rgba(255,255,255,0.62)', fontWeight: 600 }}>{c.model}</span>
+                  </div>
+                </div>
+                <div style={{
+                  background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                  color: '#070C09',
+                  padding: '4px 10px', borderRadius: 999,
+                  fontSize: 13, fontWeight: 900, letterSpacing: '-0.01em',
+                  flexShrink: 0,
+                }}>{c.avg_yards}y</div>
+              </button>
+            )
+          })}
+        </div>
+
+        {selectedSlot && (
+          <div style={{
+            padding: '10px 18px calc(10px + env(safe-area-inset-bottom)) 18px',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
+            flexShrink: 0,
+          }}>
+            <button onClick={onClear} style={{
+              width: '100%', padding: '12px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 12,
+              color: 'rgba(255,255,255,0.75)',
+              fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>Clear selection</button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
   )
 }
