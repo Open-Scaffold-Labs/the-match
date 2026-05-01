@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put } from '../lib/api.js'
 import { warn } from '../lib/logger.js'
+// Renamed on import to avoid shadowing the existing local scoreColor(strokes, par)
+// helper used by the Augusta scorecard for per-cell tile colors. The lib helper
+// takes a score-to-par integer (e.g. -2, 0, +1) and returns gold/green/red.
+import { scoreColor as scoreToParColor } from '../lib/scoreColors.js'
 import ActiveRound from './ActiveRound.jsx'
 // Standalone AugustaBoard route was removed 2026-04-30 (Path A) — every
 // match now renders the Augusta scorecard directly via LiveOuting.
@@ -1664,6 +1668,248 @@ function computeMatchPlay(p1, p2, getScores, holePars) {
   return { holeResults, p1HolesUp, played, remaining, dormie }
 }
 
+// ─── Match Scoreboard (Tour-page-style leaderboard view) ─────────────────────
+//
+// The "BOARD" alternative to the Augusta scorecard. Mirrors PGAScores.jsx
+// visually so the user's match scoreboard reads like the live PGA Tour
+// leaderboard — same translucent glass card, same column grid (POS, photo,
+// name, TOT, [TODAY for match-play], THRU), same score colors via the
+// shared scoreColors lib. (2026-05-01 — match-page completion plan, Thread 1)
+//
+// Read-only. Tapping a row asks the parent to switch back to the SCORECARD
+// view focused on that player (handled by the parent via onPlayerTap).
+function MatchScoreboard({
+  participants,            // already-sorted by leaderboardSort
+  positions,               // computed by computePositions()
+  getScores,
+  holePars,
+  holeCount,
+  netMode,
+  isMatchPlay,
+  matchPlayData,
+  diffStr,                 // gross score-to-par for holes played
+  netDiffStr,              // net score-to-par for holes played
+  user,
+  onPlayerTap,             // (userId) => void — jump to scorecard focused on player
+}) {
+  // Match-play TOT for the current row. Only meaningful when isMatchPlay
+  // (2 players + 'match' format). Returns "3UP" / "AS" / "3DN" or null.
+  function matchPlayLabel(p, idx) {
+    if (!isMatchPlay || !matchPlayData) return null
+    const { p1HolesUp, played, remaining } = matchPlayData
+    if (played === 0) return 'AS'
+    // matchPlayData computed against participants[0] vs [1] in original
+    // sort order; positions[idx] is the leaderboard rank from sorted[]
+    // which is the same order used by computeMatchPlay's caller. So
+    // p1HolesUp > 0 means participants[0] is up. We need to know if THIS
+    // row is participant 0 or 1 in that match.
+    const isFirst = String(p.user_id) === String(participants[0].user_id)
+    const myUp = isFirst ? p1HolesUp : -p1HolesUp
+    if (myUp === 0) return 'AS'
+    if (Math.abs(myUp) > remaining && remaining >= 0) {
+      // Match is decided
+      return myUp > 0 ? `${myUp}&${remaining}` : `${-myUp}DN`
+    }
+    return myUp > 0 ? `${myUp}UP` : `${-myUp}DN`
+  }
+
+  // THRU label — number of holes scored, "F" when complete
+  function thruLabel(p) {
+    const played = getScores(p).filter(s => s > 0).length
+    if (played === 0) return '—'
+    if (played >= holeCount) return 'F'
+    return String(played)
+  }
+
+  // Score-to-par numeric (for color lookup) — null when no holes played yet
+  function diffNumeric(p) {
+    const sc = getScores(p)
+    const holesPlayed = sc.map((s, i) => ({ s, i })).filter(x => x.s > 0)
+    if (!holesPlayed.length) return null
+    const parSoFar   = holesPlayed.reduce((sum, x) => sum + (holePars[x.i] || 4), 0)
+    const totalSoFar = holesPlayed.reduce((sum, x) => sum + x.s, 0)
+    const hcp        = netMode ? Math.floor(Math.max(0, parseFloat(p.handicap) || 0)) : 0
+    return totalSoFar - hcp - parSoFar
+  }
+
+  // For match-play matches, TOT shows match-play state and TODAY shows
+  // score-to-par. For everything else, drop the TODAY column entirely so
+  // the player name has more room.
+  const gridTemplate = isMatchPlay
+    ? '28px 44px 1fr 50px 50px 36px'
+    : '28px 44px 1fr 50px 36px'
+
+  return (
+    <div style={{
+      flex: 1, overflowY: 'auto', padding: '12px 16px 24px',
+    }}>
+      {/* Translucent glass card wrapping the whole leaderboard. Same
+          treatment as the Tour page's leaderboard so the visual
+          language stays identical between watching the pros and
+          watching your own match. */}
+      <div style={{
+        background: 'rgba(255,255,255,0.22)',
+        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.45)',
+        borderRadius: 16,
+        padding: '12px 12px 4px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+      }}>
+        {/* Column headers */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: gridTemplate,
+          gap: 4, padding: '0 4px 6px',
+          borderBottom: '1px solid rgba(27,94,59,0.18)',
+          marginBottom: 6,
+        }}>
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
+          <div />
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em' }}>PLAYER</div>
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>{isMatchPlay ? 'MATCH' : 'TOT'}</div>
+          {isMatchPlay && (
+            <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>TODAY</div>
+          )}
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
+        </div>
+
+        {/* Player rows */}
+        {participants.map((p, idx) => {
+          const pos     = positions[idx] || '—'
+          const isMe    = String(p.user_id) === String(user?.id)
+          const numeric = diffNumeric(p)
+          const totDisplay = isMatchPlay
+            ? (matchPlayLabel(p, idx) || '—')
+            : (netMode ? netDiffStr(p) : diffStr(p))
+          const todayDisplay = isMatchPlay
+            ? (netMode ? netDiffStr(p) : diffStr(p))
+            : null
+
+          return (
+            <button
+              key={p.user_id}
+              onClick={() => onPlayerTap?.(p.user_id)}
+              style={{
+                width: '100%',
+                display: 'grid',
+                gridTemplateColumns: gridTemplate,
+                gap: 4, alignItems: 'center',
+                padding: '7px 4px',
+                borderBottom: '1px solid rgba(27,94,59,0.10)',
+                // Leader gold-tint matches Tour page; current user gets
+                // a subtle additional accent (gold-tinted left border).
+                background: idx === 0
+                  ? 'rgba(201,160,64,0.20)'
+                  : 'transparent',
+                borderRadius: idx === 0 ? 8 : 0,
+                borderLeft: isMe ? '3px solid #C9A040' : '3px solid transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                font: 'inherit',
+              }}
+            >
+              {/* Position */}
+              <div style={{
+                textAlign: 'center',
+                fontSize: pos.length > 3 ? 9 : 11,
+                fontWeight: 700,
+                color: idx < 3 ? '#C9A040' : 'rgba(27,94,59,0.50)',
+              }}>
+                {pos}
+              </div>
+
+              {/* Avatar — 38px square, mirrors PGAScores.jsx PlayerPhoto.
+                  We reuse PlayerAvatar (which already handles avatar URL +
+                  initials fallback) but force a square box via a wrapping div
+                  so the look matches the Tour page. */}
+              <div style={{
+                width: 38, height: 38, borderRadius: 10, overflow: 'hidden',
+                background: 'rgba(27,94,59,0.08)',
+                border: '1px solid rgba(27,94,59,0.12)',
+                position: 'relative',
+              }}>
+                {p.avatar ? (
+                  <img
+                    src={p.avatar}
+                    alt={p.name || ''}
+                    style={{
+                      width: '100%', height: '100%',
+                      objectFit: 'cover', objectPosition: 'top center',
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800, color: '#fff',
+                    background: avatarBg(p.name || ''),
+                  }}>{initials(p.name || '') || '·'}</div>
+                )}
+              </div>
+
+              {/* Name + subline (guest tag / handicap) */}
+              <div style={{ minWidth: 0 }}>
+                <div style={{
+                  fontSize: 13, fontWeight: idx < 5 ? 700 : 500,
+                  color: '#0D1F12',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>{p.name}</div>
+                {(p.is_guest || (p.handicap != null && !p.is_guest)) && (
+                  <div style={{
+                    fontSize: 9, color: 'rgba(27,94,59,0.45)', fontWeight: 500,
+                    letterSpacing: '0.02em', marginTop: 1,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {p.is_guest ? 'Guest' : `${parseFloat(p.handicap).toFixed(1)} hcp`}
+                  </div>
+                )}
+              </div>
+
+              {/* TOT (or MATCH label for match-play) */}
+              <div style={{ textAlign: 'center' }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 800,
+                  color: isMatchPlay
+                    ? (totDisplay === 'AS' ? '#1B5E3B' : totDisplay.endsWith('DN') ? '#DC2626' : '#C9A040')
+                    : scoreToParColor(numeric),
+                }}>
+                  {totDisplay}
+                </span>
+              </div>
+
+              {/* TODAY (only for match-play matches) */}
+              {isMatchPlay && (
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{
+                    fontSize: 12, fontWeight: 600,
+                    color: scoreToParColor(numeric),
+                  }}>
+                    {todayDisplay}
+                  </span>
+                </div>
+              )}
+
+              {/* THRU */}
+              <div style={{
+                textAlign: 'center', fontSize: 11,
+                color: thruLabel(p) === 'F' ? 'rgba(27,94,59,0.55)' : 'rgba(27,94,59,0.45)',
+                fontWeight: thruLabel(p) === 'F' ? 700 : 400,
+              }}>
+                {thruLabel(p)}
+              </div>
+            </button>
+          )
+        })}
+
+        {/* Footer */}
+        <div style={{ padding: '12px 4px 4px', color: 'rgba(27,94,59,0.50)', fontSize: 10, textAlign: 'center' }}>
+          Tap a row to score{netMode ? ' · NET' : ''}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
 function LiveOuting({ code, user, onBack, onMatchEnd }) {
   const [outing, setOuting] = useState(null)
@@ -1678,6 +1924,10 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   // Most recent score event — pops a broadcast banner at the top of the
   // board for ~4s when a score is entered. (2026-04-30 PM round 10)
   const [recentEvent, setRecentEvent] = useState(null)
+  // SCORECARD <-> BOARD view toggle (2026-05-01 — match-page completion plan,
+  // Thread 1). null = use auto default (BOARD for 4+ players, else SCORECARD).
+  // Set explicitly when the user taps the toggle.
+  const [viewMode, setViewMode] = useState(null)
 
   const loadOuting = useCallback(async () => {
     try {
@@ -1865,6 +2115,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
     return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
+
+  // SCORECARD <-> BOARD view: explicit user choice if set, else auto-default.
+  // Default to BOARD when there are 4+ players (the wide scorecard gets
+  // visually busy with that many rows), SCORECARD otherwise. The user can
+  // still toggle either way at any time.
+  const effectiveViewMode = viewMode ?? (participants.length >= 4 ? 'board' : 'scorecard')
 
   // Column width constants. The leftmost area of each row is now split into
   // THREE cells: RANK_COL (position badge), AVATAR_COL (square photo box),
@@ -2055,11 +2311,68 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         )
       })()}
 
-      {/* Tournament board frame — outer wood wrapper has a real wood-grain
-          texture (repeating vertical-line gradient over a brown gradient),
-          inner div is the board panel. The gold pinstripe + dark inset
-          rings live on the inner div so they sit just inside the wood.
+      {/* SCORECARD <-> BOARD toggle. Always visible to all participants
+          (host + non-host alike) so anyone can switch from the active
+          scoring surface (scorecard) to the leaderboard read of who's
+          winning (Tour-style board). Default is BOARD for 4+ player
+          matches (where the wide scorecard gets visually busy).
+          (2026-05-01 — match-page completion plan, Thread 1) */}
+      <div style={{ padding: '10px 12px 0', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{
+          display: 'inline-flex',
+          background: 'rgba(255,255,255,0.18)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.30)',
+          borderRadius: 999,
+          padding: 3, gap: 2,
+        }}>
+          <button onClick={() => setViewMode('scorecard')} style={{
+            background: effectiveViewMode === 'scorecard' ? AUGUSTA_GREEN_DEEP : 'transparent',
+            border: 'none', cursor: 'pointer',
+            padding: '6px 18px', borderRadius: 999,
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+            color: effectiveViewMode === 'scorecard' ? '#F5D78A' : 'rgba(255,255,255,0.72)',
+            fontFamily: 'inherit',
+            transition: 'background 120ms ease, color 120ms ease',
+          }}>SCORECARD</button>
+          <button onClick={() => setViewMode('board')} style={{
+            background: effectiveViewMode === 'board' ? AUGUSTA_GREEN_DEEP : 'transparent',
+            border: 'none', cursor: 'pointer',
+            padding: '6px 18px', borderRadius: 999,
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+            color: effectiveViewMode === 'board' ? '#F5D78A' : 'rgba(255,255,255,0.72)',
+            fontFamily: 'inherit',
+            transition: 'background 120ms ease, color 120ms ease',
+          }}>BOARD</button>
+        </div>
+      </div>
+
+      {/* BOARD view — Tour-style leaderboard. Read-only; tapping a row
+          flips back to SCORECARD so the user can enter that player's score. */}
+      {effectiveViewMode === 'board' && (
+        <MatchScoreboard
+          participants={sorted}
+          positions={positions}
+          getScores={getScores}
+          holePars={holePars}
+          holeCount={holeCount}
+          netMode={netMode}
+          isMatchPlay={isMatchPlay}
+          matchPlayData={matchPlayData}
+          diffStr={diffStr}
+          netDiffStr={netDiffStr}
+          user={user}
+          onPlayerTap={() => setViewMode('scorecard')}
+        />
+      )}
+
+      {/* SCORECARD view — Augusta-style table. Tournament board frame:
+          outer wood wrapper has a real wood-grain texture (repeating
+          vertical-line gradient over a brown gradient), inner div is the
+          board panel. The gold pinstripe + dark inset rings live on the
+          inner div so they sit just inside the wood.
           (2026-04-30 PM round 9 — Tier 2 polish, real wood look) */}
+      {effectiveViewMode === 'scorecard' && (
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
         margin: '12px 12px',
@@ -2225,6 +2538,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         </div>
         </div>
       </div>
+      )}
 
       {/* Score entry modal */}
       {scoreModal && (() => {

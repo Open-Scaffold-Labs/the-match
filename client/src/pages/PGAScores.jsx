@@ -1,14 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { scoreColor } from '../lib/scoreColors.js'
 
 const ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
 const REFRESH_MS = 30_000
-
-function scoreColor(val) {
-  if (val == null) return 'rgba(13,31,18,0.40)'
-  if (val < 0)  return '#C9A040'   // under par — gold
-  if (val === 0) return '#1B5E3B'  // even — green
-  return '#DC2626'                  // over par — red
-}
 
 function parseScore(str) {
   if (!str || str === 'E') return 0
