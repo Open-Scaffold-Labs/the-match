@@ -16,8 +16,9 @@ import { createPortal } from 'react-dom'
 import { api, put, del } from '../lib/api.js'
 import { IconBag } from '../components/primitives/Icons.jsx'
 import { SLOTS, SLOT_LABELS, brandsForSlot, modelsForSlot } from '../lib/clubCatalog.js'
+import CoachMark from '../components/CoachMark.jsx'
 
-export default function MyBag() {
+export default function MyBag({ user }) {
   const [clubs, setClubs]       = useState([])  // [{ slot, brand, model }]
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]   = useState(null) // slot key when picker is open
@@ -53,6 +54,12 @@ export default function MyBag() {
       minHeight: '100dvh', display: 'flex', flexDirection: 'column',
       paddingBottom: 100,
     }}>
+      <CoachMark
+        id="bag"
+        user={user}
+        title="Build your bag"
+        body='Tap any slot, pick brand and model from the catalog (or "+ Other" for custom), and enter your average distance. Eagle Eye uses these distances to pick clubs on the course.'
+      />
       {/* Header */}
       <div style={{ padding: '56px 20px 12px' }}>
         <div style={{

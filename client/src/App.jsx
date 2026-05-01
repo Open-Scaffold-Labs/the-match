@@ -152,7 +152,7 @@ export default function App() {
         )}
         {mountedTabs.has(TABS.TOUR) && (
           <TabPanel active={tab === TABS.TOUR}>
-            <PGAScores />
+            <PGAScores user={user} />
           </TabPanel>
         )}
 

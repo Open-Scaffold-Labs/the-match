@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put, del } from '../lib/api.js'
+import CoachMark from '../components/CoachMark.jsx'
 import { warn } from '../lib/logger.js'
 // Renamed on import to avoid shadowing the existing local scoreColor(strokes, par)
 // helper used by the Augusta scorecard for per-cell tile colors. The lib helper
@@ -3943,6 +3944,12 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, onGo
         onOpenOuting={code => { setActiveCode(code); setView('live') }}
         onOpenRivalry={r => { setActiveRivalry(r); setView('rivalry') }}
         onSoloRound={() => setView('solo')}
+      />
+      <CoachMark
+        id="match"
+        user={user}
+        title="Create or join a match"
+        body='Tap "Create" to start a new match, or "Enter a Code" if a friend shared one. Live matches you started can be deleted with a left-swipe.'
       />
       {showJoin && (
         <JoinSheet

@@ -9,6 +9,8 @@ import RoundScorecard from '../components/RoundScorecard.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
 import RoundHistory from '../components/RoundHistory.jsx'
 import AdminUsersModal from '../components/AdminUsersModal.jsx'
+import OnboardingChecklist from '../components/OnboardingChecklist.jsx'
+import CoachMark from '../components/CoachMark.jsx'
 import RivalryHistory from '../components/RivalryHistory.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
@@ -2679,7 +2681,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   )
 }
 
-export default function Home({ onNavigateToOuting }) {
+export default function Home({ onNavigate, onNavigateToOuting }) {
   const [profile, setProfile] = useState(null)
   const [friends, setFriends] = useState({ friends: [], incoming: [], activity: [] })
   const [loading, setLoading] = useState(true)
@@ -2711,6 +2713,11 @@ export default function Home({ onNavigateToOuting }) {
   // Admin-only Users modal — gated on user.role === 'admin'. Surfaced
   // by the gear icon in the home top bar. (2026-05-01)
   const [adminOpen, setAdminOpen] = useState(false)
+  // Onboarding checklist inputs — driven by data the page already
+  // fetches in loadAll(), populated alongside everything else.
+  const [bagClubs, setBagClubs] = useState([])
+  const [availabilityCount, setAvailabilityCount] = useState(0)
+  const [matchCount, setMatchCount] = useState(0)
 
   const refreshFollowCounts = useCallback(async () => {
     try {
@@ -2722,7 +2729,8 @@ export default function Home({ onNavigateToOuting }) {
   async function loadAll() {
     setLoading(true)
     try {
-      const [p, f, g, tr, s, r, fc, riv] = await Promise.all([
+      const month = new Date().toISOString().slice(0, 7)
+      const [p, f, g, tr, s, r, fc, riv, bag, av, mh] = await Promise.all([
         api('/api/profile'),
         api('/api/friends'),
         api('/api/games'),
@@ -2738,6 +2746,12 @@ export default function Home({ onNavigateToOuting }) {
         api('/api/follows/counts').catch(() => null),
         // Rivalries (top H2H records) for the Profile's Rivalries card.
         api('/api/outings/my-rivalries').catch(() => null),
+        // Onboarding-checklist inputs — bag, this month's availability,
+        // recent matches. Failing soft is fine; checklist just shows
+        // unchecked boxes if anything errors.
+        api('/api/clubs/bag').catch(() => null),
+        api(`/api/availability?month=${month}`).catch(() => null),
+        api('/api/outings/recent').catch(() => null),
       ])
       setProfile(p)
       setFriends(f)
@@ -2747,6 +2761,9 @@ export default function Home({ onNavigateToOuting }) {
       setRounds(r?.rounds ?? [])
       setFollowCounts(fc ?? { following: 0, followers: 0, mutuals: 0 })
       setRivalries(riv?.rivalries ?? [])
+      setBagClubs(bag?.clubs ?? [])
+      setAvailabilityCount((av?.mine ?? []).length)
+      setMatchCount((mh?.outings ?? []).length)
     } catch (err) {
       console.error('[Home] load', err)
     }
@@ -2896,6 +2913,31 @@ export default function Home({ onNavigateToOuting }) {
           onStartSeason={handleStartSeason}
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
+        />
+
+        {/* Onboarding checklist — auto-hides once every item is checked
+            or when the user dismisses it. Reads from data the page
+            already loaded; no extra fetches. (2026-05-01) */}
+        <OnboardingChecklist
+          user={user}
+          friends={friends.friends ?? []}
+          clubs={bagClubs}
+          availabilityCount={availabilityCount}
+          matchCount={matchCount}
+          onNavigate={dest => {
+            if (dest === 'profile')      setView('profile')
+            else if (dest === 'bag')     onNavigate?.('bag')
+            else if (dest === 'match')   onNavigate?.('outing')
+          }}
+        />
+
+        {/* First-time coach mark on Home. Persists via /api/onboarding/
+            coach-mark; only ever renders once per user. */}
+        <CoachMark
+          id="home"
+          user={user}
+          title="Welcome home"
+          body="Match invites land here. Your live tee times and AWAITING-tee-time matches show up below the GolfNow card. Tap My Profile (top-right) to dial in your bag."
         />
 
         {/* GolfNow booking card */}

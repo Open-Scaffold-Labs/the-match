@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
 import { log } from '../lib/logger.js'
+import CoachMark from '../components/CoachMark.jsx'
 
 // Module-level cache: keyed by `${courseId}-${teeName}` — survives re-renders,
 // cleared only on page reload. Means switching holes is instant after first load.
@@ -1227,7 +1228,7 @@ function CoursePicker({ onSelect, onClose, gps }) {
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
+export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -1639,6 +1640,13 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
 
   return (
     <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      <CoachMark
+        id="eagle_eye"
+        user={user}
+        title="Eagle Eye is your caddie"
+        body='Pick a course, then use the BAG button (right side) to pick a club. The pulsing yellow target on the map shows where the ball would land. Toggle ▲/▼ to swap clubs.'
+        anchor="top"
+      />
       <style>{`
         @keyframes ee-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ee-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
