@@ -199,7 +199,59 @@ function WindArrow({ deg }) {
 
 // ─── Satellite hole map (Leaflet + ESRI tiles + OSM hole positions) ──────────
 // geocoded, holePositions, greenPositions fetched by parent EagleEye and passed as props
-function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, greenPositions = {} }) {
+// Walk a polyline geometry from its first point and return the
+// {lat, lon} that's `targetYards` along it. Used to place the aim-point
+// default on the fairway centerline (which, on doglegs, isn't on the
+// straight tee→green line). Falls off the end → returns the last point.
+function pointAlongGeometryAtYards(geom, targetYards) {
+  if (!geom || geom.length < 2) return null
+  let accum = 0
+  for (let i = 0; i < geom.length - 1; i++) {
+    const a = geom[i], b = geom[i + 1]
+    const segLen = haversineYards(a, b) || 0
+    if (accum + segLen >= targetYards) {
+      const t = segLen > 0 ? (targetYards - accum) / segLen : 0
+      return {
+        lat: a.lat + (b.lat - a.lat) * t,
+        lon: a.lon + (b.lon - a.lon) * t,
+      }
+    }
+    accum += segLen
+  }
+  const last = geom[geom.length - 1]
+  return { lat: last.lat, lon: last.lon }
+}
+
+// Decide where the aim-point should default to for a given hole.
+// - Par 3 → on the green (dropping the target on the green communicates
+//   "aim at the pin" — golfers go straight at it on a par 3).
+// - Par 4/5 → typical drive landing zone: ~250 yards from the tee, but
+//   leave at least 100 yards short of the green (so we never put the
+//   target on top of the flag for short par 4s).
+// - Walks the OSM hole-way geometry when available (handles doglegs);
+//   otherwise interpolates linearly along the tee→green chord.
+function getDefaultAim({ par, totalYards, teePt, greenPt, geometry }) {
+  if (!teePt || !greenPt) return null
+  if (par === 3) return { lat: greenPt.lat, lon: greenPt.lon }
+
+  // Par 4/5 layup: cap drive at 250y, but never within 100y of the green
+  const targetYards = Math.max(150, Math.min(250, (totalYards || 0) - 100))
+
+  // Prefer geometry-walk so doglegs route through the fairway, not OOB
+  if (geometry && geometry.length >= 2) {
+    const pt = pointAlongGeometryAtYards(geometry, targetYards)
+    if (pt) return pt
+  }
+
+  // Fallback: linear interpolation along the straight tee→green chord
+  const t = totalYards > 0 ? Math.max(0, Math.min(1, targetYards / totalYards)) : 0.6
+  return {
+    lat: teePt.lat + (greenPt.lat - teePt.lat) * t,
+    lon: teePt.lon + (greenPt.lon - teePt.lon) * t,
+  }
+}
+
+function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, greenPositions = {}, holeGeometries = {} }) {
   const containerRef      = useRef(null)
   const mapRef            = useRef(null)
   const markerRef         = useRef(null)   // GPS dot
@@ -402,9 +454,24 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     // defaults to the midpoint of tee→green; the user drags the target
     // marker to reposition it. (2026-05-01 — aim-point feature)
     if (teePt && greenPt) {
-      // Effective aim position: user-set or midpoint default.
-      const aimLat = aimPoint?.lat ?? (teePt.lat + greenPt.lat) / 2
-      const aimLon = aimPoint?.lon ?? (teePt.lon + greenPt.lon) / 2
+      // Effective aim position. If the user has dragged the target, use
+      // their position. Otherwise use the par-aware smart default:
+      //   - par 3  → on the green
+      //   - par 4/5 → drive landing zone along the OSM fairway path
+      //               (cap 250y, never closer than 100y to the green)
+      const holeData      = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)
+      const officialTotal = holeData?.yardage
+      const haversineTotal = Math.round(haversineYards(teePt, greenPt) || 0)
+      const totalYards    = officialTotal ?? haversineTotal
+      const defaultAim    = getDefaultAim({
+        par: holeData?.par,
+        totalYards,
+        teePt,
+        greenPt,
+        geometry: holeGeometries[currentHole],
+      })
+      const aimLat = aimPoint?.lat ?? defaultAim?.lat ?? (teePt.lat + greenPt.lat) / 2
+      const aimLon = aimPoint?.lon ?? defaultAim?.lon ?? (teePt.lon + greenPt.lon) / 2
       const aimLL  = { lat: aimLat, lon: aimLon }
 
       // Polyline tee → aim → green
@@ -424,13 +491,9 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
 
       // Reusable label HTML builder. The bigger pill goes on the
       // aim→green leg (it's the more important "what's left" number);
-      // the smaller pill goes on the tee→aim leg.
-      const officialTotal = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage
-      const haversineTotal = Math.round(haversineYards(teePt, greenPt) || 0)
-      // Use the official yardage as the source of truth for the SUM;
-      // split it proportionally to the actual aim-point position so
-      // segment labels add up to the official total.
-      const totalYards    = officialTotal ?? haversineTotal
+      // the smaller pill goes on the tee→aim leg. totalYards / official
+      // yardage are already computed above for the smart default-aim
+      // calculation; reuse them here so labels add up to the official total.
       const teeToAimRaw   = haversineYards(teePt, aimLL) || 0
       const aimToGreenRaw = haversineYards(aimLL, greenPt) || 0
       const measuredTotal = teeToAimRaw + aimToGreenRaw || 1
@@ -556,7 +619,7 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       if (aimToGreenLabelRef.current) { aimToGreenLabelRef.current.remove(); aimToGreenLabelRef.current = null }
       if (aimMarkerRef.current)       { aimMarkerRef.current.remove();       aimMarkerRef.current = null }
     }
-  }, [currentHole, holePositions, greenPositions, mapReady, aimPoint])
+  }, [currentHole, holePositions, greenPositions, holeGeometries, mapReady, aimPoint])
 
   // Update GPS marker position without panning away from the course
   useEffect(() => {
@@ -1102,6 +1165,12 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
   const [courseGeocoded, setCourseGeocoded] = useState(null)
   const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
   const [greenPositions, setGreenPositions] = useState({}) // { 1: {lat,lon}, ... } greens
+  // Full geometry of each golf=hole way: array of {lat, lon} tracing the
+  // playing line from tee through the fairway to the green. Used for
+  // dogleg-aware aim-point default placement (par 4/5 layup along the
+  // fairway centerline). Empty {} if OSM had no way data for the hole.
+  // (2026-05-01)
+  const [holeGeometries, setHoleGeometries] = useState({})
   const [osmLoading, setOsmLoading]         = useState(false)
 
   const watchIdRef = useRef(null)
@@ -1223,6 +1292,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
     setCourseGeocoded(null)
     setHolePositions({})
     setGreenPositions({})
+    setHoleGeometries({})
     setOsmLoading(true)
 
     const { club_name, city, state } = courseCtx.course
@@ -1234,6 +1304,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
       setCourseGeocoded(cached.geocoded)
       setHolePositions(cached.tees)
       setGreenPositions(cached.greens)
+      setHoleGeometries(cached.geoms || {})
       setOsmLoading(false)
       return
     }
@@ -1244,6 +1315,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
       setCourseGeocoded(stored.geocoded)
       setHolePositions(stored.tees)
       setGreenPositions(stored.greens)
+      setHoleGeometries(stored.geoms || {})
       setOsmLoading(false)
       return
     }
@@ -1288,7 +1360,12 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
             const holeTees = {}, holeGreens = {}
 
             // ── Primary: golf=hole ways (have authoritative ref → hole number) ──
+            // We also keep el.geometry — the full path of {lat,lon} points
+            // tracing the playing line through the fairway. This lets the
+            // aim-point default sit on the fairway centerline even on
+            // doglegs. (2026-05-01)
             const holeWaysByRef = {}
+            const holeGeoms     = {}
             for (const el of osmHoles.elements) {
               if (el.type !== 'way' || el.geometry?.length < 2) continue
               const ref = parseInt(el.tags?.ref)
@@ -1298,7 +1375,8 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
               const last    = el.geometry[el.geometry.length - 1]
               const teePt   = { lat: first.lat, lon: first.lon }
               const greenPt = { lat: last.lat,  lon: last.lon }
-              holeWaysByRef[ref].push({ tee: teePt, green: greenPt, dist: haversineYards(teePt, greenPt) })
+              const geom    = el.geometry.map(p => ({ lat: p.lat, lon: p.lon }))
+              holeWaysByRef[ref].push({ tee: teePt, green: greenPt, dist: haversineYards(teePt, greenPt), geom })
             }
             for (const [refStr, ways] of Object.entries(holeWaysByRef)) {
               const holeNum    = parseInt(refStr)
@@ -1309,6 +1387,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
                 : ways[0]
               holeTees[holeNum]   = picked.tee
               holeGreens[holeNum] = picked.green
+              holeGeoms[holeNum]  = picked.geom
             }
             log('[OSM] golf=hole ways found:', Object.keys(holeTees).length)
 
@@ -1355,10 +1434,11 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
               ordered.forEach((g, i) => { holeGreens[i + 1] = g })
             }
 
-            log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens — gap-fills:', gapFills)
+            log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens,', Object.keys(holeGeoms).length, 'geoms — gap-fills:', gapFills)
             setHolePositions(holeTees)
             setGreenPositions(holeGreens)
-            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens }
+            setHoleGeometries(holeGeoms)
+            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms }
             osmPositionCache.set(cacheKey, cachePayload)
             lsSaveOsm(cacheKey, cachePayload) // persist across page reloads
           })
@@ -1643,7 +1723,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
           {/* Full-screen satellite map */}
-          <HoleMap courseCtx={courseCtx} currentHole={currentHole} gps={gps} geocoded={courseGeocoded} holePositions={holePositions} greenPositions={greenPositions} />
+          <HoleMap courseCtx={courseCtx} currentHole={currentHole} gps={gps} geocoded={courseGeocoded} holePositions={holePositions} greenPositions={greenPositions} holeGeometries={holeGeometries} />
 
           {/* HUD overlay */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
