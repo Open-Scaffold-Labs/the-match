@@ -377,40 +377,39 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   useEffect(() => { setAimPoint(null) }, [currentHole])
 
   // Landing-zone ring — drawn at the player's GPS position with radius
-  // = clubYards. Updates as GPS drifts and as the player swaps clubs.
-  // Removed when no club is selected. (2026-05-01 — Matt: bag picker
-  // shows expected landing zone for the chosen club.)
+  // = clubYards. Destroy-and-recreate on every change so toggling
+  // clubs produces a guaranteed fresh circle (Leaflet's setRadius
+  // sometimes doesn't redraw cleanly when the rotate plugin is active).
+  // (2026-05-01 — Matt: ring updates live as clubs are toggled.)
   useEffect(() => {
     if (!mapRef.current || !window.L) return
     const L = window.L
     const map = mapRef.current
 
-    if (!gps || !Number.isFinite(Number(clubYards)) || clubYards <= 0) {
-      if (landingZoneRef.current) { landingZoneRef.current.remove(); landingZoneRef.current = null }
-      if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
-      return
-    }
+    // Always tear down the previous ring + label first, so there's no
+    // chance of a stale circle hanging around at the old radius.
+    if (landingZoneRef.current) { landingZoneRef.current.remove(); landingZoneRef.current = null }
+    if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
 
-    const radiusMeters = Number(clubYards) * 0.9144
+    if (!gps || !Number.isFinite(Number(clubYards)) || Number(clubYards) <= 0) return
+
+    const yards = Number(clubYards)
+    const radiusMeters = yards * 0.9144
     const center = [gps.lat, gps.lon]
 
-    if (landingZoneRef.current) {
-      landingZoneRef.current.setLatLng(center).setRadius(radiusMeters)
-    } else {
-      landingZoneRef.current = L.circle(center, {
-        radius: radiusMeters,
-        color: '#F5D78A',
-        weight: 2,
-        opacity: 0.85,
-        fillColor: '#C9A040',
-        fillOpacity: 0.08,
-        dashArray: '4 6',
-      }).addTo(map)
-    }
+    landingZoneRef.current = L.circle(center, {
+      radius: radiusMeters,
+      color: '#F5D78A',
+      weight: 2,
+      opacity: 0.85,
+      fillColor: '#C9A040',
+      fillOpacity: 0.08,
+      dashArray: '4 6',
+    }).addTo(map)
 
     // Small label on the north edge of the ring showing the club +
     // distance (e.g. "DRIVER · 245y").
-    const offsetLat = (radiusMeters / 111000) // meters → degrees lat
+    const offsetLat = radiusMeters / 111000  // meters → degrees lat (approx)
     const labelPos  = [gps.lat + offsetLat, gps.lon]
     const labelHtml = `<div style="
       background: rgba(7,12,9,0.85);
@@ -419,18 +418,11 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       padding: 3px 8px; border-radius: 6px;
       font-weight: 800; font-size: 10px; letter-spacing: 0.06em;
       white-space: nowrap; transform: translate(-50%, -100%);
-      ">${(clubLabel || '').toUpperCase()} · ${Math.round(clubYards)}y</div>`
-    if (landingLabelRef.current) {
-      landingLabelRef.current.setLatLng(labelPos)
-      landingLabelRef.current.setIcon(L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }))
-    } else {
-      landingLabelRef.current = L.marker(labelPos, {
-        interactive: false,
-        icon: L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }),
-      }).addTo(map)
-    }
-
-    return () => { /* keep markers; cleared above when conditions fail */ }
+      ">${(clubLabel || '').toUpperCase()} · ${Math.round(yards)}y</div>`
+    landingLabelRef.current = L.marker(labelPos, {
+      interactive: false,
+      icon: L.divIcon({ className: 'lz-label', html: labelHtml, iconSize: [0, 0] }),
+    }).addTo(map)
   }, [clubYards, clubLabel, gps?.lat, gps?.lon])
 
   // Pan to current hole + update single marker (no 36-marker re-render)
