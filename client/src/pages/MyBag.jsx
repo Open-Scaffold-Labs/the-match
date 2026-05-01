@@ -368,32 +368,46 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
   const brands   = brandsForSlot(slot)
   // Putters don't have a meaningful "average distance" so we hide the
   // yardage input entirely for that slot.
-  const showDistance = slot !== 'putter'
+  const showDistance     = slot !== 'putter'
+  const distanceRequired = showDistance
 
-  const [brand, setBrand] = useState(existing?.brand && brands.includes(existing.brand) ? existing.brand : '')
-  const [model, setModel] = useState(existing?.model || '')
-  const [yards, setYards] = useState(existing?.avg_yards != null ? String(existing.avg_yards) : '')
-  const [saving, setSaving] = useState(false)
+  // If the user already saved a custom brand (one not in the catalog),
+  // start in custom mode so they can edit cleanly.
+  const startsCustom = !!(existing?.brand && !brands.includes(existing.brand))
 
-  const models = brand ? modelsForSlot(slot, brand) : []
+  const [custom, setCustom]     = useState(startsCustom) // free-text mode
+  const [brand, setBrand]       = useState(existing?.brand && brands.includes(existing.brand) ? existing.brand : (startsCustom ? existing.brand : ''))
+  const [model, setModel]       = useState(existing?.model || '')
+  const [yards, setYards]       = useState(existing?.avg_yards != null ? String(existing.avg_yards) : '')
+  const [saving, setSaving]     = useState(false)
+
+  const models = (!custom && brand) ? modelsForSlot(slot, brand) : []
 
   function pickBrand(b) {
+    setCustom(false)
     setBrand(b)
     // If switching brand, reset model unless the same model exists in
     // the new brand (rare but possible — e.g., "Apex" across years).
     if (!modelsForSlot(slot, b).includes(model)) setModel('')
   }
 
+  function pickCustom() {
+    setCustom(true)
+    setBrand(existing && !brands.includes(existing.brand) ? existing.brand : '')
+    setModel(existing && !brands.includes(existing.brand) ? existing.model : '')
+  }
+
+  // Save validity — brand + model + (yards if required)
+  const yardsNum = yards.trim() === '' ? null : Number(yards)
+  const yardsOk  = !distanceRequired
+    ? true
+    : (Number.isFinite(yardsNum) && yardsNum > 0 && yardsNum <= 400)
+  const canSave = !!brand.trim() && !!model.trim() && yardsOk
+
   async function save() {
-    if (!brand || !model || saving) return
+    if (!canSave || saving) return
     setSaving(true)
     try {
-      const yardsNum = yards.trim() === '' ? null : Number(yards)
-      const yardsOk  = yardsNum === null || (Number.isFinite(yardsNum) && yardsNum >= 0 && yardsNum <= 400)
-      if (!yardsOk) {
-        setSaving(false)
-        return
-      }
       await onSave(brand.trim(), model.trim(), yardsNum)
     } catch {
       setSaving(false)
@@ -447,7 +461,7 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {brands.map(b => {
-              const active = b === brand
+              const active = !custom && b === brand
               return (
                 <button key={b} onClick={() => pickBrand(b)} style={{
                   background: active ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.06)',
@@ -459,52 +473,104 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
                 }}>{b}</button>
               )
             })}
+            {/* Custom / "not on the list" chip */}
+            <button onClick={pickCustom} style={{
+              background: custom ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.06)',
+              border: custom ? '1px solid rgba(201,160,64,0.65)' : '1px dashed rgba(27,94,59,0.30)',
+              borderRadius: 999,
+              color: custom ? '#070C09' : '#1B5E3B',
+              fontSize: 12, fontWeight: 700,
+              padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>+ Other</button>
           </div>
         </div>
 
-        {/* Model list */}
+        {/* Model area — list when a catalog brand is picked, free-text
+            inputs when the user picked "+ Other" or had a custom value. */}
         <div style={{ padding: '14px 18px 6px', flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>
-            MODEL
-          </div>
-          {!brand && (
-            <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 13, padding: '12px 0' }}>
-              Pick a brand first.
-            </div>
+          {!custom && (
+            <>
+              <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>
+                MODEL
+              </div>
+              {!brand && (
+                <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 13, padding: '12px 0' }}>
+                  Pick a brand or tap <strong>+ Other</strong> to enter your own.
+                </div>
+              )}
+              {brand && models.length === 0 && (
+                <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 13, padding: '12px 0' }}>
+                  No models cataloged for {brand} yet — tap <strong>+ Other</strong> above to enter manually.
+                </div>
+              )}
+              {brand && models.map(m => {
+                const active = m === model
+                return (
+                  <button key={m} onClick={() => setModel(m)} style={{
+                    width: '100%',
+                    background: active ? 'rgba(201,160,64,0.10)' : 'transparent',
+                    border: active ? '1px solid rgba(201,160,64,0.50)' : '1px solid rgba(27,94,59,0.10)',
+                    borderRadius: 10, padding: '10px 14px',
+                    marginBottom: 6,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12' }}>{m}</span>
+                    {active && (
+                      <span style={{ color: '#C9A040', fontSize: 16 }}>✓</span>
+                    )}
+                  </button>
+                )
+              })}
+            </>
           )}
-          {brand && models.length === 0 && (
-            <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 13, padding: '12px 0' }}>
-              No models cataloged for {brand} yet.
-            </div>
+
+          {custom && (
+            <>
+              <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>
+                BRAND (CUSTOM)
+              </div>
+              <input
+                value={brand}
+                onChange={e => setBrand(e.target.value)}
+                placeholder="e.g. Tour Edge"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: 'rgba(27,94,59,0.04)',
+                  border: '1px solid rgba(27,94,59,0.18)',
+                  borderRadius: 12, padding: '12px 14px',
+                  fontSize: 15, fontFamily: 'inherit', color: '#0D1F12',
+                  outline: 'none', marginBottom: 12,
+                }}
+              />
+              <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>
+                MODEL (CUSTOM)
+              </div>
+              <input
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                placeholder="e.g. Hot Launch C524"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: 'rgba(27,94,59,0.04)',
+                  border: '1px solid rgba(27,94,59,0.18)',
+                  borderRadius: 12, padding: '12px 14px',
+                  fontSize: 15, fontFamily: 'inherit', color: '#0D1F12',
+                  outline: 'none',
+                }}
+              />
+            </>
           )}
-          {brand && models.map(m => {
-            const active = m === model
-            return (
-              <button key={m} onClick={() => setModel(m)} style={{
-                width: '100%',
-                background: active ? 'rgba(201,160,64,0.10)' : 'transparent',
-                border: active ? '1px solid rgba(201,160,64,0.50)' : '1px solid rgba(27,94,59,0.10)',
-                borderRadius: 10, padding: '10px 14px',
-                marginBottom: 6,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12' }}>{m}</span>
-                {active && (
-                  <span style={{ color: '#C9A040', fontSize: 16 }}>✓</span>
-                )}
-              </button>
-            )
-          })}
         </div>
 
-        {/* Distance input — only for non-putter slots, only after a
-            model is picked (so the user has something to associate it
-            with). Optional; saves NULL if left blank. */}
+        {/* Distance input — required for all swing slots (everything
+            except the putter). Eagle Eye uses these values to pick a
+            club for shot suggestions, so we don't accept missing data
+            on swing clubs. */}
         {showDistance && model && (
           <div style={{ padding: '6px 18px 14px', flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.08em', marginBottom: 8 }}>
-              AVERAGE DISTANCE <span style={{ fontWeight: 500, color: 'rgba(27,94,59,0.40)', letterSpacing: 0 }}>(optional)</span>
+              AVERAGE DISTANCE <span style={{ color: '#C0392B', fontWeight: 800 }}>*</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
@@ -541,12 +607,12 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
           background: 'rgba(255,255,255,0.65)',
           flexShrink: 0,
         }}>
-          <button onClick={save} disabled={!brand || !model || saving} style={{
+          <button onClick={save} disabled={!canSave || saving} style={{
             width: '100%', padding: '14px',
-            background: (brand && model) ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.07)',
-            color: (brand && model) ? '#070C09' : 'rgba(13,31,18,0.30)',
+            background: canSave ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.07)',
+            color: canSave ? '#070C09' : 'rgba(13,31,18,0.30)',
             border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700,
-            cursor: (brand && model) ? 'pointer' : 'default',
+            cursor: canSave ? 'pointer' : 'default',
             transition: 'all 0.15s', fontFamily: 'inherit',
           }}>{saving ? 'Saving…' : (existing ? 'Save Change' : 'Add to Bag')}</button>
         </div>

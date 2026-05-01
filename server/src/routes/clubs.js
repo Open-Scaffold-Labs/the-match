@@ -42,13 +42,20 @@ router.put('/bag/:slot', async (req, res) => {
     const { brand, model, avg_yards } = req.body || {}
     if (!brand || !model) return res.status(400).json({ error: 'brand and model required' })
 
+    // Distance required for everything except the putter (putter has
+    // no meaningful "average distance"). Eagle Eye uses these values
+    // to pick clubs for shots, so we don't accept null for swing slots.
     let yardsVal = null
+    const distanceRequired = slot !== 'putter'
     if (avg_yards !== undefined && avg_yards !== null && avg_yards !== '') {
       const n = Number(avg_yards)
       if (!Number.isFinite(n) || n < 0 || n > 400) {
         return res.status(400).json({ error: 'avg_yards must be 0-400' })
       }
       yardsVal = Math.round(n)
+    }
+    if (distanceRequired && yardsVal == null) {
+      return res.status(400).json({ error: 'avg_yards required for this slot' })
     }
 
     await db.query(
