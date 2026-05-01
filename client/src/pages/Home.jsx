@@ -1244,11 +1244,18 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 11, letterSpacing: '0.1em', fontWeight: 600, marginBottom: 10 }}>
-        INVITES
+      {/* Heading pill — matches UPCOMING / AWAITING styling so it
+          stays legible against the textured page background. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <div style={{
+          color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+          textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+        }}>
+          INVITES
+        </div>
         <span style={{
-          marginLeft: 8,
-          background: empty ? 'rgba(27,94,59,0.18)' : '#C9A040',
+          background: empty ? 'rgba(27,94,59,0.55)' : '#C9A040',
           color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
         }}>{totalCount}</span>
