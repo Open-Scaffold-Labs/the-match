@@ -79,7 +79,7 @@ router.post('/', async (req, res) => {
 // "Matt Lavin's Match" repeated for every row. (2026-04-30)
 router.get('/recent', async (req, res) => {
   const rows = await db.many(
-    `SELECT o.id, o.code, o.name, o.course_name, o.status,
+    `SELECT o.id, o.code, o.name, o.course_name, o.status, o.host_id,
             o.created_at, o.updated_at,
             (SELECT COUNT(*) FROM tm_outing_participants p WHERE p.outing_id = o.id) AS player_count,
             (SELECT COALESCE(json_agg(u.name ORDER BY u.name), '[]'::json)
@@ -100,6 +100,33 @@ router.get('/recent', async (req, res) => {
       opponent_names: r.opponent_names || [],
     })),
   })
+})
+
+// DELETE /api/outings/:code — only the host can delete, and only while
+// the match is still active (you can't delete a finished match —
+// rivalry stats already point at it). Cascades through participants
+// via the FK (tm_outing_participants ON DELETE CASCADE).
+// (2026-05-01 — Matt: swipe-to-delete on the Match page Live Now strip.)
+router.delete('/:code', async (req, res) => {
+  try {
+    const { code } = req.params
+    const row = await db.one(
+      'SELECT id, host_id, status FROM tm_outings WHERE code = $1',
+      [code]
+    )
+    if (!row) return res.status(404).json({ error: 'Match not found' })
+    if (String(row.host_id) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'Only the host can delete this match' })
+    }
+    if (row.status !== 'active') {
+      return res.status(400).json({ error: 'Only active matches can be deleted' })
+    }
+    await db.query('DELETE FROM tm_outings WHERE id = $1', [row.id])
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[outings/delete]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
 })
 
 // ─── GET /api/outings/rivalry/:opponentId ────────────────────────────────────

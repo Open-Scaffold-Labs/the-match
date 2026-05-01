@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { api, post, put } from '../lib/api.js'
+import { api, post, put, del } from '../lib/api.js'
 import { warn } from '../lib/logger.js'
 // Renamed on import to avoid shadowing the existing local scoreColor(strokes, par)
 // helper used by the Augusta scorecard for per-cell tile colors. The lib helper
@@ -241,9 +241,18 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
             {visibleLive.map(o => (
               <LiveMatchCard
                 key={o.id} o={o}
+                userId={user?.id}
                 onResume={() => onOpenOuting(o.code)}
                 onCopyCode={(e) => onCopyCode(o.code, e)}
                 copied={copiedCode === o.code}
+                onDelete={async () => {
+                  try {
+                    await del(`/api/outings/${o.code}`)
+                    setRecentOutings(prev => prev.filter(x => x.id !== o.id))
+                  } catch (e) {
+                    alert(e?.message || 'Could not delete this match.')
+                  }
+                }}
               />
             ))}
             {hiddenLive > 0 && (
@@ -384,63 +393,173 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
 // ─── Live Match Card (top-of-page strip) ─────────────────────────────────────
 // Big tappable card for in-progress matches. Pulsing dot, prominent
 // "Resume →" label, opponent line, course line, copy-code chip.
-function LiveMatchCard({ o, onResume, onCopyCode, copied }) {
+function LiveMatchCard({ o, userId, onResume, onCopyCode, copied, onDelete }) {
   const opp = fmtOpponents(o.opponent_names)
   // When no opponents have joined yet, the auto-generated match name like
   // "Matt Lavin's Match" reads better as the title with "Waiting for players"
   // than the awkward "You vs Matt Lavin's Match".
   const title = opp ? `You vs ${opp}` : (o.name || 'New match')
   const subtitle = opp ? null : 'Waiting for players'
+
+  // 2026-05-01 — Matt: swipe-left to delete uncompleted matches the
+  // user created. Only the host (creator) can delete, and only while
+  // the match is still active. Non-hosts get the regular tap-to-resume
+  // behavior with no swipe affordance.
+  const canDelete = !!onDelete && userId != null && String(o.host_id) === String(userId)
+  const REVEAL_PX = 88   // how far the card slides left to expose Delete
+  const TRIGGER_PX = 50  // pull threshold to snap to the open state
+
+  const [swipeX, setSwipeX] = useState(0)        // current horizontal offset (negative for left)
+  const [opened, setOpened] = useState(false)    // snapped-open state
+  const [confirming, setConfirming] = useState(false)
+  const startXRef = useRef(null)
+  const startYRef = useRef(null)
+  const movedRef  = useRef(false)
+
+  function onTouchStart(e) {
+    if (!canDelete) return
+    const t = e.touches[0]
+    startXRef.current = t.clientX
+    startYRef.current = t.clientY
+    movedRef.current = false
+  }
+  function onTouchMove(e) {
+    if (!canDelete || startXRef.current == null) return
+    const t = e.touches[0]
+    const dx = t.clientX - startXRef.current
+    const dy = t.clientY - startYRef.current
+    // Only treat as horizontal swipe if dominant axis is X — otherwise
+    // let the page scroll vertically.
+    if (Math.abs(dy) > Math.abs(dx) && !movedRef.current) return
+    movedRef.current = true
+    // Clamp: only allow leftward swipe; cap at -REVEAL_PX
+    const next = Math.max(-REVEAL_PX, Math.min(0, opened ? dx - REVEAL_PX : dx))
+    setSwipeX(next)
+  }
+  function onTouchEnd() {
+    if (!canDelete) return
+    if (swipeX <= -TRIGGER_PX) {
+      setSwipeX(-REVEAL_PX)
+      setOpened(true)
+    } else {
+      setSwipeX(0)
+      setOpened(false)
+    }
+    startXRef.current = null
+    startYRef.current = null
+  }
+  function handleCardClick(e) {
+    // Suppress the resume tap if this was the end of a swipe gesture
+    // or if the card is currently open (the open state's primary
+    // action is the Delete button on the right).
+    if (movedRef.current || opened) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (opened) { setSwipeX(0); setOpened(false) }
+      movedRef.current = false
+      return
+    }
+    onResume?.()
+  }
+
   return (
-    <div onClick={onResume} style={{
-      cursor: 'pointer',
-      background: 'linear-gradient(135deg, rgba(46,158,69,0.18), rgba(255,255,255,0.85))',
-      border: '1.5px solid rgba(46,158,69,0.45)',
-      borderRadius: 16, padding: '14px 16px',
-      marginBottom: 8,
-      boxShadow: '0 4px 20px rgba(46,158,69,0.18), inset 0 1px 0 rgba(255,255,255,0.5)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
-      display: 'flex', alignItems: 'center', gap: 12,
-    }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <span className="tm-live-pulse" style={{
-            width: 8, height: 8, borderRadius: '50%', background: '#2E9E45',
-            boxShadow: '0 0 6px rgba(46,158,69,0.6)',
-          }} />
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#1A6B28', letterSpacing: 1.2, textTransform: 'uppercase' }}>Live</span>
-          <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.50)' }}>· {o.player_count}p</span>
-        </div>
-        <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {subtitle && (
-            <span style={{ color: '#7A5800', fontWeight: 700 }}>{subtitle}</span>
-          )}
-          {o.course_name && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-              </svg>
-              {o.course_name}
-            </span>
-          )}
-          <button onClick={onCopyCode} style={{
-            border: 'none', cursor: 'pointer',
-            background: copied ? 'rgba(46,158,69,0.20)' : 'rgba(122,88,0,0.10)',
-            color: copied ? '#1A6B28' : '#7A5800',
-            fontWeight: 800, fontSize: 11, letterSpacing: 2,
-            padding: '2px 8px', borderRadius: 6,
-            transition: 'background 200ms',
-          }}>
-            {copied ? '✓ Copied' : o.code}
+    <div style={{ position: 'relative', marginBottom: 8, overflow: 'hidden', borderRadius: 16 }}>
+      {/* Red delete affordance behind the card. */}
+      {canDelete && (
+        <div style={{
+          position: 'absolute', top: 0, right: 0, bottom: 0,
+          width: REVEAL_PX,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'linear-gradient(135deg, #B91C1C, #7F1D1D)',
+        }}>
+          <button
+            onClick={async (e) => {
+              e.stopPropagation()
+              if (confirming) {
+                setConfirming(false)
+                await onDelete?.()
+              } else {
+                setConfirming(true)
+                setTimeout(() => setConfirming(false), 3000) // auto-cancel after 3s
+              }
+            }}
+            style={{
+              background: 'transparent', border: 'none',
+              color: '#fff', fontWeight: 800, fontSize: 12,
+              letterSpacing: '0.06em',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+            </svg>
+            {confirming ? 'CONFIRM' : 'DELETE'}
           </button>
         </div>
-      </div>
-      <div style={{ color: '#1A6B28', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
-        Resume →
+      )}
+
+      {/* Card foreground — translates left when swiped. */}
+      <div
+        onClick={handleCardClick}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{
+          cursor: 'pointer',
+          background: 'linear-gradient(135deg, rgba(46,158,69,0.18), rgba(255,255,255,0.85))',
+          border: '1.5px solid rgba(46,158,69,0.45)',
+          borderRadius: 16, padding: '14px 16px',
+          boxShadow: '0 4px 20px rgba(46,158,69,0.18), inset 0 1px 0 rgba(255,255,255,0.5)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', gap: 12,
+          transform: `translateX(${swipeX}px)`,
+          transition: startXRef.current == null ? 'transform 200ms ease' : 'none',
+          touchAction: canDelete ? 'pan-y' : 'auto',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <span className="tm-live-pulse" style={{
+              width: 8, height: 8, borderRadius: '50%', background: '#2E9E45',
+              boxShadow: '0 0 6px rgba(46,158,69,0.6)',
+            }} />
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#1A6B28', letterSpacing: 1.2, textTransform: 'uppercase' }}>Live</span>
+            <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.50)' }}>· {o.player_count}p</span>
+          </div>
+          <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {title}
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {subtitle && (
+              <span style={{ color: '#7A5800', fontWeight: 700 }}>{subtitle}</span>
+            )}
+            {o.course_name && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                </svg>
+                {o.course_name}
+              </span>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); onCopyCode?.(e) }} style={{
+              border: 'none', cursor: 'pointer',
+              background: copied ? 'rgba(46,158,69,0.20)' : 'rgba(122,88,0,0.10)',
+              color: copied ? '#1A6B28' : '#7A5800',
+              fontWeight: 800, fontSize: 11, letterSpacing: 2,
+              padding: '2px 8px', borderRadius: 6,
+              transition: 'background 200ms',
+            }}>
+              {copied ? '✓ Copied' : o.code}
+            </button>
+          </div>
+        </div>
+        <div style={{ color: '#1A6B28', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+          Resume →
+        </div>
       </div>
     </div>
   )
