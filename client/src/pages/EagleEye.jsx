@@ -205,6 +205,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   const markerRef         = useRef(null)   // GPS dot
   const holeMarkerRef     = useRef(null)   // gold tee pin
   const greenMarkerRef    = useRef(null)   // red flag on green
+  const lineRef           = useRef(null)   // white polyline tee → green
+  const distLabelRef      = useRef(null)   // yardage badge at line midpoint
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
 
@@ -294,6 +296,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       markerRef.current = null
       holeMarkerRef.current = null
       greenMarkerRef.current = null
+      lineRef.current = null
+      distLabelRef.current = null
       setMapReady(false)
     }
   }, [geocoded])
@@ -365,6 +369,65 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     } else if (greenMarkerRef.current) {
       greenMarkerRef.current.remove()
       greenMarkerRef.current = null
+    }
+
+    // White polyline + yardage label connecting tee to green — playing-
+    // perspective view (tee at bottom of screen, green at top, line up the
+    // fairway). Mirrors the look of consumer rangefinder apps like
+    // 18Birdies. (2026-05-01)
+    if (teePt && greenPt) {
+      const linePts = [[teePt.lat, teePt.lon], [greenPt.lat, greenPt.lon]]
+      if (lineRef.current) {
+        lineRef.current.setLatLngs(linePts)
+      } else {
+        lineRef.current = L.polyline(linePts, {
+          color: '#fff', weight: 3, opacity: 0.9,
+          dashArray: '8,6',
+          // Thin black halo for contrast on bright satellite imagery
+          // (drawn as a slight opacity layer; Leaflet doesn't have a
+          // built-in stroke-outside, so we'll let the dash + opacity
+          // give the line its readability).
+        }).addTo(mapRef.current)
+      }
+      // Yardage badge at the line midpoint
+      const midLat = (teePt.lat + greenPt.lat) / 2
+      const midLon = (teePt.lon + greenPt.lon) / 2
+      const distYards = Math.round(haversineYards(teePt, greenPt) || 0)
+      const labelHtml = `<div style="
+        background: rgba(7,12,9,0.92);
+        color: #fff;
+        font-weight: 800;
+        font-size: 13px;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(245,215,138,0.55);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.55);
+        white-space: nowrap;
+        line-height: 1.1;
+      ">${distYards}<span style='color: rgba(255,255,255,0.5); font-weight: 600; font-size: 10px; margin-left: 3px;'>YDS</span></div>`
+      const labelIcon = L.divIcon({
+        className: '',
+        html: labelHtml,
+        // Roughly center the badge on the midpoint. Width depends on digit
+        // count but the bg blob handles overflow visually.
+        iconSize:   [60, 22],
+        iconAnchor: [30, 11],
+      })
+      if (distLabelRef.current) {
+        distLabelRef.current.setLatLng([midLat, midLon])
+        distLabelRef.current.setIcon(labelIcon)
+      } else {
+        distLabelRef.current = L.marker([midLat, midLon], {
+          icon: labelIcon,
+          interactive: false,    // don't intercept taps on the badge itself
+          keyboard: false,
+        }).addTo(mapRef.current)
+      }
+    } else {
+      // No tee or no green — drop the line/label if they exist
+      if (lineRef.current) { lineRef.current.remove(); lineRef.current = null }
+      if (distLabelRef.current) { distLabelRef.current.remove(); distLabelRef.current = null }
     }
   }, [currentHole, holePositions, greenPositions, mapReady])
 
