@@ -1296,7 +1296,13 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
     setOsmLoading(true)
 
     const { club_name, city, state } = courseCtx.course
-    const cacheKey = `${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+    // v2 cache: bumped 2026-05-01 when holeGeometries was added to the
+    // payload. Pre-v2 entries lack the geometry array, which means
+    // par 4/5 aim defaults fall back to a straight-line interpolation
+    // and can land OOB on dogleg holes. Bumping the key forces a single
+    // fresh Overpass fetch per (course, tee) combo so the new geometry-
+    // aware behavior kicks in immediately.
+    const cacheKey = `v2-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
 
     // 1️⃣ In-memory cache (survives re-renders within a page session)
     if (osmPositionCache.has(cacheKey)) {
