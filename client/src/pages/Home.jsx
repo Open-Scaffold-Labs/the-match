@@ -6,6 +6,7 @@ import FriendProfile from '../components/FriendProfile.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
 import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
+import RivalryDetail from '../components/RivalryDetail.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -1691,6 +1692,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   // Tap a recent round → open its scorecard. State scoped to this view
   // so closing returns straight to the Profile.
   const [selectedRoundId, setSelectedRoundId] = useState(null)
+  // Tap a rivalry row → open the animated head-to-head face-off modal.
+  const [selectedRivalry, setSelectedRivalry] = useState(null)
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
@@ -1970,11 +1973,23 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   : oppWins > myWins ? '#F87171'
                   : 'rgba(255,255,255,0.50)'
                 return (
-                  <div key={r.opponent_id ?? i} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 16px',
-                    borderBottom: i < top.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                  }}>
+                  <button
+                    key={r.opponent_id ?? i}
+                    onClick={() => setSelectedRivalry(r)}
+                    style={{
+                      width: '100%',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px',
+                      borderBottom: i < top.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      background: 'transparent', border: 'none', textAlign: 'left',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'background 120ms ease',
+                    }}
+                    onMouseDown={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    onMouseUp={e => { e.currentTarget.style.background = 'transparent' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
                     {/* Avatar */}
                     <div style={{
                       width: 40, height: 40, borderRadius: '50%',
@@ -2010,19 +2025,24 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                       </div>
                     </div>
 
-                    {/* W-L-T record */}
-                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                      <div style={{
-                        fontSize: 18, fontWeight: 900, color: recordColor, lineHeight: 1,
-                        fontFamily: '"Arial Black", Arial, sans-serif',
-                        letterSpacing: '-0.02em',
-                      }}>{recordStr}</div>
-                      <div style={{
-                        fontSize: 9, color: 'rgba(255,255,255,0.30)',
-                        letterSpacing: '0.10em', marginTop: 4, fontWeight: 700,
-                      }}>{ties > 0 ? 'W-L-T' : 'W-L'}</div>
+                    {/* W-L-T record + chevron */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{
+                          fontSize: 18, fontWeight: 900, color: recordColor, lineHeight: 1,
+                          fontFamily: '"Arial Black", Arial, sans-serif',
+                          letterSpacing: '-0.02em',
+                        }}>{recordStr}</div>
+                        <div style={{
+                          fontSize: 9, color: 'rgba(255,255,255,0.30)',
+                          letterSpacing: '0.10em', marginTop: 4, fontWeight: 700,
+                        }}>{ties > 0 ? 'W-L-T' : 'W-L'}</div>
+                      </div>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>
@@ -2156,6 +2176,19 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <RoundScorecard
           roundId={selectedRoundId}
           onClose={() => setSelectedRoundId(null)}
+        />
+      )}
+
+      {/* Rivalry head-to-head face-off — opened by tapping a row in the
+          Rivalries card. Animated pop-in with both players' photos +
+          W-L-T + avg scores side-by-side. */}
+      {selectedRivalry && (
+        <RivalryDetail
+          rivalry={selectedRivalry}
+          myName={user?.name}
+          myAvatar={user?.avatar}
+          myHandicap={user?.handicap}
+          onClose={() => setSelectedRivalry(null)}
         />
       )}
     </div>
