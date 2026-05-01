@@ -8,7 +8,9 @@ import FollowPills from '../components/FollowPills.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
-import { HcpBadge, MiniTrendBar, StatTile } from './Stats.jsx'
+// (HcpBadge now embeds the score-trend chart directly so MiniTrendBar
+// is no longer needed here.)
+import { HcpBadge, StatTile } from './Stats.jsx'
 
 // ─── Season helpers ───────────────────────────────────────────────────────────
 function currentSeasonYear() {
@@ -1856,8 +1858,13 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
           </div>
         </div>
 
-        {/* Stats body — handicap badge, tiles, trend, distances, rounds */}
-        <HcpBadge hcp={stats?.handicap ?? user?.handicap ?? null} roundCount={stats?.roundCount} />
+        {/* Stats body — handicap badge (with embedded trend chart),
+            tiles, distances, recent rounds. */}
+        <HcpBadge
+          hcp={stats?.handicap ?? user?.handicap ?? null}
+          roundCount={stats?.roundCount}
+          rounds={rounds}
+        />
 
         {stats && (() => {
           // Coerce numeric fields — Postgres NUMERIC → string via pg.
@@ -1882,7 +1889,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
           )
         })()}
 
-        <MiniTrendBar rounds={rounds} />
+        {/* The standalone MiniTrendBar is removed — its content moved
+            inside HcpBadge above. (2026-05-01 — Matt request) */}
 
         {stats?.topClubs?.length > 0 && (
           <div style={{

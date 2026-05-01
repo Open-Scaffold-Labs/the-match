@@ -10,7 +10,80 @@ function scoreColor(diff) {
 }
 
 // ── Cinematic handicap hero card ──────────────────────────────────────────
-export function HcpBadge({ hcp, roundCount }) {
+// Inline gold-on-dark mini line chart of score-to-par across up to the
+// 10 most recent rounds. Lives inside HcpBadge between the big number
+// row and the rounds/status footer. Dot colors mirror the score-color
+// helper used elsewhere: under-par gold, even cream, over-par warm
+// orange. Renders nothing for fewer than 2 rounds. (2026-05-01)
+function HandicapTrendLine({ rounds }) {
+  const recent = (rounds || []).slice(0, 10)
+  if (recent.length < 2) return null
+
+  // Plot oldest → newest left-to-right
+  const sequence = recent.slice().reverse()
+  const diffs = sequence.map(r => {
+    const sc  = Number(r.score ?? r.total ?? 0)
+    const par = Number(r.course_par ?? 72)
+    return Number.isFinite(sc) && Number.isFinite(par) ? sc - par : 0
+  })
+
+  const W = 280
+  const H = 56
+  const pad = 8
+  const max = Math.max(...diffs, 0)
+  const min = Math.min(...diffs, 0)
+  const range = (max - min) || 1
+  const pts = diffs.map((d, i) => ({
+    x: pad + (i / Math.max(1, diffs.length - 1)) * (W - pad * 2),
+    y: pad + (1 - (d - min) / range) * (H - pad * 2),
+    d,
+  }))
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+
+  // Position of the par (zero) line, only shown when the data crosses zero
+  const showParLine = min < 0 && max > 0
+  const parY = showParLine ? pad + (1 - (0 - min) / range) * (H - pad * 2) : null
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="hcpTrendStroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#C9A040" />
+          <stop offset="100%" stopColor="#F5E070" />
+        </linearGradient>
+        <linearGradient id="hcpTrendFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(232,192,90,0.22)" />
+          <stop offset="100%" stopColor="rgba(232,192,90,0)" />
+        </linearGradient>
+      </defs>
+
+      {/* Soft area fill under the line for visual weight */}
+      <path
+        d={`${path} L${pts[pts.length - 1].x.toFixed(1)},${H - pad} L${pts[0].x.toFixed(1)},${H - pad} Z`}
+        fill="url(#hcpTrendFill)"
+      />
+
+      {/* Par reference line — only when the trend crosses zero */}
+      {parY != null && (
+        <line x1={pad} y1={parY} x2={W - pad} y2={parY}
+          stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="2,3" />
+      )}
+
+      {/* Trend line itself */}
+      <path d={path} fill="none" stroke="url(#hcpTrendStroke)" strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Per-round dots, colored by score-to-par direction */}
+      {pts.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r="2.5"
+          fill={p.d < 0 ? '#F5E070' : p.d === 0 ? '#E8C05A' : '#E8A85A'}
+          stroke="rgba(7,18,9,0.95)" strokeWidth="1.5" />
+      ))}
+    </svg>
+  )
+}
+
+export function HcpBadge({ hcp, roundCount, rounds }) {
   // Coerce — handicap can arrive as a string from Postgres NUMERIC
   // columns via the pg driver. Number() turns "17.0" into 17.0 and
   // null/undefined into NaN; Number.isFinite skips both. Guards against
@@ -23,6 +96,7 @@ export function HcpBadge({ hcp, roundCount }) {
     : hcpNum >= 0
       ? hcpNum.toFixed(1)
       : `+${Math.abs(hcpNum).toFixed(1)}`
+  const trendCount = Math.min((rounds || []).length, 10)
 
   return (
     <div style={{ margin: '0 0 16px', position: 'relative' }}>
@@ -74,6 +148,34 @@ export function HcpBadge({ hcp, roundCount }) {
               </div>
             </div>
           </div>
+
+          {/* Embedded score-trend line chart — last 10 rounds, score-to-par.
+              Only renders when 2+ rounds exist; quietly disappears below
+              that threshold. (2026-05-01 — Matt request) */}
+          {trendCount >= 2 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: 6,
+              }}>
+                <span style={{
+                  fontSize: 9, color: 'rgba(232,192,90,0.65)',
+                  fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                }}>Score Trend</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', fontWeight: 500 }}>
+                  Last {trendCount} round{trendCount === 1 ? '' : 's'}
+                </span>
+              </div>
+              <HandicapTrendLine rounds={rounds} />
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', marginTop: 4,
+                fontSize: 9, color: 'rgba(255,255,255,0.30)', letterSpacing: '0.06em',
+              }}>
+                <span>Older</span>
+                <span>Newer</span>
+              </div>
+            </div>
+          )}
 
           <div style={{
             display: 'flex', gap: 8,
