@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { scoreColor } from '../lib/scoreColors.js'
-import CoachMark from '../components/CoachMark.jsx'
 
 const ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
 // Tour leaderboard refresh cadence. Bumped 30s -> 5min on 2026-05-01 because
@@ -237,12 +236,6 @@ export default function PGAScores({ user }) {
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 90 }}>
-      <CoachMark
-        id="tour"
-        user={user}
-        title="PGA Tour leaderboard"
-        body="Live scoring from this week's Tour event. Tap a player row for hole-by-hole detail. Refreshes every 5 minutes."
-      />
       <style>{`
         @keyframes pulse-dot {
           0%, 100% { opacity: 1; transform: scale(1); }
