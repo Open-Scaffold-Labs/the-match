@@ -436,13 +436,22 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
   const [rivalriesOpen, setRivalriesOpen] = useState(false)
   const [selectedRivalry, setSelectedRivalry] = useState(null)
 
+  // Accept either `friend_id` (FollowList convention) or `id` (rivalry
+  // popup hand-off). Without this fall-back the rivalry-tap nav would
+  // sit forever on a "loading" page since the effect bails before
+  // setLoading(false) runs.
+  const friendId = friendSummary?.friend_id ?? friendSummary?.id ?? null
   useEffect(() => {
-    if (!friendSummary?.friend_id) return
-    api(`/api/friends/${friendSummary.friend_id}/profile`)
+    if (!friendId) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    api(`/api/friends/${friendId}/profile`)
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [friendSummary?.friend_id])
+  }, [friendId])
 
   // Compute the friend's handicap-display string with the same convention
   // used elsewhere: high cap → "17.0", plus cap → "+3.5".
