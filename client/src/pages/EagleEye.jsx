@@ -209,6 +209,9 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   const distLabelRef      = useRef(null)   // yardage badge at line midpoint
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
+  // Debug: surface what the rotation system actually did so we can verify
+  // course-up orientation is being applied. (2026-05-01)
+  const [debugInfo, setDebugInfo] = useState(null)
 
   // Load Leaflet from CDN and init map — only once geocoded location is known
   useEffect(() => {
@@ -327,9 +330,26 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     // setBearing(b) puts compass bearing b at the top of the screen.
     // leaflet-rotate applies CSS rotateZ(-b), which places bearing b at the top.
     // "course-up": green at top → bearing = direction from tee to green.
+    let bearingApplied = null
+    let bearingActual = null
+    const expectedBearing = teePt && greenPt ? calcBearing(teePt, greenPt) : null
     if (teePt && greenPt && typeof mapRef.current.setBearing === 'function') {
-      mapRef.current.setBearing(calcBearing(teePt, greenPt))
+      mapRef.current.setBearing(expectedBearing)
+      bearingApplied = expectedBearing
+      bearingActual = typeof mapRef.current.getBearing === 'function'
+        ? mapRef.current.getBearing()
+        : 'no-getter'
     }
+    setDebugInfo({
+      hasSetBearing: typeof mapRef.current.setBearing === 'function',
+      expected:   expectedBearing != null ? Math.round(expectedBearing) : null,
+      applied:    bearingApplied  != null ? Math.round(bearingApplied)  : null,
+      actual:     typeof bearingActual === 'number' ? Math.round(bearingActual) : bearingActual,
+      teeLat:     teePt?.lat?.toFixed(5) ?? null,
+      teeLon:     teePt?.lon?.toFixed(5) ?? null,
+      greenLat:   greenPt?.lat?.toFixed(5) ?? null,
+      greenLon:   greenPt?.lon?.toFixed(5) ?? null,
+    })
 
     const L = window.L
 
@@ -389,10 +409,17 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
           // give the line its readability).
         }).addTo(mapRef.current)
       }
-      // Yardage badge at the line midpoint
+      // Yardage badge at the line midpoint. PREFER the official course-data
+      // yardage (matches the HOLE 1 · 340y · Par 4 card and the scorecard);
+      // fall back to the GPS-haversine distance only when no official
+      // yardage exists. The two can disagree by 20-40y because the OSM
+      // tee/green positions are point estimates, while the official
+      // yardage measures from the actual back-tee marker to the center
+      // of the green. (2026-05-01 — bug fix per Matt feedback)
       const midLat = (teePt.lat + greenPt.lat) / 2
       const midLon = (teePt.lon + greenPt.lon) / 2
-      const distYards = Math.round(haversineYards(teePt, greenPt) || 0)
+      const officialYardage = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage
+      const distYards = officialYardage ?? Math.round(haversineYards(teePt, greenPt) || 0)
       const labelHtml = `<div style="
         background: rgba(7,12,9,0.92);
         color: #fff;
@@ -488,6 +515,24 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F5D78A', boxShadow: '0 0 6px #F5D78A' }} />
         <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>Your position</span>
       </div>
+      {/* Debug overlay — shows the rotation-state for one screenshot
+          loop so we can confirm leaflet-rotate is wired correctly.
+          Remove after orientation is verified. (2026-05-01) */}
+      {debugInfo && (
+        <div style={{
+          position: 'absolute', top: 90, left: 12, zIndex: 1000,
+          background: 'rgba(0,0,0,0.85)', color: '#fff', borderRadius: 6,
+          padding: '6px 10px', fontFamily: 'ui-monospace, Menlo, monospace',
+          fontSize: 10, lineHeight: 1.4, maxWidth: 220,
+        }}>
+          <div>setBearing: {debugInfo.hasSetBearing ? '✓ available' : '✗ MISSING'}</div>
+          <div>expected: {debugInfo.expected != null ? `${debugInfo.expected}°` : '—'}</div>
+          <div>applied: {debugInfo.applied != null ? `${debugInfo.applied}°` : '—'}</div>
+          <div>actual (getBearing): {debugInfo.actual != null ? (typeof debugInfo.actual === 'number' ? `${debugInfo.actual}°` : debugInfo.actual) : '—'}</div>
+          {debugInfo.teeLat && <div>tee:   {debugInfo.teeLat}, {debugInfo.teeLon}</div>}
+          {debugInfo.greenLat && <div>green: {debugInfo.greenLat}, {debugInfo.greenLon}</div>}
+        </div>
+      )}
     </div>
   )
 }
