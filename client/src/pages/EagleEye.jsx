@@ -1984,7 +1984,6 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
           bag={myBag}
           selected={selectedClub}
           targetYards={displayYards}
-          bottomOffset={onGoToScorecard ? 64 : 16}
           onSelect={setSelectedClub}
           onClear={() => setSelectedClub(null)}
           onOpenSheet={() => setBagOpen(true)}
@@ -2011,7 +2010,7 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
 // ▼ (shorter club). Each ▲/▼ tap re-selects, which feeds the
 // landing-zone ring on the map. Center button = open the full bag
 // sheet for browsing. (2026-05-01)
-function ClubToggle({ bag = [], selected, targetYards, bottomOffset = 16, onSelect, onClear, onOpenSheet }) {
+function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpenSheet }) {
   const usable = bag
     .filter(c => c.slot !== 'putter' && Number.isFinite(Number(c.avg_yards)))
     .sort((a, b) => Number(a.avg_yards) - Number(b.avg_yards)) // shortest → longest
@@ -2041,7 +2040,8 @@ function ClubToggle({ bag = [], selected, targetYards, bottomOffset = 16, onSele
     return (
       <button onClick={recommend} style={{
         position: 'absolute',
-        bottom: bottomOffset, right: 16,
+        top: '50%', right: 16,
+        transform: 'translateY(-50%)',
         background: 'rgba(7,12,9,0.85)',
         border: '1px solid rgba(245,215,138,0.40)',
         borderRadius: 999, padding: '10px 14px',
@@ -2093,7 +2093,8 @@ function ClubToggle({ bag = [], selected, targetYards, bottomOffset = 16, onSele
   return (
     <div style={{
       position: 'absolute',
-      bottom: bottomOffset, right: 16,
+      top: '50%', right: 16,
+      transform: 'translateY(-50%)',
       display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
       zIndex: 1000,
     }}>
