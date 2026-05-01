@@ -960,6 +960,13 @@ function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
       holeYardages: (tee.holes || []).map(h => h.yardage),
       holeHandicaps:(tee.holes || []).map(h => h.handicap),
       coursePar:   tee.par_total,
+      // Tee rating + slope from GolfCourseAPI. Captured here so the
+      // match-end handler can write a USGA-method differential into
+      // the tm_rounds row. Falls back to par-based differential when
+      // these are absent (free tier / unrated course).
+      // (2026-05-01)
+      courseRating: tee.course_rating ?? null,
+      slopeRating:  tee.slope_rating ?? null,
     })
     // Parallel emission of the full {course, tee} pair so the App-level
     // sharedCourse can be updated for cross-tab sync with EagleEye.
@@ -1139,6 +1146,9 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       holeYardages:  slim?.holeYardages ?? null,
       holeHandicaps: slim?.holeHandicaps ?? null,
       coursePar:     slim?.coursePar ?? null,    // computed from picked tee's par_total when set
+      // Rating + slope (captured by CoursePicker when the tee carries them)
+      courseRating: null,
+      slopeRating:  null,
     }
   })
   const [loading, setLoading] = useState(false)
@@ -1167,6 +1177,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         holePars:      slicedPars,
         holeYardages:  slice(form.holeYardages),
         holeHandicaps: slice(form.holeHandicaps),
+        // Tee rating + slope (paid-tier USGA handicap inputs). Server
+        // stores nulls when the picked tee didn't carry them.
+        courseRating:  form.courseRating ?? null,
+        slopeRating:   form.slopeRating  ?? null,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1203,6 +1217,8 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
             holeYardages:  picked.holeYardages,
             holeHandicaps: picked.holeHandicaps,
             coursePar:     picked.coursePar,
+            courseRating:  picked.courseRating ?? null,
+            slopeRating:   picked.slopeRating  ?? null,
           }))}
           onClear={() => setForm(f => ({
             ...f,
@@ -1212,6 +1228,8 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
             holeYardages:  null,
             holeHandicaps: null,
             coursePar:     null,
+            courseRating:  null,
+            slopeRating:   null,
           }))}
           onTypedName={text => set('courseName', text)}
           onCourseTeeSelected={onCourseSelected}

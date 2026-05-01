@@ -18,6 +18,10 @@ router.post('/', async (req, res) => {
     name, courseName, coursePar, scoringFormats, teamFormat, pointMethod,
     // New (2026-04-30): real per-hole course data from the create-wizard course picker
     courseId, courseTee, holePars, holeYardages, holeHandicaps,
+    // New (2026-05-01): tee rating + slope from the picker. Captured when
+    // the tee carries them (paid tier / GolfCourseAPI-sourced courses);
+    // null otherwise — handicap then falls back to par-based differentials.
+    courseRating, slopeRating,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -35,9 +39,10 @@ router.post('/', async (req, res) => {
     `INSERT INTO tm_outings (
        code, name, host_id, course_name, course_par,
        team_format, point_method, scoring_formats, state,
-       course_id, course_tee, hole_pars, hole_yardages, hole_handicaps
+       course_id, course_tee, hole_pars, hole_yardages, hole_handicaps,
+       course_rating, slope_rating
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING *`,
     [
       code, name, req.user.id,
@@ -49,6 +54,8 @@ router.post('/', async (req, res) => {
       Array.isArray(holePars)      ? JSON.stringify(holePars)      : null,
       Array.isArray(holeYardages)  ? JSON.stringify(holeYardages)  : null,
       Array.isArray(holeHandicaps) ? JSON.stringify(holeHandicaps) : null,
+      Number.isFinite(Number(courseRating)) ? Number(courseRating) : null,
+      Number.isFinite(Number(slopeRating))  ? Number(slopeRating)  : null,
     ]
   )
 
@@ -429,6 +436,53 @@ router.post('/:code/end', async (req, res) => {
     }
 
     await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])
+
+    // Emit a tm_rounds row for every non-guest participant whose scores
+    // are valid (9+ holes, every hole > 0). Idempotent via the
+    // UNIQUE(user_id, outing_id) index from migration 008. Each insert
+    // also fires a handicap recompute so the user's index updates
+    // immediately when they cross the 5-completed-rounds threshold.
+    // (2026-05-01 — fix for "matches don't show in recent rounds")
+    try {
+      const { maybeUpdateUserHandicap } = require('../lib/handicap')
+      for (const p of dbParticipants) {
+        // tm_outing_participants only carries rows for real users —
+        // guests live in tm_outings.state JSON only and never make
+        // it into the dbParticipants list. So a NOT NULL user_id
+        // check is sufficient.
+        if (!p.user_id) continue
+        const scores = Array.isArray(p.scores) ? p.scores : (() => { try { return JSON.parse(p.scores ?? '[]') } catch { return [] } })()
+        if (!Array.isArray(scores) || scores.length < 9) continue
+        if (!scores.every(s => s != null && Number(s) > 0)) continue
+        const total = Number(p.total)
+        if (!Number.isFinite(total) || total <= 0) continue
+        await db.query(
+          `INSERT INTO tm_rounds (
+             user_id, outing_id, course_name, course_par,
+             course_rating, slope_rating, game_type, scores, total, date
+           )
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+           ON CONFLICT (user_id, outing_id) DO NOTHING`,
+          [
+            p.user_id, outing.id,
+            outing.course_name || 'Match',
+            outing.course_par,
+            outing.course_rating ?? null,
+            outing.slope_rating ?? null,
+            (outing.scoring_formats?.[0] ?? 'stroke'),
+            JSON.stringify(scores),
+            total,
+          ]
+        )
+        // Fire-and-forget per-user handicap recompute. Errors logged in helper.
+        maybeUpdateUserHandicap(p.user_id)
+      }
+    } catch (e) {
+      console.error('[outings/end] round-emit failed:', e.message)
+      // Don't fail the whole end-match response over this — the match is
+      // already closed; the user can re-trigger the rounds backfill via
+      // a future migration if necessary.
+    }
 
     // Build summary for winner ceremony
     const coursePar = outing.course_par ?? 72
