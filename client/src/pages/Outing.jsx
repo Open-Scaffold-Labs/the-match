@@ -1295,6 +1295,18 @@ function cellColor(score, par, isSubtotal) {
   return score - par < 0 ? AUGUSTA_RED : AUGUSTA_INK
 }
 
+// Border helper used by ScoreModal's quick-pick chips. The Augusta cells
+// don't really need this anymore (they share borders), but ScoreModal still
+// references it to color-code the picked chip. (2026-04-30 PM round 7
+// regression fix — was removed in round 5 but ScoreModal still called it.)
+function cellBorder(score, par) {
+  if (!score || !par) return '1px solid rgba(0,0,0,0.20)'
+  const d = score - par
+  if (d <= -1) return `1.5px solid ${AUGUSTA_RED}`
+  if (d >= 1)  return `1.5px solid ${AUGUSTA_INK}`
+  return '1px solid rgba(0,0,0,0.30)'
+}
+
 // Single scorecard cell — tappable by host for any player, or by self.
 // Borders use only `borderLeft` so adjacent cells share a single 1px line
 // (matches the header rows' borderLeft scheme; otherwise body cells stacked
