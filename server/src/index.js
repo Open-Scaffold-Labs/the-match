@@ -42,6 +42,7 @@ app.use('/api/follows',      require('./routes/follows'))
 app.use('/api/games',        require('./routes/games'))
 app.use('/api/availability', require('./routes/availability'))
 app.use('/api/courses',     require('./routes/courses'))
+app.use('/api/clubs',        require('./routes/clubs'))
 
 // — 404 fallback —
 app.use((req, res) => res.status(404).json({ error: 'Not found' }))
