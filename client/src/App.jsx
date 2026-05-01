@@ -8,6 +8,7 @@ import Outing from './pages/Outing.jsx'
 import MyBag from './pages/MyBag.jsx'
 import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
+import OnboardingWizard from './components/OnboardingWizard.jsx'
 import { getToken } from './lib/api.js'
 
 
@@ -78,6 +79,21 @@ export default function App() {
 
   if (loading) return <Splash />
   if (!user)   return <Login onLogin={setUser} />
+
+  // First-run onboarding gate. Blocks the rest of the app until the
+  // user has finished the four mandatory steps (welcome / handicap /
+  // home_course / first_club). Step 5 (friend) is opt-in; the wizard
+  // calls onComplete after the user finishes or skips it, which sets
+  // onboarding_completed_at server-side.
+  if (!user.onboarding_completed_at) {
+    return (
+      <OnboardingWizard
+        user={user}
+        onUserUpdate={setUser}
+        onComplete={() => setUser(u => ({ ...u, onboarding_completed_at: new Date().toISOString() }))}
+      />
+    )
+  }
 
   return (
     <div style={{

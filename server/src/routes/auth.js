@@ -35,7 +35,7 @@ router.post('/signup', authLimiter, async (req, res) => {
     const hash = await bcrypt.hash(pin, 10)
     const user = await db.one(
       `INSERT INTO tm_users (email, name, pin_hash) VALUES ($1, $2, $3)
-       RETURNING id, email, name, role`,
+       RETURNING id, email, name, role, onboarding_completed_at, onboarding_steps, coach_marks_seen`,
       [email.toLowerCase(), name.trim(), hash]
     )
     res.status(201).json({ token: mintToken(user.id), user })
@@ -74,7 +74,7 @@ router.get('/me', async (req, res) => {
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
   try {
     const { sub } = jwt.verify(header.slice(7), process.env.JWT_SECRET)
-    const user = await db.one('SELECT id, email, name, role FROM tm_users WHERE id = $1', [sub])
+    const user = await db.one('SELECT id, email, name, role, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [sub])
     if (!user) return res.status(401).json({ error: 'Not found' })
     res.json({ user })
   } catch {

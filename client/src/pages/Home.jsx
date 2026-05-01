@@ -8,6 +8,7 @@ import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
 import RoundHistory from '../components/RoundHistory.jsx'
+import AdminUsersModal from '../components/AdminUsersModal.jsx'
 import RivalryHistory from '../components/RivalryHistory.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
@@ -2707,6 +2708,9 @@ export default function Home({ onNavigateToOuting }) {
   // every time the user follows/unfollows from inside the FollowList
   // overlay (passed down as onCountsChange). (2026-05-01 — follow Phase 1)
   const [followCounts, setFollowCounts] = useState({ following: 0, followers: 0, mutuals: 0 })
+  // Admin-only Users modal — gated on user.role === 'admin'. Surfaced
+  // by the gear icon in the home top bar. (2026-05-01)
+  const [adminOpen, setAdminOpen] = useState(false)
 
   const refreshFollowCounts = useCallback(async () => {
     try {
@@ -2856,12 +2860,32 @@ export default function Home({ onNavigateToOuting }) {
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>The Match</div>
-        <button onClick={() => setView('profile')} style={{
-          background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
-          borderRadius: 10, color: '#1B5E3B', fontSize: 12,
-          padding: '7px 12px', cursor: 'pointer',
-        }}>My Profile</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Admin gear — only renders for users with role='admin'. Opens
+              a modal listing every account in the system, newest first.
+              (2026-05-01 — Matt: see test friends as they sign up.) */}
+          {user?.role === 'admin' && (
+            <button onClick={() => setAdminOpen(true)} aria-label="Admin" style={{
+              background: 'linear-gradient(135deg, rgba(245,215,138,0.20), rgba(201,160,64,0.12))',
+              border: '1px solid rgba(201,160,64,0.50)',
+              borderRadius: 10, padding: '6px 8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              height: 32,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+            </button>
+          )}
+          <button onClick={() => setView('profile')} style={{
+            background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
+            borderRadius: 10, color: '#1B5E3B', fontSize: 12,
+            padding: '7px 12px', cursor: 'pointer',
+          }}>My Profile</button>
+        </div>
       </div>
+      {adminOpen && <AdminUsersModal onClose={() => setAdminOpen(false)} />}
 
       <div style={{ padding: '0 16px' }}>
         {/* Profile hero */}
