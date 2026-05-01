@@ -33,6 +33,17 @@ export default function App() {
   //   land back on Eye, currentHole = N+1
   // (2026-05-01 — Match-page completion plan extension)
   const [eyeHoleNudge, setEyeHoleNudge] = useState(null)
+  // Cross-tab course context. Single source of truth for "which course is
+  // currently selected" across EagleEye and Match. Stored as the full
+  // {course, tee} pair so both tabs can render their own UIs from it.
+  // Writes from three places:
+  //   1. EagleEye picker -> onCourseSelected
+  //   2. CreateWizard CoursePicker -> onCourseSelected
+  //   3. LiveOuting first-load with course_id -> onCourseSelected
+  // The first-load-only rule on (3) means the user can pick a different
+  // course on Eye for "what if" exploration mid-match without the live
+  // match's polling re-snapping Eye back. (2026-05-01)
+  const [sharedCourse, setSharedCourse] = useState(null)
 
   useEffect(() => {
     // Check for token in URL fragment (post-auth bounce). After parsing,
@@ -101,6 +112,8 @@ export default function App() {
               onGoToScorecard={() => setTab(TABS.OUTING)}
               eyeHoleNudge={eyeHoleNudge}
               onConsumeEyeHoleNudge={() => setEyeHoleNudge(null)}
+              sharedCourse={sharedCourse}
+              onCourseSelected={setSharedCourse}
             />
           </TabPanel>
         )}
@@ -111,6 +124,8 @@ export default function App() {
               pendingPlayers={pendingOutingPlayers}
               onClearPending={() => setPendingOutingPlayers([])}
               onGoToEagleEye={hole => { setEyeHoleNudge(hole); setTab(TABS.EYE) }}
+              sharedCourse={sharedCourse}
+              onCourseSelected={setSharedCourse}
             />
           </TabPanel>
         )}

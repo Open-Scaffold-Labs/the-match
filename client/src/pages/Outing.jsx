@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put } from '../lib/api.js'
 import { warn } from '../lib/logger.js'
@@ -895,7 +895,7 @@ const TEAMS = [
 // course detail and lets them choose a tee; the resulting hole_pars[] flows
 // up to the wizard via onPick. Includes a "type your own" fallback for
 // courses that aren't in the API. (2026-04-30)
-function CoursePicker({ value, onPick, onClear, onTypedName }) {
+function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
@@ -961,6 +961,10 @@ function CoursePicker({ value, onPick, onClear, onTypedName }) {
       holeHandicaps:(tee.holes || []).map(h => h.handicap),
       coursePar:   tee.par_total,
     })
+    // Parallel emission of the full {course, tee} pair so the App-level
+    // sharedCourse can be updated for cross-tab sync with EagleEye.
+    // (2026-05-01)
+    onCourseTeeSelected?.({ course: openCourse, tee })
     setQuery('')
     setResults([])
     setOpenCourse(null)
@@ -1098,21 +1102,44 @@ function CoursePicker({ value, onPick, onClear, onTypedName }) {
   )
 }
 
-function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
+// Derive the slim form-friendly course shape from the App-level
+// sharedCourse {course, tee} pair. Used by CreateWizard's initial state
+// when the user navigates here with a course already selected from
+// EagleEye or a previous match. (2026-05-01)
+function deriveSlimFromSharedCourse(sc) {
+  if (!sc?.course || !sc?.tee) return null
+  const holes = sc.tee.holes || []
+  return {
+    courseId:      sc.course.id,
+    courseName:    sc.course.club_name || sc.course.course_name,
+    courseTee:     sc.tee.tee_name,
+    holePars:      holes.map(h => h.par),
+    holeYardages:  holes.map(h => h.yardage),
+    holeHandicaps: holes.map(h => h.handicap),
+    coursePar:     sc.tee.par_total,
+  }
+}
+
+function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCourse = null, onCourseSelected }) {
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState({
-    name: '',
-    courseName: '',
-    format: 'stroke',
-    team: 'individual',
-    holes: 18,
-    // Real course data captured by the picker; null when host opts out
-    courseId: null,
-    courseTee: null,
-    holePars: null,
-    holeYardages: null,
-    holeHandicaps: null,
-    coursePar: null,    // computed from picked tee's par_total when set
+  const [form, setForm] = useState(() => {
+    // Pre-fill from sharedCourse so the wizard opens with a course
+    // already selected when the user got here via EagleEye -> Scorecard.
+    const slim = deriveSlimFromSharedCourse(sharedCourse)
+    return {
+      name: '',
+      courseName: slim?.courseName || '',
+      format: 'stroke',
+      team: 'individual',
+      holes: 18,
+      // Real course data captured by the picker; null when host opts out
+      courseId:      slim?.courseId ?? null,
+      courseTee:     slim?.courseTee ?? null,
+      holePars:      slim?.holePars ?? null,
+      holeYardages:  slim?.holeYardages ?? null,
+      holeHandicaps: slim?.holeHandicaps ?? null,
+      coursePar:     slim?.coursePar ?? null,    // computed from picked tee's par_total when set
+    }
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -1187,6 +1214,7 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [] }) {
             coursePar:     null,
           }))}
           onTypedName={text => set('courseName', text)}
+          onCourseTeeSelected={onCourseSelected}
         />
       </div>
       <div>
@@ -1939,7 +1967,7 @@ function MatchScoreboard({
 }
 
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
-function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye }) {
+function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
   const [outing, setOuting] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showTeams, setShowTeams] = useState(false)
@@ -1987,6 +2015,47 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye }) {
       setShowTeams(true)
     }
   }, [outing?.id])
+
+  // First-load course sync to App.jsx's sharedCourse. Fires once per
+  // outing.id (the ref guards against the 5s polling re-firing). Fetches
+  // the full course detail, matches the saved tee by name, and pushes the
+  // {course, tee} pair up so EagleEye can auto-load it. Skipped when the
+  // outing has no course_id (legacy match created without a real course)
+  // or when sharedCourse already matches (avoids redundant fetches).
+  // (2026-05-01)
+  const courseSyncedForOutingRef = useRef(null)
+  useEffect(() => {
+    if (!outing?.id) return
+    if (!outing.course_id) return                   // no real course on this match
+    if (!onCourseSelected) return                   // parent didn't wire the callback
+    if (courseSyncedForOutingRef.current === outing.id) return  // already synced this outing
+    if (sharedCourse?.course?.id === outing.course_id
+        && sharedCourse?.tee?.tee_name === outing.course_tee) {
+      // App already has the right course. Mark synced so polling doesn't
+      // retry, and skip the fetch.
+      courseSyncedForOutingRef.current = outing.id
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const detail = await api(`/api/courses/${outing.course_id}`)
+        if (cancelled) return
+        // Find the saved tee in the male/female arrays. The CoursePicker
+        // stores the chosen tee by tee_name only (not gender), so search
+        // both. Fallback to the first male tee if nothing matches.
+        const allTees = [...(detail.tees?.male || []), ...(detail.tees?.female || [])]
+        const tee = allTees.find(t => t.tee_name === outing.course_tee) || allTees[0] || null
+        if (!tee) return
+        onCourseSelected({ course: detail, tee })
+        courseSyncedForOutingRef.current = outing.id
+      } catch (e) {
+        warn('[course-sync]', e?.message)
+      }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outing?.id, outing?.course_id, outing?.course_tee])
 
   async function addGuest(name) {
     try {
@@ -3608,7 +3677,7 @@ function CodeShare({ outing, onEnter }) {
 }
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
-export default function Outing({ user, pendingPlayers = [], onClearPending, onGoToEagleEye }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -3636,6 +3705,8 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, onGo
       onBack={() => setView('hub')}
       onMatchEnd={summary => { setEndSummary(summary); setView('end') }}
       onGoToEagleEye={onGoToEagleEye}
+      sharedCourse={sharedCourse}
+      onCourseSelected={onCourseSelected}
     />
   )
   if (view === 'end' && endSummary) return (
@@ -3678,6 +3749,8 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, onGo
         <CreateWizard
           user={user}
           pendingPlayers={pendingPlayers}
+          sharedCourse={sharedCourse}
+          onCourseSelected={onCourseSelected}
           onClose={() => { setShowCreate(false); onClearPending?.() }}
           onCreated={o => {
             setShowCreate(false)

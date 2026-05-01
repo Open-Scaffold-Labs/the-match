@@ -885,7 +885,7 @@ function CoursePicker({ onSelect, onClose, gps }) {
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge } = {}) {
+export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -1180,7 +1180,31 @@ export default function EagleEye({ onGoToScorecard, eyeHoleNudge = null, onConsu
     setTeeGps(gps)
     setShowPicker(false)
     setResult(null)
+    // Push the pick up to App.jsx's sharedCourse so the Match tab and
+    // future Eye sessions stay in sync. (2026-05-01)
+    onCourseSelected?.(ctx)
   }
+
+  // Cross-tab course sync: when sharedCourse changes (e.g., user picked a
+  // course on the Match tab, or LiveOuting just loaded a match with a
+  // course), pick it up here. Guarded by a course-id "differs" check so
+  // the writeback in handleCourseSelect doesn't trigger a feedback loop,
+  // and so subsequent identical sharedCourse values don't reload.
+  // (2026-05-01)
+  useEffect(() => {
+    if (!sharedCourse?.course?.id) return
+    const sameCourse = courseCtx?.course?.id === sharedCourse.course.id
+    const sameTee    = courseCtx?.tee?.tee_name === sharedCourse.tee?.tee_name
+    if (sameCourse && sameTee) return
+    // Avoid calling onCourseSelected from within handleCourseSelect here —
+    // we already have this ctx FROM sharedCourse. Inline the body instead.
+    setCourseCtx(sharedCourse)
+    setCurrentHole(1)
+    setTeeGps(gps)
+    setShowPicker(false)
+    setResult(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedCourse])
 
   const wind = weather
     ? { speed: Math.round(weather.wind_speed_10m), dir: Math.round(weather.wind_direction_10m) }
