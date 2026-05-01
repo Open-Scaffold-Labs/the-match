@@ -3569,10 +3569,15 @@ export default function Outing({ user, pendingPlayers = [], onClearPending }) {
   const [endSummary, setEndSummary]   = useState(null)
   const [activeRivalry, setActiveRivalry] = useState(null)
 
-  // Auto-open CreateWizard when navigated here with pre-filled players
+  // Auto-open CreateWizard when navigated here with pre-filled players.
+  // Depends on pendingPlayers so it fires both on mount AND when the
+  // prop changes mid-session. With App.jsx's lazy-keep-alive (2026-05-01),
+  // Outing stays mounted across tab switches — without this dep, navigating
+  // Home -> Friends -> "Play with these" would not auto-open the wizard
+  // the second time the user does it in a session.
   useEffect(() => {
     if (pendingPlayers.length > 0) setShowCreate(true)
-  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pendingPlayers])
 
   if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} />
 

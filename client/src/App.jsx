@@ -16,6 +16,14 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [pendingOutingPlayers, setPendingOutingPlayers] = useState([])
+  // Lazy-keep-alive: track which tabs the user has visited. Each visited
+  // tab stays mounted (display: block when active, display: none otherwise)
+  // so component state, polling, GPS subscriptions, and the BOARD/SCORECARD
+  // toggle all persist across tab switches. The user can pop into Eagle Eye
+  // mid-round for a yardage read and come back to the scorecard exactly
+  // where they left off. Cost is bounded to "tabs you've actually visited."
+  // (2026-05-01)
+  const [mountedTabs, setMountedTabs] = useState(() => new Set([TABS.HOME]))
 
   useEffect(() => {
     // Check for token in URL fragment (post-auth bounce). After parsing,
@@ -42,16 +50,14 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Mark each visited tab as mounted on first activation. Once mounted, a
+  // tab stays mounted for the rest of the session.
+  useEffect(() => {
+    setMountedTabs(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
+  }, [tab])
+
   if (loading) return <Splash />
   if (!user)   return <Login onLogin={setUser} />
-
-  const pages = {
-    [TABS.HOME]:   <Home   user={user} onNavigate={setTab} onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }} />,
-    [TABS.EYE]:    <EagleEye user={user} />,
-    [TABS.OUTING]: <Outing user={user} pendingPlayers={pendingOutingPlayers} onClearPending={() => setPendingOutingPlayers([])} />,
-    [TABS.STATS]:  <Stats  user={user} />,
-    [TABS.TOUR]:   <PGAScores />,
-  }
 
   return (
     <div style={{
@@ -70,23 +76,57 @@ export default function App() {
         position: 'relative',
         overflow: 'hidden',
       }}>
-        {/* Scrollable content — stops exactly where the fixed nav begins */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: '56px',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          WebkitOverflowScrolling: 'touch',
-        }}>
-          {pages[tab]}
-        </div>
+        {/* Per-tab scrollable container. Each tab gets its own absolute-
+            positioned panel; only the active tab is display:block. Inactive
+            tabs stay in the React tree (state preserved) but are visually
+            hidden and not interactive. */}
+        {mountedTabs.has(TABS.HOME) && (
+          <TabPanel active={tab === TABS.HOME}>
+            <Home user={user} onNavigate={setTab} onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }} />
+          </TabPanel>
+        )}
+        {mountedTabs.has(TABS.EYE) && (
+          <TabPanel active={tab === TABS.EYE}>
+            <EagleEye user={user} />
+          </TabPanel>
+        )}
+        {mountedTabs.has(TABS.OUTING) && (
+          <TabPanel active={tab === TABS.OUTING}>
+            <Outing user={user} pendingPlayers={pendingOutingPlayers} onClearPending={() => setPendingOutingPlayers([])} />
+          </TabPanel>
+        )}
+        {mountedTabs.has(TABS.STATS) && (
+          <TabPanel active={tab === TABS.STATS}>
+            <Stats user={user} />
+          </TabPanel>
+        )}
+        {mountedTabs.has(TABS.TOUR) && (
+          <TabPanel active={tab === TABS.TOUR}>
+            <PGAScores />
+          </TabPanel>
+        )}
 
         {/* Fixed nav pinned to bottom of screen */}
         <BottomNav active={tab} onChange={setTab} />
       </div>
+    </div>
+  )
+}
+
+// Lazy-keep-alive tab panel. Renders into the same scrollable region as
+// before, but each tab gets its own panel so they don't fight over a single
+// scrollTop. Hidden tabs use display:none — React keeps the subtree
+// mounted, useState/useEffect/intervals all keep running.
+function TabPanel({ active, children }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 0, left: 0, right: 0, bottom: '56px',
+      overflowY: 'auto', overflowX: 'hidden',
+      WebkitOverflowScrolling: 'touch',
+      display: active ? 'block' : 'none',
+    }}>
+      {children}
     </div>
   )
 }

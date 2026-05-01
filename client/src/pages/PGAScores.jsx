@@ -2,7 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { scoreColor } from '../lib/scoreColors.js'
 
 const ESPN_URL = 'https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard'
-const REFRESH_MS = 30_000
+// Tour leaderboard refresh cadence. Bumped 30s -> 5min on 2026-05-01 because
+// App.jsx lazy-keep-alive keeps the Tour tab mounted in the background once
+// visited; 30s polls running while the user is on Match/Eye/etc. is wasted
+// work. 5 minutes is plenty of resolution for a leaderboard you only
+// glance at, and the manual refresh button covers the "I want it now" case.
+const REFRESH_MS = 300_000
 
 function parseScore(str) {
   if (!str || str === 'E') return 0
