@@ -132,19 +132,49 @@ router.get('/rivalry/:opponentId', async (req, res) => {
 })
 
 // ─── GET /api/outings/my-rivalries ───────────────────────────────────────────
+// Returns the user's head-to-head record vs every opponent they've ever
+// played — name, avatar, handicap, W-L-T, last_played, and the avg
+// scores both players have posted across their shared closed outings.
+// Used by the Profile view's Rivalries card (top 3) and the Match-tab
+// rivalry list (full set).
 router.get('/my-rivalries', async (req, res) => {
   const uid = req.user.id
   const rows = await db.many(
-    `SELECT
+    `WITH shared AS (
+       -- Aggregate avg score per opponent across closed outings where
+       -- BOTH players were participants. Skips zero-totals (rounds that
+       -- weren't actually played to completion).
+       SELECT
+         CASE WHEN op_me.user_id = $1 THEN op_opp.user_id ELSE op_me.user_id END AS opp_id,
+         AVG(NULLIF(op_me.total, 0))  AS my_avg,
+         AVG(NULLIF(op_opp.total, 0)) AS opp_avg
+       FROM tm_outing_participants op_me
+       JOIN tm_outing_participants op_opp
+         ON op_opp.outing_id = op_me.outing_id
+        AND op_opp.user_id  <> op_me.user_id
+       JOIN tm_outings o ON o.id = op_me.outing_id
+       WHERE op_me.user_id = $1
+         AND o.status = 'closed'
+         AND op_me.total  > 0
+         AND op_opp.total > 0
+       GROUP BY opp_id
+     )
+     SELECT
        CASE WHEN h.player_a_id = $1 THEN h.player_b_id ELSE h.player_a_id END AS opponent_id,
-       CASE WHEN h.player_a_id = $1 THEN u.name ELSE u2.name END AS opponent_name,
+       CASE WHEN h.player_a_id = $1 THEN ub.name ELSE ua.name END AS opponent_name,
+       CASE WHEN h.player_a_id = $1 THEN ub.avatar ELSE ua.avatar END AS opponent_avatar,
+       CASE WHEN h.player_a_id = $1 THEN ub.handicap ELSE ua.handicap END AS opponent_handicap,
        CASE WHEN h.player_a_id = $1 THEN h.a_wins ELSE h.b_wins END AS my_wins,
        CASE WHEN h.player_a_id = $1 THEN h.b_wins ELSE h.a_wins END AS opp_wins,
        h.ties,
-       h.last_played
+       h.last_played,
+       s.my_avg,
+       s.opp_avg
      FROM tm_h2h_records h
-     JOIN tm_users u  ON u.id  = h.player_b_id
-     JOIN tm_users u2 ON u2.id = h.player_a_id
+     JOIN tm_users ua ON ua.id = h.player_a_id
+     JOIN tm_users ub ON ub.id = h.player_b_id
+     LEFT JOIN shared s
+       ON s.opp_id = (CASE WHEN h.player_a_id = $1 THEN h.player_b_id ELSE h.player_a_id END)
      WHERE h.player_a_id = $1 OR h.player_b_id = $1
      ORDER BY (h.a_wins + h.b_wins + h.ties) DESC, h.last_played DESC
      LIMIT 20`,

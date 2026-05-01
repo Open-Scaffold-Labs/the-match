@@ -1676,7 +1676,7 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // header (big avatar + name + course + handicap + season W-L-T-AVG3 +
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
-function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, onCountsChange, onBack, onEditProfile, onOpenCard }) {
+function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard }) {
   // Golf handicap display convention (matches HcpBadge):
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
@@ -1897,6 +1897,126 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, followCounts, 
         {/* The standalone MiniTrendBar is removed — its content moved
             inside HcpBadge above. (2026-05-01 — Matt request) */}
 
+        {/* Rivalries — top 3 head-to-head records vs friends you've
+            played matches with. Each row: avatar + name + W-L-T +
+            you/them avg score. Hidden entirely when no rivalries yet,
+            with a small empty-state card so the user knows what to
+            expect. (2026-05-01 — Matt request) */}
+        {(() => {
+          const top = (rivalries || []).slice(0, 3)
+          if (top.length === 0) {
+            return (
+              <div style={{
+                background: 'rgba(255,255,255,0.80)',
+                border: '1px solid rgba(27,94,59,0.10)',
+                borderRadius: 16, padding: '14px 18px', marginBottom: 16,
+              }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)',
+                  marginBottom: 6,
+                }}>Rivalries</div>
+                <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.50)', lineHeight: 1.5 }}>
+                  Play a match against a friend and your head-to-head
+                  record will start showing up here.
+                </div>
+              </div>
+            )
+          }
+          return (
+            <div style={{
+              borderRadius: 18,
+              background: 'rgba(255,255,255,0.80)',
+              border: '1px solid rgba(27,94,59,0.10)',
+              overflow: 'hidden', marginBottom: 16,
+            }}>
+              <div style={{
+                padding: '14px 18px', borderBottom: '1px solid rgba(27,94,59,0.08)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)' }}>Rivalries</div>
+                <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.40)' }}>
+                  Top {top.length}
+                </div>
+              </div>
+              {top.map((r, i) => {
+                const myWins   = Number(r.my_wins  ?? 0)
+                const oppWins  = Number(r.opp_wins ?? 0)
+                const ties     = Number(r.ties     ?? 0)
+                const myAvg    = r.my_avg  != null ? Number(r.my_avg)  : null
+                const oppAvg   = r.opp_avg != null ? Number(r.opp_avg) : null
+                const myAvgStr  = Number.isFinite(myAvg)  ? myAvg.toFixed(1)  : '—'
+                const oppAvgStr = Number.isFinite(oppAvg) ? oppAvg.toFixed(1) : '—'
+                // Initials for avatar fallback
+                const initials = (r.opponent_name || '·')
+                  .split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+                // Recordeshape: "3-1-0" or "3-1" if no ties
+                const recordStr = ties > 0
+                  ? `${myWins}-${oppWins}-${ties}`
+                  : `${myWins}-${oppWins}`
+                // Color the record based on lead
+                const recordColor = myWins > oppWins ? '#1B5E3B'
+                  : oppWins > myWins ? '#DC2626'
+                  : 'rgba(13,31,18,0.50)'
+                return (
+                  <div key={r.opponent_id ?? i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 18px',
+                    borderBottom: i < top.length - 1 ? '1px solid rgba(27,94,59,0.07)' : 'none',
+                  }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      flexShrink: 0,
+                      background: r.opponent_avatar ? 'transparent' : 'rgba(27,94,59,0.10)',
+                      border: '1px solid rgba(27,94,59,0.15)',
+                      overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {r.opponent_avatar ? (
+                        <img src={r.opponent_avatar} alt={r.opponent_name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#1B5E3B' }}>
+                          {initials}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Name + averages */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 14, fontWeight: 700, color: '#0D1F12',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{r.opponent_name || 'Player'}</div>
+                      <div style={{
+                        fontSize: 11, color: 'rgba(13,31,18,0.50)', marginTop: 2,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                      }}>
+                        <span>You <strong style={{ color: '#0D1F12' }}>{myAvgStr}</strong></span>
+                        <span style={{ color: 'rgba(13,31,18,0.25)' }}>·</span>
+                        <span>Them <strong style={{ color: '#0D1F12' }}>{oppAvgStr}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* W-L-T record */}
+                    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                      <div style={{
+                        fontSize: 18, fontWeight: 900, color: recordColor, lineHeight: 1,
+                        fontFamily: '"Arial Black", Arial, sans-serif',
+                        letterSpacing: '-0.02em',
+                      }}>{recordStr}</div>
+                      <div style={{
+                        fontSize: 9, color: 'rgba(13,31,18,0.40)',
+                        letterSpacing: '0.10em', marginTop: 4, fontWeight: 700,
+                      }}>{ties > 0 ? 'W-L-T' : 'W-L'}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
         {stats?.topClubs?.length > 0 && (
           <div style={{
             borderRadius: 18,
@@ -2044,6 +2164,9 @@ export default function Home({ onNavigateToOuting }) {
   // so the Profile screen renders instantly when the user taps "My Profile".
   const [stats, setStats]   = useState(null)
   const [rounds, setRounds] = useState([])
+  // Head-to-head rivalries for the Profile's Rivalries card (top 3).
+  // Endpoint returns up to 20; the card slices to the first 3.
+  const [rivalries, setRivalries] = useState([])
   // Live follow counts — driven by /api/follows/counts. Shown in pills on
   // the Profile view header AND on the Home ProfileHeroCard. Refreshed
   // every time the user follows/unfollows from inside the FollowList
@@ -2060,7 +2183,7 @@ export default function Home({ onNavigateToOuting }) {
   async function loadAll() {
     setLoading(true)
     try {
-      const [p, f, g, tr, s, r, fc] = await Promise.all([
+      const [p, f, g, tr, s, r, fc, riv] = await Promise.all([
         api('/api/profile'),
         api('/api/friends'),
         api('/api/games'),
@@ -2074,6 +2197,8 @@ export default function Home({ onNavigateToOuting }) {
         // Mutuals). Fail-soft to zeros so the rest of Home keeps loading
         // if the follows endpoint hits a transient error.
         api('/api/follows/counts').catch(() => null),
+        // Rivalries (top H2H records) for the Profile's Rivalries card.
+        api('/api/outings/my-rivalries').catch(() => null),
       ])
       setProfile(p)
       setFriends(f)
@@ -2082,6 +2207,7 @@ export default function Home({ onNavigateToOuting }) {
       setStats(s)
       setRounds(r?.rounds ?? [])
       setFollowCounts(fc ?? { following: 0, followers: 0, mutuals: 0 })
+      setRivalries(riv?.rivalries ?? [])
     } catch (err) {
       console.error('[Home] load', err)
     }
@@ -2143,6 +2269,7 @@ export default function Home({ onNavigateToOuting }) {
         <ProfileView
           user={user} season={season} avg3={avg3} streak={streak}
           stats={stats} rounds={rounds}
+          rivalries={rivalries}
           followCounts={followCounts}
           onCountsChange={refreshFollowCounts}
           onBack={() => setView('home')}
