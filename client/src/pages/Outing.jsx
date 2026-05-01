@@ -1561,6 +1561,31 @@ function GuestModal({ code, onAdd, onAppUserAdded, onClose }) {
   )
 }
 
+// Compute leaderboard positions for an already-sorted player array.
+// Returns an array of strings parallel to `sorted`: "1", "T2", "3", or "—"
+// for players with no scores yet. (2026-04-30 PM round 8 — rank badges)
+function computePositions(sorted, getScores, holePars) {
+  const stps = sorted.map(p => {
+    const sc = getScores(p)
+    const played = sc.filter(s => s > 0)
+    if (played.length === 0) return null
+    const stp = sc.reduce((sum, s, i) => s > 0 ? sum + (s - holePars[i]) : sum, 0)
+    return stp
+  })
+  const positions = []
+  let prev = null
+  let pos = 0
+  stps.forEach((stp, idx) => {
+    if (stp == null) { positions.push('—'); return }
+    if (stp !== prev) { pos = idx + 1; prev = stp }
+    positions.push(pos)
+  })
+  // Add T-prefix for ties
+  const counts = {}
+  positions.forEach(p => { if (p !== '—') counts[p] = (counts[p] || 0) + 1 })
+  return positions.map(p => p === '—' ? p : counts[p] > 1 ? `T${p}` : `${p}`)
+}
+
 // ─── Match Play helpers ───────────────────────────────────────────────────────
 // Only meaningful for exactly 2 players
 function computeMatchPlay(p1, p2, getScores, holePars) {
@@ -1766,15 +1791,20 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
 
-  // Column width constants. The leftmost area of each row is split into TWO
-  // cells now (2026-04-30): a square AVATAR_COL that houses the photo edge-
-  // to-edge, and a NAME_COL for the surname caps. Old single PLAYER_COL kept
-  // around as the sum so headers (HOLE / PAR / TOTALS) span both cells.
+  // Column width constants. The leftmost area of each row is now split into
+  // THREE cells: RANK_COL (position badge), AVATAR_COL (square photo box),
+  // NAME_COL (surname caps + THRU subtitle). PLAYER_COL is the sum and is
+  // still used for header spans over the whole left side.
+  const RANK_COL   = 30        // position badge — "1", "T2", etc
   const AVATAR_COL = 60        // square; matches rowH visually w/o forcing it
-  const NAME_COL   = 88        // enough room for surnames at fontSize 13
-  const PLAYER_COL = AVATAR_COL + NAME_COL  // 148 — used for header spans
+  const NAME_COL   = 92        // surname caps + THRU subtitle
+  const PLAYER_COL = RANK_COL + AVATAR_COL + NAME_COL  // 182 — header span
   const HOLE_COL   = 32
   const SUB_COL    = 40
+
+  // Compute leaderboard positions ("1", "T2", "3"…) based on score-to-par.
+  // Players with no scores yet get "—". Ties get a "T" prefix.
+  const positions = computePositions(sorted, getScores, holePars)
 
   // Row sizing: minimum 4 rows fill the screen. Each row is ~80-90px; if
   // fewer than 4 players, we render empty placeholder rows below them
@@ -1950,10 +1980,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 matchPlayData={isMatchPlay ? matchPlayData : null}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
+                RANK_COL={RANK_COL}
                 AVATAR_COL={AVATAR_COL}
                 NAME_COL={NAME_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
+                positions={positions}
                 rowH={ROW_H}
                 fillerRows={fillerRows}
               />
@@ -1996,10 +2028,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
                 matchPlayData={matchPlayData}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
+                RANK_COL={RANK_COL}
                 AVATAR_COL={AVATAR_COL}
                 NAME_COL={NAME_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
+                positions={positions}
               />
             </div>
           )}
@@ -2090,7 +2124,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 60, NAME_COL = 88, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0 }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [] }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -2170,7 +2204,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
       </div>
 
       {/* Player rows — teal panel for name, cream tiles for scores */}
-      {participants.map((p) => {
+      {participants.map((p, idx) => {
         const sc       = getScores(p)
         const isMe     = String(p.user_id) === String(userId)
         const team     = playerTeam(p.user_id)
@@ -2180,6 +2214,14 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
         // Surname in caps, fallback to first if single-word
         const parts    = (p.name || '').trim().split(/\s+/)
         const display  = (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').toUpperCase().slice(0, 12)
+        // Position + leader detection
+        const position = positions[idx] || '—'
+        const holesPlayed = sc.filter(s => s > 0).length
+        const isLeader    = holesPlayed > 0 && (position === '1' || position === 'T1')
+        // THRU indicator: hole count played, or "F" if all holes done
+        const thruText    = holesPlayed === 0 ? null
+                          : holesPlayed >= 18 ? 'F'
+                          : `THRU ${holesPlayed}`
 
         return (
           <div key={p.user_id} style={{
@@ -2190,9 +2232,27 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             minHeight: rowH,
             width: 'max-content', minWidth: '100%',
           }}>
+            {/* Rank badge — shows position (1, T2, …) — leader gets gold bg */}
+            <div style={{
+              minWidth: RANK_COL - (isMe ? 4 : 0), width: RANK_COL - (isMe ? 4 : 0),
+              height: rowH, flexShrink: 0,
+              borderRight: '1px solid rgba(0,0,0,0.30)',
+              background: isLeader
+                ? `linear-gradient(180deg, ${AUGUSTA_GOLD} 0%, #C8A33C 100%)`
+                : AUGUSTA_GREEN_DEEP,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: position.length > 2 ? 13 : 16, fontWeight: 900,
+              color: isLeader ? AUGUSTA_GREEN_DEEP : '#fff',
+              fontFamily: '"Arial Black", Arial, sans-serif',
+              letterSpacing: '0.02em',
+              textShadow: isLeader ? '0 1px 0 rgba(255,255,255,0.30)' : '0 1px 1px rgba(0,0,0,0.45)',
+              boxShadow: isLeader ? 'inset 0 0 0 1px rgba(255,255,255,0.30), inset 0 -2px 0 rgba(0,0,0,0.18)' : 'none',
+            }}>
+              {position}
+            </div>
             {/* Avatar cell — photo fills edge-to-edge, square box */}
             <div style={{
-              minWidth: AVATAR_COL - (isMe ? 4 : 0), width: AVATAR_COL - (isMe ? 4 : 0),
+              minWidth: AVATAR_COL, width: AVATAR_COL,
               height: rowH, flexShrink: 0,
               borderRight: '1px solid rgba(0,0,0,0.30)',
               background: AUGUSTA_GREEN_DEEP,
@@ -2222,7 +2282,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 }}>{initials(p.name)}</div>
               )}
             </div>
-            {/* Name cell — white surname caps on green panel */}
+            {/* Name cell — surname caps on green panel; leader gets gold */}
             <div style={{
               minWidth: NAME_COL, width: NAME_COL, height: rowH,
               padding: '0 10px', flexShrink: 0, overflow: 'hidden',
@@ -2230,15 +2290,29 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
             }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 14, fontWeight: 900, color: '#fff',
+                  fontSize: 14, fontWeight: 900,
+                  color: isLeader ? AUGUSTA_GOLD : '#fff',
                   fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   letterSpacing: '0.05em',
-                  textShadow: '0 1px 1px rgba(0,0,0,0.45)',
+                  textShadow: isLeader
+                    ? '0 1px 0 rgba(0,0,0,0.45), 0 0 6px rgba(232,192,90,0.35)'
+                    : '0 1px 1px rgba(0,0,0,0.45)',
                 }}>
                   {display}
                 </div>
-                {team && (
+                {/* THRU indicator if scores exist; team name otherwise */}
+                {thruText && (
+                  <div style={{
+                    fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    marginTop: 2,
+                  }}>
+                    {thruText}
+                  </div>
+                )}
+                {!thruText && team && (
                   <div style={{
                     fontSize: 10, color: 'rgba(255,255,255,0.70)', fontWeight: 700,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -2300,6 +2374,13 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
           minHeight: rowH,
           width: 'max-content', minWidth: '100%',
         }}>
+          {/* Empty rank cell — keeps column geometry matching live rows */}
+          <div style={{
+            minWidth: RANK_COL, width: RANK_COL, height: rowH,
+            background: AUGUSTA_GREEN_DEEP,
+            borderRight: '1px solid rgba(0,0,0,0.30)',
+            flexShrink: 0,
+          }} />
           {/* Empty avatar cell — deep green, hint of an empty slot */}
           <div style={{
             minWidth: AVATAR_COL, width: AVATAR_COL, height: rowH,
@@ -2338,7 +2419,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
 }
 
 // ─── Totals row ───────────────────────────────────────────────────────────────
-function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 60, NAME_COL = 88, HOLE_COL, SUB_COL }) {
+function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, positions = [] }) {
   // Augusta-style: dark green strip with white block-letter "TOTALS" + numbers
   return (
     <div style={{ background: AUGUSTA_GREEN, borderTop: '2px solid ' + AUGUSTA_WOOD }}>
@@ -2365,7 +2446,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
           <div style={{ minWidth: 52, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>THRU</div>
         </div>
       </div>
-      {participants.map((p) => {
+      {participants.map((p, idx) => {
         const sc          = getScores(p)
         const team        = playerTeam(p.user_id)
         const gross       = sc.reduce((s, v) => s + (v || 0), 0)
@@ -2374,6 +2455,8 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
         const dStr        = diffStr(p)
         const parts       = (p.name || '').trim().split(/\s+/)
         const display     = (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').toUpperCase().slice(0, 12)
+        const position    = positions[idx] || '—'
+        const isLeader    = holesPlayed > 0 && (position === '1' || position === 'T1')
 
         // Match play status for this player
         let mpStatus = null
@@ -2407,6 +2490,23 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
             background: AUGUSTA_GREEN,
             width: 'max-content', minWidth: '100%',
           }}>
+            {/* Rank cell — leader gets gold tile */}
+            <div style={{
+              minWidth: RANK_COL, width: RANK_COL, height: totalsRowH,
+              flexShrink: 0,
+              borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
+              background: isLeader
+                ? `linear-gradient(180deg, ${AUGUSTA_GOLD} 0%, #C8A33C 100%)`
+                : AUGUSTA_GREEN_DEEP,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: position.length > 2 ? 13 : 16, fontWeight: 900,
+              color: isLeader ? AUGUSTA_GREEN_DEEP : '#fff',
+              fontFamily: '"Arial Black", Arial, sans-serif',
+              textShadow: isLeader ? '0 1px 0 rgba(255,255,255,0.30)' : '0 1px 1px rgba(0,0,0,0.45)',
+              boxShadow: isLeader ? 'inset 0 0 0 1px rgba(255,255,255,0.30)' : 'none',
+            }}>
+              {position}
+            </div>
             {/* Avatar cell — photo fills edge-to-edge on the dark green strip */}
             <div style={{
               minWidth: AVATAR_COL, width: AVATAR_COL, height: totalsRowH,
