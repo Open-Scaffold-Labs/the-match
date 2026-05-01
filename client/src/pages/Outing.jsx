@@ -1278,11 +1278,15 @@ function estimateHolePars(coursePar, holes) {
 // = single black square, double = double black square. Subtotals (OUT/IN)
 // render as deeper teal cells with white block text.
 function cellBg(score, par, isSubtotal) {
-  if (isSubtotal) return AUGUSTA_GREEN
+  // Body subtotal cells (LAVIN's OUT total, filler row OUT cells) now use
+  // AUGUSTA_GREEN_DEEP — same color as the OUT/IN/35/36 header cells — so
+  // the rightmost column reads as one continuous dark-green strip top to
+  // bottom. (2026-04-30 PM round 6 — user wanted these same color as the
+  // box 36 and IN are in.)
+  if (isSubtotal) return AUGUSTA_GREEN_DEEP
   // Every score cell — filled or empty — uses the same solid cream so the
   // board reads as a uniform grid of score slots. The presence/absence of
-  // a numeral is the only difference. (2026-04-30 PM — user wanted ALL
-  // cells where a score would go to be the same cream color.)
+  // a numeral is the only difference.
   return AUGUSTA_TILE
 }
 function cellColor(score, par, isSubtotal) {
@@ -1325,12 +1329,15 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, overrideBg, ove
         color, cursor: canEdit && !isSubtotal ? 'pointer' : 'default',
         flexShrink: 0, userSelect: 'none',
         position: 'relative',
-        // Subtle inset shadow gives score tiles the "slotted into the wood
-        // board" feel — like real Masters score cards. Subtotals (OUT/IN)
-        // get a deeper inset since they're on the dark green strip.
+        // Subtle inset shadow at the TOP of each tile (so it reads as
+        // slotted into the board). Removed the previous bottom highlight
+        // — it created a 1px white line at the bottom of cream cells that
+        // didn't exist on subtotal cells, making them appear visually
+        // misaligned with the OUT/IN box next to them. (2026-04-30 PM
+        // round 6 — user: "make them line up perfectly")
         boxShadow: isSubtotal
           ? 'inset 0 1px 2px rgba(0,0,0,0.50)'
-          : 'inset 0 1px 2px rgba(0,0,0,0.18), inset 0 -1px 0 rgba(255,255,255,0.40)',
+          : 'inset 0 1px 2px rgba(0,0,0,0.18)',
       }}
     >
       {/* Birdie / Eagle: red circle (or two for eagle) */}
@@ -2301,12 +2308,12 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 background: AUGUSTA_TILE,
                 borderLeft: '1px solid rgba(0,0,0,0.20)',
                 flexShrink: 0,
-                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.18), inset 0 -1px 0 rgba(255,255,255,0.40)',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.18)',
               }} />
             ))}
             <div style={{
               minWidth: SUB_COL, width: SUB_COL, height: rowH,
-              background: AUGUSTA_GREEN,
+              background: AUGUSTA_GREEN_DEEP,
               borderLeft: '1px solid rgba(0,0,0,0.20)',
               flexShrink: 0,
               boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.50)',
