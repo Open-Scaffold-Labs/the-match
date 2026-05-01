@@ -4,14 +4,14 @@
     "source_id": "06512a7e-69f2-45d3-be81-bb309de0388f"
   },
   "wiki/log.md": {
-    "mtime": 1777636528.2506351,
-    "source_id": "c6c02a0b-33fc-444a-8f2c-b1efc877a567",
-    "verified_at": 1777636557.29825
+    "mtime": 1777638849.2928295,
+    "source_id": "b4690eea-9a68-4d27-8e76-c382d96b8782",
+    "verified_at": 1777639017.353972
   },
   "wiki/index.md": {
-    "mtime": 1777506498.2718418,
-    "source_id": "a12da60a-cd43-4e6f-9f83-ed7a442d6015",
-    "verified_at": 1777528452.4247959
+    "mtime": 1777638864.8846574,
+    "source_id": "2e0fcd59-a2e3-4956-b77b-a8e616627383",
+    "verified_at": 1777639027.952615
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1777500342.2546115,
@@ -32,13 +32,13 @@
     "source_id": "4ff84c02-ada1-4ab0-9605-906758c60d66"
   },
   "wiki/synthesis/audit-fixes-proposal-2026-04-29.md": {
-    "mtime": 1777506489.8181577,
-    "source_id": "57873476-9523-40c8-99b9-f1c92b98636a",
-    "verified_at": 1777528458.527522
+    "mtime": 1777638777.7576013,
+    "source_id": "055fd7b6-7a57-4374-9e5a-be722ec6f870",
+    "verified_at": 1777639038.7436318
   },
   "wiki/synthesis/audit-2026-04-29.md": {
-    "mtime": 1777505340.9369805,
-    "source_id": "b6b2c26c-b544-491b-aae6-eb751b761468",
-    "verified_at": 1777528463.928512
+    "mtime": 1777638817.5652206,
+    "source_id": "c1c045aa-3e4f-4485-8ac6-9be6d0727a75",
+    "verified_at": 1777639049.2002718
   }
 }
