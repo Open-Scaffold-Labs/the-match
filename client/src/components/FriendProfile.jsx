@@ -7,6 +7,7 @@ import RoundScorecard from './RoundScorecard.jsx'
 import RoundHistory from './RoundHistory.jsx'
 import RivalryHistory from './RivalryHistory.jsx'
 import RivalryDetail from './RivalryDetail.jsx'
+import { AvailabilityCalendar } from '../pages/Home.jsx'
 
 // ── Nearby Course Picker ──────────────────────────────────────────────────────
 function CoursePicker({ value, onChange }) {
@@ -999,12 +1000,17 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
             </div>
           )}
 
-          {/* Availability strip */}
-          <AvailabilityStrip
-            availability={data?.availability ?? []}
-            friendName={friend?.name}
-            onRequestTeeTime={setTeeDate}
-          />
+          {/* Availability — full calendar in read-only friend-view mode.
+              Tapping a day opens the existing TeeRequestSheet with that
+              date pre-filled. (2026-05-01 — replaces the 14-day
+              AvailabilityStrip.) */}
+          <div style={{ marginTop: 8, marginBottom: 12 }}>
+            <AvailabilityCalendar
+              viewUserId={friend?.id}
+              viewUserName={firstName}
+              onDayTap={(ymd) => setTeeDate(ymd)}
+            />
+          </div>
 
           {/* Request a Match CTA */}
           <button

@@ -42,6 +42,30 @@ router.get('/', async (req, res) => {
   }
 })
 
+// GET /api/availability/user/:userId?month=YYYY-MM — read-only view of
+// another user's availability for a month. Used by the calendar that
+// renders on FriendProfile so Matt can see when a friend is free
+// without seeing his own availability mixed in. (2026-05-01)
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const targetId = req.params.userId
+    if (!targetId) return res.status(400).json({ error: 'userId required' })
+    const month = req.query.month || new Date().toISOString().slice(0, 7)
+    const [year, mon] = month.split('-').map(Number)
+    const start = new Date(year, mon - 1, 1).toISOString().slice(0, 10)
+    const end   = new Date(year, mon, 0).toISOString().slice(0, 10)
+    const dates = await db.many(
+      `SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, note FROM tm_availability
+       WHERE user_id = $1 AND date BETWEEN $2 AND $3 ORDER BY date`,
+      [targetId, start, end]
+    )
+    res.json({ dates })
+  } catch (err) {
+    console.error('[availability/user]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // POST /api/availability — toggle a date on/off
 router.post('/', async (req, res) => {
   try {

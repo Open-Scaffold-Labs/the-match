@@ -524,10 +524,20 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
 }
 
 // ─── Availability Calendar ────────────────────────────────────────────────────
-// selfOnly = true is used by My Profile, where Matt only wants to see
-// his own availability. Home still uses the social view (friends' free
-// days surfacing as dots + day-sheet entries). 2026-05-01.
-function AvailabilityCalendar({ uid, onScheduleGame, selfOnly = false }) {
+// Three modes:
+//   • default          — Home view, my availability + friends' as dots
+//   • selfOnly         — My Profile, only my availability, no social layer
+//   • viewUserId set   — FriendProfile, read-only view of another user's
+//                        availability. Tap a day → onDayTap(ymd) so the
+//                        parent can launch a tee-time request flow.
+// (2026-05-01)
+export function AvailabilityCalendar({
+  uid, onScheduleGame, selfOnly = false,
+  viewUserId = null, viewUserName = null, onDayTap = null,
+}) {
+  // viewUserId implies a read-only friend view — no toggling, no social
+  // layer, fetch from the per-user endpoint.
+  const friendView = !!viewUserId
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
@@ -542,13 +552,19 @@ function AvailabilityCalendar({ uid, onScheduleGame, selfOnly = false }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api(`/api/availability?month=${monthKey}`)
-      setMine((data.mine ?? []).map(r => r.date.slice(0, 10)))
-      // selfOnly suppresses the social layer entirely.
-      setFriendsAvail(selfOnly ? [] : (data.friends ?? []))
+      if (friendView) {
+        const data = await api(`/api/availability/user/${viewUserId}?month=${monthKey}`)
+        setMine((data.dates ?? []).map(r => r.date.slice(0, 10)))
+        setFriendsAvail([])
+      } else {
+        const data = await api(`/api/availability?month=${monthKey}`)
+        setMine((data.mine ?? []).map(r => r.date.slice(0, 10)))
+        // selfOnly suppresses the social layer entirely.
+        setFriendsAvail(selfOnly ? [] : (data.friends ?? []))
+      }
     } catch { /* ignore */ }
     setLoading(false)
-  }, [monthKey, selfOnly])
+  }, [monthKey, selfOnly, friendView, viewUserId])
 
   useEffect(() => { load() }, [load])
 
@@ -626,7 +642,13 @@ function AvailabilityCalendar({ uid, onScheduleGame, selfOnly = false }) {
             const isPast = new Date(ymd) < new Date(todayYMD())
 
             return (
-              <button key={ymd} onClick={() => !isPast && setSelectedDay(ymd)}
+              <button
+                key={ymd}
+                onClick={() => {
+                  if (isPast) return
+                  if (friendView) onDayTap?.(ymd)
+                  else setSelectedDay(ymd)
+                }}
                 disabled={isPast}
                 style={{
                   position: 'relative',
@@ -665,7 +687,9 @@ function AvailabilityCalendar({ uid, onScheduleGame, selfOnly = false }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 10, height: 10, borderRadius: 3, background: 'rgba(201,160,64,0.35)' }} />
-            <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>You're free</span>
+            <span style={{ color: 'rgba(27,94,59,0.50)', fontSize: 10 }}>
+              {friendView ? `${viewUserName || 'They'}'re free` : "You're free"}
+            </span>
           </div>
           {!selfOnly && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
