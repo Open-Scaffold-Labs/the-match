@@ -7,21 +7,23 @@ import ActiveRound from './ActiveRound.jsx'
 // match now renders the Augusta scorecard directly via LiveOuting.
 
 // ─── Augusta theme palette ───────────────────────────────────────────────────
-// Tournament-board look (revised 2026-04-30 PM after the teal misread):
-// deep forest-green panels with white block-letter text, gold PAR numerals,
-// cream score tiles slotted into the board, dark wood frame.
-const AUGUSTA_GREEN       = '#0F3D1E'   // outer wood frame + footer plaque
-const AUGUSTA_GREEN_DEEP  = '#0a2c14'   // deepest shadow line
-const AUGUSTA_PANEL       = '#1A5230'   // main board panel (was teal)
-const AUGUSTA_PANEL_HI    = '#235C36'   // subtle light-from-above gradient top
-const AUGUSTA_PANEL_HOVER = '#2A6B40'   // current-user row tint (slightly lighter green)
-const AUGUSTA_GOLD        = '#E8C05A'   // PAR numerals + leader accents
-const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe / dimmed gold
-const AUGUSTA_CREAM       = '#EAE0BF'   // LEADERS banner cream
-const AUGUSTA_TILE        = '#F2EBD3'   // score tile (warmer cream)
-const AUGUSTA_RED         = '#B22222'   // under-par red
-const AUGUSTA_INK         = '#0F0F0F'   // over-par numerals on cream tiles
-const AUGUSTA_WOOD        = '#5a3a16'   // hand-painted wood frame edge
+// SWAP MODE (2026-04-30 PM round 12 — visual experiment):
+// Greens flipped to whites, white text flipped to dark green. Cream tiles,
+// gold, and red stay. To revert, just restore the original hex values
+// (kept in the trailing comments as 'was …').
+const AUGUSTA_GREEN       = '#FFFFFF'   // was #0F3D1E — frame + footer plaque
+const AUGUSTA_GREEN_DEEP  = '#E8E8E8'   // was #0a2c14 — deepest shadow line
+const AUGUSTA_PANEL       = '#FFFFFF'   // was #1A5230 — main board panel
+const AUGUSTA_PANEL_HI    = '#FAFAFA'   // was #235C36 — gradient top
+const AUGUSTA_PANEL_HOVER = '#F0F0F0'   // was #2A6B40 — me-row tint
+const AUGUSTA_TEXT        = '#0F3D1E'   // NEW — green ink replacing white text
+const AUGUSTA_GOLD        = '#E8C05A'   // PAR numerals + leader accents (unchanged)
+const AUGUSTA_GOLD_DIM    = '#A8862E'   // pinstripe / dimmed gold (unchanged)
+const AUGUSTA_CREAM       = '#EAE0BF'   // LEADERS banner cream (unchanged)
+const AUGUSTA_TILE        = '#F2EBD3'   // score tile (unchanged)
+const AUGUSTA_RED         = '#B22222'   // under-par red (unchanged)
+const AUGUSTA_INK         = '#0F0F0F'   // over-par ink on cream tiles (unchanged)
+const AUGUSTA_WOOD        = '#5a3a16'   // hand-painted wood frame edge (unchanged)
 
 // Backwards-compat aliases — older code still referenced these names
 const AUGUSTA_TEAL        = AUGUSTA_PANEL
@@ -1914,10 +1916,10 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 22, padding: '0 4px', cursor: 'pointer' }}>←</button>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: AUGUSTA_TEXT, fontSize: 22, padding: '0 4px', cursor: 'pointer' }}>←</button>
           <div style={{ textAlign: 'center', flex: 1, padding: '0 8px' }}>
-            <div style={{ fontWeight: 900, color: '#fff', fontSize: 15, lineHeight: 1.2, fontFamily: '"Georgia", serif', fontStyle: 'italic', letterSpacing: '0.03em' }}>{outing.name}</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
+            <div style={{ fontWeight: 900, color: AUGUSTA_TEXT, fontSize: 15, lineHeight: 1.2, fontFamily: '"Georgia", serif', fontStyle: 'italic', letterSpacing: '0.03em' }}>{outing.name}</div>
+            <div style={{ fontSize: 11, color: 'rgba(15,61,30,0.65)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <div style={{ background: '#FFD700', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, letterSpacing: 2, fontFamily: '"Arial Black", Arial, sans-serif' }}>{code}</div>
@@ -1995,11 +1997,10 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           <span style={{
             fontSize: 18, fontWeight: 900,
             color: matchPlayData.p1HolesUp === 0
-              ? '#fff'
-              : matchPlayData.p1HolesUp > 0 ? AUGUSTA_GOLD : '#FFB4B4',
+              ? AUGUSTA_TEXT
+              : matchPlayData.p1HolesUp > 0 ? AUGUSTA_GOLD_DIM : '#A04020',
             fontFamily: '"Arial Black", Arial, sans-serif',
             letterSpacing: '0.06em',
-            textShadow: '0 1px 2px rgba(0,0,0,0.45)',
           }}>
             {matchPlayData.p1HolesUp === 0
               ? 'ALL SQUARE'
@@ -2010,7 +2011,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           </span>
           <span style={{
             fontSize: 13, fontWeight: 700,
-            color: 'rgba(255,255,255,0.65)',
+            color: 'rgba(15,61,30,0.65)',
             fontFamily: '"Georgia", serif', fontStyle: 'italic',
             letterSpacing: '0.08em',
           }}>
@@ -2036,7 +2037,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
               background: isUnder
                 ? `linear-gradient(135deg, ${AUGUSTA_GOLD} 0%, #C8A33C 100%)`
                 : `linear-gradient(135deg, ${AUGUSTA_GREEN_DEEP} 0%, ${AUGUSTA_GREEN} 100%)`,
-              color: isUnder ? AUGUSTA_GREEN_DEEP : '#fff',
+              color: AUGUSTA_TEXT,
               border: `1px solid ${AUGUSTA_GOLD_DIM}`,
               padding: '8px 18px',
               borderRadius: 24,
@@ -2211,7 +2212,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd }) {
           }}>M</span>
           <div style={{
             fontFamily: '"Georgia", "Times New Roman", serif',
-            fontSize: 14, color: '#fff', fontStyle: 'italic', letterSpacing: '0.10em',
+            fontSize: 14, color: AUGUSTA_TEXT, fontStyle: 'italic', letterSpacing: '0.10em',
           }}>Augusta National Club Golf</div>
           <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2309,21 +2310,19 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
   }
   const headerNameCol = {
     minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
-    fontSize: 12, fontWeight: 900, color: '#fff',
+    fontSize: 12, fontWeight: 900, color: AUGUSTA_TEXT,
     fontFamily: '"Arial Black", Arial, sans-serif',
     textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0,
-    textShadow: '0 1px 1px rgba(0,0,0,0.40)',
   }
   const headerHoleCell = {
     minWidth: HOLE_COL, width: HOLE_COL, height: 34,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, fontWeight: 900, color: '#fff',
+    fontSize: 13, fontWeight: 900, color: AUGUSTA_TEXT,
     fontFamily: '"Arial Black", Arial, sans-serif',
     flexShrink: 0,
     // Match body cells' borderLeft color so vertical dividers run continuously
     // from header through every body row when scrolled (2026-04-30 PM fix).
     borderLeft: '1px solid rgba(0,0,0,0.20)',
-    textShadow: '0 1px 1px rgba(0,0,0,0.40)',
   }
   // Subtotal header cell (OUT / IN): same 1px borderLeft as hole cells so the
   // hole-9 → OUT boundary doesn't have a visible "step" that makes the
@@ -2416,11 +2415,10 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 : AUGUSTA_GREEN_DEEP,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: position.length > 2 ? 13 : 16, fontWeight: 900,
-              color: isLeader ? AUGUSTA_GREEN_DEEP : '#fff',
+              color: isLeader ? AUGUSTA_TEXT : AUGUSTA_TEXT,
               fontFamily: '"Arial Black", Arial, sans-serif',
               letterSpacing: '0.02em',
-              textShadow: isLeader ? '0 1px 0 rgba(255,255,255,0.30)' : '0 1px 1px rgba(0,0,0,0.45)',
-              boxShadow: isLeader ? 'inset 0 0 0 1px rgba(255,255,255,0.30), inset 0 -2px 0 rgba(0,0,0,0.18)' : 'none',
+              boxShadow: isLeader ? 'inset 0 0 0 1px rgba(0,0,0,0.10), inset 0 -2px 0 rgba(0,0,0,0.08)' : 'none',
             }}>
               {position}
             </div>
@@ -2465,20 +2463,20 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
                   fontSize: 14, fontWeight: 900,
-                  color: isLeader ? AUGUSTA_GOLD : '#fff',
+                  color: isLeader ? AUGUSTA_GOLD : AUGUSTA_TEXT,
                   fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   letterSpacing: '0.05em',
                   textShadow: isLeader
-                    ? '0 1px 0 rgba(0,0,0,0.45), 0 0 6px rgba(232,192,90,0.35)'
-                    : '0 1px 1px rgba(0,0,0,0.45)',
+                    ? '0 1px 0 rgba(0,0,0,0.20), 0 0 6px rgba(232,192,90,0.45)'
+                    : 'none',
                 }}>
                   {display}
                 </div>
                 {/* THRU indicator if scores exist; team name otherwise */}
                 {thruText && (
                   <div style={{
-                    fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700,
+                    fontSize: 10, color: 'rgba(15,61,30,0.65)', fontWeight: 700,
                     letterSpacing: '0.08em',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     marginTop: 2,
@@ -2488,7 +2486,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 )}
                 {!thruText && team && (
                   <div style={{
-                    fontSize: 10, color: 'rgba(255,255,255,0.70)', fontWeight: 700,
+                    fontSize: 10, color: 'rgba(15,61,30,0.70)', fontWeight: 700,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     marginTop: 2,
                   }}>
@@ -2610,18 +2608,18 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
       }}>
         <div style={{
           minWidth: PLAYER_COL, width: PLAYER_COL, padding: '8px 10px',
-          fontSize: 11, fontWeight: 900, color: '#fff',
+          fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT,
           fontFamily: '"Arial Black", Arial, sans-serif',
           letterSpacing: '0.06em', flexShrink: 0,
         }}>TOTALS</div>
         <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-          <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>
+          <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT, letterSpacing: '0.05em', flexShrink: 0 }}>
             {netMode ? 'NET' : isMatchPlay ? 'HOLES' : 'TOT'}
           </div>
-          <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>
+          <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT, letterSpacing: '0.05em', flexShrink: 0 }}>
             {isMatchPlay ? 'STATUS' : '+/−'}
           </div>
-          <div style={{ minWidth: 52, textAlign: 'center', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.05em', flexShrink: 0 }}>THRU</div>
+          <div style={{ minWidth: 52, textAlign: 'center', fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT, letterSpacing: '0.05em', flexShrink: 0 }}>THRU</div>
         </div>
       </div>
       {participants.map((p, idx) => {
@@ -2723,21 +2721,21 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
             }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
-                  fontSize: 14, fontWeight: 900, color: '#fff',
+                  fontSize: 14, fontWeight: 900, color: AUGUSTA_TEXT,
                   fontFamily: '"Arial Black", Arial, sans-serif',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   letterSpacing: '0.04em',
                 }}>{display}</div>
-                {team && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', fontWeight: 700, marginTop: 2 }}>{team.name}</div>}
+                {team && <div style={{ fontSize: 10, color: 'rgba(15,61,30,0.65)', fontWeight: 700, marginTop: 2 }}>{team.name}</div>}
                 {netMode && p.handicap != null && !p.is_guest && (
-                  <div style={{ fontSize: 9, color: '#FFD700', fontWeight: 700, marginTop: 1 }}>HCP {p.handicap}</div>
+                  <div style={{ fontSize: 9, color: AUGUSTA_GOLD_DIM, fontWeight: 700, marginTop: 1 }}>HCP {p.handicap}</div>
                 )}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <div style={{
                 minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center',
-                fontSize: 18, fontWeight: 900, color: '#fff', flexShrink: 0,
+                fontSize: 18, fontWeight: 900, color: AUGUSTA_TEXT, flexShrink: 0,
                 fontFamily: '"Arial Black", Arial, sans-serif',
               }}>
                 {isMatchPlay ? (mpHolesWon ?? '—') : (displayTot || '—')}
@@ -2752,7 +2750,7 @@ function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, di
               </div>
               <div style={{
                 minWidth: 52, textAlign: 'center', fontSize: 14, fontWeight: 800,
-                color: 'rgba(255,255,255,0.85)', flexShrink: 0,
+                color: 'rgba(15,61,30,0.85)', flexShrink: 0,
               }}>
                 {holesPlayed || '—'}
               </div>
