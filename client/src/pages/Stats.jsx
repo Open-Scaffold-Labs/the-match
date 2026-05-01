@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api.js'
 import { IconBarChart } from '../components/primitives/Icons.jsx'
 
@@ -14,8 +14,18 @@ function scoreColor(diff) {
 // 10 most recent rounds. Lives inside HcpBadge between the big number
 // row and the rounds/status footer. Dot colors mirror the score-color
 // helper used elsewhere: under-par gold, even cream, over-par warm
-// orange. Renders nothing for fewer than 2 rounds. (2026-05-01)
+// orange.
+//
+// Interactive: touch / drag horizontally to scrub. A vertical guide
+// snaps to the nearest data point and a tooltip floats above showing
+// course name + date + score + score-to-par for that round. Releases
+// hide the tooltip. Pointer (mouse) input also works for desktop.
+//
+// Renders nothing for fewer than 2 rounds. (2026-05-01)
 function HandicapTrendLine({ rounds }) {
+  const containerRef = useRef(null)
+  const [activeIdx, setActiveIdx] = useState(null)
+
   const recent = (rounds || []).slice(0, 10)
   if (recent.length < 2) return null
 
@@ -44,42 +54,159 @@ function HandicapTrendLine({ rounds }) {
   const showParLine = min < 0 && max > 0
   const parY = showParLine ? pad + (1 - (0 - min) / range) * (H - pad * 2) : null
 
+  // Map a clientX to the nearest data-point index. Used by both touch
+  // and mouse handlers below.
+  function nearestIndexFromClientX(clientX) {
+    const el = containerRef.current
+    if (!el) return null
+    const rect = el.getBoundingClientRect()
+    if (rect.width <= 0) return null
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    const svgX  = ratio * W
+    let best = 0, bestDist = Infinity
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(pts[i].x - svgX)
+      if (d < bestDist) { bestDist = d; best = i }
+    }
+    return best
+  }
+
+  function onTouchStart(e) { setActiveIdx(nearestIndexFromClientX(e.touches[0].clientX)) }
+  function onTouchMove(e)  { setActiveIdx(nearestIndexFromClientX(e.touches[0].clientX)) }
+  function onTouchEnd()     { setActiveIdx(null) }
+  function onMouseDown(e)   { setActiveIdx(nearestIndexFromClientX(e.clientX)) }
+  function onMouseMove(e)   { if (e.buttons === 1) setActiveIdx(nearestIndexFromClientX(e.clientX)) }
+  function onMouseUp()      { setActiveIdx(null) }
+  function onMouseLeave()   { setActiveIdx(null) }
+
+  // Active-round details for the tooltip
+  const active     = activeIdx != null ? sequence[activeIdx]    : null
+  const activePt   = activeIdx != null ? pts[activeIdx]         : null
+  const activeDiff = activeIdx != null ? diffs[activeIdx]       : null
+  const activeScore = active != null ? Number(active.score ?? active.total) : null
+  const activeDateLabel = active?.played_at
+    ? new Date(active.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : ''
+  const activeDiffStr = activeDiff == null
+    ? ''
+    : activeDiff === 0 ? 'E' : activeDiff > 0 ? `+${activeDiff}` : `${activeDiff}`
+  const activeDiffColor = activeDiff == null ? '#fff'
+    : activeDiff < 0 ? '#F5E070'
+    : activeDiff === 0 ? '#fff'
+    : '#F87171'
+
+  // Tooltip horizontal position as a percentage of the chart width.
+  // Clamped so the tooltip doesn't overflow either edge.
+  const tooltipPct = activePt ? Math.max(8, Math.min(92, (activePt.x / W) * 100)) : 50
+
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="hcpTrendStroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#C9A040" />
-          <stop offset="100%" stopColor="#F5E070" />
-        </linearGradient>
-        <linearGradient id="hcpTrendFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(232,192,90,0.22)" />
-          <stop offset="100%" stopColor="rgba(232,192,90,0)" />
-        </linearGradient>
-      </defs>
-
-      {/* Soft area fill under the line for visual weight */}
-      <path
-        d={`${path} L${pts[pts.length - 1].x.toFixed(1)},${H - pad} L${pts[0].x.toFixed(1)},${H - pad} Z`}
-        fill="url(#hcpTrendFill)"
-      />
-
-      {/* Par reference line — only when the trend crosses zero */}
-      {parY != null && (
-        <line x1={pad} y1={parY} x2={W - pad} y2={parY}
-          stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="2,3" />
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        // touchAction:none = browser doesn't try to scroll/zoom while
+        // the user is scrubbing the chart with their finger.
+        touchAction: 'none',
+        userSelect: 'none', WebkitUserSelect: 'none',
+        // Reserve space above the chart for the tooltip so it doesn't
+        // overlap the big handicap number above when a round is active.
+        paddingTop: active ? 38 : 0,
+        transition: 'padding-top 140ms ease',
+      }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Tooltip — absolutely positioned over the chart, clamped to
+          stay within bounds. Renders only while scrubbing. */}
+      {active && (
+        <div style={{
+          position: 'absolute',
+          left: `${tooltipPct}%`,
+          top: 0,
+          transform: 'translateX(-50%)',
+          background: 'rgba(7,18,9,0.96)',
+          border: '1px solid rgba(232,192,90,0.45)',
+          borderRadius: 8,
+          padding: '5px 10px',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          zIndex: 2,
+          fontSize: 11, fontWeight: 700, color: '#fff',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{
+            maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis',
+            color: '#fff',
+          }}>
+            {active.course_name || 'Round'}
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: 500 }}>
+            {activeDateLabel}
+          </span>
+          <span style={{ color: '#F5E070', fontWeight: 900 }}>
+            {Number.isFinite(activeScore) ? activeScore : '—'}
+          </span>
+          <span style={{ color: activeDiffColor, fontWeight: 900 }}>
+            {activeDiffStr}
+          </span>
+        </div>
       )}
 
-      {/* Trend line itself */}
-      <path d={path} fill="none" stroke="url(#hcpTrendStroke)" strokeWidth="2"
-        strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="hcpTrendStroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#C9A040" />
+            <stop offset="100%" stopColor="#F5E070" />
+          </linearGradient>
+          <linearGradient id="hcpTrendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(232,192,90,0.22)" />
+            <stop offset="100%" stopColor="rgba(232,192,90,0)" />
+          </linearGradient>
+        </defs>
 
-      {/* Per-round dots, colored by score-to-par direction */}
-      {pts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2.5"
-          fill={p.d < 0 ? '#F5E070' : p.d === 0 ? '#E8C05A' : '#E8A85A'}
-          stroke="rgba(7,18,9,0.95)" strokeWidth="1.5" />
-      ))}
-    </svg>
+        {/* Soft area fill under the line for visual weight */}
+        <path
+          d={`${path} L${pts[pts.length - 1].x.toFixed(1)},${H - pad} L${pts[0].x.toFixed(1)},${H - pad} Z`}
+          fill="url(#hcpTrendFill)"
+        />
+
+        {/* Par reference line — only when the trend crosses zero */}
+        {parY != null && (
+          <line x1={pad} y1={parY} x2={W - pad} y2={parY}
+            stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="2,3" />
+        )}
+
+        {/* Trend line itself */}
+        <path d={path} fill="none" stroke="url(#hcpTrendStroke)" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Active scrubber — vertical guide + highlighted dot at the
+            current finger position, drawn under the regular dots so
+            the active dot's halo doesn't visually clip them. */}
+        {activePt && (
+          <>
+            <line x1={activePt.x} y1={pad} x2={activePt.x} y2={H - pad}
+              stroke="rgba(245,224,112,0.55)" strokeWidth="1" strokeDasharray="2,2" />
+            <circle cx={activePt.x} cy={activePt.y} r="6"
+              fill="rgba(245,224,112,0.18)" stroke="#F5E070" strokeWidth="1.5" />
+          </>
+        )}
+
+        {/* Per-round dots, colored by score-to-par direction */}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === activeIdx ? 3.5 : 2.5}
+            fill={p.d < 0 ? '#F5E070' : p.d === 0 ? '#E8C05A' : '#E8A85A'}
+            stroke="rgba(7,18,9,0.95)" strokeWidth="1.5" />
+        ))}
+      </svg>
+    </div>
   )
 }
 
