@@ -2130,10 +2130,15 @@ function BulkScoreModal({ hole, par, participants, getScores, holeCount, onClose
       }} onClick={e => e.stopPropagation()}>
         {/* Handle */}
         <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--tm-border-2)', margin: '0 auto 14px' }} />
-        {/* Title row — hole + par + helper */}
+        {/* Title row — hole + par + helper. Subtitle adapts to the
+            actual group size so a doubles match doesn't say "Foursome".
+            (Round 13 edge-case audit.) */}
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', color: 'var(--tm-gold)', textTransform: 'uppercase' }}>
-            Bulk entry · Foursome
+            Bulk entry · {participants.length === 4 ? 'Foursome'
+              : participants.length === 3 ? 'Threesome'
+              : participants.length === 2 ? 'Pair'
+              : `${participants.length} players`}
           </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--tm-text)', marginTop: 4 }}>
             Hole {hole + 1}{par ? ` · Par ${par}` : ''}
@@ -5278,10 +5283,16 @@ function LiveShareModal({ outing, onClose }) {
 // /:code/stableford-points; on success we mirror the new map into local
 // outing.state so leaderboards recompute immediately.
 function StablefordEditor({ code, outing, onSaved }) {
-  const initial = (outing.state?.stableford_points && typeof outing.state.stableford_points === 'object')
-    ? outing.state.stableford_points
+  const seedFromOuting = () => (outing.state?.stableford_points && typeof outing.state.stableford_points === 'object')
+    ? { ...outing.state.stableford_points }
     : { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 }
-  const [pts, setPts] = useState({ ...initial })
+  // 'baseline' is the last-saved (or initially-loaded) point map. dirty
+  // is computed against THIS, not a frozen useState-initializer snapshot.
+  // Without this, after a successful save the button sticks on
+  // "Save points" forever because the dirty check still compares to the
+  // pre-save values. (Round 14 edge-case audit.)
+  const [baseline, setBaseline] = useState(seedFromOuting)
+  const [pts, setPts] = useState(seedFromOuting)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
   const [savedAt, setSavedAt] = useState(null)
@@ -5324,7 +5335,9 @@ function StablefordEditor({ code, outing, onSaved }) {
     setSaving(true)
     try {
       const data = await put(`/api/outings/${code}/stableford-points`, { points: sanitized })
-      onSaved?.(data?.stableford_points || sanitized)
+      const saved = data?.stableford_points || sanitized
+      onSaved?.(saved)
+      setBaseline({ ...saved })   // refresh baseline so dirty resets
       setSavedAt(Date.now())
     } catch (err) {
       setError(err?.message || 'Save failed')
@@ -5335,7 +5348,7 @@ function StablefordEditor({ code, outing, onSaved }) {
 
   // Detect dirty (have any inputs been edited from the saved state?)
   // so the save button can disable when nothing has changed.
-  const dirty = buckets.some(b => Number(pts[b.key]) !== Number(initial[b.key] ?? 0))
+  const dirty = buckets.some(b => Number(pts[b.key]) !== Number(baseline[b.key] ?? 0))
 
   return (
     <div>
