@@ -3212,6 +3212,11 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // their own group; host can switch to any group via the chip selector.
   // Null means "all groups" (small outing or fallback). (2026-05-01)
   const [activeGroupId, setActiveGroupId] = useState(null)
+  // Auto-end suggestion dismissal — must be declared up here, BEFORE
+  // the if-loading/if-not-outing early returns. Otherwise the hook
+  // count differs between the two render passes and React fires
+  // error #310. (Hot-fix round 3.)
+  const [autoEndDismissed, setAutoEndDismissed] = useState(false)
 
   // (loadOuting is declared earlier, above the useEffects that
   // depend on it — see the TDZ-fix note up top. Don't redeclare here.)
@@ -3760,11 +3765,16 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // match. Dismissible (per-session via showAutoEndPrompt state)
   // so the host can keep the board live for celebration if they
   // want. Only the host sees it. (Round 11 audit.)
+  //
+  // NOTE — autoEndDismissed useState was previously declared HERE
+  // (after the if-loading/if-not-outing early returns), which
+  // produced a hook-count mismatch between renders → React error
+  // #310 in production. It now lives at the top of the LiveOuting
+  // hook block alongside every other useState. (Hot-fix round 3.)
   const allFinished = participants.length > 0 && participants.every(p => {
     const sc = getScores(p) || []
     return sc.filter(s => s > 0).length >= holeCount
   })
-  const [autoEndDismissed, setAutoEndDismissed] = useState(false)
   const showAutoEndPrompt = isHost && allFinished && !autoEndDismissed && outing.status !== 'ended'
 
   // Active hole — next hole to be played. = max(holes_played) + 1, capped
