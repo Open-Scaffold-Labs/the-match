@@ -78,7 +78,7 @@ router.get('/me', async (req, res) => {
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
   try {
     const { sub } = jwt.verify(header.slice(7), process.env.JWT_SECRET)
-    const user = await db.one('SELECT id, email, name, handle, role, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [sub])
+    const user = await db.one('SELECT id, email, name, handle, role, tier, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [sub])
     if (!user) return res.status(401).json({ error: 'Not found' })
     res.json({ user })
   } catch {

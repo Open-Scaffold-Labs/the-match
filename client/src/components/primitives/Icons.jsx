@@ -117,6 +117,27 @@ export function IconBag({ size = 24, color = 'currentColor', strokeWidth = 1.6 }
   )
 }
 
+// League icon — trophy on a pedestal with two flag stems flanking it.
+// Used by the Leagues bottom-nav tab. (2026-05-02)
+export function IconLeague({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      {/* Trophy cup */}
+      <path d="M8 4h8v4a4 4 0 0 1-8 0V4z" />
+      {/* Handles */}
+      <path d="M8 6H6a2 2 0 0 0 2 2" />
+      <path d="M16 6h2a2 2 0 0 1-2 2" />
+      {/* Stem */}
+      <line x1="12" y1="12" x2="12" y2="16" />
+      {/* Pedestal */}
+      <line x1="9" y1="20" x2="15" y2="20" />
+      <line x1="10" y1="16" x2="14" y2="16" />
+      {/* Star on cup */}
+      <circle cx="12" cy="6.5" r="0.6" fill={color} />
+    </svg>
+  )
+}
+
 // The Match emblem — TM monogram in a circle
 export function TMEmblem({ size = 48, gold = false }) {
   const accent = gold ? '#E8C05A' : '#5ED47A'

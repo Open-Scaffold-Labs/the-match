@@ -3633,6 +3633,47 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           onSelectFriend={setSelectedFriend}
         />
 
+        {/* My Bag access card — moved here from the bottom-nav slot when
+            it was replaced by Leagues (2026-05-02). Tapping the card sets
+            the active tab to BAG, which still has its own page; only the
+            nav slot was repurposed. Shows current club count when known. */}
+        <button
+          onClick={() => onNavigate?.('bag')}
+          style={{
+            width: '100%', textAlign: 'left',
+            padding: '14px 16px', borderRadius: 14,
+            background: 'rgba(255,255,255,0.85)',
+            border: '1px solid rgba(201,160,64,0.30)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            display: 'flex', alignItems: 'center', gap: 12,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+            background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 7h10a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 17 21H7a1.5 1.5 0 0 1-1.5-1.5v-11A1.5 1.5 0 0 1 7 7z" />
+              <path d="M5.5 11l-1.5 1v4l1.5 1" />
+              <line x1="6" y1="14" x2="18" y2="14" />
+              <line x1="9" y1="3" x2="9" y2="7" />
+              <line x1="12" y1="2" x2="12" y2="7" />
+              <line x1="15" y1="3" x2="15" y2="7" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#0E3B23' }}>My Bag</div>
+            <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 2 }}>
+              {Array.isArray(bagClubs) && bagClubs.length > 0
+                ? `${bagClubs.length} club${bagClubs.length === 1 ? '' : 's'} · tap to manage distances`
+                : 'Set your clubs + distances'}
+            </div>
+          </div>
+          <div style={{ color: 'rgba(13,31,18,0.40)', fontSize: 22 }}>›</div>
+        </button>
+
         {/* Availability calendar */}
         <AvailabilityCalendar
           uid={user?.id}

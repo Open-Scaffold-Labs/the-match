@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx'
 import EagleEye from './pages/EagleEye.jsx'
 import Outing from './pages/Outing.jsx'
 import MyBag from './pages/MyBag.jsx'
+import Leagues from './pages/Leagues.jsx'
 import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
@@ -212,6 +213,11 @@ export default function App() {
         {mountedTabs.has(TABS.BAG) && (
           <TabPanel active={tab === TABS.BAG}>
             <MyBag user={user} />
+          </TabPanel>
+        )}
+        {mountedTabs.has(TABS.LEAGUES) && (
+          <TabPanel active={tab === TABS.LEAGUES}>
+            <Leagues user={user} />
           </TabPanel>
         )}
         {mountedTabs.has(TABS.TOUR) && (
