@@ -2156,7 +2156,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           fontSize: 40, fontWeight: 400, letterSpacing: '0',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          fontFamily: '"Allura", "Georgia", serif',
+          fontFamily: '"Pinyon Script", "Georgia", serif',
           lineHeight: 1, paddingTop: 2,
           flex: 1, textAlign: 'center',
         }}>The Match</div>
@@ -3436,7 +3436,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           fontSize: 40, fontWeight: 400, letterSpacing: '0',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          fontFamily: '"Allura", "Georgia", serif',
+          fontFamily: '"Pinyon Script", "Georgia", serif',
           lineHeight: 1, paddingTop: 2,
         }}>The Match</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
