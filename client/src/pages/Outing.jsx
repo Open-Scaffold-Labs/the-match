@@ -4868,7 +4868,14 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
         return { ...p, scores, total, holes_played: holesPlayed }
       })
       onParticipantsUpdated?.(next)
-      setEditing(null)
+      // Auto-advance to the next hole on the same row, so bulk
+      // corrections don't require tapping every cell. Stops at the
+      // last hole. (Round 10 audit.)
+      if (hole < holeCount - 1) {
+        setEditing({ user_id: userId, hole: hole + 1, value: '' })
+      } else {
+        setEditing(null)
+      }
     } catch (err) {
       alert(`Save failed: ${err.message || 'Unknown error'}`)
     } finally {
@@ -5028,6 +5035,12 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                           color: 'rgba(255,255,255,0.55)',
                         }}>{h + 1}</th>
                       ))}
+                      <th style={{
+                        width: 50, padding: '6px 8px', textAlign: 'center',
+                        fontSize: 9, fontWeight: 800,
+                        color: '#F5D78A', letterSpacing: '0.06em',
+                        background: 'rgba(245,215,138,0.06)',
+                      }}>TOT</th>
                     </tr>
                     {/* Par sub-header — gives at-a-glance context so
                         the host can see whether a 5 is a par (par-5)
@@ -5046,11 +5059,40 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                           color: 'rgba(245,215,138,0.55)',
                         }}>{p}</th>
                       ))}
+                      <th style={{
+                        width: 50, padding: '0 8px 6px', textAlign: 'center',
+                        fontSize: 10, fontWeight: 700,
+                        color: 'rgba(245,215,138,0.55)',
+                        background: 'rgba(245,215,138,0.06)',
+                      }}>{gridHolePars.reduce((s, p) => s + (p || 0), 0)}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {all.filter(p => !p.withdrawn).map(p => {
                       const scores = Array.isArray(p.scores) ? p.scores : []
+                      // Running total + relative-to-par for the TOT
+                      // column — only counts holes the player has
+                      // actually scored. (Round 10 audit.)
+                      let rowTotal = 0
+                      let rowPar   = 0
+                      let rowPlayed = 0
+                      for (let h = 0; h < holeCount; h++) {
+                        const s = scores[h] || 0
+                        if (s > 0) {
+                          rowTotal += s
+                          rowPar   += gridHolePars[h] || 4
+                          rowPlayed += 1
+                        }
+                      }
+                      const rowDiff = rowPlayed > 0 ? rowTotal - rowPar : null
+                      const rowDiffStr = rowDiff == null ? '—'
+                        : rowDiff === 0 ? 'E'
+                        : rowDiff > 0 ? `+${rowDiff}`
+                        : `${rowDiff}`
+                      const rowDiffColor = rowDiff == null ? 'rgba(255,255,255,0.30)'
+                        : rowDiff < 0 ? '#E55858'
+                        : rowDiff === 0 ? '#fff'
+                        : 'rgba(255,255,255,0.65)'
                       return (
                         <tr key={p.user_id}>
                           <td style={{
@@ -5102,6 +5144,21 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                               </td>
                             )
                           })}
+                          {/* TOT column — running total + STP. (Round 10) */}
+                          <td style={{
+                            width: 50, padding: '6px 8px', textAlign: 'center',
+                            borderTop: '1px solid rgba(255,255,255,0.07)',
+                            background: 'rgba(245,215,138,0.06)',
+                            fontSize: 12, fontWeight: 800,
+                            color: '#fff', whiteSpace: 'nowrap',
+                          }}>
+                            {rowPlayed > 0 ? rowTotal : '—'}
+                            {rowPlayed > 0 && (
+                              <div style={{ fontSize: 9, fontWeight: 700, color: rowDiffColor, marginTop: 2 }}>
+                                {rowDiffStr}
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       )
                     })}
