@@ -1877,12 +1877,15 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
           />
 
-          {/* HUD overlay — z-index 800 keeps it safely above Leaflet's
-              tile/marker/popup panes (which max around 700). The
-              floating SCORECARD + BAG buttons sit at 1000 above this
-              so they always win. (2026-05-01 — Matt: yardage card +
-              Analyze Shot button should never be hidden by tiles.) */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none', zIndex: 800 }}>
+          {/* HUD overlay — DOM order alone (HUD is rendered after
+              HoleMap as a sibling inside a position:relative parent)
+              is enough to keep it visually on top of Leaflet's tile
+              pane. The earlier explicit zIndex: 800 introduced a
+              stacking context that broke tile rendering on iOS — pull
+              it back. The floating SCORECARD + BAG buttons stay at
+              z-index 1000 because they're positioned outside the map
+              view wrapper and need the lift. (2026-05-01) */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
 
             {/* ── Top yardage card — compact, top-right corner so it
                 doesn't block the player's view of the shot. marginTop
