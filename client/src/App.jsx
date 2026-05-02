@@ -11,6 +11,7 @@ import Login from './pages/Login.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
 import PermissionsPrompt from './components/PermissionsPrompt.jsx'
 import PublicLeaderboard from './pages/PublicLeaderboard.jsx'
+import PrintResults from './pages/PrintResults.jsx'
 import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
 
@@ -125,6 +126,20 @@ export default function App() {
     } catch { return null }
   })()
   if (liveCode) return <PublicLeaderboard code={liveCode} />
+
+  // Item 9 — Print-friendly results page. ?print=ABCD short-circuits
+  // before auth so the host can pop a print-optimized view in a new
+  // tab without re-logging in. PrintResults uses the same public
+  // endpoint as PublicLeaderboard (read-only spectator view) — for
+  // private leagues a token-gated variant could be added later.
+  const printCode = (() => {
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const c = sp.get('print')
+      return c ? c.toUpperCase() : null
+    } catch { return null }
+  })()
+  if (printCode) return <PrintResults code={printCode} />
 
   if (loading) return <Splash />
   if (!user)   return <Login onLogin={setUser} />

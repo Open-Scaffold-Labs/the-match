@@ -54,6 +54,7 @@ router.get('/:code/public', async (req, res) => {
           group_id: p.group_id ?? null,
           team_id:  p.team_id  ?? null,
           withdrawn: !!p.withdrawn,
+          no_show:   !!p.no_show,
         }
       }
       const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
@@ -69,6 +70,7 @@ router.get('/:code/public', async (req, res) => {
         group_id: p.group_id ?? null,
         team_id:  p.team_id  ?? null,
         withdrawn: !!p.withdrawn,
+        no_show:   !!p.no_show,
       }
     })
 
@@ -102,6 +104,13 @@ router.get('/:code/public', async (req, res) => {
               }))
             : [],
           team_breakdown: state.team_breakdown ?? null,
+          // Item 6 — expose no_show_policy so the public client can
+          // render no-shows correctly (DNS pill, max+2 ghost row, etc.)
+          no_show_policy: state.no_show_policy || 'dns',
+          // Keep no-show players in the response (unlike withdrawn)
+          // because the policy may dictate they show on the
+          // leaderboard with a synthetic max+2 score. Public client
+          // decides how to render.
           participants: enriched.filter(p => !p.withdrawn),
         },
       },
@@ -915,6 +924,388 @@ router.get('/:code/audit', async (req, res) => {
   }
 })
 
+// ─── GET /api/outings/:code/export.csv ──────────────────────────────────────
+// Host-only: download a CSV of the outing's current state for the
+// commissioner's own reporting (insurance, skins-pool payouts, league
+// records, etc.). Columns: Position, Player, Handle, Handicap (effective
+// — uses per-event override if set), Total, Front, Back, Hole 1..N,
+// Status (Active / Withdrawn / DNS / NoShow).
+//
+// CSV escaping: anything containing comma, quote, newline, or starting
+// with =/+/-/@ (Excel formula injection) gets quoted with internal
+// quotes doubled. Player names + announcements are the realistic
+// vectors for an injection attack via this endpoint.
+//
+// (2026-05-02 — league readiness item 8.)
+router.get('/:code/export.csv', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const outing = await db.one(
+      'SELECT id, host_id, name, code, course_name, course_par, hole_pars, scoring_formats, status, state FROM tm_outings WHERE code = $1',
+      [code]
+    )
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const partRows = await db.many(
+      `SELECT op.user_id, op.scores, op.total, u.name, u.handle, u.handicap
+       FROM tm_outing_participants op
+       LEFT JOIN tm_users u ON u.id = op.user_id
+       WHERE op.outing_id = $1`,
+      [outing.id]
+    )
+    const state = outing.state || { participants: [] }
+    const holeCount = state.holes ?? 18
+    const holePars = (() => {
+      const real = Array.isArray(outing.hole_pars) ? outing.hole_pars : null
+      if (real && real.length >= holeCount) return real.slice(0, holeCount)
+      const cp = outing.course_par ?? 72
+      const base = Math.floor(cp / holeCount), extra = cp - base * holeCount
+      return Array.from({ length: holeCount }, (_, i) => i < extra ? base + 1 : base)
+    })()
+    const overrides = state.handicap_overrides || {}
+
+    function csvEscape(v) {
+      if (v == null) return ''
+      let s = String(v)
+      // Excel formula-injection guard — prefix the cell with a single
+      // quote so the formula char is treated as literal text.
+      if (/^[=+\-@]/.test(s)) s = "'" + s
+      if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"'
+      return s
+    }
+
+    // Build rows. Sort by total ascending, withdrawn / no-show pushed
+    // to the bottom so the leaderboard order matches what spectators
+    // see in the app.
+    const rows = (state.participants || []).map(sp => {
+      const dp = partRows.find(r => String(r.user_id) === String(sp.user_id))
+      const scores = (dp?.scores && Array.isArray(dp.scores)) ? dp.scores : (sp.scores || [])
+      const total = Number(dp?.total ?? sp.total) || 0
+      const front = scores.slice(0, 9).reduce((s, v) => s + (v || 0), 0)
+      const back  = scores.slice(9, 18).reduce((s, v) => s + (v || 0), 0)
+      const ov    = overrides[String(sp.user_id)]
+      const effective = ov != null && Number.isFinite(Number(ov)) ? Number(ov) : (dp?.handicap ?? null)
+      const status = sp.withdrawn ? 'Withdrawn'
+        : sp.no_show ? 'NoShow'
+        : (Array.isArray(scores) && scores.filter(s => s > 0).length === 0) ? 'Inactive'
+        : 'Active'
+      return {
+        sortKey: sp.withdrawn || sp.no_show ? 9_999_999 : (total > 0 ? total : 9_999_998),
+        cells: [
+          dp?.name || sp.name || `Player ${sp.user_id}`,
+          dp?.handle ? `@${dp.handle}` : '',
+          effective != null ? String(effective) : '',
+          total > 0 ? String(total) : '',
+          front > 0 ? String(front) : '',
+          back > 0 ? String(back) : '',
+          ...Array.from({ length: holeCount }, (_, h) => scores[h] > 0 ? String(scores[h]) : ''),
+          status,
+        ],
+      }
+    }).sort((a, b) => a.sortKey - b.sortKey)
+      .map((r, i) => [String(i + 1), ...r.cells])
+
+    const header = [
+      'Position', 'Player', 'Handle', 'Handicap', 'Total', 'Front', 'Back',
+      ...Array.from({ length: holeCount }, (_, h) => `Hole ${h + 1}`),
+      'Status',
+    ]
+
+    const lines = [header, ...rows].map(row => row.map(csvEscape).join(','))
+    // Course/format header so the file is self-describing
+    const meta = [
+      `# Match: ${csvEscape(outing.name)}`,
+      `# Code: ${csvEscape(outing.code)}`,
+      `# Course: ${csvEscape(outing.course_name)} (par ${outing.course_par})`,
+      `# Format: ${csvEscape((outing.scoring_formats || []).join('+'))}`,
+      `# Status: ${csvEscape(outing.status)}`,
+      `# Exported: ${new Date().toISOString()}`,
+      '',
+    ]
+    const body = [...meta, ...lines].join('\r\n') + '\r\n'
+
+    const filename = `match-${outing.code}-${new Date().toISOString().slice(0, 10)}.csv`
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(body)
+  } catch (err) {
+    console.error('[outings/export]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── GET /api/outings/season/:season — season standings ─────────────────────
+// Cross-outing rollup keyed by season string ("2026", "2026-spring",
+// whatever the league uses). Returns aggregated stats per player across
+// every closed outing tagged with this season:
+//   { season, outings_count, players: [{ user_id, name, handle, played,
+//                                         won, top3, total_points, avg_to_par }] }
+//
+// Season tag lives on outing.state.season. Hosts set it at creation
+// (via the wizard) or post-hoc through PUT /:code/season.
+router.get('/season/:season', async (req, res) => {
+  try {
+    const season = String(req.params.season || '').slice(0, 64)
+    if (!season) return res.status(400).json({ error: 'season required' })
+
+    const rows = await db.many(
+      `SELECT id, name, code, status, state, scoring_formats
+       FROM tm_outings
+       WHERE state->>'season' = $1
+         AND status IN ('closed', 'cancelled')
+       ORDER BY id ASC`,
+      [season]
+    )
+
+    // Aggregate per-player. Position is computed from the participant
+    // ordering at end-time (state.participants is sorted by total asc
+    // by the time the outing closes).
+    const playerMap = new Map()
+    for (const o of rows) {
+      const state = o.state || {}
+      const parts = (state.participants || []).filter(p => !p.withdrawn && !p.no_show)
+      const sorted = [...parts].sort((a, b) => (a.total ?? 9_999_999) - (b.total ?? 9_999_999))
+      sorted.forEach((p, idx) => {
+        if (!p.user_id) return
+        const k = String(p.user_id)
+        if (!playerMap.has(k)) {
+          playerMap.set(k, {
+            user_id: p.user_id, name: p.name, handle: p.handle || null,
+            played: 0, wins: 0, top3: 0, scoresum: 0, scorecount: 0,
+          })
+        }
+        const m = playerMap.get(k)
+        m.played += 1
+        if (idx === 0) m.wins += 1
+        if (idx < 3)   m.top3 += 1
+        if (Number(p.total) > 0) {
+          m.scoresum += Number(p.total)
+          m.scorecount += 1
+        }
+      })
+    }
+    const players = Array.from(playerMap.values())
+      .map(m => ({
+        ...m,
+        avg_score: m.scorecount > 0 ? +(m.scoresum / m.scorecount).toFixed(1) : null,
+      }))
+      .sort((a, b) => b.wins - a.wins || b.top3 - a.top3 || a.avg_score - b.avg_score)
+    res.json({
+      season,
+      outings_count: rows.length,
+      outings: rows.map(o => ({ id: o.id, name: o.name, code: o.code, status: o.status })),
+      players,
+    })
+  } catch (err) {
+    console.error('[outings/season]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/season — set season tag ─────────────────────────
+router.put('/:code/season', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { season } = req.body
+    const tag = (typeof season === 'string') ? season.trim().slice(0, 64) : ''
+    const outing = await db.one('SELECT id, host_id, state FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    const state = { ...(outing.state || {}) }
+    if (tag) state.season = tag
+    else delete state.season
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, season: tag || null })
+  } catch (err) {
+    console.error('[outings/season-set]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── POST /api/outings/:code/announcement ───────────────────────────────────
+// Host-only: post an announcement to the outing's participants. Stored
+// on outing.state.announcements[] as { id, text, posted_by_id,
+// posted_by_name, posted_at }. Push fan-out notifies every non-host
+// participant. (Item 7 — communication.)
+router.post('/:code/announcement', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { text } = req.body
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ error: 'text required' })
+    }
+    if (text.length > 600) {
+      return res.status(400).json({ error: 'announcement is too long (max 600 chars)' })
+    }
+
+    const outing = await db.one(
+      'SELECT id, host_id, name, code, state FROM tm_outings WHERE code = $1',
+      [code]
+    )
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const author = await db.one('SELECT name FROM tm_users WHERE id = $1', [req.user.id])
+
+    const announcement = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: text.trim(),
+      posted_by_id: req.user.id,
+      posted_by_name: author?.name || 'Commissioner',
+      posted_at: new Date().toISOString(),
+    }
+    const state = outing.state || { participants: [] }
+    const list = Array.isArray(state.announcements) ? state.announcements : []
+    // Cap at 50 most-recent announcements per outing — older ones drop
+    // off the bottom. Prevents the JSON state from ballooning.
+    const next = [announcement, ...list].slice(0, 50)
+    state.announcements = next
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+
+    // Push fan-out to every non-host participant. Best-effort — we
+    // don't fail the request if push fails for any individual sub.
+    try {
+      const { sendPushToUser } = require('../lib/push')
+      for (const p of (state.participants || [])) {
+        if (p.is_guest) continue
+        if (String(p.user_id) === String(req.user.id)) continue
+        if (p.withdrawn) continue
+        sendPushToUser(p.user_id, {
+          title: `${outing.name} · Commissioner`,
+          body: announcement.text.slice(0, 180),
+          url: `/?match=${outing.code}`,
+          tag: `announcement-${outing.code}`,
+        })
+      }
+    } catch (err) {
+      console.error('[outings/announcement] push fan-out failed', err.message)
+    }
+
+    res.json({ ok: true, announcement, announcements: next })
+  } catch (err) {
+    console.error('[outings/announcement]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── POST /api/outings/:code/cancel ─────────────────────────────────────────
+// Host-only: cancel a scheduled outing. Sets status='cancelled' and
+// fans out a push to every non-host participant. Distinct from /end
+// (which closes a played match) and /:code DELETE (hard removal).
+// Cancelled matches stay in the DB so they can be referenced later
+// in player history; they just don't render as "active".
+router.post('/:code/cancel', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { reason } = req.body
+    const outing = await db.one(
+      'SELECT id, host_id, name, code, status, state FROM tm_outings WHERE code = $1',
+      [code]
+    )
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    if (outing.status === 'closed' || outing.status === 'cancelled') {
+      return res.status(409).json({ error: `Outing already ${outing.status}` })
+    }
+
+    await db.query("UPDATE tm_outings SET status='cancelled' WHERE id=$1", [outing.id])
+
+    // Push fan-out
+    try {
+      const { sendPushToUser } = require('../lib/push')
+      const reasonLine = (typeof reason === 'string' && reason.trim()) ? ` — ${reason.trim()}` : ''
+      const state = outing.state || {}
+      for (const p of (state.participants || [])) {
+        if (p.is_guest) continue
+        if (String(p.user_id) === String(req.user.id)) continue
+        if (p.withdrawn) continue
+        sendPushToUser(p.user_id, {
+          title: `${outing.name} cancelled`,
+          body: `The commissioner cancelled this match${reasonLine}.`,
+          url: `/?match=${outing.code}`,
+          tag: `cancel-${outing.code}`,
+        })
+      }
+    } catch (err) {
+      console.error('[outings/cancel] push fan-out failed', err.message)
+    }
+
+    res.json({ ok: true, status: 'cancelled' })
+  } catch (err) {
+    console.error('[outings/cancel]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── POST /api/outings/:code/no-show ────────────────────────────────────────
+// Host-only: mark a participant as a no-show (or clear). Different from
+// withdraw — withdraw is a mid-round dropout (player started but
+// stopped); no-show means the player never started. Both flags can be
+// set, but typically a no-show stays at status no_show=true,
+// withdrawn=false.
+//
+// The OUTING-level no_show_policy (state.no_show_policy) controls how
+// no-shows render on the leaderboard:
+//   - 'dns' (default): excluded from ranking, shown with a "DNS" pill
+//   - 'max_plus_2': counted as if they posted (par + 2) on every hole
+//   - 'manual': commissioner enters a final score themselves
+//
+// Body: { user_id, no_show: bool }
+// (2026-05-02 — league readiness item 6.)
+router.post('/:code/no-show', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { user_id, no_show } = req.body
+    if (!user_id) return res.status(400).json({ error: 'user_id required' })
+
+    const outing = await db.one('SELECT id, host_id, state FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const state = outing.state || { participants: [] }
+    const idx = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+    if (idx < 0) return res.status(404).json({ error: 'Participant not found' })
+
+    state.participants[idx].no_show = !!no_show
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[outings/no-show]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/no-show-policy ──────────────────────────────────
+// Host-only: change the outing's no-show policy. Body: { policy: 'dns' |
+// 'max_plus_2' | 'manual' }. Validation: only one of the three legal
+// values; anything else returns 400.
+router.put('/:code/no-show-policy', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { policy } = req.body
+    const legal = ['dns', 'max_plus_2', 'manual']
+    if (!legal.includes(policy)) {
+      return res.status(400).json({ error: `policy must be one of: ${legal.join(', ')}` })
+    }
+    const outing = await db.one('SELECT id, host_id, state FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    const state = { ...(outing.state || {}), no_show_policy: policy }
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, no_show_policy: policy })
+  } catch (err) {
+    console.error('[outings/no-show-policy]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // ─── POST /api/outings/:code/withdraw ────────────────────────────────────────
 // Host-only: mark a participant withdrawn (or un-withdraw). Their
 // scores stay in the DB for posterity but they're excluded from
@@ -1093,6 +1484,28 @@ router.post('/:code/end', async (req, res) => {
           : 'loss'
         await db.query('UPDATE tm_outing_participants SET result=$1 WHERE id=$2', [result, p.id])
       }
+    }
+
+    // ─ Auto-mark no-shows at end (item 6). Anyone with zero scored
+    // holes and not already withdrawn gets no_show=true. The
+    // leaderboard render respects state.no_show_policy ('dns' default,
+    // 'max_plus_2', or 'manual'). Host can override via POST
+    // /:code/no-show. Persisted in state.participants[i].no_show.
+    {
+      const stateNow = outing.state || { participants: [] }
+      const updated = (stateNow.participants || []).map(sp => {
+        if (sp.withdrawn || sp.no_show) return sp   // don't touch existing flags
+        const dp = dbParticipants.find(r => String(r.user_id) === String(sp.user_id))
+        const sc = dp?.scores || sp.scores || []
+        const played = Array.isArray(sc) ? sc.filter(s => s > 0).length : 0
+        if (played === 0) return { ...sp, no_show: true }
+        return sp
+      })
+      stateNow.participants = updated
+      // Default policy if not set, so the leaderboard render has
+      // something to read on first end.
+      if (!stateNow.no_show_policy) stateNow.no_show_policy = 'dns'
+      await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(stateNow), outing.id])
     }
 
     await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])

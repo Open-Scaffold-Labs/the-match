@@ -3390,7 +3390,41 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   }))
   // Active leaderboard pool — withdrawn players are excluded from
   // ranking, scoring, and leaderboard rendering.
-  const participants = allParticipants.filter(p => !p.withdrawn)
+  //
+  // No-show handling (item 6): per outing.state.no_show_policy:
+  //   - 'dns'        → exclude no-shows from the active pool; render
+  //                    a separate "Did Not Start" section below.
+  //   - 'max_plus_2' → synthesize unscored holes as (par + 2) so they
+  //                    rank with a punitive total. Original p.scores
+  //                    untouched (audit log shows real entries).
+  //   - 'manual'     → leave no-shows in pool with whatever scores
+  //                    the commissioner has entered (or none).
+  const noShowPolicy = outing.state?.no_show_policy || 'dns'
+  function applyNoShowPolicy(p) {
+    if (!p.no_show) return p
+    if (noShowPolicy === 'dns') return p          // caller filters
+    if (noShowPolicy === 'manual') return p
+    if (noShowPolicy === 'max_plus_2') {
+      // Synthesize a max+2 score for any hole that's currently 0/empty.
+      const sc = Array.isArray(p.scores) ? [...p.scores] : new Array(holeCount).fill(0)
+      while (sc.length < holeCount) sc.push(0)
+      for (let h = 0; h < holeCount; h++) {
+        if (!sc[h] || sc[h] <= 0) sc[h] = (holePars[h] || 4) + 2
+      }
+      const total = sc.reduce((s, v) => s + (v || 0), 0)
+      return { ...p, scores: sc, total, holes_played: holeCount, _synthetic: true }
+    }
+    return p
+  }
+  const participants = allParticipants
+    .filter(p => !p.withdrawn)
+    .filter(p => !(p.no_show && noShowPolicy === 'dns'))
+    .map(applyNoShowPolicy)
+  // DNS section roster — players excluded from ranking but still on
+  // the roster. Empty when policy isn't DNS.
+  const noShowList = noShowPolicy === 'dns'
+    ? allParticipants.filter(p => !p.withdrawn && p.no_show)
+    : []
   const teams        = outing.state?.teams ?? []
   const markers      = outing.state?.markers ?? []  // [{ marker_id, member_ids[] }]
   const holeCount    = outing.state?.holes ?? 18
@@ -5276,6 +5310,259 @@ function LiveShareModal({ outing, onClose }) {
   )
 }
 
+// ─── CommsTab (item 7) ───────────────────────────────────────────────────────
+// Host-only announcements composer + history + cancel-outing affordance.
+// Tab in CommissionerPanel. Posting an announcement fires push to every
+// non-host participant. Cancel changes outing.status to 'cancelled' and
+// pushes a notice to the roster — the cancel button confirms via window
+// .confirm because there's no undo. (2026-05-02)
+function CommsTab({ code, outing, onAnnouncementPosted, onStateMerge, onCancelled }) {
+  const [text, setText] = useState('')
+  const [posting, setPosting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [error, setError] = useState(null)
+  const announcements = Array.isArray(outing.state?.announcements)
+    ? outing.state.announcements
+    : []
+  const status = outing.status
+
+  async function postAnnouncement() {
+    const trimmed = text.trim()
+    if (trimmed.length === 0) return
+    if (trimmed.length > 600) {
+      setError('Announcement is too long (600 char max).')
+      return
+    }
+    setError(null)
+    setPosting(true)
+    try {
+      const data = await post(`/api/outings/${code}/announcement`, { text: trimmed })
+      onAnnouncementPosted?.(data?.announcements || [])
+      setText('')
+    } catch (err) {
+      setError(err?.message || 'Failed to post announcement')
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  async function cancelOuting() {
+    const reason = window.prompt(
+      'Cancel this match? Every participant will get a push notification.\n\n' +
+      'Optional: enter a short reason (rain-out, course closed, etc.) — leave blank to skip.',
+      ''
+    )
+    if (reason === null) return
+    setCancelling(true)
+    try {
+      await post(`/api/outings/${code}/cancel`, { reason: reason.trim() || null })
+      onCancelled?.()
+    } catch (err) {
+      alert(`Failed to cancel: ${err?.message || 'Unknown error'}`)
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  function whenStr(iso) {
+    if (!iso) return ''
+    const t = new Date(iso).getTime()
+    if (!Number.isFinite(t)) return ''
+    const ms = Date.now() - t
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    if (min < 1440) return `${Math.floor(min / 60)}h ago`
+    return `${Math.floor(min / 1440)}d ago`
+  }
+
+  return (
+    <div>
+      {/* Composer */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 8, lineHeight: 1.5 }}>
+          Post a message to every player. They'll get a push notification AND see it pinned at the top of the match page.
+        </div>
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="e.g. We're shotgun-starting at 9am sharp. Check in at the pro shop 30 min early."
+          rows={3}
+          maxLength={600}
+          style={{
+            width: '100%', padding: 10, fontFamily: 'inherit', fontSize: 13,
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 10, color: '#fff', resize: 'vertical', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)' }}>
+            {text.length} / 600
+          </div>
+          <button
+            onClick={postAnnouncement}
+            disabled={posting || text.trim().length === 0}
+            style={{
+              padding: '8px 16px', borderRadius: 'var(--tm-radius-lg)',
+              background: text.trim().length > 0
+                ? 'linear-gradient(135deg, rgba(245,215,138,0.55), rgba(201,160,64,0.85))'
+                : 'rgba(255,255,255,0.06)',
+              color: text.trim().length > 0 ? '#1A1A1A' : 'rgba(255,255,255,0.5)',
+              fontWeight: 800, fontSize: 13, border: 'none',
+              cursor: posting ? 'not-allowed' : (text.trim().length > 0 ? 'pointer' : 'default'),
+              opacity: posting ? 0.7 : 1, fontFamily: 'inherit',
+            }}>
+            {posting ? 'Posting…' : '📣 Post & notify'}
+          </button>
+        </div>
+        {error && (
+          <div style={{
+            marginTop: 8, padding: '8px 10px', borderRadius: 8, fontSize: 11,
+            background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.40)',
+            color: '#F8B4B4',
+          }}>{error}</div>
+        )}
+      </div>
+
+      {/* Cancel-outing — separate dangerous action, gated by confirm */}
+      {status !== 'cancelled' && status !== 'closed' && (
+        <div style={{
+          marginBottom: 16, padding: '10px 12px', borderRadius: 10,
+          background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.25)',
+        }}>
+          <div style={{ fontSize: 11, color: '#F8B4B4', fontWeight: 700, marginBottom: 6 }}>
+            Cancel this match
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 8, lineHeight: 1.4 }}>
+            Push a cancellation notice to everyone on the roster. Match stays in the DB for history but is removed from active boards. This can't be undone.
+          </div>
+          <button
+            onClick={cancelOuting}
+            disabled={cancelling}
+            style={{
+              padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.50)',
+              background: 'rgba(248,113,113,0.10)', color: '#F87171',
+              fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+              opacity: cancelling ? 0.5 : 1,
+            }}>
+            {cancelling ? 'Cancelling…' : 'Cancel match'}
+          </button>
+        </div>
+      )}
+
+      {/* Item 8 — CSV export + season tag. Lives in Comms because
+          it's all "league management" tooling that doesn't fit
+          Players/Edit-scores. */}
+      <div style={{
+        marginBottom: 16, padding: '10px 12px', borderRadius: 10,
+        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{ fontSize: 11, color: '#F5D78A', fontWeight: 800, letterSpacing: '0.06em', marginBottom: 6 }}>
+          EXPORT &amp; SEASON
+        </div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 8, lineHeight: 1.4 }}>
+          Download a CSV of every player's scores for your own records, and tag this match with a season string so it groups into season-over-season standings.
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              // Item 9 — open the print-friendly results page in a new
+              // tab. Auto-triggers the system print dialog after layout
+              // settles. Works regardless of host's auth state in this
+              // tab (uses the public endpoint).
+              const url = `${window.location.origin}/?print=${encodeURIComponent(code)}`
+              window.open(url, '_blank', 'noopener')
+            }}
+            style={{
+              padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)',
+              background: 'transparent', color: 'rgba(255,255,255,0.85)',
+              fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            🖨 Print results
+          </button>
+          <a
+            href={`/api/outings/${code}/export.csv`}
+            download
+            onClick={async (e) => {
+              // Manual fetch with auth header — anchors don't carry the
+              // bearer token. We trigger the download via blob URL.
+              e.preventDefault()
+              try {
+                const res = await fetch(`/api/outings/${code}/export.csv`, {
+                  headers: { Authorization: `Bearer ${localStorage.getItem('tm_token')}` },
+                })
+                if (!res.ok) throw new Error(`Export failed (${res.status})`)
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `match-${code}.csv`
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                URL.revokeObjectURL(url)
+              } catch (err) {
+                alert(err?.message || 'Could not export')
+              }
+            }}
+            style={{
+              padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(245,215,138,0.40)',
+              background: 'rgba(245,215,138,0.10)', color: '#F5D78A',
+              fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+              textDecoration: 'none',
+            }}>
+            ⬇ Download CSV
+          </a>
+          <button
+            onClick={async () => {
+              const cur = outing.state?.season || ''
+              const v = window.prompt(
+                'Season tag — group this match with others for season-long standings.\n' +
+                'Leave blank to clear. Examples: "2026", "2026-spring", "Tuesday Night League".',
+                cur
+              )
+              if (v === null) return
+              try {
+                await put(`/api/outings/${code}/season`, { season: v.trim() })
+                onStateMerge?.({ season: v.trim() || null })
+              } catch (err) {
+                alert(err?.message || 'Could not save season tag')
+              }
+            }}
+            style={{
+              padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)',
+              background: 'transparent', color: 'rgba(255,255,255,0.85)',
+              fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            🗓 Season{outing.state?.season ? ` · ${outing.state.season}` : ''}
+          </button>
+        </div>
+      </div>
+
+      {/* History */}
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.10em', color: 'rgba(255,255,255,0.55)', marginBottom: 8 }}>
+        RECENT ANNOUNCEMENTS
+      </div>
+      {announcements.length === 0 ? (
+        <div style={{ color: 'rgba(255,255,255,0.40)', textAlign: 'center', padding: '24px 0', fontSize: 12, fontStyle: 'italic' }}>
+          No announcements yet.
+        </div>
+      ) : announcements.map(a => (
+        <div key={a.id} style={{
+          padding: '10px 12px', borderRadius: 10, marginBottom: 6,
+          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#F5D78A' }}>{a.posted_by_name || 'Commissioner'}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)' }}>{whenStr(a.posted_at)}</div>
+          </div>
+          <div style={{ fontSize: 13, color: '#fff', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{a.text}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ─── StablefordEditor (6.5) ──────────────────────────────────────────────────
 // Lives inside CommissionerPanel under the 'Points' tab. Renders the
 // 7-bucket point map with one input per bucket, plus quick-load buttons
@@ -5478,6 +5765,34 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
     }
   }
 
+  // Item 6 — toggle no-show flag. Mirrors toggleWithdraw shape.
+  async function toggleNoShow(userId, currentlyNoShow) {
+    setBusyIds(b => ({ ...b, [userId]: true }))
+    try {
+      await post(`/api/outings/${code}/no-show`, { user_id: userId, no_show: !currentlyNoShow })
+      const next = all.map(p =>
+        String(p.user_id) === String(userId) ? { ...p, no_show: !currentlyNoShow } : p
+      )
+      onParticipantsUpdated?.(next)
+    } catch (err) {
+      alert(`Failed to ${currentlyNoShow ? 'clear' : 'mark'} no-show. Try again.`)
+    } finally {
+      setBusyIds(b => { const n = { ...b }; delete n[userId]; return n })
+    }
+  }
+
+  // Item 6 — change the outing-level no-show policy. Updates local
+  // outing.state via the same onParticipantsUpdated extras channel
+  // the handicap-override editor uses.
+  async function setNoShowPolicy(policy) {
+    try {
+      const data = await put(`/api/outings/${code}/no-show-policy`, { policy })
+      onParticipantsUpdated?.(all, { no_show_policy: data?.no_show_policy || policy })
+    } catch (err) {
+      alert(`Failed to set no-show policy: ${err?.message || 'Unknown error'}`)
+    }
+  }
+
   // 6.4 — Per-event handicap override. Sends a number (or null to clear)
   // to PUT /:code/handicap-override. Server stores it on
   // outing.state.handicap_overrides; netStrokes() prefers it over
@@ -5653,11 +5968,13 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
         </div>
 
         {/* Tab bar — Stableford tab only renders when the outing
-            actually uses Stableford scoring. (6.5) */}
+            actually uses Stableford scoring. (6.5)
+            Comms tab added for item 7 (announcements + cancel). */}
         <div style={{ display: 'flex', padding: '10px 20px 0', gap: 8, flexWrap: 'wrap' }}>
           {[
             { id: 'players', label: `Players · ${all.length}` },
             { id: 'scores',  label: 'Edit scores' },
+            { id: 'comms',   label: 'Comms' },
             ...((outing.scoring_formats || []).includes('stableford')
               ? [{ id: 'stableford', label: 'Points' }]
               : []),
@@ -5689,6 +6006,49 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
               }}>
                 Tap a player's <strong style={{ color: '#F5D78A' }}>HCP</strong> chip to override their handicap for THIS outing only — useful for league rules, sandbagger flags, or guests without a stored index.
               </div>
+              {/* Item 6 — No-show policy selector. Determines how the
+                  leaderboard renders no-show players league-wide for
+                  this outing. */}
+              {(() => {
+                const policy = outing.state?.no_show_policy || 'dns'
+                return (
+                  <div style={{
+                    padding: '10px 12px', marginBottom: 10,
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.10em', color: '#F5D78A', textTransform: 'uppercase', marginBottom: 6 }}>
+                      No-show policy
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 8, lineHeight: 1.45 }}>
+                      How no-shows count when the match ends. Auto-applied at end-match based on zero scores; can be toggled per player below.
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {[
+                        { id: 'dns',         label: 'DNS',        desc: 'excluded' },
+                        { id: 'max_plus_2',  label: 'Max +2',     desc: 'par+2 every hole' },
+                        { id: 'manual',      label: 'Manual',     desc: 'commissioner sets' },
+                      ].map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setNoShowPolicy(opt.id)}
+                          style={{
+                            flex: '1 1 30%', minWidth: 92, padding: '7px 8px', borderRadius: 8,
+                            background: policy === opt.id ? 'rgba(245,215,138,0.14)' : 'rgba(255,255,255,0.05)',
+                            border: '1px solid', borderColor: policy === opt.id ? 'rgba(245,215,138,0.50)' : 'rgba(255,255,255,0.10)',
+                            color: policy === opt.id ? '#F5D78A' : 'rgba(255,255,255,0.75)',
+                            fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+                            textAlign: 'left',
+                          }}>
+                          <div>{opt.label}</div>
+                          <div style={{ fontSize: 9, fontWeight: 600, marginTop: 2, opacity: 0.7 }}>{opt.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
               {all.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 13, padding: '40px 0' }}>
                   No players yet.
@@ -5696,33 +6056,53 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
               )}
               {all.map(p => {
                 const wd = !!p.withdrawn
+                const ns = !!p.no_show
                 const busy = busyIds[p.user_id]
                 const overrides = outing.state?.handicap_overrides || {}
                 const ov = overrides[String(p.user_id)]
                 const hasOverride = ov != null && Number.isFinite(Number(ov))
                 const effective = hasOverride ? Number(ov) : (p.handicap != null ? parseFloat(p.handicap) : null)
+                const rowBg = wd ? 'rgba(248,113,113,0.06)'
+                  : ns ? 'rgba(180,180,180,0.06)'
+                  : 'rgba(255,255,255,0.04)'
+                const rowBorder = wd ? 'rgba(248,113,113,0.25)'
+                  : ns ? 'rgba(180,180,180,0.25)'
+                  : 'rgba(255,255,255,0.07)'
                 return (
                   <div key={p.user_id} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '10px 12px', borderRadius: 12, marginBottom: 8,
-                    background: wd ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.04)',
-                    border: '1px solid', borderColor: wd ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.07)',
+                    background: rowBg,
+                    border: '1px solid', borderColor: rowBorder,
                   }}>
                     <div style={{
                       width: 36, height: 36, borderRadius: '50%',
                       background: 'rgba(245,215,138,0.18)', border: '1px solid rgba(245,215,138,0.40)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: '#F5D78A', fontSize: 14, fontWeight: 800, flexShrink: 0,
-                      opacity: wd ? 0.5 : 1,
+                      opacity: (wd || ns) ? 0.5 : 1,
                     }}>{(p.name || '?').slice(0,1).toUpperCase()}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
-                        fontSize: 13, fontWeight: 700, color: wd ? 'rgba(255,255,255,0.5)' : '#fff',
+                        fontSize: 13, fontWeight: 700, color: (wd || ns) ? 'rgba(255,255,255,0.5)' : '#fff',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         textDecoration: wd ? 'line-through' : 'none',
-                      }}>{p.name}</div>
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                          {p.name}
+                        </span>
+                        {ns && !wd && (
+                          <span style={{
+                            fontSize: 8, fontWeight: 900, letterSpacing: '0.1em',
+                            background: 'rgba(180,180,180,0.20)', color: 'rgba(255,255,255,0.85)',
+                            padding: '2px 5px', borderRadius: 4, flexShrink: 0,
+                          }}>NO-SHOW</span>
+                        )}
+                      </div>
                       <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
                         {wd ? 'WITHDRAWN — excluded from leaderboard'
+                            : ns ? 'NO-SHOW — counted per outing policy'
                             : p.is_guest ? 'Guest · no app account'
                             : `Total: ${p.total ?? 0} · ${p.holes_played ?? 0} holes played`}
                       </div>
@@ -5759,6 +6139,27 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                           ? (Number.isInteger(effective) ? effective : effective.toFixed(1))
                           : '—'}
                         {hasOverride && <span style={{ marginLeft: 4, fontSize: 8 }}>★</span>}
+                      </button>
+                    )}
+                    {/* Item 6 — No-show toggle. Hidden when player is
+                        withdrawn (mutually exclusive concepts in
+                        practice). Compact label so the row still fits
+                        Withdraw + HCP chip + this on a 390px viewport. */}
+                    {!wd && (
+                      <button
+                        onClick={() => toggleNoShow(p.user_id, ns)}
+                        disabled={busy}
+                        title={ns ? 'Clear no-show flag' : 'Mark as no-show'}
+                        style={{
+                          padding: '6px 8px', borderRadius: 8, border: '1px solid',
+                          borderColor: ns ? 'rgba(180,180,180,0.50)' : 'rgba(255,255,255,0.18)',
+                          background: ns ? 'rgba(180,180,180,0.18)' : 'transparent',
+                          color: ns ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)',
+                          fontSize: 9, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+                          letterSpacing: '0.06em', opacity: busy ? 0.6 : 1,
+                          minWidth: 36, textAlign: 'center',
+                        }}>
+                        {ns ? 'NS ✓' : 'NS'}
                       </button>
                     )}
                     <button
@@ -5945,6 +6346,23 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                 // Mirror the post-creation map into local outing state so the
                 // leaderboard recomputes immediately.
                 onParticipantsUpdated?.(all, { stableford_points: points })
+              }}
+            />
+          )}
+
+          {tab === 'comms' && (
+            <CommsTab
+              code={code}
+              outing={outing}
+              onAnnouncementPosted={(list) => {
+                onParticipantsUpdated?.(all, { announcements: list })
+              }}
+              onStateMerge={(extras) => {
+                onParticipantsUpdated?.(all, extras)
+              }}
+              onCancelled={() => {
+                onParticipantsUpdated?.(all, { /* no state mutation; status flip on next reload */ })
+                onClose?.()
               }}
             />
           )}
