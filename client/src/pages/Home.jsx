@@ -692,9 +692,13 @@ export function AvailabilityCalendar({
     dayText:       '#0D1F12',
     pastText:      'rgba(27,94,59,0.20)',
     freeText:      '#7A5800',
-    freeGradFrom:  'rgba(201,160,64,0.30)',
-    freeGradTo:    'rgba(201,160,64,0.15)',
-    friendBg:      'rgba(27,94,59,0.06)',
+    // Brighter availability shades — your-free gold gradient and
+    // friend-free green tint bumped so the cells read clearly
+    // against the new translucent calendar surface. (2026-05-02 —
+    // Matt: "make the availibitly shades in the calander brighter")
+    freeGradFrom:  'rgba(201,160,64,0.55)',
+    freeGradTo:    'rgba(201,160,64,0.32)',
+    friendBg:      'rgba(27,94,59,0.16)',
     todayOutline:  'rgba(201,160,64,0.6)',
     legendText:    'rgba(27,94,59,0.50)',
     legendSwatch:  'rgba(201,160,64,0.35)',
