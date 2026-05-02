@@ -2370,15 +2370,36 @@ function computeSkins(participants, holePars, getScores) {
 }
 
 // ─── Match Play helpers ───────────────────────────────────────────────────────
-// Only meaningful for exactly 2 players
-function computeMatchPlay(p1, p2, getScores, holePars) {
+// Only meaningful for exactly 2 players. When `netMode` is on AND
+// the players have different handicaps, the per-hole comparison is
+// the NET score (gross minus strokes-on-this-hole) rather than the
+// gross. Standard USGA singles match play with handicaps.
+//
+// `holeStrokes` is a Map<userId, Map<holeIdx, strokes>> built from
+// strokeHolesForPlayer using the LOWER handicap as the baseline —
+// the higher-handicap player gets the strokes between them on the
+// hardest holes per the course's stroke index.
+//
+// (Round 1 fix.)
+function computeMatchPlay(p1, p2, getScores, holePars, holeStrokes = null) {
   const s1 = getScores(p1), s2 = getScores(p2)
+  // Per-hole stroke allocation for handicap match play. holeStrokes
+  // is keyed { p1: Map, p2: Map } when the caller wants net match
+  // play; null/missing → gross comparison (legacy behavior).
+  const k1 = holeStrokes?.p1 || null
+  const k2 = holeStrokes?.p2 || null
   let p1HolesUp = 0
   const holeResults = holePars.map((par, h) => {
     const a = s1[h] || 0, b = s2[h] || 0
     if (!a || !b) return null // not yet played
-    if (a < b) return 'p1'
-    if (b < a) return 'p2'
+    // Subtract any strokes received on this hole. For singles match
+    // play the lower-handicap player's allocation is empty; the
+    // higher-handicap player gets `diff` strokes on the hardest
+    // `diff` holes.
+    const aAdj = a - (k1 ? (k1.get(h) || 0) : 0)
+    const bAdj = b - (k2 ? (k2.get(h) || 0) : 0)
+    if (aAdj < bAdj) return 'p1'
+    if (bAdj < aAdj) return 'p2'
     return 'half'
   })
   holeResults.forEach(r => {
@@ -2480,7 +2501,15 @@ function MatchScoreboard({
     if (!holesPlayed.length) return null
     const parSoFar   = holesPlayed.reduce((sum, x) => sum + (holePars[x.i] || 4), 0)
     const totalSoFar = holesPlayed.reduce((sum, x) => sum + x.s, 0)
-    const hcp        = netMode ? Math.floor(Math.max(0, parseFloat(p.handicap) || 0) * hcpAllowance / 100) : 0
+    // Handicap (sign-preserving for plus-handicap players). Mirror of
+    // netStrokes() in LiveOuting — kept inline here so the scoreboard
+    // doesn't have to import. Round 1 fix.
+    const rawH = netMode ? (parseFloat(p.handicap) || 0) : 0
+    const hcp  = rawH === 0
+      ? 0
+      : (rawH > 0
+        ? Math.floor(rawH * hcpAllowance / 100)
+        : -Math.ceil(Math.abs(rawH) * hcpAllowance / 100))
     return totalSoFar - hcp - parSoFar
   }
 
@@ -3102,7 +3131,32 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
 
   // Match Play: only active for 2-player matches with 'match' format
   const isMatchPlay   = (outing.scoring_formats || []).includes('match') && participants.length === 2
-  const matchPlayData = isMatchPlay ? computeMatchPlay(sorted[0], sorted[1], getScores, holePars) : null
+  // Match-play handicap: when netMode is on AND the two players have
+  // different handicaps, the higher-handicap player receives strokes
+  // on the hardest holes per the course's stroke index. Computed from
+  // strokeHolesForPlayer using the difference (after allowance) as
+  // the higher player's strokes; lower player gets none.
+  // (Round 1 fix: net match play.)
+  const matchPlayData = (() => {
+    if (!isMatchPlay) return null
+    let strokes = null
+    if (netMode && sorted[0] && sorted[1]) {
+      const ns0 = netStrokes(sorted[0])
+      const ns1 = netStrokes(sorted[1])
+      const diff = ns0 - ns1  // positive → p0 has more strokes (higher hcp)
+      // Whichever player has MORE strokes available gets the diff
+      // applied to the hardest holes. The other player gets zero
+      // strokes (acts as the baseline).
+      if (diff !== 0) {
+        const giver = diff > 0 ? sorted[0] : sorted[1]
+        const giverStrokes = strokeHolesForPlayer(giver, holePars, courseHoleHandicaps, Math.abs(diff))
+        strokes = diff > 0
+          ? { p1: giverStrokes, p2: new Map() }
+          : { p1: new Map(),    p2: giverStrokes }
+      }
+    }
+    return computeMatchPlay(sorted[0], sorted[1], getScores, holePars, strokes)
+  })()
 
   // Current user's next-to-play hole (1-indexed). Used by the persistent
   // GET DISTANCES floating pill so tapping it lands the user on Eye for
@@ -3125,9 +3179,20 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     const v = Number(outing.state?.handicap_allowance)
     return Number.isFinite(v) && v > 0 && v <= 100 ? v : 100
   })()
+  // netStrokes — strokes the player gives (positive) or receives
+  // (negative). Plus-handicap players (handicap < 0) ADD strokes to
+  // their gross instead of subtracting; netTotal handles the sign by
+  // simple subtraction. (gross - (-2) = gross + 2)
+  // Allowance is applied to magnitude, sign preserved. For positive
+  // handicaps we floor (round down — fewer strokes back, harder).
+  // For plus handicaps we ceil the magnitude (round up — more
+  // strokes added, harder), matching USGA convention.
+  // (Round 1 fix.)
   function netStrokes(p) {
-    const raw = Math.max(0, parseFloat(p?.handicap) || 0)
-    return Math.floor(raw * hcpAllowance / 100)
+    const raw = parseFloat(p?.handicap)
+    if (!Number.isFinite(raw) || raw === 0) return 0
+    const mag = Math.abs(raw) * hcpAllowance / 100
+    return raw >= 0 ? Math.floor(mag) : -Math.ceil(mag)
   }
   function netTotal(p) {
     const gross = getScores(p).reduce((s, v) => s + (v || 0), 0)
