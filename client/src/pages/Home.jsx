@@ -2163,6 +2163,19 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         }}>Edit</button>
       </div>
 
+      {/* Editorial hairline divider under the page header — same gold
+          gradient + tiny diamond flourish as the Home page. Reads like
+          a tournament-program section break. (2026-05-02 — Matt: "add
+          that to my profile too I like that look") */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 10, padding: '0 20px', marginBottom: 12,
+      }}>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45))' }} />
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" /></svg>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.45), transparent)' }} />
+      </div>
+
       {/* Body container — dark theme matching the FriendProfile cards.
           Top-bar above stays in the page's light theme; from here down
           we adopt the same color palette friend cards use so tapping
