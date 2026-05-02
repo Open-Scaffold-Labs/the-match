@@ -45,13 +45,19 @@ function todayYMD() { return toYMD(new Date()) }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ProfileHeroCard({ user, season, avg3, streak, followCounts, onCountsChange, onStartSeason, onEditProfile, onOpenCard }) {
+function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCountsChange, onStartSeason, onEditProfile, onOpenCard }) {
   const seasonBanner = season && !season.seasonStarted && season.year === currentSeasonYear()
   const [banner] = useState(randomBanner)
 
   // Golf handicap display: high cap = "17.0" (no prefix); plus cap = "+3.5"
   // (sign for scratch-or-better). Coerce — NUMERIC(4,1) arrives as string.
-  const hcpNum = user?.handicap == null ? null : Number(user.handicap)
+  // Prefer stats.handicap (calculated index from recent rounds) over
+  // user.handicap (seeded onboarding value) so this card stays in
+  // sync with the Profile view's HcpBadge — they used to disagree
+  // (e.g. 18 vs 15.5) once the calculated index switched in.
+  // (2026-05-01 — Matt)
+  const rawHcp = stats?.handicap ?? user?.handicap
+  const hcpNum = rawHcp == null ? null : Number(rawHcp)
   const handicapDisplay = !Number.isFinite(hcpNum)
     ? '—'
     : hcpNum >= 0
@@ -2922,7 +2928,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
       <div style={{ padding: '0 16px' }}>
         {/* Profile hero */}
         <ProfileHeroCard
-          user={user} season={season} avg3={avg3} streak={streak}
+          user={user} stats={stats} season={season} avg3={avg3} streak={streak}
           followCounts={followCounts}
           onCountsChange={refreshFollowCounts}
           onStartSeason={handleStartSeason}
