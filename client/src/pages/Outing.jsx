@@ -2115,24 +2115,32 @@ function computePositions(sorted, getScores, holePars) {
 function strokeHolesForPlayer(player, holePars, holeHandicaps, totalStrokes) {
   if (totalStrokes <= 0) return new Map()
   const holeCount = holePars.length
-  // strokeMap: holeIdx → strokes on that hole
   const out = new Map()
-  if (!Array.isArray(holeHandicaps) || holeHandicaps.length < holeCount) {
-    // No hole_handicaps available — distribute flat. This produces
-    // fractional strokes per hole, which we round per-hole at the
-    // call site.
-    for (let h = 0; h < holeCount; h++) out.set(h, totalStrokes / holeCount)
-    return out
+
+  // Decide which hole gets a stroke first, in order. With a real
+  // hole_handicaps stroke index, that's the hardest-rank hole. Without
+  // one, we fall back to the holes' positional order (1, 2, 3, ...)
+  // — arbitrary but deterministic and stable across re-renders.
+  let order
+  if (Array.isArray(holeHandicaps) && holeHandicaps.length >= holeCount) {
+    order = holeHandicaps
+      .slice(0, holeCount)
+      .map((rank, idx) => ({ idx, rank: Number(rank) || 18 }))
+      .sort((a, b) => a.rank - b.rank)
+      .map(x => x.idx)
+  } else {
+    order = Array.from({ length: holeCount }, (_, i) => i)
   }
-  // Build (holeIdx, rank) pairs and sort by rank ascending.
-  const ranked = holeHandicaps
-    .slice(0, holeCount)
-    .map((rank, idx) => ({ idx, rank: Number(rank) || 18 }))
-    .sort((a, b) => a.rank - b.rank)
-  let remaining = totalStrokes
+
+  // Allocate INTEGER strokes by walking the order. After the first
+  // pass, if more strokes remain (handicap > 18), walk again giving
+  // a second stroke to each hole in the same order. (Iteration 2 fix:
+  // previously the no-stroke-index path returned fractional strokes
+  // which produced fractional net scores — wrong.)
+  let remaining = Math.floor(totalStrokes)
   let layer = 0
   while (remaining > 0) {
-    for (const { idx } of ranked) {
+    for (const idx of order) {
       if (remaining <= 0) break
       out.set(idx, (out.get(idx) || 0) + 1)
       remaining -= 1
@@ -2351,6 +2359,8 @@ function MatchScoreboard({
   netDiffStr,              // net score-to-par for holes played
   user,
   onPlayerTap,             // (userId) => void — jump to scorecard focused on player
+  isSkinsFormat = false,   // when true, render per-row 'N SK' badge (B4c polish)
+  skinsByPlayer = {},      // { user_id: skinsWonCount }
 }) {
   // Match-play TOT for the current row. Only meaningful when isMatchPlay
   // (2 players + 'match' format). Returns "3UP" / "AS" / "3DN" or null.
@@ -2438,12 +2448,20 @@ function MatchScoreboard({
           const pos     = positions[idx] || '—'
           const isMe    = String(p.user_id) === String(user?.id)
           const numeric = diffNumeric(p)
+          const skinsCount = isSkinsFormat ? (skinsByPlayer[p.user_id] || 0) : 0
+          // For skins format, the headline TOT becomes 'N SK' so the
+          // leaderboard reads at a glance — STP becomes the secondary
+          // signal. (Iteration 2 polish for B4c.)
           const totDisplay = isMatchPlay
             ? (matchPlayLabel(p, idx) || '—')
-            : (netMode ? netDiffStr(p) : diffStr(p))
+            : isSkinsFormat
+              ? `${skinsCount} SK`
+              : (netMode ? netDiffStr(p) : diffStr(p))
           const todayDisplay = isMatchPlay
             ? (netMode ? netDiffStr(p) : diffStr(p))
-            : null
+            : isSkinsFormat
+              ? (netMode ? netDiffStr(p) : diffStr(p))  // show STP under skins as secondary
+              : null
 
           return (
             <button
@@ -3274,6 +3292,8 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           netDiffStr={netDiffStr}
           user={user}
           onPlayerTap={() => setViewMode('scorecard')}
+          isSkinsFormat={isSkinsFormat}
+          skinsByPlayer={skinsByPlayer}
         />
       )}
 

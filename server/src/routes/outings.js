@@ -446,18 +446,21 @@ router.post('/:code/bulk-join', async (req, res) => {
 
 // Append to tm_score_audit. Used by both score-write endpoints below.
 // Failures here don't roll back the score write — audit is best-effort.
+//
+// Guest user_ids ("guest_<timestamp>") are strings, but the column
+// is BIGINT — so we skip them entirely rather than log noise on every
+// guest score update. The trade-off: guest score changes aren't
+// auditable. For league play (the audit log's primary use case)
+// guests are atypical anyway. (Iteration 2 fix.)
 async function writeScoreAudit({ outing_id, user_id, hole, old_score, new_score, edited_by_id }) {
+  if (String(user_id).startsWith('guest_')) return
   try {
     await db.query(
       `INSERT INTO tm_score_audit (outing_id, user_id, hole, old_score, new_score, edited_by_id)
        VALUES ($1,$2,$3,$4,$5,$6)`,
-      [outing_id, String(user_id), Number(hole), old_score == null ? null : Number(old_score), Number(new_score), edited_by_id]
+      [outing_id, Number(user_id), Number(hole), old_score == null ? null : Number(old_score), Number(new_score), edited_by_id]
     )
   } catch (err) {
-    // The audit table CHECK only allows hole 0-17. Guest user_ids are
-    // strings so we'd already break tm_outings.user_id BIGINT — but we
-    // store them as text via String() above. If the migration's
-    // user_id BIGINT type rejects, log + continue.
     console.warn('[score-audit] insert failed', err.message)
   }
 }
@@ -685,7 +688,7 @@ router.get('/:code/audit', async (req, res) => {
        LEFT JOIN tm_users u ON u.id = a.edited_by_id
        WHERE a.outing_id = $1
        ORDER BY a.created_at DESC
-       LIMIT 200`,
+       LIMIT 1000`,
       [outing.id]
     )
     res.json({ entries: rows || [] })
