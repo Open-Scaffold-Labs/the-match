@@ -2149,10 +2149,15 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           display: 'inline-flex', alignItems: 'center',
         }}>←</button>
         <div style={{
-          fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em',
+          // Allura — Masters-genre English roundhand script. Sized up
+          // because flowing scripts read smaller than upright serifs
+          // at the same px size. fontWeight ignored (single-weight
+          // family) but kept for fallback if Allura fails to load.
+          fontSize: 40, fontWeight: 400, letterSpacing: '0',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          fontFamily: '"Georgia", serif',
+          fontFamily: '"Allura", "Georgia", serif',
+          lineHeight: 1, paddingTop: 2,
           flex: 1, textAlign: 'center',
         }}>The Match</div>
         <button onClick={onEditProfile} style={{
@@ -3426,10 +3431,13 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
         padding: '0 20px 12px',
       }}>
         <div style={{
-          fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em',
+          // Allura — Masters-genre script. See comment in Profile
+          // wordmark for sizing rationale.
+          fontSize: 40, fontWeight: 400, letterSpacing: '0',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          fontFamily: '"Georgia", serif',
+          fontFamily: '"Allura", "Georgia", serif',
+          lineHeight: 1, paddingTop: 2,
         }}>The Match</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Admin gear — only renders for users with role='admin'. Opens
