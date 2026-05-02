@@ -1885,13 +1885,16 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none', zIndex: 800 }}>
 
             {/* ── Top yardage card — compact, top-right corner so it
-                doesn't block the player's view of the shot. (2026-05-01
-                — Matt: smaller + upper right.) */}
+                doesn't block the player's view of the shot. marginTop
+                pushes it below the status bar + hole strip so nothing
+                overlaps. (2026-05-01 — Matt: smaller + upper right +
+                shifted down so it's not blocked by the chips above.) */}
             <div style={{ alignSelf: 'flex-end', pointerEvents: 'auto', textAlign: 'right',
               background: 'rgba(4,8,6,0.82)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
               borderRadius: 14, border: '1px solid rgba(255,255,255,0.10)',
               padding: '8px 12px 8px', boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
               minWidth: 110,
+              marginTop: 12,
             }}>
               <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.40)', marginBottom: 1 }}>
                 {gpsToGreen != null ? 'TO GREEN · GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
@@ -1915,29 +1918,12 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               </div>
             </div>
 
-            {/* ── Bottom: conditions + actions ── */}
+            {/* ── Bottom: actions ── */}
             <div style={{ pointerEvents: 'auto' }}>
-              {/* Conditions pills */}
-              {(wind || temp != null) && (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
-                  {wind && (
-                    <div style={{ background: 'rgba(4,8,6,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <WindArrow deg={wind.dir} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{wind.speed} mph</span>
-                    </div>
-                  )}
-                  {temp != null && (
-                    <div style={{ background: 'rgba(4,8,6,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '6px 14px' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{temp}°F</span>
-                    </div>
-                  )}
-                  {gps?.alt != null && (
-                    <div style={{ background: 'rgba(4,8,6,0.75)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '6px 14px' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{Math.round(gps.alt * 3.281)}ft</span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Conditions pills removed 2026-05-01 — same wind/temp
+                  values are already shown in the page header, so the
+                  duplicate row above the Analyze Shot button was dead
+                  weight blocking the satellite view. */}
 
               {/* Last analysis result */}
               {result && (
