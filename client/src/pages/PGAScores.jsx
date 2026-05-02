@@ -303,7 +303,13 @@ export default function PGAScores({ user }) {
             borderRadius: 14, padding: '32px 20px', textAlign: 'center',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
           }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>⛳</div>
+            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
+              <svg width="36" height="36" viewBox="0 0 64 64" fill="none" stroke="#1B5E3B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="8" x2="22" y2="54"/>
+                <path d="M22 10 L52 17 L22 24 Z" fill="#1B5E3B" stroke="#1B5E3B"/>
+                <ellipse cx="22" cy="56" rx="6" ry="2" fill="#1B5E3B" stroke="none" opacity="0.3"/>
+              </svg>
+            </div>
             <div style={{ color: '#1B5E3B', fontSize: 14, fontWeight: 700 }}>No active tournament</div>
             <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 12, marginTop: 4 }}>Check back during a PGA Tour event</div>
           </div>

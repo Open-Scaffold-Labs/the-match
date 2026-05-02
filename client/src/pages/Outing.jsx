@@ -6424,7 +6424,11 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                         HCP {effective != null
                           ? (Number.isInteger(effective) ? effective : effective.toFixed(1))
                           : '—'}
-                        {hasOverride && <span style={{ marginLeft: 4, fontSize: 8 }}>★</span>}
+                        {hasOverride && (
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ marginLeft: 4, verticalAlign: 'middle' }}>
+                            <path d="M12 2 L14.4 8.6 L21.5 9.3 L16.2 14 L17.8 21 L12 17.3 L6.2 21 L7.8 14 L2.5 9.3 L9.6 8.6 Z"/>
+                          </svg>
+                        )}
                       </button>
                     )}
                     {/* Item 6 — No-show toggle. Hidden when player is
@@ -6874,7 +6878,14 @@ function GroupSetup({ outing, onClose, onSaved }) {
 
                 {/* Members count warning */}
                 {members.length > 4 && (
-                  <div style={{ fontSize: 11, color: '#F87171', marginTop: 4 }}>⚠ Groups should have at most 4 players</div>
+                  <div style={{ fontSize: 11, color: '#F87171', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Groups should have at most 4 players
+                  </div>
                 )}
                 {!group.marker_id && members.length > 0 && (
                   <div style={{ fontSize: 11, color: '#F5D78A', marginTop: 4 }}>Tap "Set Marker" on one player</div>

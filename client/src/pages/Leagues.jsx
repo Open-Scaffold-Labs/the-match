@@ -311,7 +311,16 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
             boxShadow: isElite ? '0 4px 16px rgba(46,158,69,0.30)' : 'none',
             cursor: 'pointer',
           }}>
-          {isElite ? '+ Create league' : '✨ Upgrade to create a league'}
+          {isElite ? '+ Create league' : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+              {/* Bespoke 4-point burst (replaces ✨) — Augusta gold,
+                  matches the rest of the icon system. */}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3 L13.5 9.5 L20 11 L13.5 12.5 L12 19 L10.5 12.5 L4 11 L10.5 9.5 Z" fill="currentColor"/>
+              </svg>
+              Upgrade to create a league
+            </span>
+          )}
         </button>
         {!isElite && (
           <div style={{

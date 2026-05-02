@@ -388,7 +388,13 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
           background: 'rgba(255,255,255,0.88)', borderRadius: 14,
           border: '1px dashed rgba(27,94,59,0.20)',
         }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>⛳</div>
+          <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
+            <svg width="42" height="42" viewBox="0 0 64 64" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="8" x2="22" y2="54"/>
+              <path d="M22 10 L52 17 L22 24 Z" fill="#0D1F12" stroke="#0D1F12"/>
+              <ellipse cx="22" cy="56" rx="6" ry="2" fill="#0D1F12" stroke="none" opacity="0.25"/>
+            </svg>
+          </div>
           <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No playing partners yet</div>
           <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 12, lineHeight: 1.5, marginBottom: 14 }}>
             Add a friend to track their rounds, see their availability, and challenge them to a match.

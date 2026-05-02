@@ -25,7 +25,13 @@ export default class ErrorBoundary extends Component {
         alignItems: 'center', justifyContent: 'center', padding: '0 32px',
         background: '#070C09', color: '#E8C05A', textAlign: 'center', gap: 16,
       }}>
-        <div style={{ fontSize: 64, lineHeight: 1 }}>⛳</div>
+        {/* Bespoke pin-flag glyph — high-quality replacement for ⛳.
+            Hand-drawn at 64px so it reads like an icon, not an emoji. */}
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#E8C05A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="22" y1="8" x2="22" y2="54"/>
+          <path d="M22 10 L52 17 L22 24 Z" fill="#E8C05A" stroke="#E8C05A"/>
+          <ellipse cx="22" cy="56" rx="6" ry="2" fill="#E8C05A" stroke="none" opacity="0.4"/>
+        </svg>
         <div style={{ fontSize: 22, fontWeight: 800 }}>Hooked left.</div>
         <div style={{ color: 'rgba(232,192,90,0.7)', fontSize: 14, lineHeight: 1.5, maxWidth: 320 }}>
           Something broke. Try reloading the page. If it keeps happening, jot down the error below and shoot it our way.
