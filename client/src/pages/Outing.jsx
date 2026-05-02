@@ -1287,6 +1287,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       // Null for small outings — the legacy team_format field handles
       // their 1v1 / 2v2 setup.
       teamBreakdown: null,
+      // Handicap allowance percentage. 100 = full handicap; common
+      // alternatives are 80/85/90/95 for various tournament formats.
+      // (B4a)
+      handicapAllowance: 100,
       // Real course data captured by the picker; null when host opts out
       courseId:      slim?.courseId ?? null,
       courseTee:     slim?.courseTee ?? null,
@@ -1335,6 +1339,8 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         expectedPlayers: form.players,
         // Only meaningful for > 4. Server ignores when count ≤ 4.
         teamBreakdown: form.players > 4 ? form.teamBreakdown : null,
+        // Handicap allowance % for net scoring. (B4a)
+        handicapAllowance: form.handicapAllowance,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1458,7 +1464,7 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       </div>
     </div>,
 
-    // Step 1: Format
+    // Step 1: Format + handicap allowance %
     <div key="1" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {FORMATS.map(f => (
         <button key={f.id} onClick={() => set('format', f.id)}
@@ -1470,6 +1476,35 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
           {form.format === f.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--tm-green)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>✓</div>}
         </button>
       ))}
+
+      {/* Handicap allowance — 100% means full hcp, lower percentages
+          are common in tournament settings (member-guest 80%, 4ball
+          stroke 85%, singles match 90%, stroke tournaments 95%).
+          Only relevant when scoring is net; no harm if gross. (B4a) */}
+      <div style={{ marginTop: 6 }}>
+        <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+          Handicap Allowance
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {[100, 95, 90, 85, 80, 75].map(pct => (
+            <button key={pct} onClick={() => set('handicapAllowance', pct)} style={{
+              padding: '6px 12px', borderRadius: 999, border: '1px solid',
+              borderColor: form.handicapAllowance === pct ? 'var(--tm-green)' : 'var(--tm-border)',
+              background:  form.handicapAllowance === pct ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
+              color:       form.handicapAllowance === pct ? 'var(--tm-green-text)' : 'var(--tm-text-2)',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            }}>{pct}%</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 6 }}>
+          {form.handicapAllowance === 100 ? 'Full handicap.'
+           : form.handicapAllowance >= 95 ? 'Stroke-play tournament standard.'
+           : form.handicapAllowance >= 90 ? 'Singles match-play standard.'
+           : form.handicapAllowance >= 85 ? '4-ball stroke / better-ball.'
+           : form.handicapAllowance >= 80 ? 'Member-guest / scramble standard.'
+           : 'Scramble.'}
+        </div>
+      </div>
     </div>,
 
     // Step 2: Competition Structure — content forks on player count.
@@ -2037,6 +2072,7 @@ function MatchScoreboard({
   holePars,
   holeCount,
   netMode,
+  hcpAllowance = 100,      // % of raw handicap to apply (B4a)
   isMatchPlay,
   matchPlayData,
   diffStr,                 // gross score-to-par for holes played
@@ -2080,7 +2116,7 @@ function MatchScoreboard({
     if (!holesPlayed.length) return null
     const parSoFar   = holesPlayed.reduce((sum, x) => sum + (holePars[x.i] || 4), 0)
     const totalSoFar = holesPlayed.reduce((sum, x) => sum + x.s, 0)
-    const hcp        = netMode ? Math.floor(Math.max(0, parseFloat(p.handicap) || 0)) : 0
+    const hcp        = netMode ? Math.floor(Math.max(0, parseFloat(p.handicap) || 0) * hcpAllowance / 100) : 0
     return totalSoFar - hcp - parSoFar
   }
 
@@ -2600,10 +2636,24 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   const myNextHole    = meParticipant && myHolesPlayed < holeCount ? myHolesPlayed + 1 : null
 
   // Net scoring helpers
+  // Handicap allowance: most leagues apply a percentage to the raw
+  // handicap before stroke deduction. 100% = full handicap, common
+  // alternatives are 80% (member-guest), 85% (4-ball-stroke), 90%
+  // (singles match), 95% (stroke-play tournaments). Stored on the
+  // outing as state.handicap_allowance; defaults to 100. Applied
+  // BEFORE the floor so 12.0 hcp × 85% = 10.2 → floor → 10 strokes.
+  // (2026-05-01 — league must-have B4a.)
+  const hcpAllowance = (() => {
+    const v = Number(outing.state?.handicap_allowance)
+    return Number.isFinite(v) && v > 0 && v <= 100 ? v : 100
+  })()
+  function netStrokes(p) {
+    const raw = Math.max(0, parseFloat(p?.handicap) || 0)
+    return Math.floor(raw * hcpAllowance / 100)
+  }
   function netTotal(p) {
     const gross = getScores(p).reduce((s, v) => s + (v || 0), 0)
-    const hcp   = Math.floor(Math.max(0, parseFloat(p.handicap) || 0))
-    return gross - hcp
+    return gross - netStrokes(p)
   }
   function netDiffStr(p) {
     const gross = getScores(p)
@@ -2611,8 +2661,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     if (!holesPlayed.length) return 'E'
     const parSoFar = holesPlayed.reduce((sum, x) => sum + (holePars[x.i] || 4), 0)
     const totalSoFar = holesPlayed.reduce((sum, x) => sum + x.s, 0)
-    const hcp = Math.floor(Math.max(0, parseFloat(p.handicap) || 0))
-    const d = totalSoFar - hcp - parSoFar
+    const d = totalSoFar - netStrokes(p) - parSoFar
     return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
@@ -2858,6 +2907,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           holePars={holePars}
           holeCount={holeCount}
           netMode={netMode}
+          hcpAllowance={hcpAllowance}
           isMatchPlay={isMatchPlay}
           matchPlayData={matchPlayData}
           diffStr={diffStr}

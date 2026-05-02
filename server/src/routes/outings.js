@@ -98,6 +98,11 @@ router.post('/', async (req, res) => {
     // picks how the field's broken into competitive units. See
     // migration 013 for the allowed values.
     teamBreakdown,
+    // Handicap allowance % for net scoring (B4a). 100 = full handicap.
+    // Common values: 100, 95, 90, 85, 80, 75. Outside that range we
+    // clamp to 100 server-side rather than reject (the wizard already
+    // restricts to those buttons).
+    handicapAllowance,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -125,9 +130,15 @@ router.post('/', async (req, res) => {
   // Build empty groups skeleton for large outings. Each group is an
   // empty foursome at this point; players slot in via /:code/join.
   const groupsSkeleton = makeGroupsSkeleton(expectedPlayersVal || 0)
+  // Sanitize handicap allowance — clamp to 1-100, default 100.
+  const allowanceN = Number(handicapAllowance)
+  const allowanceVal = Number.isFinite(allowanceN) && allowanceN > 0 && allowanceN <= 100
+    ? Math.round(allowanceN)
+    : 100
   const state  = {
     holes,
     participants: [],
+    handicap_allowance: allowanceVal,
     ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
     ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
   }
