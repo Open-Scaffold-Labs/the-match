@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
     const start = seasonStart(year)
 
     const [user, seasonRows, roundRows, streakRows, seasonStarted] = await Promise.all([
-      db.one('SELECT id, name, email, role, home_course, bio, handicap, avatar, cutout, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [uid]),
+      db.one('SELECT id, name, email, handle, role, home_course, bio, handicap, avatar, cutout, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [uid]),
 
       // Season W / L / T from match history
       db.many(
