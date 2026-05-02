@@ -179,7 +179,12 @@ export default function App() {
       <div style={{
         width: '100%', maxWidth: 430,
         height: '100dvh',
-        background: 'transparent',
+        // Augusta cream — matches the bottom of every tab's gradient,
+        // so iOS rubber-band overscroll past the end of any page reveals
+        // the same cream tint instead of the App-level fixed Unsplash
+        // golf-course photo behind it. (2026-05-02 — Matt: "make the
+        // cream tint cover the length of the entire background")
+        background: '#F1E7C8',
         position: 'relative',
         overflow: 'hidden',
       }}>
@@ -267,14 +272,6 @@ function TabPanel({ active, children }) {
       top: 0, left: 0, right: 0, bottom: '56px',
       overflowY: 'auto', overflowX: 'hidden',
       WebkitOverflowScrolling: 'touch',
-      // Stop iOS rubber-band overscroll on the per-tab scroll container
-      // so pulling past the bottom of a page doesn't expose the App-
-      // level fixed Unsplash background image behind it. Earlier fix
-      // to .page-scroll didn't apply here — Home/Match/etc. all live
-      // inside TabPanel, not the .page-scroll class. (2026-05-02 — Matt
-      // surfaced screenshot showing the golf-course photo bleeding
-      // through under the cream tint at the bottom of Home.)
-      overscrollBehavior: 'none',
       display: active ? 'block' : 'none',
     }}>
       {children}
