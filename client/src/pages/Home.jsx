@@ -1658,14 +1658,14 @@ function AddFriendModal({ onClose, onRequestSent }) {
       }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Add Playing Partner</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          <span style={{ color: '#0D1F12', fontSize: 16, fontWeight: 700 }}>Add Playing Partner</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(13,31,18,0.45)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
 
         {/* Search input */}
         <div style={{ position: 'relative', marginBottom: 16 }}>
           <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-            width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.40)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
@@ -1675,14 +1675,14 @@ function AddFriendModal({ onClose, onRequestSent }) {
             placeholder="Search by name or email…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 12, color: '#fff', padding: '12px 14px 12px 38px',
+              background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
+              borderRadius: 12, color: '#0D1F12', padding: '12px 14px 12px 38px',
               fontSize: 14, outline: 'none',
             }}
           />
           {searching && (
             <svg style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2">
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.45)" strokeWidth="2">
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
           )}
@@ -1691,12 +1691,12 @@ function AddFriendModal({ onClose, onRequestSent }) {
         {/* Results */}
         <div style={{ overflowY: 'auto', flex: 1 }}>
           {results.length === 0 && query.trim().length >= 2 && !searching && (
-            <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center', paddingTop: 24 }}>
+            <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 13, textAlign: 'center', paddingTop: 24 }}>
               No players found
             </div>
           )}
           {query.trim().length < 2 && (
-            <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, textAlign: 'center', paddingTop: 24 }}>
+            <div style={{ color: 'rgba(13,31,18,0.40)', fontSize: 12, textAlign: 'center', paddingTop: 24 }}>
               Type a name or email to search
             </div>
           )}
@@ -1708,40 +1708,41 @@ function AddFriendModal({ onClose, onRequestSent }) {
             return (
               <div key={u.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 4px', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                padding: '12px 4px', borderBottom: '1px solid rgba(27,94,59,0.08)',
                 gap: 10,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>{u.name}</span>
+                    <span style={{ color: '#0D1F12', fontSize: 14, fontWeight: 600 }}>{u.name}</span>
                     {hcp && (
                       <span style={{
-                        fontSize: 10, fontWeight: 600, color: 'rgba(245,215,138,0.7)',
-                        background: 'rgba(245,215,138,0.08)', borderRadius: 5,
+                        fontSize: 10, fontWeight: 600, color: '#7A5800',
+                        background: 'rgba(201,160,64,0.14)', borderRadius: 5,
                         padding: '1px 6px', letterSpacing: '0.04em',
                       }}>HCP {hcp}</span>
                     )}
                   </div>
                   {u.home_course && (
-                    <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                       {u.home_course}
                     </div>
                   )}
                 </div>
                 {alreadyFriend ? (
-                  <span style={{ color: '#C9A040', fontSize: 11, fontWeight: 600 }}>Friends</span>
+                  <span style={{ color: '#7A5800', fontSize: 11, fontWeight: 600 }}>Friends</span>
                 ) : alreadyPending ? (
-                  <span style={{ color: 'rgba(245,215,138,0.6)', fontSize: 11, fontWeight: 600 }}>Requested</span>
+                  <span style={{ color: '#7A5800', fontSize: 11, fontWeight: 600 }}>Requested</span>
                 ) : state === 'error' ? (
-                  <span style={{ color: '#F87171', fontSize: 11 }}>Error</span>
+                  <span style={{ color: '#B91C1C', fontSize: 11 }}>Error</span>
                 ) : (
                   <button onClick={() => sendRequest(u)} disabled={state === 'sending'} style={{
-                    background: 'linear-gradient(135deg, rgba(245,215,138,0.15), rgba(197,160,64,0.1))',
-                    border: '1px solid rgba(245,215,138,0.25)',
-                    borderRadius: 9, color: '#F5D78A', fontSize: 12, fontWeight: 600,
+                    background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+                    border: 'none',
+                    borderRadius: 9, color: '#fff', fontSize: 12, fontWeight: 700,
                     padding: '6px 14px', cursor: 'pointer', flexShrink: 0,
                     opacity: state === 'sending' ? 0.5 : 1,
+                    boxShadow: '0 1px 6px rgba(46,158,69,0.25)',
                   }}>{state === 'sending' ? '…' : '+ Add'}</button>
                 )}
               </div>
