@@ -37,9 +37,14 @@ function HandicapTrendLine({ rounds }) {
     return Number.isFinite(sc) && Number.isFinite(par) ? sc - par : 0
   })
 
+  // Bigger chart so each stroke difference reads at a larger
+  // vertical scale. H bumped from 56 → 110 (≈2x), pad bumped
+  // proportionally so the line + dots have the same headroom.
+  // (2026-05-02 — Matt: "make the line chart on my profile a
+  // little bigger so it shows strokes at a larger scale")
   const W = 280
-  const H = 56
-  const pad = 8
+  const H = 110
+  const pad = 14
   const max = Math.max(...diffs, 0)
   const min = Math.min(...diffs, 0)
   const range = (max - min) || 1
@@ -197,7 +202,7 @@ function HandicapTrendLine({ rounds }) {
         )}
 
         {/* Trend line itself */}
-        <path d={path} fill="none" stroke="url(#hcpTrendStroke)" strokeWidth="2"
+        <path d={path} fill="none" stroke="url(#hcpTrendStroke)" strokeWidth="2.5"
           strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Active scrubber — vertical guide + highlighted dot at the
@@ -206,15 +211,15 @@ function HandicapTrendLine({ rounds }) {
         {activePt && (
           <>
             <line x1={activePt.x} y1={pad} x2={activePt.x} y2={H - pad}
-              stroke="rgba(245,224,112,0.55)" strokeWidth="1" strokeDasharray="2,2" />
-            <circle cx={activePt.x} cy={activePt.y} r="6"
-              fill="rgba(245,224,112,0.18)" stroke="#F5E070" strokeWidth="1.5" />
+              stroke="rgba(245,224,112,0.55)" strokeWidth="1.2" strokeDasharray="2,2" />
+            <circle cx={activePt.x} cy={activePt.y} r="8"
+              fill="rgba(245,224,112,0.18)" stroke="#F5E070" strokeWidth="1.8" />
           </>
         )}
 
         {/* Per-round dots, colored by score-to-par direction */}
         {pts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={i === activeIdx ? 3.5 : 2.5}
+          <circle key={i} cx={p.x} cy={p.y} r={i === activeIdx ? 4.5 : 3.2}
             fill={p.d < 0 ? '#F5E070' : p.d === 0 ? '#E8C05A' : '#E8A85A'}
             stroke="rgba(7,18,9,0.95)" strokeWidth="1.5" />
         ))}
