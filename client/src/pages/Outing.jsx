@@ -2450,6 +2450,9 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   const [loading, setLoading] = useState(true)
   const [showTeams, setShowTeams] = useState(false)
   const [showGroups, setShowGroups] = useState(false)
+  // Commissioner correction panel — host-only modal with withdraw
+  // toggles + audit log readout. (B3, 2026-05-01)
+  const [showManage, setShowManage] = useState(false)
   const [scoreModal, setScoreModal] = useState(null) // { userId, userName, hole }
   const [showGuestModal, setShowGuestModal] = useState(false)
   const [netMode, setNetMode] = useState(false)
@@ -2618,7 +2621,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     </div>
   )
 
-  const participants = outing.state?.participants ?? []
+  // All participants in state, including withdrawn. Used by the
+  // commissioner panel which needs to see everyone. (B3)
+  const allParticipants = outing.state?.participants ?? []
+  // Active leaderboard pool — withdrawn players are excluded from
+  // ranking, scoring, and leaderboard rendering.
+  const participants = allParticipants.filter(p => !p.withdrawn)
   const teams        = outing.state?.teams ?? []
   const markers      = outing.state?.markers ?? []  // [{ marker_id, member_ids[] }]
   const holeCount    = outing.state?.holes ?? 18
@@ -2949,6 +2957,11 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
               borderRadius: 20, padding: '3px 10px',
               color: 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>+ Guest</button>
+            <button onClick={() => setShowManage(true)} style={{
+              background: 'rgba(245,215,138,0.12)', border: '1px solid rgba(245,215,138,0.35)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#F5D78A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>⚙ Manage</button>
             <button onClick={endMatch} disabled={ending} style={{
               background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
               borderRadius: 20, padding: '3px 10px',
@@ -3367,6 +3380,18 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           onSaved={savedMarkers => {
             setOuting(prev => ({ ...prev, state: { ...(prev.state || {}), markers: savedMarkers } }))
             setShowGroups(false)
+          }}
+        />
+      )}
+
+      {/* Commissioner correction panel — host-only. Withdraw / reinstate
+          participants and audit the score-change history. (B3) */}
+      {showManage && isHost && outing && (
+        <CommissionerPanel
+          outing={outing}
+          onClose={() => setShowManage(false)}
+          onParticipantsUpdated={(updated) => {
+            setOuting(prev => ({ ...prev, state: { ...(prev.state || {}), participants: updated } }))
           }}
         />
       )}
@@ -3884,6 +3909,232 @@ const TEAM_PALETTE = ['#C9A040', '#E8C05A', '#60A5FA', '#F87171', '#A78BFA', '#F
 // ─── Group / Marker Setup ─────────────────────────────────────────────────────
 // Host divides players into groups of ≤4 and designates one marker per group.
 // Marker can enter scores for everyone in their group.
+// ─── CommissionerPanel — host-only Manage modal ──────────────────────────────
+//
+// Lives between GroupSetup and the rest of the page. Two tabs:
+//   1. Players — full list of participants. Withdraw / reinstate any
+//      one of them (state.participants[i].withdrawn = true). Withdrawn
+//      players are hidden from the leaderboard but their scores
+//      remain in the DB.
+//   2. Audit — last 200 score changes for this outing (oldest at the
+//      bottom). Hits GET /:code/audit on open + when 'Refresh' tapped.
+//
+// Score editing itself isn't a separate tab — the host can already
+// tap any cell on the scorecard view to enter or correct a score.
+// The conflict-warning + audit log from B2 cover the rest.
+//
+// (2026-05-01 — league must-have B3.)
+function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
+  const code = outing.code
+  const [tab, setTab]               = useState('players')  // 'players' | 'audit'
+  const [busyIds, setBusyIds]       = useState({})
+  const [auditEntries, setAudit]    = useState(null)
+  const [auditLoading, setAuditLoading] = useState(false)
+  const all = outing.state?.participants ?? []
+
+  async function toggleWithdraw(userId, currentlyWithdrawn) {
+    setBusyIds(b => ({ ...b, [userId]: true }))
+    try {
+      await post(`/api/outings/${code}/withdraw`, { user_id: userId, withdrawn: !currentlyWithdrawn })
+      const next = all.map(p =>
+        String(p.user_id) === String(userId) ? { ...p, withdrawn: !currentlyWithdrawn } : p
+      )
+      onParticipantsUpdated?.(next)
+    } catch (err) {
+      alert(`Failed to ${currentlyWithdrawn ? 'reinstate' : 'withdraw'} player. Try again.`)
+    } finally {
+      setBusyIds(b => { const n = { ...b }; delete n[userId]; return n })
+    }
+  }
+
+  async function loadAudit() {
+    setAuditLoading(true)
+    try {
+      const data = await api(`/api/outings/${code}/audit`)
+      setAudit(data?.entries || [])
+    } catch {
+      setAudit([])
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (tab === 'audit' && auditEntries == null) loadAudit()
+  }, [tab])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Map user_id → display name for the audit list. Includes withdrawn.
+  const nameForId = (uid) => all.find(p => String(p.user_id) === String(uid))?.name || `#${uid}`
+
+  function whenStr(iso) {
+    if (!iso) return ''
+    const t = new Date(iso).getTime()
+    if (!Number.isFinite(t)) return ''
+    const ms = Date.now() - t
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    const hr = Math.floor(min / 60)
+    if (hr < 24)  return `${hr}h ago`
+    return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
+
+  return createPortal(
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.55)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 430,
+        background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
+        borderRadius: '24px 24px 0 0',
+        maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 -10px 50px rgba(0,0,0,0.7)',
+      }}>
+        {/* Drag handle + header */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '4px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <div>
+            <div style={{ fontSize: 19, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+              Manage Outing
+            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
+              Host-only · withdrawals + audit log
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+            borderRadius: 999, width: 32, height: 32, color: '#fff', fontSize: 18, cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}>✕</button>
+        </div>
+
+        {/* Tab bar */}
+        <div style={{ display: 'flex', padding: '10px 20px 0', gap: 8 }}>
+          {[
+            { id: 'players', label: `Players · ${all.length}` },
+            { id: 'audit',   label: 'Score history' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              flex: 1, padding: '8px 12px', borderRadius: 10,
+              background: tab === t.id ? 'rgba(245,215,138,0.14)' : 'rgba(255,255,255,0.04)',
+              border: '1px solid', borderColor: tab === t.id ? 'rgba(245,215,138,0.40)' : 'rgba(255,255,255,0.10)',
+              color: tab === t.id ? '#F5D78A' : 'rgba(255,255,255,0.65)',
+              fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+            }}>{t.label}</button>
+          ))}
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 20px 28px' }}>
+          {tab === 'players' && (
+            <>
+              {all.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 13, padding: '40px 0' }}>
+                  No players yet.
+                </div>
+              )}
+              {all.map(p => {
+                const wd = !!p.withdrawn
+                const busy = busyIds[p.user_id]
+                return (
+                  <div key={p.user_id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 12, marginBottom: 8,
+                    background: wd ? 'rgba(248,113,113,0.06)' : 'rgba(255,255,255,0.04)',
+                    border: '1px solid', borderColor: wd ? 'rgba(248,113,113,0.25)' : 'rgba(255,255,255,0.07)',
+                  }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: 'rgba(245,215,138,0.18)', border: '1px solid rgba(245,215,138,0.40)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#F5D78A', fontSize: 14, fontWeight: 800, flexShrink: 0,
+                      opacity: wd ? 0.5 : 1,
+                    }}>{(p.name || '?').slice(0,1).toUpperCase()}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 700, color: wd ? 'rgba(255,255,255,0.5)' : '#fff',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        textDecoration: wd ? 'line-through' : 'none',
+                      }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
+                        {wd ? 'WITHDRAWN — excluded from leaderboard'
+                            : p.is_guest ? 'Guest · no app account'
+                            : `Total: ${p.total ?? 0} · ${p.holes_played ?? 0} holes played`}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => toggleWithdraw(p.user_id, wd)}
+                      disabled={busy}
+                      style={{
+                        padding: '6px 12px', borderRadius: 999, border: 'none',
+                        background: wd ? 'rgba(94,212,122,0.16)' : 'rgba(248,113,113,0.16)',
+                        color: wd ? '#5ED47A' : '#F87171',
+                        fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+                        opacity: busy ? 0.6 : 1,
+                      }}>
+                      {busy ? '…' : wd ? 'Reinstate' : 'Withdraw'}
+                    </button>
+                  </div>
+                )
+              })}
+            </>
+          )}
+
+          {tab === 'audit' && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)' }}>
+                  {auditEntries ? `${auditEntries.length} change${auditEntries.length !== 1 ? 's' : ''}` : ''}
+                </div>
+                <button onClick={loadAudit} disabled={auditLoading} style={{
+                  padding: '4px 10px', borderRadius: 999,
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+                  color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  opacity: auditLoading ? 0.6 : 1,
+                }}>{auditLoading ? '…' : 'Refresh'}</button>
+              </div>
+              {auditLoading && auditEntries == null && (
+                <div style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '24px 0', fontSize: 12 }}>
+                  Loading…
+                </div>
+              )}
+              {auditEntries && auditEntries.length === 0 && (
+                <div style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '40px 0', fontSize: 13 }}>
+                  No score changes yet.
+                </div>
+              )}
+              {auditEntries && auditEntries.map(e => (
+                <div key={e.id} style={{
+                  padding: '10px 12px', borderRadius: 12, marginBottom: 6,
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 700 }}>
+                      {nameForId(e.user_id)} · Hole {Number(e.hole) + 1}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{whenStr(e.created_at)}</div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 3 }}>
+                    {e.old_score == null ? 'set to' : `changed ${e.old_score} →`} <span style={{ color: '#F5D78A', fontWeight: 800 }}>{e.new_score}</span>
+                    {e.edited_by_name ? ` · by ${e.edited_by_name}` : ''}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 function GroupSetup({ outing, onClose, onSaved }) {
   const participants = outing.state?.participants ?? []
 

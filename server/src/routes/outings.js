@@ -695,6 +695,35 @@ router.get('/:code/audit', async (req, res) => {
   }
 })
 
+// ─── POST /api/outings/:code/withdraw ────────────────────────────────────────
+// Host-only: mark a participant withdrawn (or un-withdraw). Their
+// scores stay in the DB for posterity but they're excluded from
+// leaderboard / handicap calc / final results. Body: { user_id,
+// withdrawn: bool }. (2026-05-01 — league must-have B3.)
+router.post('/:code/withdraw', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { user_id, withdrawn } = req.body
+    if (!user_id) return res.status(400).json({ error: 'user_id required' })
+
+    const outing = await db.one('SELECT id, host_id, state FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const state = outing.state || { participants: [] }
+    const idx = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+    if (idx < 0) return res.status(404).json({ error: 'Participant not found' })
+
+    state.participants[idx].withdrawn = !!withdrawn
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[outings/withdraw]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // ─── POST /api/outings/:code/end ──────────────────────────────────────────────
 router.post('/:code/end', async (req, res) => {
   try {
