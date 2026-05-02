@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put, del } from '../lib/api.js'
-import { runWithQueue, subscribeQueue } from '../lib/offline-queue.js'
+import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../lib/offline-queue.js'
 import CoachMark from '../components/CoachMark.jsx'
 import { warn } from '../lib/logger.js'
 // Renamed on import to avoid shadowing the existing local scoreColor(strokes, par)
@@ -2027,6 +2027,40 @@ function findTapHint({ sorted, getScores, isHost, isMarkerFor, userId }) {
 // Compute leaderboard positions for an already-sorted player array.
 // Returns an array of strings parallel to `sorted`: "1", "T2", "3", or "—"
 // for players with no scores yet. (2026-04-30 PM round 8 — rank badges)
+// Tiebreak label for a player who beat the next-tied player on
+// card-back. Returns 'b9' / 'l6' / 'l3' / 'lh' or null. Used by
+// the scoreboard to annotate "won on back-9" so users understand
+// why two equal totals got different ranks. (Iteration 3 polish for B1.)
+function tiebreakReason(a, b, holePars) {
+  if (!a || !b) return null
+  const holeCount = holePars.length
+  const lastIdx   = holeCount - 1
+  function strokesToParRange(p, getScores, startIdx, endIdx) {
+    const sc = (getScores ? getScores(p) : p.scores) || []
+    let total = 0
+    for (let i = startIdx; i <= endIdx; i++) {
+      const s = sc[i] || 0
+      if (s > 0) total += s - (holePars[i] || 4)
+    }
+    return total
+  }
+  const ranges = [
+    ...(holeCount >= 18 ? [{ key: 'b9', s: 9, e: 17 }] : []),
+    { key: 'l6', s: Math.max(0, lastIdx - 5), e: lastIdx },
+    { key: 'l3', s: Math.max(0, lastIdx - 2), e: lastIdx },
+    { key: 'lh', s: lastIdx, e: lastIdx },
+  ]
+  // Use whatever's on each participant directly; the function may be
+  // called from anywhere with .scores already set on the player obj.
+  const get = p => p.scores
+  for (const r of ranges) {
+    const ra = strokesToParRange(a, get, r.s, r.e)
+    const rb = strokesToParRange(b, get, r.s, r.e)
+    if (ra !== rb) return ra < rb ? r.key : null
+  }
+  return null
+}
+
 // Compute display rank labels (1, T2, T2, 4, ...) for a sorted-by-
 // leaderboardSort participants array. Two adjacent entries are
 // considered tied (sharing position) ONLY when their full multi-key
@@ -2362,6 +2396,32 @@ function MatchScoreboard({
   isSkinsFormat = false,   // when true, render per-row 'N SK' badge (B4c polish)
   skinsByPlayer = {},      // { user_id: skinsWonCount }
 }) {
+  // Tiebreak hints — for each row that's tied on total with the row
+  // below it, surface a tiny pill ('B9' / 'L6' / 'L3' / 'LH') so
+  // players understand why the cleaner rank went to one over the
+  // other. (Iteration 3 polish for B1.)
+  function tiebreakHint(i) {
+    if (isMatchPlay || isSkinsFormat) return null  // those use different sort keys
+    const a = participants[i]
+    const b = participants[i + 1]
+    if (!a || !b) return null
+    // Only hint when the two are tied on TOTAL strokes-to-par.
+    const totalSTP = (p) => {
+      const sc = getScores(p) || []
+      let stp = 0
+      for (let h = 0; h < holePars.length; h++) {
+        const s = sc[h] || 0
+        if (s > 0) stp += s - (holePars[h] || 4)
+      }
+      return sc.some(x => x > 0) ? stp : null
+    }
+    const ta = totalSTP(a), tb = totalSTP(b)
+    if (ta == null || tb == null || ta !== tb) return null
+    const aWithScores = { ...a, scores: getScores(a) }
+    const bWithScores = { ...b, scores: getScores(b) }
+    return tiebreakReason(aWithScores, bWithScores, holePars)
+  }
+  const TIEBREAK_LABELS = { b9: 'B9', l6: 'L6', l3: 'L3', lh: 'LH' }
   // Match-play TOT for the current row. Only meaningful when isMatchPlay
   // (2 players + 'match' format). Returns "3UP" / "AS" / "3DN" or null.
   function matchPlayLabel(p, idx) {
@@ -2553,6 +2613,22 @@ function MatchScoreboard({
                 }}>
                   {totDisplay}
                 </span>
+                {/* Card-back tiebreak hint — small pill when this player
+                    beat the next-tied player on a back-9 / last-N
+                    tiebreak. Helps explain "we tied at 78 — why am I
+                    2nd?" without forcing the host to. (B1 polish.) */}
+                {(() => {
+                  const hint = tiebreakHint(idx)
+                  if (!hint) return null
+                  return (
+                    <div title={`Won on ${hint === 'b9' ? 'back 9' : hint === 'l6' ? 'last 6 holes' : hint === 'l3' ? 'last 3 holes' : 'last hole'}`} style={{
+                      display: 'inline-block', marginTop: 2, padding: '0 5px',
+                      borderRadius: 4, fontSize: 8, fontWeight: 800, letterSpacing: '0.08em',
+                      background: 'rgba(201,160,64,0.18)', color: '#7A5800',
+                      border: '1px solid rgba(201,160,64,0.35)',
+                    }}>{TIEBREAK_LABELS[hint]}</div>
+                  )
+                })()}
               </div>
 
               {/* TODAY (only for match-play matches) */}
@@ -2600,7 +2676,24 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // Offline queue size — surfaces a small pill when scores are
   // pending sync (cell signal dropped on the course). (B5)
   const [queuedCount, setQueuedCount] = useState(0)
+  // Banner shown when a queued mutation is permanently dropped (server
+  // refused, permission revoked, etc.) — explains to the user that
+  // their optimistic local update will be reconciled with the server.
+  // (Iteration 3 fix.)
+  const [droppedNotice, setDroppedNotice] = useState(null)
   useEffect(() => subscribeQueue(setQueuedCount), [])
+  useEffect(() => subscribeQueueDrops((item, reason) => {
+    setDroppedNotice({ item, reason, at: Date.now() })
+    // Immediately re-fetch the outing so local state realigns with
+    // the server — the optimistic update needs to be reconciled.
+    loadOuting()
+  }), [loadOuting])
+  // Auto-dismiss the dropped-notice banner after 7 seconds.
+  useEffect(() => {
+    if (!droppedNotice) return
+    const t = setTimeout(() => setDroppedNotice(null), 7000)
+    return () => clearTimeout(t)
+  }, [droppedNotice])
   const [scoreModal, setScoreModal] = useState(null) // { userId, userName, hole }
   const [showGuestModal, setShowGuestModal] = useState(false)
   const [netMode, setNetMode] = useState(false)
@@ -2922,14 +3015,14 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // members per hole, summed). Players with the same team_id share
   // a team total; lowest team total wins. (B4d)
   const isBestBallFormat = (outing.scoring_formats || []).includes('best_ball')
-  // Pass through the course's hole_handicaps stroke index so net
-  // strokes are applied USGA-correctly (hardest hole first). Falls
-  // back to flat distribution when the course doesn't have indexes.
   const courseHoleHandicaps = Array.isArray(outing.hole_handicaps) ? outing.hole_handicaps : null
   const bestBallData     = isBestBallFormat
     ? computeBestBall(participants, holePars, getScores, netStrokes, courseHoleHandicaps)
     : null
   const bestBallByPlayer = bestBallData?.playerTeamTotal || {}
+  // Sorted teams (low-to-high) for the standings card. Each entry has
+  // { id, label, members, total, holesPlayed }.
+  const bestBallTeams    = bestBallData?.teams || []
 
   // Leaderboard order:
   //   Skins      → primary: skins won desc, tiebreak: card-back STP
@@ -3115,6 +3208,29 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           </div>
         )}
 
+        {/* Dropped-mutation banner — fires when a queued write is
+            permanently rejected by the server (permission revoked,
+            withdrawn player, etc.). Local state is reconciled
+            automatically by re-fetching; this just tells the user
+            what happened. (Iteration 3 fix for B5.) */}
+        {droppedNotice && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px',
+            background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.35)',
+            borderRadius: 10, display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div style={{ flex: 1, fontSize: 11, color: '#F87171', lineHeight: 1.3 }}>
+              <strong>A pending score couldn't sync</strong> — the server rejected it ({droppedNotice.reason}). Latest scores re-loaded from the server.
+            </div>
+            <button onClick={() => setDroppedNotice(null)} aria-label="Dismiss" style={{
+              background: 'none', border: 'none', color: 'rgba(248,113,113,0.7)', fontSize: 14, cursor: 'pointer',
+            }}>✕</button>
+          </div>
+        )}
+
         {/* Host controls row */}
         {isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -3274,6 +3390,51 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           }}>BOARD</button>
         </div>
       </div>
+
+      {/* Best-Ball team standings — header card above the leaderboard
+          when format=best_ball. Player rows below are still ordered
+          by team total. (Iteration 3 polish for B4d.) */}
+      {effectiveViewMode === 'board' && isBestBallFormat && bestBallTeams.length > 0 && (
+        <div style={{
+          margin: '12px 12px 0', padding: '10px 14px',
+          background: 'linear-gradient(180deg, rgba(245,215,138,0.10), rgba(201,160,64,0.04))',
+          border: '1px solid rgba(245,215,138,0.30)',
+          borderRadius: 14,
+        }}>
+          <div style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.10em',
+            color: 'rgba(245,215,138,0.80)', marginBottom: 6,
+          }}>TEAM STANDINGS · BEST BALL</div>
+          {bestBallTeams.map((team, i) => {
+            const memberNames = team.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
+            const isLeader = i === 0 && team.total > 0
+            return (
+              <div key={team.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '6px 0',
+                borderTop: i > 0 ? '1px solid rgba(245,215,138,0.10)' : 'none',
+              }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 800, color: isLeader ? '#F5D78A' : 'rgba(255,255,255,0.55)',
+                  width: 22, textAlign: 'center',
+                }}>{i + 1}</span>
+                <span style={{
+                  flex: 1, fontSize: 12, fontWeight: 700, color: '#fff',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{memberNames || `Team ${team.label}`}</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 800, color: isLeader ? '#F5D78A' : 'rgba(255,255,255,0.85)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>{team.total > 0 ? team.total : '—'}</span>
+                <span style={{
+                  fontSize: 10, color: 'rgba(255,255,255,0.45)',
+                  width: 38, textAlign: 'right',
+                }}>thru {team.holesPlayed}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* BOARD view — Tour-style leaderboard. Read-only; tapping a row
           flips back to SCORECARD so the user can enter that player's score. */}
@@ -4114,11 +4275,18 @@ const TEAM_PALETTE = ['#C9A040', '#E8C05A', '#60A5FA', '#F87171', '#A78BFA', '#F
 // (2026-05-01 — league must-have B3.)
 function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
   const code = outing.code
-  const [tab, setTab]               = useState('players')  // 'players' | 'audit'
+  const [tab, setTab]               = useState('players')  // 'players' | 'scores' | 'audit'
   const [busyIds, setBusyIds]       = useState({})
   const [auditEntries, setAudit]    = useState(null)
   const [auditLoading, setAuditLoading] = useState(false)
+  // Score-edit grid state — keyed by `${user_id}-${hole}` so cells
+  // can be edited individually without clobbering each other. (B3
+  // polish — host can bulk-correct without leaving the panel.)
+  const [editing, setEditing]       = useState(null)        // { user_id, hole, value }
+  const [scoreSaveBusy, setScoreSaveBusy] = useState(false)
   const all = outing.state?.participants ?? []
+  const holeCount = outing.state?.holes ?? 18
+  const holes = Array.from({ length: holeCount }, (_, i) => i)
 
   async function toggleWithdraw(userId, currentlyWithdrawn) {
     setBusyIds(b => ({ ...b, [userId]: true }))
@@ -4144,6 +4312,38 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
       setAudit([])
     } finally {
       setAuditLoading(false)
+    }
+  }
+
+  // Save a single cell from the score-edit grid. Goes through the
+  // host endpoint with force:true so it bypasses the conflict guard
+  // (commissioner editing IS the conflict resolution). On success,
+  // mutates the parent's state.participants[].scores[] in place.
+  async function saveCell(userId, hole, newScore) {
+    const n = Number(newScore)
+    if (!Number.isFinite(n) || n < 1 || n > 20) return
+    setScoreSaveBusy(true)
+    try {
+      await put(`/api/outings/${code}/scores/host`, {
+        hole, score: n, user_id: userId, force: true,
+      })
+      // Mutate the local participant state so the grid reflects the
+      // change immediately (the parent will re-fetch on poll anyway).
+      const next = all.map(p => {
+        if (String(p.user_id) !== String(userId)) return p
+        const scores = Array.isArray(p.scores) ? [...p.scores] : new Array(holeCount).fill(0)
+        while (scores.length < holeCount) scores.push(0)
+        scores[hole] = n
+        const total = scores.reduce((s, x) => s + (x || 0), 0)
+        const holesPlayed = scores.filter(x => x > 0).length
+        return { ...p, scores, total, holes_played: holesPlayed }
+      })
+      onParticipantsUpdated?.(next)
+      setEditing(null)
+    } catch (err) {
+      alert(`Save failed: ${err.message || 'Unknown error'}`)
+    } finally {
+      setScoreSaveBusy(false)
     }
   }
   useEffect(() => {
@@ -4206,7 +4406,8 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
         <div style={{ display: 'flex', padding: '10px 20px 0', gap: 8 }}>
           {[
             { id: 'players', label: `Players · ${all.length}` },
-            { id: 'audit',   label: 'Score history' },
+            { id: 'scores',  label: 'Edit scores' },
+            { id: 'audit',   label: 'History' },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               flex: 1, padding: '8px 12px', borderRadius: 10,
@@ -4270,6 +4471,96 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                   </div>
                 )
               })}
+            </>
+          )}
+
+          {tab === 'scores' && (
+            <>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
+                Tap any cell to correct a score. Changes go through the audit log.
+              </div>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{
+                  borderCollapse: 'separate', borderSpacing: 0,
+                  fontSize: 11, color: '#fff', minWidth: holeCount * 32 + 110,
+                }}>
+                  <thead>
+                    <tr>
+                      <th style={{
+                        position: 'sticky', left: 0, background: '#0E1812',
+                        padding: '6px 8px', fontSize: 9, fontWeight: 800,
+                        color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em',
+                        textAlign: 'left', minWidth: 100, zIndex: 1,
+                      }}>PLAYER</th>
+                      {holes.map(h => (
+                        <th key={h} style={{
+                          width: 32, padding: '6px 0', textAlign: 'center',
+                          fontSize: 9, fontWeight: 800,
+                          color: 'rgba(255,255,255,0.55)',
+                        }}>{h + 1}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {all.filter(p => !p.withdrawn).map(p => {
+                      const scores = Array.isArray(p.scores) ? p.scores : []
+                      return (
+                        <tr key={p.user_id}>
+                          <td style={{
+                            position: 'sticky', left: 0, background: '#0E1812',
+                            padding: '6px 8px', fontWeight: 700,
+                            color: '#fff', minWidth: 100,
+                            borderTop: '1px solid rgba(255,255,255,0.07)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            maxWidth: 100, zIndex: 1,
+                          }}>{(p.name || '?').split(' ')[0]}</td>
+                          {holes.map(h => {
+                            const v = scores[h] || 0
+                            const isEditing = editing && String(editing.user_id) === String(p.user_id) && editing.hole === h
+                            return (
+                              <td key={h} style={{
+                                width: 32, padding: 0, textAlign: 'center',
+                                borderTop: '1px solid rgba(255,255,255,0.07)',
+                                background: isEditing ? 'rgba(245,215,138,0.18)' : 'transparent',
+                              }}>
+                                {isEditing ? (
+                                  <input
+                                    type="number" inputMode="numeric" min={1} max={20}
+                                    autoFocus
+                                    value={editing.value}
+                                    onChange={e => setEditing(s => ({ ...s, value: e.target.value }))}
+                                    onBlur={() => editing.value && Number(editing.value) !== v && saveCell(p.user_id, h, editing.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') saveCell(p.user_id, h, editing.value)
+                                      if (e.key === 'Escape') setEditing(null)
+                                    }}
+                                    disabled={scoreSaveBusy}
+                                    style={{
+                                      width: 30, height: 26, padding: 0, textAlign: 'center',
+                                      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(245,215,138,0.50)',
+                                      borderRadius: 4, color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                ) : (
+                                  <button
+                                    onClick={() => setEditing({ user_id: p.user_id, hole: h, value: String(v || '') })}
+                                    style={{
+                                      width: '100%', height: 26, padding: 0, border: 'none',
+                                      background: 'transparent', color: v > 0 ? '#fff' : 'rgba(255,255,255,0.30)',
+                                      fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                                    }}
+                                  >{v > 0 ? v : '·'}</button>
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 

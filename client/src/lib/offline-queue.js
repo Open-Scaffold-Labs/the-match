@@ -80,6 +80,17 @@ function isNetworkError(err) {
 // double-replay an item.
 let draining = null
 
+// Subscriber for "permanently dropped mutations" so the UI can roll
+// back the optimistic local update + show the user. (Iteration 3 fix.)
+const dropListeners = new Set()
+function notifyDrop(item, reason) {
+  for (const fn of dropListeners) { try { fn(item, reason) } catch { /* ignore */ } }
+}
+export function subscribeQueueDrops(fn) {
+  dropListeners.add(fn)
+  return () => dropListeners.delete(fn)
+}
+
 export async function drainQueue() {
   if (draining) return draining
   draining = (async () => {
@@ -88,6 +99,8 @@ export async function drainQueue() {
     while (q.length > 0) {
       const item = q[0]
       const token = (() => { try { return localStorage.getItem('tm_token') } catch { return null } })()
+      let dropped = false
+      let dropReason = null
       try {
         const res = await fetch(item.url, {
           method: item.method || 'POST',
@@ -98,12 +111,9 @@ export async function drainQueue() {
           body: item.body ? JSON.stringify(item.body) : undefined,
         })
         if (!res.ok) {
-          // Server-side error during replay. If it's a 409
-          // score_conflict, force the write through (the user
-          // already confirmed the local value when they typed it).
-          // Other errors: drop the mutation and warn — leaving it
-          // in the queue would block all subsequent items forever.
           if (res.status === 409 && item.body && !item.body.force) {
+            // Score-conflict on a queued write — force-retry once
+            // since the user already confirmed the local value.
             const retryItem = { ...item, body: { ...item.body, force: true } }
             const res2 = await fetch(retryItem.url, {
               method: retryItem.method || 'POST',
@@ -115,23 +125,30 @@ export async function drainQueue() {
             })
             if (!res2.ok) {
               console.warn('[offline-queue] dropping after force retry', res2.status, item)
+              dropped = true
+              dropReason = `server rejected force-retry (${res2.status})`
             }
           } else {
             console.warn('[offline-queue] dropping mutation', res.status, item)
+            dropped = true
+            dropReason = `server rejected (${res.status})`
           }
         }
-        // Success or unrecoverable — pop.
+        // Pop regardless (either accepted or unrecoverable).
         q = q.slice(1)
         writeQueue(q)
         drained++
         notify()
+        if (dropped) notifyDrop(item, dropReason)
       } catch (err) {
         if (isNetworkError(err)) break  // still offline, try later
-        // Unknown failure — drop this item rather than wedge the queue.
+        // Unknown failure — drop the item so the queue doesn't wedge,
+        // and notify so the UI can roll the local state back.
         console.warn('[offline-queue] dropping after error', err.message, item)
         q = q.slice(1)
         writeQueue(q)
         notify()
+        notifyDrop(item, `network error: ${err.message}`)
       }
     }
     return { drained, remaining: q.length }
