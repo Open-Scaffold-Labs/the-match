@@ -1328,10 +1328,15 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       // alternatives are 80/85/90/95 for various tournament formats.
       // (B4a)
       handicapAllowance: 100,
-      // Stableford preset: 'standard' (USGA traditional 1-2-3-4) or
-      // 'modified' (PGA Tour Reno-Tahoe -3/-1/0/2/5). Only meaningful
-      // when format='stableford'. (B4b)
+      // Stableford preset: 'standard' (USGA traditional 1-2-3-4),
+      // 'modified' (PGA Tour Reno-Tahoe -3/-1/0/2/5), or 'custom' so
+      // the league can author its own point map. Only meaningful when
+      // format='stableford'. (B4b · 6.5)
       stablefordPreset: 'standard',
+      // 6.5 — Custom Stableford point map. Used only when
+      // stablefordPreset === 'custom'. Initialized to the standard
+      // map so partial edits yield a sensible scoreboard.
+      customStablefordPoints: { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 },
       // Real course data captured by the picker; null when host opts out
       courseId:      slim?.courseId ?? null,
       courseTee:     slim?.courseTee ?? null,
@@ -1402,6 +1407,12 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         handicapAllowance: form.handicapAllowance,
         // Stableford preset (only used when format=stableford). (B4b)
         stablefordPreset: form.format === 'stableford' ? form.stablefordPreset : null,
+        // 6.5 — when the host picked Custom, ship the point map.
+        // Server validates each bucket and falls back to standard if
+        // anything's malformed.
+        customStablefordPoints: form.format === 'stableford' && form.stablefordPreset === 'custom'
+          ? form.customStablefordPoints
+          : null,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1540,19 +1551,20 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
 
       {/* Stableford preset (only when format=stableford). Standard =
           1/2/3/4 (USGA traditional); Modified = -3/-1/0/2/5 (PGA Tour
-          Reno-Tahoe variant). Custom point maps deferred to v2. (B4b) */}
+          Reno-Tahoe variant). Custom = league-authored point map (6.5). */}
       {form.format === 'stableford' && (
         <div style={{ marginTop: 6 }}>
           <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
             Stableford Preset
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
               { id: 'standard', label: 'Standard', desc: 'Bogey 1 · Par 2 · Birdie 3 · Eagle 4' },
               { id: 'modified', label: 'Modified', desc: 'Bogey −1 · Par 0 · Birdie 2 · Eagle 5 · Double −3' },
+              { id: 'custom',   label: 'Custom',   desc: 'Set your league’s own point map below' },
             ].map(opt => (
               <button key={opt.id} onClick={() => set('stablefordPreset', opt.id)} style={{
-                flex: 1, padding: '10px 12px', borderRadius: 'var(--tm-radius)',
+                flex: '1 1 30%', minWidth: 110, padding: '10px 12px', borderRadius: 'var(--tm-radius)',
                 border: '1px solid', borderColor: form.stablefordPreset === opt.id ? 'var(--tm-green)' : 'var(--tm-border)',
                 background: form.stablefordPreset === opt.id ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
                 color: 'var(--tm-text)', textAlign: 'left', cursor: 'pointer',
@@ -1562,6 +1574,66 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
               </button>
             ))}
           </div>
+          {/* 6.5 — Custom point map editor. Renders inline when 'custom'
+              is selected. 7 buckets, each 0-20 (or down to -10 for
+              penalty schemes like the modified variant). */}
+          {form.stablefordPreset === 'custom' && (
+            <div style={{
+              marginTop: 10, padding: '12px',
+              background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',
+              borderRadius: 'var(--tm-radius)',
+            }}>
+              <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginBottom: 8, lineHeight: 1.4 }}>
+                Points awarded for each score relative to par. Range −10 to 20. The leaderboard recomputes live as players score.
+              </div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8,
+              }}>
+                {[
+                  { key: 'double_eagle', label: 'Double Eagle (−3)' },
+                  { key: 'eagle',        label: 'Eagle (−2)' },
+                  { key: 'birdie',       label: 'Birdie (−1)' },
+                  { key: 'par',          label: 'Par' },
+                  { key: 'bogey',        label: 'Bogey (+1)' },
+                  { key: 'double',       label: 'Double (+2)' },
+                  { key: 'worse',        label: 'Triple+ (+3 or worse)' },
+                ].map(b => {
+                  const v = form.customStablefordPoints?.[b.key]
+                  return (
+                    <label key={b.key} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      gap: 8, padding: '6px 8px',
+                      background: 'var(--tm-surface)', border: '1px solid var(--tm-border)',
+                      borderRadius: 8,
+                    }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--tm-text-2)' }}>{b.label}</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        step="1"
+                        min="-10"
+                        max="20"
+                        value={v == null ? '' : v}
+                        onChange={e => {
+                          const raw = e.target.value
+                          set('customStablefordPoints', {
+                            ...(form.customStablefordPoints || {}),
+                            [b.key]: raw === '' ? 0 : Number(raw),
+                          })
+                        }}
+                        style={{
+                          width: 56, height: 30, textAlign: 'center',
+                          fontSize: 14, fontWeight: 800, color: 'var(--tm-text)',
+                          background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',
+                          borderRadius: 6,
+                        }}
+                      />
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -5187,6 +5259,143 @@ function LiveShareModal({ outing, onClose }) {
   )
 }
 
+// ─── StablefordEditor (6.5) ──────────────────────────────────────────────────
+// Lives inside CommissionerPanel under the 'Points' tab. Renders the
+// 7-bucket point map with one input per bucket, plus quick-load buttons
+// for the two presets (Standard / Modified). Save hits PUT
+// /:code/stableford-points; on success we mirror the new map into local
+// outing.state so leaderboards recompute immediately.
+function StablefordEditor({ code, outing, onSaved }) {
+  const initial = (outing.state?.stableford_points && typeof outing.state.stableford_points === 'object')
+    ? outing.state.stableford_points
+    : { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 }
+  const [pts, setPts] = useState({ ...initial })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState(null)
+  const [savedAt, setSavedAt] = useState(null)
+
+  const buckets = [
+    { key: 'double_eagle', label: 'Double Eagle', sub: '−3 to par' },
+    { key: 'eagle',        label: 'Eagle',        sub: '−2 to par' },
+    { key: 'birdie',       label: 'Birdie',       sub: '−1 to par' },
+    { key: 'par',          label: 'Par',          sub: 'even' },
+    { key: 'bogey',        label: 'Bogey',        sub: '+1 to par' },
+    { key: 'double',       label: 'Double',       sub: '+2 to par' },
+    { key: 'worse',        label: 'Triple+',      sub: '+3 or worse' },
+  ]
+
+  function setBucket(key, raw) {
+    const v = raw === '' ? '' : Number(raw)
+    setPts(prev => ({ ...prev, [key]: v }))
+  }
+
+  function loadPreset(name) {
+    if (name === 'standard') {
+      setPts({ double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 })
+    } else if (name === 'modified') {
+      setPts({ double_eagle: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double: -3, worse: -3 })
+    }
+  }
+
+  async function save() {
+    setError(null)
+    // Validate each bucket — finite number in [-10, 20].
+    const sanitized = {}
+    for (const b of buckets) {
+      const v = Number(pts[b.key])
+      if (!Number.isFinite(v) || v < -10 || v > 20) {
+        setError(`${b.label} must be a number between −10 and 20.`)
+        return
+      }
+      sanitized[b.key] = v
+    }
+    setSaving(true)
+    try {
+      const data = await put(`/api/outings/${code}/stableford-points`, { points: sanitized })
+      onSaved?.(data?.stableford_points || sanitized)
+      setSavedAt(Date.now())
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Detect dirty (have any inputs been edited from the saved state?)
+  // so the save button can disable when nothing has changed.
+  const dirty = buckets.some(b => Number(pts[b.key]) !== Number(initial[b.key] ?? 0))
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 10, lineHeight: 1.5 }}>
+        Edit the points awarded for each score relative to par. Range −10 to 20. Saving recomputes the leaderboard immediately for everyone watching.
+      </div>
+      {/* Preset quick-loads */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        {[
+          { id: 'standard', label: 'Load Standard' },
+          { id: 'modified', label: 'Load Modified' },
+        ].map(opt => (
+          <button key={opt.id} onClick={() => loadPreset(opt.id)} style={{
+            flex: 1, padding: '7px 10px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+            color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}>{opt.label}</button>
+        ))}
+      </div>
+      {/* Bucket inputs */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6, marginBottom: 12 }}>
+        {buckets.map(b => (
+          <div key={b.key} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 8, padding: '8px 12px',
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 10,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{b.label}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>{b.sub}</div>
+            </div>
+            <input
+              type="number"
+              step="1"
+              min="-10"
+              max="20"
+              value={pts[b.key] === '' ? '' : pts[b.key]}
+              onChange={e => setBucket(b.key, e.target.value)}
+              style={{
+                width: 64, height: 36, textAlign: 'center',
+                fontSize: 16, fontWeight: 900, color: '#fff',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 8,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      {error && (
+        <div style={{
+          background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.40)',
+          color: '#F8B4B4', padding: '8px 10px', borderRadius: 8, marginBottom: 10, fontSize: 11,
+        }}>{error}</div>
+      )}
+      <button onClick={save} disabled={saving || !dirty} style={{
+        width: '100%', padding: 12, borderRadius: 'var(--tm-radius-lg)',
+        background: dirty
+          ? 'linear-gradient(135deg, rgba(245,215,138,0.55), rgba(201,160,64,0.85))'
+          : 'rgba(255,255,255,0.06)',
+        color: dirty ? '#1A1A1A' : 'rgba(255,255,255,0.5)',
+        fontWeight: 800, fontSize: 14, border: 'none',
+        cursor: saving ? 'not-allowed' : (dirty ? 'pointer' : 'default'),
+        opacity: saving ? 0.7 : 1, fontFamily: 'inherit',
+      }}>
+        {saving ? 'Saving…' : dirty ? 'Save points' : (savedAt ? '✓ Saved' : 'No changes')}
+      </button>
+    </div>
+  )
+}
+
 // ─── CommissionerPanel — host-only Manage modal ──────────────────────────────
 //
 // Lives between GroupSetup and the rest of the page. Two tabs:
@@ -5387,15 +5596,19 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
           }}>✕</button>
         </div>
 
-        {/* Tab bar */}
-        <div style={{ display: 'flex', padding: '10px 20px 0', gap: 8 }}>
+        {/* Tab bar — Stableford tab only renders when the outing
+            actually uses Stableford scoring. (6.5) */}
+        <div style={{ display: 'flex', padding: '10px 20px 0', gap: 8, flexWrap: 'wrap' }}>
           {[
             { id: 'players', label: `Players · ${all.length}` },
             { id: 'scores',  label: 'Edit scores' },
+            ...((outing.scoring_formats || []).includes('stableford')
+              ? [{ id: 'stableford', label: 'Points' }]
+              : []),
             { id: 'audit',   label: 'History' },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
-              flex: 1, padding: '8px 12px', borderRadius: 10,
+              flex: '1 1 22%', minWidth: 80, padding: '8px 10px', borderRadius: 10,
               background: tab === t.id ? 'rgba(245,215,138,0.14)' : 'rgba(255,255,255,0.04)',
               border: '1px solid', borderColor: tab === t.id ? 'rgba(245,215,138,0.40)' : 'rgba(255,255,255,0.10)',
               color: tab === t.id ? '#F5D78A' : 'rgba(255,255,255,0.65)',
@@ -5666,6 +5879,18 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                 </table>
               </div>
             </>
+          )}
+
+          {tab === 'stableford' && (
+            <StablefordEditor
+              code={code}
+              outing={outing}
+              onSaved={(points) => {
+                // Mirror the post-creation map into local outing state so the
+                // leaderboard recomputes immediately.
+                onParticipantsUpdated?.(all, { stableford_points: points })
+              }}
+            />
           )}
 
           {tab === 'audit' && (

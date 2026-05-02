@@ -204,11 +204,16 @@ router.post('/', async (req, res) => {
     // clamp to 100 server-side rather than reject (the wizard already
     // restricts to those buttons).
     handicapAllowance,
-    // Stableford preset (B4b): 'standard' or 'modified'. Only stored
-    // when format=stableford. Server resolves to the full point map
-    // and stashes it in state so the client can read it without
-    // shipping the preset table to every render.
+    // Stableford preset (B4b): 'standard' or 'modified' or 'custom'.
+    // Only stored when format=stableford. Server resolves to the full
+    // point map and stashes it in state so the client can read it
+    // without shipping the preset table to every render.
     stablefordPreset,
+    // 6.5 — when stablefordPreset is 'custom', the wizard ships the
+    // full point map. Server validates each bucket as a finite number
+    // in [-10, 20] (covers every real-world variant) and falls back
+    // to 'standard' if anything is malformed.
+    customStablefordPoints,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -247,8 +252,26 @@ router.post('/', async (req, res) => {
     standard: { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 },
     modified: { double_eagle: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double: -3, worse: -3 },
   }
+  // 6.5 — sanitizer for a custom Stableford point map. Returns the
+  // sanitized map if every required bucket is a finite number in the
+  // allowed range, or null if anything's missing/invalid (caller
+  // should fall back to a preset).
+  function sanitizeStablefordPointMap(raw) {
+    if (!raw || typeof raw !== 'object') return null
+    const buckets = ['double_eagle', 'eagle', 'birdie', 'par', 'bogey', 'double', 'worse']
+    const out = {}
+    for (const key of buckets) {
+      const v = Number(raw[key])
+      if (!Number.isFinite(v) || v < -10 || v > 20) return null
+      out[key] = v
+    }
+    return out
+  }
+  const sanitizedCustom = stablefordPreset === 'custom'
+    ? sanitizeStablefordPointMap(customStablefordPoints)
+    : null
   const stablefordPointMap = (Array.isArray(scoringFormats) && scoringFormats.includes('stableford'))
-    ? (STABLEFORD_PRESETS_S[stablefordPreset] || STABLEFORD_PRESETS_S.standard)
+    ? (sanitizedCustom || STABLEFORD_PRESETS_S[stablefordPreset] || STABLEFORD_PRESETS_S.standard)
     : null
 
   const state  = {
@@ -852,6 +875,54 @@ router.post('/:code/withdraw', async (req, res) => {
     res.json({ ok: true })
   } catch (err) {
     console.error('[outings/withdraw]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/stableford-points ────────────────────────────────
+// Host-only: replace the outing's Stableford point map with a custom
+// one (6.5). Only legal when the outing's scoring_formats includes
+// 'stableford' — for everything else the map is irrelevant. Body:
+//   { points: { double_eagle, eagle, birdie, par, bogey, double, worse } }
+// Each bucket must be a finite number in [-10, 20]. Affects future
+// score-driven leaderboard renders only — historical entries in the
+// audit log are not retroactively re-scored.
+//
+// (2026-05-02 — league must-have 6.5.)
+router.put('/:code/stableford-points', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { points } = req.body
+    const outing = await db.one(
+      'SELECT id, host_id, scoring_formats, state FROM tm_outings WHERE code = $1',
+      [code]
+    )
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    const formats = Array.isArray(outing.scoring_formats) ? outing.scoring_formats : []
+    if (!formats.includes('stableford'))
+      return res.status(400).json({ error: 'Outing is not a Stableford format' })
+
+    if (!points || typeof points !== 'object')
+      return res.status(400).json({ error: 'points object required' })
+    const buckets = ['double_eagle', 'eagle', 'birdie', 'par', 'bogey', 'double', 'worse']
+    const sanitized = {}
+    for (const key of buckets) {
+      const v = Number(points[key])
+      if (!Number.isFinite(v) || v < -10 || v > 20) {
+        return res.status(400).json({
+          error: `points.${key} must be a number between -10 and 20`,
+        })
+      }
+      sanitized[key] = v
+    }
+
+    const state = { ...(outing.state || {}), stableford_points: sanitized }
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, stableford_points: sanitized })
+  } catch (err) {
+    console.error('[outings/stableford-points]', err.message)
     res.status(500).json({ error: 'Failed' })
   }
 })
