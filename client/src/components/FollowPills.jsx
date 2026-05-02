@@ -30,12 +30,16 @@ export default function FollowPills({ counts, size = 'lg', theme = 'light', onCo
   // variant used on the new dark Profile body. (2026-05-01)
   const styles = isDark ? {
     bg: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.10)',
+    // Same gold border as the GolfNow card so every framed element
+    // across Home + Profile reads as one family. (2026-05-02 — Matt:
+    // "make the following / followers / mutual boxes have that same
+    // border on both the home screen and my profile page")
+    border: '2px solid rgba(201,160,64,0.70)',
     valueColor: '#fff',
     labelColor: 'rgba(255,255,255,0.45)',
   } : {
     bg: 'rgba(255,255,255,0.55)',
-    border: '1px solid rgba(27,94,59,0.18)',
+    border: '2px solid rgba(201,160,64,0.70)',
     valueColor: '#0D1F12',
     labelColor: 'rgba(13,31,18,0.50)',
   }
