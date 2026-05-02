@@ -643,6 +643,7 @@ export function AvailabilityCalendar({
   uid, onScheduleGame, selfOnly = false,
   viewUserId = null, viewUserName = null, onDayTap = null,
   theme = 'light',
+  gameDates = [],
 }) {
   // viewUserId implies a read-only friend view — no toggling, no social
   // layer, fetch from the per-user endpoint.
@@ -703,6 +704,10 @@ export function AvailabilityCalendar({
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(null)
   const [selectedDay, setSelectedDay] = useState(null)
+  // Track the most-recently toggled day so we can pop a brief
+  // scale animation on the cell as it flips state. Cleared after
+  // the animation duration so the next toggle re-fires it.
+  const [lastToggled, setLastToggled] = useState(null)
 
   const monthKey = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`
 
@@ -730,6 +735,9 @@ export function AvailabilityCalendar({
     try {
       await post('/api/availability', { date: ymd })
       setMine(prev => prev.includes(ymd) ? prev.filter(d => d !== ymd) : [...prev, ymd])
+      // Pop the cell briefly so the user sees the state change land.
+      setLastToggled(ymd)
+      setTimeout(() => setLastToggled(curr => curr === ymd ? null : curr), 260)
     } catch { /* ignore */ }
     setToggling(null)
   }
@@ -745,6 +753,25 @@ export function AvailabilityCalendar({
   function friendsOnDate(ymd) {
     return friendsAvail.filter(f => f.date?.slice(0, 10) === ymd)
   }
+
+  // Confirmed-game lookup for tee-time flag rendering on the grid.
+  // Set built once per render so the per-cell check is O(1). YMDs only.
+  const gameDateSet = (() => {
+    const s = new Set()
+    for (const d of (gameDates || [])) {
+      if (typeof d === 'string') s.add(d.slice(0, 10))
+    }
+    return s
+  })()
+
+  // Stats chip beside the month name. Reads from the same `mine` and
+  // `friendsAvail` arrays the grid is rendering — no extra fetches.
+  // "FREE" = how many days I've marked free in the viewed month.
+  // "OVERLAPS" = how many of those days have at least one friend free.
+  const myDaySet = new Set(mine)
+  const friendDaySet = new Set(friendsAvail.map(f => f.date?.slice(0, 10)))
+  const freeCount = mine.length
+  const overlapCount = [...myDaySet].filter(d => friendDaySet.has(d)).length
 
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
@@ -769,15 +796,44 @@ export function AvailabilityCalendar({
       <div style={{
         background: C.cardBg, border: C.cardBorder,
         borderRadius: 16, overflow: 'hidden',
+        position: 'relative',
       }}>
-        {/* Month navigation */}
+        {/* Augusta gold accent strip across the top of the card —
+            same vocabulary as the ProfileHeroCard's top-of-card
+            gradient. (item 4 — Augusta polish on the chrome) */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3, pointerEvents: 'none',
+          background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
+        }} />
+
+        {/* Month navigation — month name in Georgia gold gradient,
+            stats chip beside it surfaces the intelligence the calendar
+            already has (FREE · OVERLAPS) so it reads as a smart
+            companion not a passive grid. */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px', borderBottom: `1px solid ${C.divider}`,
+          padding: '14px 16px 10px', borderBottom: `1px solid ${C.divider}`,
+          gap: 10,
         }}>
-          <button onClick={prevMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>‹</button>
-          <span style={{ color: C.monthText, fontSize: 13, fontWeight: 700 }}>{monthName}</span>
-          <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>›</button>
+          <button onClick={prevMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>‹</button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
+            <span style={{
+              fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em',
+              fontFamily: '"Georgia", serif',
+              background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text', lineHeight: 1.1,
+            }}>{monthName}</span>
+            {!friendView && (
+              <span style={{
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
+                color: dark ? 'rgba(245,215,138,0.65)' : '#7A5800',
+              }}>
+                {freeCount} FREE{!selfOnly ? ` · ${overlapCount} OVERLAP${overlapCount === 1 ? '' : 'S'}` : ''}
+              </span>
+            )}
+          </div>
+          <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>›</button>
         </div>
 
         {/* Day labels */}
@@ -797,6 +853,15 @@ export function AvailabilityCalendar({
             const friends = friendsOnDate(ymd)
             const hasFriend = friends.length > 0
             const isPast = new Date(ymd) < new Date(todayYMD())
+            const hasGame = gameDateSet.has(ymd)
+            const justToggled = lastToggled === ymd
+
+            // Today's gold double-ring — gold outer + cream inner gap.
+            // Stacked behind the cell with a slight inset to look like
+            // a proper trophy ring, not a 1-pixel outline.
+            const todayShadow = isToday
+              ? `0 0 0 1.5px rgba(255,253,248,0.85), 0 0 0 3px ${C.todayOutline}`
+              : 'none'
 
             return (
               <button
@@ -815,21 +880,40 @@ export function AvailabilityCalendar({
                     : hasFriend
                       ? C.friendBg
                       : 'transparent',
-                  outline: isToday ? `2px solid ${C.todayOutline}` : 'none',
+                  boxShadow: todayShadow,
                   color: isPast ? C.pastText : isMine ? C.freeText : C.dayText,
                   fontSize: 12, fontWeight: isToday ? 700 : 400,
-                  transition: 'background 0.15s',
+                  // Pop on toggle — scale 1.08 briefly then settle. Combined
+                  // with the bg transition this gives the cell a tactile
+                  // "landed" feel. (item 5 — animated dot transitions)
+                  transform: justToggled ? 'scale(1.08)' : 'scale(1)',
+                  transition: 'background 180ms ease, transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
                   padding: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexDirection: 'column', gap: 1,
                 }}
               >
+                {/* Game flag — top-right corner when there's a confirmed
+                    tee time on this date. The brand-mark golf flag in
+                    miniature. (item 3 — match flags on game days) */}
+                {hasGame && !isPast && (
+                  <svg
+                    width="9" height="9" viewBox="0 0 64 64"
+                    style={{ position: 'absolute', top: 3, right: 3, pointerEvents: 'none' }}
+                    fill="none" stroke={dark ? '#F5D78A' : '#1B5E3B'}
+                    strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="8" x2="22" y2="54"/>
+                    <path d="M22 10 L52 17 L22 24 Z" fill={dark ? '#F5D78A' : '#1B5E3B'} stroke={dark ? '#F5D78A' : '#1B5E3B'} />
+                  </svg>
+                )}
                 {day}
                 {hasFriend && !isPast && (
                   <div style={{
                     width: 4, height: 4, borderRadius: '50%',
                     background: isMine ? C.friendDotMine : C.friendDot,
                     position: 'absolute', bottom: 3,
+                    transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    transform: justToggled ? 'scale(1.4)' : 'scale(1)',
                   }} />
                 )}
               </button>
@@ -871,6 +955,11 @@ export function AvailabilityCalendar({
             try {
               await post('/api/availability', { date: ymd })
               setMine(prev => prev.includes(ymd) ? prev.filter(d => d !== ymd) : [...prev, ymd])
+              // Pop the cell so the user sees the state change land
+              // when they come back from the DaySheet. (item 5 —
+              // animated dot transitions)
+              setLastToggled(ymd)
+              setTimeout(() => setLastToggled(curr => curr === ymd ? null : curr), 260)
             } catch { /* ignore */ }
             setToggling(null)
           }}
@@ -3866,9 +3955,12 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             inside the ProfileHeroCard as a sibling to the mailbox
             chip. Tap behavior is the same. */}
 
-        {/* Availability calendar */}
+        {/* Availability calendar — gameDates feeds the per-cell
+            golf-flag indicator on dates with a confirmed tee time
+            (item 3 — match flags on game days). */}
         <AvailabilityCalendar
           uid={user?.id}
+          gameDates={(games?.confirmed || []).filter(g => g.date && g.start_time).map(g => g.date.slice(0, 10))}
           onScheduleGame={(date) => { setCreateGameDate(date); setCreateGameOpen(true) }}
         />
       </div>
