@@ -678,8 +678,11 @@ export function AvailabilityCalendar({
     headingColor:  '#1B5E3B',
     headingBg:     'rgba(255,253,248,0.85)',
     headingShadow: '0 1px 1px rgba(255,255,255,0.4)',
-    cardBg:        'rgba(255,255,255,0.88)',
-    cardBorder:    '1px solid rgba(27,94,59,0.10)',
+    // Translucent glass — matches the ProfileHeroCard, TEE TIMES,
+    // and REQUESTS box treatments so the calendar reads as part of
+    // the same family on Home. (2026-05-02)
+    cardBg:        'rgba(255,255,255,0.22)',
+    cardBorder:    '1px solid rgba(255,255,255,0.45)',
     divider:       'rgba(27,94,59,0.10)',
     monthArrow:    'rgba(27,94,59,0.45)',
     monthText:     '#1B5E3B',
@@ -819,7 +822,9 @@ export function AvailabilityCalendar({
 
       <div style={{
         background: C.cardBg, border: C.cardBorder,
-        borderRadius: 16, overflow: 'hidden',
+        borderRadius: 22, overflow: 'hidden',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
         position: 'relative',
       }}>
         {/* Augusta gold accent strip across the top of the card —
