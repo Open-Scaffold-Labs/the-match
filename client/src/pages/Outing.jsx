@@ -1317,6 +1317,24 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
   async function handleCreate() {
     setLoading(true); setError('')
     try {
+      // Validation: best_ball requires team membership. Players are
+      // assigned a team_id either through the small-outing TEAMS
+      // setup (team_format='teams') OR the >4 team_breakdown
+      // ('doubles' / 'foursomes'). Without one of those there's no
+      // grouping for the per-team math, so block creation rather
+      // than ship a confusing leaderboard. (Iteration fix B4d-2.)
+      if (form.format === 'best_ball') {
+        const hasSmallTeams = form.players <= 4 && form.team !== 'individual'
+        const hasLargeTeams = form.players > 4 && (form.teamBreakdown === 'doubles' || form.teamBreakdown === 'foursomes')
+        if (!hasSmallTeams && !hasLargeTeams) {
+          setLoading(false)
+          setError(form.players <= 4
+            ? 'Best Ball needs teams. Pick "2 Teams" or "Multiple Teams" on the next step.'
+            : 'Best Ball needs teams. Pick "Doubles" or "Foursomes" on the next step.')
+          return
+        }
+      }
+
       // If user picked a real course, slice hole_pars to the chosen hole count;
       // if they only typed a name (or skipped), fall back to the legacy default.
       const slice = (arr) => Array.isArray(arr) ? arr.slice(0, form.holes) : null
@@ -2088,7 +2106,44 @@ function computePositions(sorted, getScores, holePars) {
 //                    leaderboard can show each player's team standing
 //
 // (2026-05-01 — league must-have B4d.)
-function computeBestBall(participants, holePars, getScores, netStrokes) {
+// Pre-compute the hole indexes a player gets a stroke on, based on
+// course's hole_handicaps (1 = hardest, 18 = easiest). Returns a
+// Set<holeIndex>. The first N strokes go to holes ranked 1..N. If
+// the player gets >N strokes (rare — handicap >18), each ranked hole
+// gets a SECOND stroke first before extending. For courses with no
+// hole_handicaps data we fall back to flat distribution.
+function strokeHolesForPlayer(player, holePars, holeHandicaps, totalStrokes) {
+  if (totalStrokes <= 0) return new Map()
+  const holeCount = holePars.length
+  // strokeMap: holeIdx → strokes on that hole
+  const out = new Map()
+  if (!Array.isArray(holeHandicaps) || holeHandicaps.length < holeCount) {
+    // No hole_handicaps available — distribute flat. This produces
+    // fractional strokes per hole, which we round per-hole at the
+    // call site.
+    for (let h = 0; h < holeCount; h++) out.set(h, totalStrokes / holeCount)
+    return out
+  }
+  // Build (holeIdx, rank) pairs and sort by rank ascending.
+  const ranked = holeHandicaps
+    .slice(0, holeCount)
+    .map((rank, idx) => ({ idx, rank: Number(rank) || 18 }))
+    .sort((a, b) => a.rank - b.rank)
+  let remaining = totalStrokes
+  let layer = 0
+  while (remaining > 0) {
+    for (const { idx } of ranked) {
+      if (remaining <= 0) break
+      out.set(idx, (out.get(idx) || 0) + 1)
+      remaining -= 1
+    }
+    layer += 1
+    if (layer > 4) break  // sanity — handicap > 72 strokes won't happen
+  }
+  return out
+}
+
+function computeBestBall(participants, holePars, getScores, netStrokes, holeHandicaps) {
   // Group participants by their team_id. Players with no team_id go
   // into a synthetic 'solo:user_id' bucket so the math doesn't crash;
   // they'll just be a one-player team with their own scores.
@@ -2099,13 +2154,15 @@ function computeBestBall(participants, holePars, getScores, netStrokes) {
     teamMap.get(key).members.push(p)
   }
 
-  // Net strokes are deducted across the round (not per hole) — same
-  // convention as stroke play. We do per-hole net distribution by
-  // splitting strokes across the hardest holes per the hole_handicaps
-  // when available; otherwise apply at end. For v1 simplicity we
-  // subtract once per hole as: net_per_hole = score - floor(handicap_for_player / holeCount).
-  // This is approximate but produces sensible totals; per-hole stroke
-  // index allocation is a v2 polish.
+  // Pre-compute each member's per-hole stroke allocation using
+  // hole_handicaps stroke index when available. This is the USGA-
+  // correct way to apply net strokes in best-ball / 4-ball: hardest
+  // hole first, then second-hardest, etc. (Iteration fix B4d-1.)
+  const memberStrokeMap = new Map()
+  for (const p of participants) {
+    memberStrokeMap.set(p.user_id, strokeHolesForPlayer(p, holePars, holeHandicaps, netStrokes(p) || 0))
+  }
+
   const teams = []
   const playerTeamTotal = {}
   for (const team of teamMap.values()) {
@@ -2113,14 +2170,11 @@ function computeBestBall(participants, holePars, getScores, netStrokes) {
     let holesPlayed = 0
     const holes = []
     for (let h = 0; h < holePars.length; h++) {
-      // Each member's net score for this hole (0 if not played).
       const memberHoleScores = team.members.map(m => {
         const raw = (getScores(m) || [])[h] || 0
-        if (raw <= 0) return null  // not played
-        // Approximate per-hole stroke split: total handicap evenly
-        // distributed across all holes. v2 should respect hole_handicaps.
-        const perHole = (netStrokes(m) || 0) / holePars.length
-        return raw - perHole
+        if (raw <= 0) return null
+        const stroke = memberStrokeMap.get(m.user_id)?.get(h) || 0
+        return raw - stroke
       }).filter(s => s != null)
       if (memberHoleScores.length === 0) {
         holes.push(null)
@@ -2134,7 +2188,6 @@ function computeBestBall(participants, holePars, getScores, netStrokes) {
     teams.push({ id: team.id, label: team.label, members: team.members, holes, total, holesPlayed })
     for (const m of team.members) playerTeamTotal[m.user_id] = total
   }
-  // Sort teams by total ascending (best ball = lowest total wins).
   teams.sort((a, b) => a.total - b.total)
   return { teams, playerTeamTotal }
 }
@@ -2851,8 +2904,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // members per hole, summed). Players with the same team_id share
   // a team total; lowest team total wins. (B4d)
   const isBestBallFormat = (outing.scoring_formats || []).includes('best_ball')
+  // Pass through the course's hole_handicaps stroke index so net
+  // strokes are applied USGA-correctly (hardest hole first). Falls
+  // back to flat distribution when the course doesn't have indexes.
+  const courseHoleHandicaps = Array.isArray(outing.hole_handicaps) ? outing.hole_handicaps : null
   const bestBallData     = isBestBallFormat
-    ? computeBestBall(participants, holePars, getScores, netStrokes)
+    ? computeBestBall(participants, holePars, getScores, netStrokes, courseHoleHandicaps)
     : null
   const bestBallByPlayer = bestBallData?.playerTeamTotal || {}
 
@@ -3023,6 +3080,23 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           </div>
         </div>
 
+        {/* Offline-queue pill — visible to ALL viewers (host + every
+            participant), not just the host, since their own writes
+            might be queued. (Iteration fix B5-3.) */}
+        {queuedCount > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div title="Saved locally — will sync when reconnected" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              background: 'rgba(248,180,113,0.14)', border: '1px solid rgba(248,180,113,0.40)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#F8B471', fontSize: 11, fontWeight: 700,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F8B471' }} />
+              {queuedCount} pending · saved locally
+            </div>
+          </div>
+        )}
+
         {/* Host controls row */}
         {isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -3051,17 +3125,6 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
               borderRadius: 20, padding: '3px 10px',
               color: 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>+ Guest</button>
-            {queuedCount > 0 && (
-              <div title="Saved locally — will sync when reconnected" style={{
-                background: 'rgba(248,180,113,0.14)', border: '1px solid rgba(248,180,113,0.40)',
-                borderRadius: 20, padding: '3px 10px',
-                color: '#F8B471', fontSize: 11, fontWeight: 700,
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F8B471' }} />
-                {queuedCount} pending
-              </div>
-            )}
             <button onClick={() => setShowManage(true)} style={{
               background: 'rgba(245,215,138,0.12)', border: '1px solid rgba(245,215,138,0.35)',
               borderRadius: 20, padding: '3px 10px',
