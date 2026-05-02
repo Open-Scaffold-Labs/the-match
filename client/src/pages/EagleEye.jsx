@@ -759,17 +759,11 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      {/* Hole badge overlay */}
-      <div style={{
-        position: 'absolute', top: 12, left: 12, zIndex: 1000,
-        background: 'rgba(7,12,9,0.85)', border: '1px solid rgba(245,215,138,0.3)',
-        borderRadius: 12, padding: '8px 14px', backdropFilter: 'blur(8px)',
-      }}>
-        <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 14 }}>HOLE {currentHole}</div>
-        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 1 }}>
-          {courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage ?? '—'}y · Par {courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.par ?? '—'}
-        </div>
-      </div>
+      {/* Hole badge removed 2026-05-01 — the GPS yardage card in the
+          top-left of the HUD overlay now carries the same info (PAR
+          pill + TEE-yardage pill) plus live GPS distance, so the
+          standalone HOLE/yardage·Par badge was repetitive. Hole
+          number itself is shown in the chip-strip below the header. */}
       {/* Legend */}
       <div style={{
         position: 'absolute', bottom: 12, right: 12, zIndex: 1000,
@@ -1930,12 +1924,13 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               hidden under the HUD layer.) */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
 
-            {/* ── Top yardage card — compact, top-right corner so it
-                doesn't block the player's view of the shot. marginTop
-                pushes it below the status bar + hole strip so nothing
-                overlaps. (2026-05-01 — Matt: smaller + upper right +
-                shifted down so it's not blocked by the chips above.) */}
-            <div style={{ alignSelf: 'flex-end', pointerEvents: 'auto', textAlign: 'right',
+            {/* ── Top yardage card — top-LEFT corner. Replaces the
+                standalone HOLE badge that used to live in HoleMap;
+                this card already shows PAR + TEE-yardage pills plus
+                live GPS distance to green, so the previous duplicate
+                was deleted. (2026-05-01 — Matt: consolidate top-left
+                hole/distance and top-right GPS card into one box.) */}
+            <div style={{ alignSelf: 'flex-start', pointerEvents: 'auto', textAlign: 'left',
               background: 'rgba(4,8,6,0.82)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
               borderRadius: 14, border: '1px solid rgba(255,255,255,0.10)',
               padding: '8px 12px 8px', boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
@@ -1946,14 +1941,14 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.40)', marginBottom: 1 }}>
                 {gpsToGreen != null ? 'TO GREEN · GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', lineHeight: 1, gap: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', lineHeight: 1, gap: 3 }}>
                 <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1.5px', color: '#fff', lineHeight: 0.9, fontVariantNumeric: 'tabular-nums' }}>
                   {displayYards ?? '—'}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', paddingBottom: 3 }}>YDS</span>
               </div>
               {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
-              <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-start' }}>
                 <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 4, padding: '1px 6px' }}>
                   <span style={{ fontSize: 9, fontWeight: 800, color: '#5ED47A' }}>PAR {holeData?.par ?? '—'}</span>
                 </div>
