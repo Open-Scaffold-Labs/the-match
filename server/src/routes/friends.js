@@ -378,15 +378,10 @@ router.post('/request', async (req, res) => {
       [req.user.id, target.id]
     )
 
-    // Mirror into tm_follows. Per migration 007's pattern, sending a
-    // request = the requester is now following the requestee (one-way).
-    // Accept later adds the reverse direction. (2026-05-02 — runtime
-    // sync was missing; counts diverged from the legacy friend table.)
-    await db.query(
-      `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2)
-       ON CONFLICT (follower_id, following_id) DO NOTHING`,
-      [req.user.id, target.id]
-    )
+    // No tm_follows insert here — sending a request is a REQUEST, not
+    // a follow. Both follow rows get inserted in the accept handler.
+    // (2026-05-02 — Matt: pending requests shouldn't appear in either
+    // user's following list before acceptance.)
 
     // Fire-and-forget push to the recipient. Don't await it — the
     // request response shouldn't wait on push provider latency, and a
@@ -418,13 +413,12 @@ router.put('/:id/respond', async (req, res) => {
     )
     if (!row) return res.status(404).json({ error: 'Request not found' })
 
-    // Mirror into tm_follows so the follower/following/mutual counts
-    // stay in sync with friend-request acceptance. Accept inserts the
-    // reverse-direction follow (requestee → requester) — the forward
-    // direction was already inserted at request time.
+    // Mirror into tm_follows. ACCEPT creates BOTH directions of follow
+    // (mutual). DECLINE doesn't touch tm_follows because the request
+    // never created any follow row in the first place. (2026-05-02)
     if (status === 'accepted') {
       await db.query(
-        `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2)
+        `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2), ($2, $1)
          ON CONFLICT (follower_id, following_id) DO NOTHING`,
         [req.user.id, row.requester_id]
       )
@@ -436,12 +430,6 @@ router.put('/:id/respond', async (req, res) => {
         url: '/',
         tag: 'friend-accepted',
       }).catch(err => console.error('[push] friend-accepted', err.message))
-    } else if (status === 'declined') {
-      // Remove the requester's one-way follow created at request time.
-      await db.query(
-        `DELETE FROM tm_follows WHERE follower_id = $1 AND following_id = $2`,
-        [row.requester_id, req.user.id]
-      )
     }
 
     res.json({ ok: true })
