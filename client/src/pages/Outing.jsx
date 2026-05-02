@@ -2033,6 +2033,61 @@ function computePositions(sorted, getScores, holePars) {
   return rawRanks.map(r => r === '—' ? r : counts[r] > 1 ? `T${r}` : `${r}`)
 }
 
+// ─── Skins helpers ────────────────────────────────────────────────────────────
+// Skins with carryover: each hole has a "pot" of (1 + carryover) skins.
+// If exactly one player has the lowest score on the hole, they win
+// the entire pot. If two or more tie, the pot carries over to the
+// next hole. After the round, players are ranked by total skins won.
+//
+// Holes with NO scores entered yet (everyone is at 0) don't resolve —
+// they sit on hold and get re-evaluated each render. This means the
+// leaderboard updates live as scores come in.
+//
+// Returns:
+//   skinsByPlayer:  { [user_id]: count }   total skins won
+//   outcomes:       array of length holeCount with one of:
+//                     { winner: user_id, value }   outright
+//                     { tied: true, value }        carried forward
+//                     { pending: true }            not enough scores
+//   pendingPot:     skins still on the table (unresolved at end)
+//
+// (2026-05-01 — league must-have B4c.)
+function computeSkins(participants, holePars, getScores) {
+  const holeCount = holePars.length
+  const outcomes  = new Array(holeCount).fill(null)
+  const skinsByPlayer = {}
+  let carry = 0
+  for (let h = 0; h < holeCount; h++) {
+    // Collect this hole's scores from every participant. Treat 0 as
+    // "not yet scored" so the carry sits until at least 2 players have
+    // posted (less than 2 = trivially "no one wins yet").
+    const entries = participants
+      .map(p => ({ id: p.user_id, s: (getScores(p) || [])[h] || 0 }))
+      .filter(x => x.s > 0)
+    if (entries.length < 2) {
+      outcomes[h] = { pending: true, carry }
+      continue
+    }
+    let low = Infinity
+    let lowCount = 0
+    let lowId    = null
+    for (const e of entries) {
+      if (e.s < low)        { low = e.s; lowCount = 1; lowId = e.id }
+      else if (e.s === low) { lowCount += 1 }
+    }
+    if (lowCount === 1) {
+      const value = 1 + carry
+      outcomes[h] = { winner: lowId, value, carry }
+      skinsByPlayer[lowId] = (skinsByPlayer[lowId] || 0) + value
+      carry = 0
+    } else {
+      outcomes[h] = { tied: true, value: 1 + carry, carry }
+      carry += 1  // current hole's skin rolls forward
+    }
+  }
+  return { skinsByPlayer, outcomes, pendingPot: carry }
+}
+
 // ─── Match Play helpers ───────────────────────────────────────────────────────
 // Only meaningful for exactly 2 players
 function computeMatchPlay(p1, p2, getScores, holePars) {
@@ -2601,7 +2656,23 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     return 0  // still tied — share position
   }
 
-  const sorted = [...participants].sort(leaderboardSort)
+  // ── Skins format: compute per-hole outcomes + per-player skin counts.
+  // Skipped for non-skins outings to avoid pointless work. (B4c)
+  const isSkinsFormat = (outing.scoring_formats || []).includes('skins')
+  const skinsData     = isSkinsFormat ? computeSkins(participants, holePars, getScores) : null
+  const skinsByPlayer = skinsData?.skinsByPlayer || {}
+
+  // Leaderboard order. For skins, primary key is skins won (desc),
+  // tiebreak via the same card-back-style strokes-to-par chain.
+  // For everything else, use the standard leaderboardSort directly.
+  const sorted = isSkinsFormat
+    ? [...participants].sort((a, b) => {
+        const sa = skinsByPlayer[a.user_id] || 0
+        const sb = skinsByPlayer[b.user_id] || 0
+        if (sa !== sb) return sb - sa  // more skins first
+        return leaderboardSort(a, b)
+      })
+    : [...participants].sort(leaderboardSort)
 
   // ── Large-outing group context ─────────────────────────────────
   // For outings >4 players, participants are split into foursomes.
