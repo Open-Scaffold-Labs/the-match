@@ -111,23 +111,40 @@ export async function drainQueue() {
           body: item.body ? JSON.stringify(item.body) : undefined,
         })
         if (!res.ok) {
-          if (res.status === 409 && item.body && !item.body.force) {
-            // Score-conflict on a queued write — force-retry once
-            // since the user already confirmed the local value.
-            const retryItem = { ...item, body: { ...item.body, force: true } }
-            const res2 = await fetch(retryItem.url, {
-              method: retryItem.method || 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify(retryItem.body),
-            })
-            if (!res2.ok) {
-              console.warn('[offline-queue] dropping after force retry', res2.status, item)
-              dropped = true
-              dropReason = `server rejected force-retry (${res2.status})`
-            }
+          // Round 5 audit fix — DON'T auto-force-retry on 409.
+          //
+          // The previous behavior force-retried any 409 conflict
+          // during queue drain. That silently clobbered legitimate
+          // edits made while the user was offline (e.g. host
+          // correction of a player's score: player's queued write
+          // would resurrect on reconnect via force, undoing the
+          // correction with no signal to anyone).
+          //
+          // New behavior: drop the conflicting mutation and notify
+          // via subscribeQueueDrops. The user sees "your hole-7
+          // entry of 5 didn't sync — current value is 4" and can
+          // re-enter explicitly if they still want to overwrite.
+          // The original force-retry path is only kept for cases
+          // where the body itself was authored with force:true (host
+          // correction queued offline) — those are explicit overwrites
+          // the user already confirmed.
+          if (res.status === 409 && item.body && item.body.force === true) {
+            // Original write was force — author already confirmed.
+            // Server still rejecting force-write means something more
+            // fundamental is wrong (permission, validation). Drop.
+            const errBody = await res.json().catch(() => null)
+            console.warn('[offline-queue] dropping force-write 409', errBody, item)
+            dropped = true
+            dropReason = `server rejected force-write (${res.status})`
+          } else if (res.status === 409) {
+            // Non-force write hit a conflict. Read the existing
+            // value off the response so the drop notice can show it.
+            const errBody = await res.json().catch(() => ({}))
+            console.warn('[offline-queue] dropping conflicting non-force write', errBody, item)
+            dropped = true
+            dropReason = errBody?.existing_score != null
+              ? `someone else recorded a different score (${errBody.existing_score})`
+              : 'a conflicting score was recorded while you were offline'
           } else {
             console.warn('[offline-queue] dropping mutation', res.status, item)
             dropped = true

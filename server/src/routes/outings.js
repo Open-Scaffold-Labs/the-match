@@ -570,6 +570,17 @@ router.put('/:code/scores', async (req, res) => {
   )
   if (!existing) return res.status(403).json({ error: 'Not in this outing' })
 
+  // Withdrawn-self check. Players who've been withdrawn shouldn't
+  // be able to enter their own scores via this endpoint either.
+  // (Round 5 audit fix.)
+  const stSelfState = (outing.state?.participants || []).find(p => String(p.user_id) === String(req.user.id))
+  if (stSelfState?.withdrawn) {
+    return res.status(409).json({
+      error: 'player_withdrawn',
+      message: "You've been withdrawn from this outing. Ask the host to reinstate you before entering scores.",
+    })
+  }
+
   // Capture old score for audit. Self-entry path — no conflict check
   // needed (you own your own card; you can change your mind freely).
   const scores = existing.scores || []
@@ -673,6 +684,14 @@ router.put('/:code/scores/host', async (req, res) => {
       // Guest scores live in state JSONB only
       const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
       if (pi < 0) return res.status(404).json({ error: 'Guest not found' })
+      // Withdrawn players don't accept new scores — host must
+      // reinstate first. Round 5 audit fix.
+      if (state.participants[pi].withdrawn) {
+        return res.status(409).json({
+          error: 'player_withdrawn',
+          message: 'This player has been withdrawn from the outing. Reinstate from Manage to resume scoring.',
+        })
+      }
       const holes  = outing.state?.holes ?? 18
       const scores = Array.isArray(state.participants[pi].scores) ? [...state.participants[pi].scores] : new Array(holes).fill(0)
       while (scores.length < holes) scores.push(0)
@@ -710,6 +729,15 @@ router.put('/:code/scores/host', async (req, res) => {
       [outing.id, user_id]
     )
     if (!existing) return res.status(404).json({ error: 'Participant not found' })
+
+    // Withdrawn check (mirrors the guest path). Round 5 audit fix.
+    const stEntry = (state.participants || []).find(p => String(p.user_id) === String(user_id))
+    if (stEntry?.withdrawn) {
+      return res.status(409).json({
+        error: 'player_withdrawn',
+        message: 'This player has been withdrawn from the outing. Reinstate from Manage to resume scoring.',
+      })
+    }
 
     const holes  = outing.state?.holes ?? 18
     const scores = Array.isArray(existing.scores) ? [...existing.scores] : new Array(holes).fill(0)
