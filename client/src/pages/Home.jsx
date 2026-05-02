@@ -2176,24 +2176,26 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.45), transparent)' }} />
       </div>
 
-      {/* Body container — CREAM PREVIEW (2026-05-02 — Matt: "let me see
-          the my profile page with a cream background that keeps same
-          shading as the green, but replace the green with cream").
-          Same shading curve as before (light → dark), just cream-tan
-          instead of green-black. May revert. */}
+      {/* Body container — dark theme matching the FriendProfile cards.
+          Top-bar above stays in the page's light theme; from here down
+          we adopt the same color palette friend cards use so tapping
+          "My Profile" feels visually consistent with tapping a friend.
+          (2026-05-01 — Matt: "follow the same color layout the friends
+          cards use") */}
       <div style={{
         padding: '16px 16px 8px',
-        background: 'linear-gradient(180deg, #F5EBC8 0%, #DBC992 100%)',
-        borderTop: '1px solid rgba(122,88,0,0.10)',
+        background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
       }}>
-        {/* Expanded identity header — same shading curve as the green
-            version, in cream. */}
+        {/* Expanded identity header — bigger avatar, larger name, the same
+            season W-L-T-AVG3 row, and streak chip. Dark gradient matches
+            the FriendSeasonCard. */}
         <div style={{
           borderRadius: 18,
           overflow: 'hidden',
-          background: 'linear-gradient(155deg, #F8EFD0 0%, #ECE2BB 40%, #DBCC95 100%)',
-          border: '1px solid rgba(197,160,64,0.35)',
-          boxShadow: '0 0 30px rgba(197,160,64,0.10)',
+          background: 'linear-gradient(155deg, #0F2814 0%, #0A1D0F 40%, #060E08 100%)',
+          border: '1px solid rgba(197,160,64,0.18)',
+          boxShadow: '0 0 30px rgba(197,160,64,0.05)',
           position: 'relative',
           marginBottom: 12,
         }}>
@@ -2209,7 +2211,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           }} />
 
           <div style={{ padding: '20px 18px 18px', position: 'relative' }}>
-            <div style={{ color: 'rgba(122,88,0,0.85)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
+            <div style={{ color: 'rgba(245,215,138,0.75)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
               SEASON {season?.year ?? currentSeasonYear()}
             </div>
 
@@ -2252,19 +2254,19 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 }}>{user?.name ?? '—'}</div>
 
                 {user?.handle && (
-                  <div style={{ color: 'rgba(122,88,0,0.75)', fontSize: 12, fontWeight: 600, letterSpacing: '0.01em' }}>
+                  <div style={{ color: 'rgba(245,215,138,0.65)', fontSize: 12, fontWeight: 600, letterSpacing: '0.01em' }}>
                     @{user.handle}
                   </div>
                 )}
 
                 {user?.home_course ? (
-                  <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                     {user.home_course}
                   </div>
                 ) : (
                   <button onClick={onEditProfile} style={{
-                    background: 'none', border: 'none', color: 'rgba(122,88,0,0.75)',
+                    background: 'none', border: 'none', color: 'rgba(245,215,138,0.65)',
                     fontSize: 12, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4,
                     alignSelf: 'flex-start',
                   }}>
@@ -2275,8 +2277,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 <div style={{
                   marginTop: 2,
                   display: 'inline-flex', alignItems: 'baseline', gap: 8,
-                  background: 'rgba(255,255,255,0.55)', borderRadius: 10, padding: '6px 12px',
-                  border: '1px solid rgba(197,160,64,0.45)',
+                  background: 'rgba(0,0,0,0.30)', borderRadius: 10, padding: '6px 12px',
+                  border: '1px solid rgba(197,160,64,0.35)',
                   alignSelf: 'flex-start',
                 }}>
                   <div style={{
@@ -2284,7 +2286,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                     background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                   }}>{handicapDisplay}</div>
-                  <div style={{ color: 'rgba(122,88,0,0.65)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
+                  <div style={{ color: 'rgba(245,215,138,0.55)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
                 </div>
               </div>
             </div>
