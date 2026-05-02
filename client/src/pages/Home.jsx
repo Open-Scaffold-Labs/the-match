@@ -151,7 +151,7 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
               fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em',
               lineHeight: 1.1, marginBottom: 4,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+              background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>{user?.name ?? '—'}</div>
             {user?.handle && (
@@ -2234,7 +2234,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em',
                   lineHeight: 1.1,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                  background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}>{user?.name ?? '—'}</div>
 
