@@ -328,65 +328,10 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           Solo Round (just keep score)
         </button>
 
-        {/* ─── Rivalries ─────────────────────────────────────────────── */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{
-              fontSize: 12, fontWeight: 800, color: '#1B5E3B',
-              textTransform: 'uppercase', letterSpacing: '0.1em',
-              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
-              display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
-            }}>Your Rivalries</div>
-            {rivalries.length >= 5 && (
-              <div style={{
-                background: 'rgba(255,255,255,0.75)',
-                border: '1px solid rgba(27,94,59,0.15)',
-                borderRadius: 10, padding: '4px 10px',
-                display: 'flex', alignItems: 'center', gap: 6, flex: '0 1 200px',
-              }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.40)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input
-                  value={rivalrySearch} onChange={e => setRivalrySearch(e.target.value)}
-                  placeholder="Search…"
-                  style={{
-                    flex: 1, border: 'none', background: 'transparent', outline: 'none',
-                    fontSize: 12, color: '#0D1F12', minWidth: 0,
-                  }}
-                />
-              </div>
-            )}
-          </div>
-          {loading
-            ? <div style={{ color: 'var(--tm-text-3)', textAlign: 'center', padding: '20px 0', fontSize: 14 }}>Loading…</div>
-            : rivalries.length === 0
-            ? <EmptyRivalries />
-            : filteredRivalries.length === 0
-            ? <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 13, padding: '14px 4px' }}>No rivalries match "{rivalrySearch}".</div>
-            : filteredRivalries.map(r => <RivalryCard key={r.opponent_id} r={r} userId={user.id} onOpen={() => onOpenRivalry?.(r)} />)
-          }
-        </div>
-
-        {/* ─── Recent Matches (finished only — LIVE ones live in strip above) ─ */}
-        {finishedMatches.length > 0 && (
-          <div>
-            <div style={{
-              fontSize: 12, fontWeight: 800, color: '#1B5E3B',
-              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
-              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
-              display: 'inline-block', textShadow: '0 1px 1px rgba(255,255,255,0.4)',
-            }}>Recent Matches</div>
-            {finishedMatches.map(o => (
-              <RecentMatchCard
-                key={o.id} o={o} userId={user.id}
-                onOpen={() => onOpenOuting(o.code)}
-                onCopyCode={(e) => onCopyCode(o.code, e)}
-                copied={copiedCode === o.code}
-              />
-            ))}
-          </div>
-        )}
+        {/* Rivalries + Recent Matches sections removed 2026-05-02 —
+            Matt: redundant with the per-user profile pages. The data
+            still loads (rivalries / finishedMatches state) since the
+            same fetch covers Live Matches above. */}
       </div>
     </div>
   )
