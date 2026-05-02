@@ -657,51 +657,145 @@ function LeagueWizard({ onClose, onCreated, on402 }) {
     }
   }
 
+  // Format options with pictogram glyphs — turns the radio row into a
+  // visual menu instead of generic chips.
+  const FORMAT_OPTIONS = [
+    { id: 'stroke',     label: 'Stroke',     desc: 'Lowest total wins' },
+    { id: 'match',      label: 'Match',      desc: 'Hole-by-hole, head to head' },
+    { id: 'skins',      label: 'Skins',      desc: 'Low score per hole, carryovers' },
+    { id: 'stableford', label: 'Stableford', desc: 'Points per hole, custom map' },
+    { id: 'best_ball',  label: 'Best Ball',  desc: 'Team format · best of N per hole' },
+  ]
+
   return (
     <div style={{
       ...hubBase,
-      padding: 'calc(var(--safe-top) + 16px) 20px 80px',
+      padding: 0, paddingBottom: 80,
+      display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <button onClick={onClose} style={{
-          background: 'transparent', border: 'none', fontSize: 22,
-          color: '#0E3B23', padding: '0 4px', cursor: 'pointer',
-        }}>←</button>
-        <div style={{ fontSize: 22, fontWeight: 900, color: '#0E3B23' }}>New league</div>
+      {/* HERO — 'Found a new league' ceremony header. Deep green block
+          with trophy crest, overline, and italic tagline. Replaces the
+          flat back-arrow + 'New league' text. */}
+      <div style={{
+        background: 'linear-gradient(160deg, #0E3B23 0%, #1A6B28 60%, #0E3B23 100%)',
+        padding: 'calc(var(--safe-top) + 14px) 20px 22px',
+        borderBottom: '2px solid #C9A040',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div aria-hidden style={{
+          position: 'absolute', top: -50, right: -50, width: 220, height: 220,
+          background: 'radial-gradient(circle, rgba(232,192,90,0.20) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
+        <button onClick={onClose} aria-label="Back" style={{
+          background: 'rgba(241,231,200,0.08)', border: '1px solid rgba(241,231,200,0.20)',
+          borderRadius: 999, width: 36, height: 36, color: '#F1E7C8',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 14, WebkitTapHighlightColor: 'transparent',
+          position: 'relative',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative' }}>
+          {/* Trophy crest in a smaller medallion */}
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
+            background: 'radial-gradient(circle at 50% 35%, rgba(245,215,138,0.30) 0%, rgba(201,160,64,0.10) 70%, transparent 100%)',
+            border: '1.5px solid rgba(201,160,64,0.65)',
+            boxShadow: 'inset 0 0 16px rgba(245,215,138,0.18)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 4h8v4a4 4 0 0 1-8 0V4z" fill="rgba(232,192,90,0.20)"/>
+              <path d="M8 6H6a2 2 0 0 0 2 2"/>
+              <path d="M16 6h2a2 2 0 0 1-2 2"/>
+              <line x1="12" y1="12" x2="12" y2="16"/>
+              <line x1="9" y1="20" x2="15" y2="20"/>
+              <line x1="10" y1="16" x2="14" y2="16"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '0.30em', color: '#C9A040',
+              fontWeight: 800, textTransform: 'uppercase', marginBottom: 2,
+              fontFamily: '"Arial Black", Arial, sans-serif',
+            }}>FOUND A NEW LEAGUE</div>
+            <div style={{
+              fontSize: 26, fontWeight: 900, color: '#F1E7C8',
+              fontFamily: '"Georgia", serif', letterSpacing: '-0.01em',
+              lineHeight: 1.1,
+              textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+            }}>{name.trim() ? name.trim() : 'Start a League'}</div>
+            <div style={{
+              fontSize: 11, color: 'rgba(241,231,200,0.65)', marginTop: 4,
+              fontStyle: 'italic',
+            }}>The four steps below — name, season, format, description — set how every event runs.</div>
+          </div>
+        </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <Field label="League name *" hint="What do players call this league? Tuesday Night Skins, ABC Member-Guest, etc.">
+
+      {/* FORM — numbered steps with stepper indicator + bigger fields */}
+      <div style={{ padding: '20px 20px 0', display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <WizardStep n={1} title="Name your league"
+          hint="What do players call it? Tuesday Night Skins, ABC Member-Guest, Office Ladder.">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Tuesday Night Skins"
             style={inputStyle} maxLength={80} autoFocus />
-        </Field>
-        <Field label="Season" hint="Optional — group this and future events into one season. Examples: '2026', '2026-spring'.">
+        </WizardStep>
+
+        <WizardStep n={2} title="Season tag"
+          hint="Group this and future events into one season. Optional but recommended for season-long standings.">
           <input value={season} onChange={e => setSeason(e.target.value)} placeholder="2026"
             style={inputStyle} maxLength={64} />
-        </Field>
-        <Field label="Default scoring format" hint="Each event can override this when created.">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {[
-              { id: 'stroke',     label: 'Stroke' },
-              { id: 'match',      label: 'Match' },
-              { id: 'skins',      label: 'Skins' },
-              { id: 'stableford', label: 'Stableford' },
-              { id: 'best_ball',  label: 'Best Ball' },
-            ].map(f => (
-              <button key={f.id} onClick={() => setScoringFormat(f.id)} style={{
-                padding: '8px 12px', borderRadius: 999, border: '1px solid',
-                borderColor: scoringFormat === f.id ? '#1A6B28' : 'rgba(13,31,18,0.18)',
-                background: scoringFormat === f.id ? 'rgba(46,158,69,0.10)' : 'rgba(255,255,255,0.6)',
-                color: scoringFormat === f.id ? '#0E3B23' : 'rgba(13,31,18,0.65)',
-                fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-              }}>{f.label}</button>
-            ))}
+        </WizardStep>
+
+        <WizardStep n={3} title="Default scoring format"
+          hint="Hosts can override this on any single event. Most leagues pick one and stick with it.">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {FORMAT_OPTIONS.map(f => {
+              const active = scoringFormat === f.id
+              return (
+                <button key={f.id} onClick={() => setScoringFormat(f.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '12px 14px', borderRadius: 12,
+                  border: active ? '1.5px solid #1A6B28' : '1px solid rgba(13,31,18,0.14)',
+                  background: active
+                    ? 'linear-gradient(135deg, rgba(46,158,69,0.14), rgba(46,158,69,0.06))'
+                    : 'rgba(255,255,255,0.65)',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  textAlign: 'left',
+                  WebkitTapHighlightColor: 'transparent',
+                  transition: 'all 120ms ease',
+                  boxShadow: active ? '0 2px 8px rgba(46,158,69,0.18)' : 'none',
+                }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                    border: active ? '6px solid #1A6B28' : '2px solid rgba(13,31,18,0.25)',
+                    background: active ? '#FFF' : 'transparent',
+                    transition: 'all 120ms ease',
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: 14, fontWeight: 800, color: '#0E3B23',
+                      letterSpacing: '0.02em',
+                    }}>{f.label}</div>
+                    <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 1 }}>{f.desc}</div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
-        </Field>
-        <Field label="Description" hint="Optional — show on the league page so players know what it's about.">
+        </WizardStep>
+
+        <WizardStep n={4} title="Describe it (optional)"
+          hint="Show this on the league page so players know what it's about.">
           <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
             placeholder="Weekly skins game at Pebble. $20 buy-in, winner-take-all, carryovers."
             style={{ ...inputStyle, resize: 'vertical' }} maxLength={500} />
-        </Field>
+        </WizardStep>
+
         {error && (
           <div style={{
             padding: '10px 12px', borderRadius: 10, fontSize: 12,
@@ -709,18 +803,62 @@ function LeagueWizard({ onClose, onCreated, on402 }) {
             color: '#A03030',
           }}>{error}</div>
         )}
+
+        {/* CHARTER button — ceremonial. Gold + green double-stroke. */}
         <button onClick={save} disabled={saving || name.trim().length === 0} style={{
-          padding: 14, borderRadius: 12, border: 'none',
+          padding: '16px 14px', borderRadius: 14, border: 'none',
           background: name.trim().length > 0
-            ? 'linear-gradient(135deg, #1A6B28, #2E9E45)'
+            ? 'linear-gradient(135deg, #1A6B28 0%, #2E9E45 50%, #1A6B28 100%)'
             : 'rgba(13,31,18,0.15)',
-          color: '#fff', fontWeight: 800, fontSize: 15,
+          color: '#fff', fontWeight: 900, fontSize: 15,
           cursor: saving ? 'not-allowed' : (name.trim().length > 0 ? 'pointer' : 'default'),
-          fontFamily: 'inherit', opacity: saving ? 0.7 : 1,
+          fontFamily: '"Arial Black", Arial, sans-serif',
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          opacity: saving ? 0.7 : 1,
+          boxShadow: name.trim().length > 0
+            ? '0 6px 20px rgba(46,158,69,0.35), inset 0 1px 0 rgba(255,255,255,0.30), inset 0 0 0 1px rgba(201,160,64,0.45)'
+            : 'none',
+          marginTop: 4,
+          WebkitTapHighlightColor: 'transparent',
         }}>
-          {saving ? 'Creating…' : 'Create league'}
+          {saving ? 'Chartering…' : 'Charter League'}
         </button>
+        <div style={{
+          fontSize: 10, color: 'rgba(13,31,18,0.45)', textAlign: 'center',
+          letterSpacing: '0.10em', textTransform: 'uppercase', fontWeight: 700,
+        }}>You'll be the commissioner</div>
       </div>
+    </div>
+  )
+}
+
+// ─── WizardStep — numbered ceremonial section header for LeagueWizard ──
+function WizardStep({ n, title, hint, children }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #C9A040 0%, #E8C05A 100%)',
+          color: '#0E3B23', fontWeight: 900, fontSize: 13,
+          fontFamily: '"Arial Black", Arial, sans-serif',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 2px 4px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,255,255,0.40)',
+        }}>{n}</div>
+        <div style={{ flex: 1, paddingTop: 2 }}>
+          <div style={{
+            fontSize: 14, fontWeight: 800, color: '#0E3B23',
+            letterSpacing: '0.01em',
+          }}>{title}</div>
+          {hint && (
+            <div style={{
+              fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 2,
+              lineHeight: 1.4,
+            }}>{hint}</div>
+          )}
+        </div>
+      </div>
+      <div style={{ paddingLeft: 36 }}>{children}</div>
     </div>
   )
 }
