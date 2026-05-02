@@ -1706,7 +1706,7 @@ function cellBorder(score, par) {
 // (matches the header rows' borderLeft scheme; otherwise body cells stacked
 // 2px between them and looked misaligned with headers when scrolled).
 // (2026-04-30 PM border-cleanup)
-function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrideBg, overrideBorder, overrideColor, w = 32, h = 36 }) {
+function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrideBg, overrideBorder, overrideColor, w = 32, h = 36, skinsBadge = null }) {
   // Subtotal cells used to be `w + 4` for visual emphasis, but that made
   // the body OUT/IN column 4px wider than the header OUT/IN column —
   // so the body subtotal cells (LAVIN's 12, filler rows) stuck out past
@@ -1776,6 +1776,28 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrid
           {score || ''}
         </span>
       ) : null}
+      {/* Skins badge — overlaid in top-right when the player won this
+          hole's skin (W) or the hole rolled forward (↻). 'W' is gold;
+          carry mark uses cream + a small stack indicator showing how
+          many skins are riding. (B4c polish — final pass.) */}
+      {skinsBadge && skinsBadge.kind === 'win' && (
+        <div title={`Won this skin${skinsBadge.value > 1 ? ` (${skinsBadge.value} skins)` : ''}`} style={{
+          position: 'absolute', top: 1, right: 1,
+          background: '#C9A040', color: '#070C09',
+          fontSize: 7, fontWeight: 900, lineHeight: 1, letterSpacing: 0,
+          padding: '1px 3px', borderRadius: 2,
+          pointerEvents: 'none',
+        }}>{skinsBadge.value > 1 ? `W${skinsBadge.value}` : 'W'}</div>
+      )}
+      {skinsBadge && skinsBadge.kind === 'carry' && (
+        <div title={`Carrying ${skinsBadge.value} skin${skinsBadge.value !== 1 ? 's' : ''} forward`} style={{
+          position: 'absolute', top: 1, right: 1,
+          background: 'rgba(0,0,0,0.55)', color: AUGUSTA_CREAM,
+          fontSize: 8, fontWeight: 800, lineHeight: 1,
+          padding: '1px 3px', borderRadius: 2,
+          pointerEvents: 'none',
+        }}>↻{skinsBadge.value}</div>
+      )}
     </div>
   )
 }
@@ -2673,6 +2695,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // Commissioner correction panel — host-only modal with withdraw
   // toggles + audit log readout. (B3, 2026-05-01)
   const [showManage, setShowManage] = useState(false)
+  // Score-conflict dialog — when /scores/host returns 409 with a
+  // different existing score, surface a styled prompt rather than
+  // window.confirm. resolveConflict carries the resolver fn so the
+  // saveScore promise can await the user's decision. (Final pass.)
+  const [conflictPrompt, setConflictPrompt] = useState(null)
+  // { hole, existing, incoming, resolve }
   // Offline queue size — surfaces a small pill when scores are
   // pending sync (cell signal dropped on the course). (B5)
   const [queuedCount, setQueuedCount] = useState(0)
@@ -2822,13 +2850,14 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
         await runWithQueue({ url: targetUrl, method: 'PUT', body: baseBody })
       } catch (err) {
         // Score-conflict handshake (B2). Server returns 409 with the
-        // existing different score; ask the user before overwriting.
+        // existing different score; surface a styled prompt rather
+        // than window.confirm. (Final pass polish.)
         if (err?.status === 409 && err?.payload?.error === 'score_conflict') {
           const existing = err.payload.existing_score
-          const ok = window.confirm(
-            `Hole ${Number(hole) + 1} already has a score of ${existing}. ` +
-            `Replace it with ${score}?`
-          )
+          const ok = await new Promise(resolve => {
+            setConflictPrompt({ hole: Number(hole), existing, incoming: Number(score), resolve })
+          })
+          setConflictPrompt(null)
           if (!ok) { setSaving(false); return }
           await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true } })
         } else {
@@ -3577,6 +3606,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                 tapHint={tapHint}
                 rowH={ROW_H}
                 fillerRows={fillerRows}
+                skinsOutcomes={isSkinsFormat ? skinsData?.outcomes : null}
               />
               {/* ── Back 9 (if 18 holes) ── */}
               {backHoles.length > 0 && (
@@ -3599,6 +3629,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                   SUB_COL={SUB_COL}
                   rowH={ROW_H}
                   fillerRows={fillerRows}
+                  skinsOutcomes={isSkinsFormat ? skinsData?.outcomes : null}
                 />
               )}
               {/* ── Totals row ── */}
@@ -3733,6 +3764,63 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
         />
       )}
 
+      {/* Score-conflict prompt — replaces window.confirm with a sheet
+          styled to match the rest of the app. Resolves the saveScore
+          promise to true (overwrite) or false (cancel). (Final pass) */}
+      {conflictPrompt && createPortal(
+        <div
+          onClick={() => conflictPrompt.resolve(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
+              borderRadius: 18, padding: '20px 22px',
+              maxWidth: 380, width: '100%',
+              border: '1px solid rgba(245,215,138,0.30)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+            }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'rgba(245,215,138,0.16)',
+                border: '1px solid rgba(245,215,138,0.40)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#F5D78A', fontSize: 18, fontWeight: 800,
+              }}>!</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>
+                Existing score on Hole {conflictPrompt.hole + 1}
+              </div>
+            </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.70)', lineHeight: 1.5, marginBottom: 16 }}>
+              Hole {conflictPrompt.hole + 1} already has a score of <strong style={{ color: '#fff' }}>{conflictPrompt.existing}</strong>. Replace it with <strong style={{ color: '#F5D78A' }}>{conflictPrompt.incoming}</strong>?
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => conflictPrompt.resolve(false)} style={{
+                flex: 1, padding: '11px',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>Keep {conflictPrompt.existing}</button>
+              <button onClick={() => conflictPrompt.resolve(true)} style={{
+                flex: 1, padding: '11px',
+                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                border: 'none', borderRadius: 10, color: '#070C09',
+                fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+              }}>Replace with {conflictPrompt.incoming}</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Commissioner correction panel — host-only. Withdraw / reinstate
           participants and audit the score-change history. (B3) */}
       {showManage && isHost && outing && (
@@ -3774,7 +3862,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -4003,6 +4091,24 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                 const isHint = tapHint
                   && String(tapHint.userId) === String(p.user_id)
                   && tapHint.hole === h
+                // Skins decoration — only attached when this row's
+                // player won the hole's skin (gold W badge), or when
+                // the hole carried forward (cream ↻ badge). Other
+                // players' rows on the same hole get nothing.
+                let skinsBadge = null
+                if (skinsOutcomes && skinsOutcomes[h]) {
+                  const o = skinsOutcomes[h]
+                  if (o.winner && String(o.winner) === String(p.user_id)) {
+                    skinsBadge = { kind: 'win', value: o.value || 1 }
+                  } else if (o.tied && o.value > 1) {
+                    // Carry indicator only on the FIRST player's row
+                    // for the hole — avoids stacking the same badge on
+                    // every row of every losing player.
+                    if (String(p.user_id) === String(participants[0]?.user_id)) {
+                      skinsBadge = { kind: 'carry', value: o.value }
+                    }
+                  }
+                }
                 return (
                   <ScorecardCell
                     key={h}
@@ -4017,6 +4123,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
                     overrideBg={mpBg}
                     overrideBorder={mpBorder}
                     overrideColor={mpColor}
+                    skinsBadge={skinsBadge}
                   />
                 )
               })}
@@ -4287,6 +4394,13 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
   const all = outing.state?.participants ?? []
   const holeCount = outing.state?.holes ?? 18
   const holes = Array.from({ length: holeCount }, (_, i) => i)
+  // Pull pars from the outing for the score-edit grid header. Falls
+  // back to par-4 across the board if the course doesn't carry per-
+  // hole pars (matches the convention used elsewhere in this file).
+  const realHolePars = Array.isArray(outing.hole_pars) ? outing.hole_pars : null
+  const gridHolePars = realHolePars && realHolePars.length >= holeCount
+    ? realHolePars.slice(0, holeCount)
+    : holes.map(() => 4)
 
   async function toggleWithdraw(userId, currentlyWithdrawn) {
     setBusyIds(b => ({ ...b, [userId]: true }))
@@ -4491,13 +4605,31 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                         padding: '6px 8px', fontSize: 9, fontWeight: 800,
                         color: 'rgba(255,255,255,0.55)', letterSpacing: '0.06em',
                         textAlign: 'left', minWidth: 100, zIndex: 1,
-                      }}>PLAYER</th>
+                      }}>HOLE</th>
                       {holes.map(h => (
                         <th key={h} style={{
                           width: 32, padding: '6px 0', textAlign: 'center',
                           fontSize: 9, fontWeight: 800,
                           color: 'rgba(255,255,255,0.55)',
                         }}>{h + 1}</th>
+                      ))}
+                    </tr>
+                    {/* Par sub-header — gives at-a-glance context so
+                        the host can see whether a 5 is a par (par-5)
+                        or a double-bogey (par-3). */}
+                    <tr>
+                      <th style={{
+                        position: 'sticky', left: 0, background: '#0E1812',
+                        padding: '0 8px 6px', fontSize: 9, fontWeight: 700,
+                        color: 'rgba(255,255,255,0.40)', letterSpacing: '0.06em',
+                        textAlign: 'left', minWidth: 100, zIndex: 1,
+                      }}>PAR</th>
+                      {gridHolePars.map((p, idx) => (
+                        <th key={idx} style={{
+                          width: 32, padding: '0 0 6px', textAlign: 'center',
+                          fontSize: 10, fontWeight: 700,
+                          color: 'rgba(245,215,138,0.55)',
+                        }}>{p}</th>
                       ))}
                     </tr>
                   </thead>
