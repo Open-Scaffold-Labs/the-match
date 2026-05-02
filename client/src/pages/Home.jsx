@@ -3583,6 +3583,34 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           body="Match invites land here. Your live tee times and AWAITING-tee-time matches show up below the GolfNow card. Tap My Profile (top-right) to dial in your bag."
         />
 
+        {/* TEE TIMES — grouped section. Wraps the GolfNow booking
+            entry + UpcomingTeeTimes (confirmed games with pinned
+            tee time) + AwaitingTeeTime (outgoing requests / games
+            without a pinned time). One labeled box instead of three
+            stand-alone cards. (2026-05-02 — Matt: "put all tee time
+            related material in a box labeled tee times") */}
+        <div style={{
+          borderRadius: 16,
+          background: 'rgba(255,253,248,0.45)',
+          border: '1px solid rgba(201,160,64,0.28)',
+          padding: '14px 12px 4px',
+          marginBottom: 16,
+        }}>
+          {/* Section header — gold flourish hairlines around a small
+              uppercase TEE TIMES label, in the same Georgia serif as
+              the wordmark. */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '0 4px', marginBottom: 12,
+          }}>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.40))' }} />
+            <div style={{
+              fontSize: 11, fontWeight: 800, letterSpacing: '0.22em',
+              color: '#7A5800', fontFamily: '"Georgia", serif',
+            }}>TEE TIMES</div>
+            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.40), transparent)' }} />
+          </div>
+
         {/* GolfNow booking card */}
         <a
           href="https://www.golfnow.com/tee-times"
@@ -3659,6 +3687,8 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           userId={profile?.id}
           onPlan={setPlanGame}
         />
+        </div>
+        {/* /TEE TIMES box */}
 
         {/* Friends */}
         <FriendsPanel
