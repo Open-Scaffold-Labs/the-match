@@ -3551,12 +3551,47 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
     } catch { /* ignore */ }
   }
 
-  async function handleFriendRespond(id, status) {
+  // Tracks incoming requests the user just accepted, so the row stays
+  // visible with a "Follow back?" prompt before it disappears. Keyed by
+  // tm_friends row id; value is { userId, name } of the requester.
+  // (2026-05-02 — Matt: "a button should then appear that says follow
+  // back, and then the user who sent the initial friend request will
+  // now receive one themselves and when they accept then it becomes
+  // mutual")
+  const [followBackPrompts, setFollowBackPrompts] = useState({})
+
+  async function handleFriendRespond(id, status, requesterInfo) {
+    if (status === 'accepted' && requesterInfo) {
+      // Keep the row visible with the Follow back? prompt; defer refetch
+      // until the user dismisses or follows back.
+      setFollowBackPrompts(prev => ({ ...prev, [id]: requesterInfo }))
+    }
     try {
       await put(`/api/friends/${id}/respond`, { status })
-      const f = await api('/api/friends')
-      setFriends(f)
-    } catch { /* ignore */ }
+      if (status !== 'accepted') {
+        const f = await api('/api/friends')
+        setFriends(f)
+      }
+    } catch {
+      // On failure, undo the optimistic prompt so the row returns to
+      // its original Accept / ✕ state.
+      setFollowBackPrompts(prev => { const n = { ...prev }; delete n[id]; return n })
+    }
+  }
+
+  async function handleFollowBack(reqId, targetUserId) {
+    try {
+      await post('/api/friends/request', { user_id: targetUserId })
+    } catch { /* ignore — already-friends conflict is fine */ }
+    setFollowBackPrompts(prev => { const n = { ...prev }; delete n[reqId]; return n })
+    const f = await api('/api/friends')
+    setFriends(f)
+  }
+
+  async function dismissFollowBackPrompt(reqId) {
+    setFollowBackPrompts(prev => { const n = { ...prev }; delete n[reqId]; return n })
+    const f = await api('/api/friends')
+    setFriends(f)
   }
 
   async function handleGameRespond(id, status) {
@@ -4005,28 +4040,68 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
                       borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
                     }}>{friends.incoming.length}</span>
                   </div>
-                  {friends.incoming.map(req => (
-                    <div key={req.id} style={{
-                      background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(27,94,59,0.10)',
-                      borderRadius: 12, padding: '10px 14px', marginBottom: 8,
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                    }}>
-                      <div>
-                        <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
-                        <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>wants to be your playing partner</div>
+                  {friends.incoming.map(req => {
+                    // Two states per row:
+                    //   1. Default — Accept / ✕ buttons.
+                    //   2. Just-accepted — Follow back? / Not now buttons.
+                    // The just-accepted state is held locally in
+                    // followBackPrompts so the row doesn't disappear
+                    // immediately after Accept fires; the user gets a
+                    // chance to choose Follow back. (2026-05-02)
+                    const justAccepted = followBackPrompts[req.id]
+                    if (justAccepted) {
+                      return (
+                        <div key={req.id} style={{
+                          background: 'rgba(255,253,248,0.95)',
+                          border: '1px solid rgba(201,160,64,0.45)',
+                          borderRadius: 12, padding: '10px 14px', marginBottom: 8,
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                        }}>
+                          <div>
+                            <div style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>
+                              {req.requester_name} <span style={{ color: 'rgba(13,31,18,0.55)', fontWeight: 500 }}>now follows you</span>
+                            </div>
+                            <div style={{ color: 'rgba(122,88,0,0.85)', fontSize: 11, fontWeight: 600 }}>Follow back?</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => handleFollowBack(req.id, justAccepted.userId)} style={{
+                              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                              color: '#070C09', border: 'none', borderRadius: 8,
+                              padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                            }}>Follow back</button>
+                            <button onClick={() => dismissFollowBackPrompt(req.id)} style={{
+                              background: 'rgba(13,31,18,0.06)', color: 'rgba(13,31,18,0.55)',
+                              border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+                            }}>Not now</button>
+                          </div>
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={req.id} style={{
+                        background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(27,94,59,0.10)',
+                        borderRadius: 12, padding: '10px 14px', marginBottom: 8,
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                      }}>
+                        <div>
+                          <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
+                          <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>wants to be your playing partner</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            onClick={() => handleFriendRespond(req.id, 'accepted', { userId: req.requester_id, name: req.requester_name })}
+                            style={{
+                              background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
+                              padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                            }}>Accept</button>
+                          <button onClick={() => handleFriendRespond(req.id, 'declined')} style={{
+                            background: 'rgba(13,31,18,0.06)', color: 'rgba(13,31,18,0.45)',
+                            border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+                          }}>✕</button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => handleFriendRespond(req.id, 'accepted')} style={{
-                          background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
-                          padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                        }}>Accept</button>
-                        <button onClick={() => handleFriendRespond(req.id, 'declined')} style={{
-                          background: 'rgba(13,31,18,0.06)', color: 'rgba(13,31,18,0.45)',
-                          border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
-                        }}>✕</button>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
 

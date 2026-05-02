@@ -57,12 +57,17 @@ export default function FollowList({ type, onClose, onCountsChange }) {
     if (busyIds.has(userId)) return
     setBusyIds(prev => new Set(prev).add(userId))
     try {
-      await post(`/api/follows/${userId}`, {})
-      // Optimistic local update — flip is_following true
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_following: true } : u))
-      onCountsChange?.()
+      // Follow-back goes through the request flow now — the recipient
+      // has to accept before mutual-status is real. (2026-05-02 —
+      // Matt: "in order for it to be mutual they would then have to
+      // follow back.")
+      await post('/api/friends/request', { user_id: userId })
+      // Optimistic local update — flip has_pending_request true so
+      // the button morphs to "Pending". Counts don't change yet —
+      // they update when the request is accepted on the other side.
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, has_pending_request: true } : u))
     } catch (e) {
-      console.error('[FollowList.follow]', e)
+      console.error('[FollowList.followBack]', e)
     } finally {
       setBusyIds(prev => { const n = new Set(prev); n.delete(userId); return n })
     }
@@ -104,6 +109,10 @@ export default function FollowList({ type, onClose, onCountsChange }) {
     if (u.is_following) {
       // I follow them and they follow me — mutual
       return <MutualBadge />
+    }
+    if (u.has_pending_request) {
+      // I've already sent a follow-back request, waiting for them to accept
+      return <PendingBadge />
     }
     return (
       <button onClick={() => handleFollow(u.id)} disabled={busy} style={primaryBtn}>
@@ -244,6 +253,16 @@ function MutualBadge() {
       background: 'rgba(42,122,56,0.10)', border: '1px solid rgba(42,122,56,0.22)',
       borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
     }}>Mutual ✓</span>
+  )
+}
+
+function PendingBadge() {
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, color: '#7A5800',
+      background: 'rgba(201,160,64,0.12)', border: '1px solid rgba(201,160,64,0.30)',
+      borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
+    }}>Pending</span>
   )
 }
 

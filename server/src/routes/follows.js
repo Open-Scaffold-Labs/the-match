@@ -113,11 +113,17 @@ router.get('/list', async (req, res) => {
         WHERE f.follower_id = $1
         ORDER BY u.name`
     } else if (type === 'followers') {
-      // Users following me
+      // Users following me. has_pending_request = I've already sent
+      // them a follow-back request that's pending their acceptance.
+      // Drives the "Pending" chip on the followers list. (2026-05-02)
       sql = `
         SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
                EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $1 AND b.following_id = u.id) AS is_following,
-               TRUE AS is_followed_by
+               TRUE AS is_followed_by,
+               EXISTS(
+                 SELECT 1 FROM tm_friends fr
+                 WHERE fr.requester_id = $1 AND fr.requestee_id = u.id AND fr.status = 'pending'
+               ) AS has_pending_request
         FROM tm_follows f
         JOIN tm_users u ON u.id = f.follower_id
         WHERE f.following_id = $1

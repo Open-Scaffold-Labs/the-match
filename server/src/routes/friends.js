@@ -362,14 +362,17 @@ router.post('/request', async (req, res) => {
     if (!target) return res.status(404).json({ error: 'No player found' })
     if (String(target.id) === String(req.user.id)) return res.status(400).json({ error: "Can't add yourself" })
 
+    // Only block requests in the SAME direction. A→B being accepted
+    // does NOT block B→A — that's the follow-back path. (2026-05-02
+    // — Matt's asymmetric model: accept = one-way, mutual requires
+    // each side to send + accept their own request.)
     const existing = await db.one(
       `SELECT id, status FROM tm_friends
-       WHERE (requester_id = $1 AND requestee_id = $2)
-          OR (requester_id = $2 AND requestee_id = $1)`,
+       WHERE requester_id = $1 AND requestee_id = $2`,
       [req.user.id, target.id]
     )
     if (existing) {
-      if (existing.status === 'accepted') return res.status(409).json({ error: 'Already friends' })
+      if (existing.status === 'accepted') return res.status(409).json({ error: 'Already requested' })
       if (existing.status === 'pending')  return res.status(409).json({ error: 'Request already pending' })
     }
 
