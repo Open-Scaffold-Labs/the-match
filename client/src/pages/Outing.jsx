@@ -3161,6 +3161,20 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // their optimistic local update will be reconciled with the server.
   // (Iteration 3 fix.)
   const [droppedNotice, setDroppedNotice] = useState(null)
+
+  // loadOuting must be declared BEFORE any useEffect that lists it as
+  // a dependency. The dep array is evaluated synchronously during
+  // render — listing a const before it's initialized is a TDZ trip
+  // that production minifiers surface as 'Cannot access ge before
+  // initialization.' (Hot-fix 2026-05-02 round 2.)
+  const loadOuting = useCallback(async () => {
+    try {
+      const data = await api(`/api/outings/${code}`)
+      setOuting(data.outing)
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }, [code])
+
   useEffect(() => subscribeQueue(setQueuedCount), [])
   useEffect(() => subscribeQueueDrops((item, reason) => {
     setDroppedNotice({ item, reason, at: Date.now() })
@@ -3199,14 +3213,8 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // Null means "all groups" (small outing or fallback). (2026-05-01)
   const [activeGroupId, setActiveGroupId] = useState(null)
 
-  const loadOuting = useCallback(async () => {
-    try {
-      const data = await api(`/api/outings/${code}`)
-      setOuting(data.outing)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
-  }, [code])
-
+  // (loadOuting is declared earlier, above the useEffects that
+  // depend on it — see the TDZ-fix note up top. Don't redeclare here.)
   useEffect(() => { loadOuting() }, [loadOuting])
   // Poll every 5s for live scores
   useEffect(() => {
