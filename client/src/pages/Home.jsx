@@ -3587,12 +3587,16 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             entry + UpcomingTeeTimes (confirmed games with pinned
             tee time) + AwaitingTeeTime (outgoing requests / games
             without a pinned time). One labeled box instead of three
-            stand-alone cards. (2026-05-02 — Matt: "put all tee time
-            related material in a box labeled tee times") */}
+            stand-alone cards. Wrapper styling matches the
+            ProfileHeroCard's translucent-glass treatment so the two
+            grouped sections feel like siblings. (2026-05-02 — Matt:
+            "make it the same translucent box used for the hero card") */}
         <div style={{
-          borderRadius: 16,
-          background: 'rgba(255,253,248,0.45)',
-          border: '1px solid rgba(201,160,64,0.28)',
+          borderRadius: 22,
+          background: 'rgba(255,255,255,0.22)',
+          border: '1px solid rgba(255,255,255,0.45)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           padding: '14px 12px 4px',
           marginBottom: 16,
         }}>
