@@ -3558,6 +3558,17 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     const v = Number(outing.state?.handicap_allowance)
     return Number.isFinite(v) && v > 0 && v <= 100 ? v : 100
   })()
+  // 6.4 — Per-event handicap overrides. Commissioner-set, one-outing
+  // adjustments stored in outing.state.handicap_overrides keyed by
+  // user_id. If a player has an override, it takes precedence over
+  // their stored tm_users.handicap for THIS outing's net calc. Used
+  // for league handicap rules, guest fill-ins, sandbagger flags, etc.
+  const handicapOverrides = outing.state?.handicap_overrides || {}
+  function effectiveHandicap(p) {
+    const ov = handicapOverrides[String(p?.user_id)]
+    if (ov != null && Number.isFinite(Number(ov))) return Number(ov)
+    return parseFloat(p?.handicap)
+  }
   // netStrokes — strokes the player gives (positive) or receives
   // (negative). Plus-handicap players (handicap < 0) ADD strokes to
   // their gross instead of subtracting; netTotal handles the sign by
@@ -3568,7 +3579,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // strokes added, harder), matching USGA convention.
   // (Round 1 fix.)
   function netStrokes(p) {
-    const raw = parseFloat(p?.handicap)
+    const raw = effectiveHandicap(p)
     if (!Number.isFinite(raw) || raw === 0) return 0
     const mag = Math.abs(raw) * hcpAllowance / 100
     return raw >= 0 ? Math.floor(mag) : -Math.ceil(mag)
@@ -4403,8 +4414,19 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
         <CommissionerPanel
           outing={outing}
           onClose={() => setShowManage(false)}
-          onParticipantsUpdated={(updated) => {
-            setOuting(prev => ({ ...prev, state: { ...(prev.state || {}), participants: updated } }))
+          onParticipantsUpdated={(updated, extras) => {
+            // 6.4 — extras may carry { handicap_overrides } from the
+            // per-event override editor. Merge whatever the panel
+            // passes back into outing.state without dropping any other
+            // state keys (groups, teams, stableford_points, etc.)
+            setOuting(prev => ({
+              ...prev,
+              state: {
+                ...(prev.state || {}),
+                participants: updated,
+                ...(extras && typeof extras === 'object' ? extras : {}),
+              },
+            }))
           }}
         />
       )}
@@ -5217,6 +5239,44 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
     }
   }
 
+  // 6.4 — Per-event handicap override. Sends a number (or null to clear)
+  // to PUT /:code/handicap-override. Server stores it on
+  // outing.state.handicap_overrides; netStrokes() prefers it over
+  // tm_users.handicap for THIS outing. Local state.handicap_overrides
+  // is updated optimistically so UI re-renders without a full reload.
+  // Validation: number must be in [-10, 54], or null/empty to clear.
+  // (2026-05-02)
+  async function setHandicapOverride(userId, rawValue) {
+    let body
+    if (rawValue === '' || rawValue == null) {
+      body = { user_id: userId, handicap: null }
+    } else {
+      const n = Number(rawValue)
+      if (!Number.isFinite(n)) {
+        alert('Handicap must be a number, like 12.4 or +2 (use -2 for plus-handicaps).')
+        return false
+      }
+      if (n < -10 || n > 54) {
+        alert('Handicap must be between -10 and 54.')
+        return false
+      }
+      body = { user_id: userId, handicap: n }
+    }
+    setBusyIds(b => ({ ...b, [userId]: true }))
+    try {
+      const data = await put(`/api/outings/${code}/handicap-override`, body)
+      // Optimistic state mutation — the parent reads
+      // outing.state.handicap_overrides on next render.
+      onParticipantsUpdated?.(all, { handicap_overrides: data?.handicap_overrides || {} })
+      return true
+    } catch (err) {
+      alert(`Failed to save handicap override: ${err?.message || 'Unknown error'}`)
+      return false
+    } finally {
+      setBusyIds(b => { const n = { ...b }; delete n[userId]; return n })
+    }
+  }
+
   async function loadAudit() {
     setAuditLoading(true)
     try {
@@ -5352,9 +5412,26 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                   No players yet.
                 </div>
               )}
+              {/* 6.4 — Per-event handicap override hint banner. Surfaces
+                  the feature for hosts who don't know it exists. */}
+              <div style={{
+                fontSize: 11, color: 'rgba(255,255,255,0.55)',
+                marginBottom: 10, lineHeight: 1.5,
+              }}>
+                Tap a player's <strong style={{ color: '#F5D78A' }}>HCP</strong> chip to override their handicap for THIS outing only — useful for league rules, sandbagger flags, or guests without a stored index.
+              </div>
+              {all.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 13, padding: '40px 0' }}>
+                  No players yet.
+                </div>
+              )}
               {all.map(p => {
                 const wd = !!p.withdrawn
                 const busy = busyIds[p.user_id]
+                const overrides = outing.state?.handicap_overrides || {}
+                const ov = overrides[String(p.user_id)]
+                const hasOverride = ov != null && Number.isFinite(Number(ov))
+                const effective = hasOverride ? Number(ov) : (p.handicap != null ? parseFloat(p.handicap) : null)
                 return (
                   <div key={p.user_id} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
@@ -5381,6 +5458,40 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                             : `Total: ${p.total ?? 0} · ${p.holes_played ?? 0} holes played`}
                       </div>
                     </div>
+                    {/* HCP chip — single-tap to edit per-event override.
+                        Gold-bordered when overridden so the host can see at a
+                        glance which players are on a custom handicap. */}
+                    {!wd && (
+                      <button
+                        onClick={() => {
+                          const cur = hasOverride ? String(ov) : ''
+                          const v = window.prompt(
+                            `Per-event handicap for ${p.name}\n` +
+                            `Stored index: ${p.handicap != null ? parseFloat(p.handicap).toFixed(1) : '—'}\n\n` +
+                            `Enter a number (e.g. 12.4 or -2 for plus). ` +
+                            `Leave blank to clear the override.`,
+                            cur
+                          )
+                          if (v === null) return  // cancel
+                          setHandicapOverride(p.user_id, v.trim())
+                        }}
+                        disabled={busy}
+                        title={hasOverride ? `Override: ${ov} · stored ${p.handicap ?? '—'}` : 'Tap to set per-event handicap'}
+                        style={{
+                          padding: '4px 8px', borderRadius: 8, border: '1px solid',
+                          borderColor: hasOverride ? 'rgba(245,215,138,0.65)' : 'rgba(255,255,255,0.18)',
+                          background: hasOverride ? 'rgba(245,215,138,0.12)' : 'transparent',
+                          color: hasOverride ? '#F5D78A' : 'rgba(255,255,255,0.65)',
+                          fontSize: 10, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+                          letterSpacing: '0.04em', opacity: busy ? 0.6 : 1,
+                          minWidth: 52, textAlign: 'center',
+                        }}>
+                        HCP {effective != null
+                          ? (Number.isInteger(effective) ? effective : effective.toFixed(1))
+                          : '—'}
+                        {hasOverride && <span style={{ marginLeft: 4, fontSize: 8 }}>★</span>}
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleWithdraw(p.user_id, wd)}
                       disabled={busy}

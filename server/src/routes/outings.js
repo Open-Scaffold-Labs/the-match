@@ -856,6 +856,57 @@ router.post('/:code/withdraw', async (req, res) => {
   }
 })
 
+// ─── PUT /api/outings/:code/handicap-override ────────────────────────────────
+// Host-only: set or clear a per-event handicap override for a single
+// player. Stored in outing.state.handicap_overrides as a flat
+// { [user_id]: number } map. The override DOES NOT touch the player's
+// stored handicap on tm_users — this is a one-outing adjustment a
+// commissioner can apply for league handicap rules, sandbagger
+// flags, or guest players who don't have a stored index.
+//
+// Body: { user_id, handicap }
+//   - handicap: a finite number (positive or negative for plus
+//     handicaps), or null/empty to clear the override.
+//
+// Validation: handicap must be in [-10, 54] — covers every realistic
+// case (USGA cap is 54.0, lowest plus is around -10 for tour pros).
+//
+// (2026-05-02 — league must-have 6.4.)
+router.put('/:code/handicap-override', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { user_id, handicap } = req.body
+    if (!user_id) return res.status(400).json({ error: 'user_id required' })
+
+    const outing = await db.one('SELECT id, host_id, state FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const state = outing.state || { participants: [] }
+    const overrides = (state.handicap_overrides && typeof state.handicap_overrides === 'object')
+      ? { ...state.handicap_overrides }
+      : {}
+
+    if (handicap == null || handicap === '') {
+      delete overrides[String(user_id)]
+    } else {
+      const n = Number(handicap)
+      if (!Number.isFinite(n) || n < -10 || n > 54) {
+        return res.status(400).json({ error: 'handicap must be a number between -10 and 54' })
+      }
+      overrides[String(user_id)] = n
+    }
+
+    state.handicap_overrides = overrides
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, handicap_overrides: overrides })
+  } catch (err) {
+    console.error('[outings/handicap-override]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 // ─── POST /api/outings/:code/end ──────────────────────────────────────────────
 router.post('/:code/end', async (req, res) => {
   try {
