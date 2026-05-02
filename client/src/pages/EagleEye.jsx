@@ -1672,17 +1672,27 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           pointer-events: none;
         }
         /* Leaflet container default background is light gray (#ddd) —
-           shows through tile-to-tile fractional-pixel gaps as a white
-           grid pattern when the rotate plugin is active. Match the
-           page background so the gaps disappear. (2026-05-01) */
+           any gap between tiles shows the container through. Match
+           the page so worst-case gaps blend in. (2026-05-01) */
         .leaflet-container {
           background: #070C09 !important;
         }
-        /* Each tile's box also gets a transparent outline so when the
-           rotate plugin transforms tiles, sub-pixel anti-aliasing
-           doesn't draw a visible seam at tile boundaries. */
+        /* Force GPU compositing on the tile pane + slightly oversize
+           each tile so adjacent tiles physically overlap by ~1 pixel
+           after the rotate plugin's transform. Together these kill
+           the visible grid seams. The 1.01 scale is imperceptible on
+           satellite imagery. */
+        .leaflet-tile-pane {
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+          transform: translateZ(0);
+        }
         .leaflet-tile {
-          outline: 1px solid transparent;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+          will-change: transform;
+          transform: scale(1.01);
+          transform-origin: 0 0;
         }
       `}</style>
 
