@@ -151,6 +151,14 @@ export default function PrintResults({ code }) {
 
       {/* Title block */}
       <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: 12, marginBottom: 16 }}>
+        {/* Round 13 audit fix — surface league context above the kicker
+            so the clubhouse bulletin board sheet reads as 'Tuesday Night
+            Skins · Week 6' not just 'Week 6 Match'. */}
+        {data.league && (
+          <div style={{ fontSize: 11, letterSpacing: '0.20em', fontWeight: 800, marginBottom: 6, textTransform: 'uppercase' }}>
+            {data.league.name}{data.league.season ? ` · ${data.league.season}` : ''}
+          </div>
+        )}
         <div style={{ fontSize: 9, letterSpacing: '0.3em', fontWeight: 700, marginBottom: 4 }}>
           {data.status === 'closed' || data.status === 'ended' ? 'FINAL RESULTS' : 'LIVE STANDINGS'}
         </div>
@@ -158,7 +166,9 @@ export default function PrintResults({ code }) {
         <div style={{ fontSize: 12, marginTop: 4, fontStyle: 'italic' }}>
           {data.course_name} · Par {data.course_par || coursePar} · {dateStr}
         </div>
-        {data.state?.season && (
+        {/* Season tag from state.season is the legacy stopgap; league
+            object now takes precedence above. Fall back if no league. */}
+        {!data.league && data.state?.season && (
           <div style={{ fontSize: 10, marginTop: 4, letterSpacing: '0.06em' }}>
             SEASON · {data.state.season.toUpperCase()}
           </div>

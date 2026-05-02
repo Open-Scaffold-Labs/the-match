@@ -47,14 +47,21 @@ function sanitizeFormat(v) {
 // ─── GET /api/leagues — leagues I'm a member of ──────────────────────────
 router.get('/', async (req, res) => {
   try {
+    // Round 11 audit fix — include commissioner name + handle so the
+    // hub cards can render "Run by X" instead of just "Tuesday Night
+    // Skins". Useful when a player is on a roster they didn't create
+    // and wants to see at a glance who runs each league.
     const rows = await db.many(
       `SELECT l.id, l.name, l.season, l.scoring_format, l.description, l.created_at,
               l.commissioner_id,
+              cu.name   AS commissioner_name,
+              cu.handle AS commissioner_handle,
               (SELECT COUNT(*) FROM tm_league_members m
                  WHERE m.league_id = l.id AND m.removed_at IS NULL) AS member_count,
               (SELECT COUNT(*) FROM tm_outings o WHERE o.league_id = l.id) AS event_count
        FROM tm_leagues l
        JOIN tm_league_members lm ON lm.league_id = l.id AND lm.removed_at IS NULL
+       LEFT JOIN tm_users cu ON cu.id = l.commissioner_id
        WHERE lm.user_id = $1
        ORDER BY l.updated_at DESC NULLS LAST, l.id DESC`,
       [req.user.id]
@@ -102,13 +109,21 @@ router.post('/', requireElite, async (req, res) => {
 })
 
 // Helper — ensure the caller is a member (or commissioner) of the league.
+// Round 8 audit fix: validate leagueId is numeric before hitting the
+// BIGINT column. Without this, a non-numeric path param ('/leagues/abc')
+// throws Postgres 'invalid input syntax for type integer' and bubbles
+// up as a 500. Now returns null cleanly so the caller's 404 path fires.
 async function loadLeagueMembership(leagueId, userId) {
-  const league = await db.one('SELECT * FROM tm_leagues WHERE id = $1', [leagueId])
+  const idNum = Number(leagueId)
+  if (!Number.isFinite(idNum) || !Number.isInteger(idNum) || idNum <= 0) {
+    return { league: null, role: null }
+  }
+  const league = await db.one('SELECT * FROM tm_leagues WHERE id = $1', [idNum])
   if (!league) return { league: null, role: null }
   const membership = await db.one(
     `SELECT role FROM tm_league_members
      WHERE league_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-    [leagueId, userId]
+    [idNum, userId]
   )
   const role = String(league.commissioner_id) === String(userId)
     ? 'commissioner'

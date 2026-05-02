@@ -1363,6 +1363,12 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
   // those rules once. Form fields stay editable — host can override
   // for a particular event without affecting the league default.
   const [linkedLeague, setLinkedLeague] = useState(null)
+  // Round 14 audit fix — user-touched flag. Without it, a user who
+  // starts editing the wizard form BEFORE the league pre-fill fetch
+  // completes (~500ms) gets their edits clobbered when the response
+  // lands. The flag flips true the first time `set()` is called and
+  // gates the pre-fill setForm.
+  const userTouchedRef = useRef(false)
   useEffect(() => {
     if (!pendingLeagueId) { setLinkedLeague(null); return }
     let cancelled = false
@@ -1370,6 +1376,12 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
       .then(d => {
         if (cancelled || !d?.league) return
         setLinkedLeague(d.league)
+        if (userTouchedRef.current) {
+          // User started editing before fetch landed — respect their
+          // choices. They can still see the linked-league banner and
+          // edit any field they want.
+          return
+        }
         const l = d.league
         const cfg = (l.config && typeof l.config === 'object') ? l.config : {}
         setForm(f => ({
@@ -1400,7 +1412,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
     return () => { cancelled = true }
   }, [pendingLeagueId])
 
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+  function set(k, v) {
+    userTouchedRef.current = true   // round 14 — gate the league pre-fill
+    setForm(f => ({ ...f, [k]: v }))
+  }
 
   async function handleCreate() {
     setLoading(true); setError('')

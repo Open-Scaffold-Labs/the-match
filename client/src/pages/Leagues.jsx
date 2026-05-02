@@ -291,12 +291,19 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
                 <div style={{ fontSize: 10, color: '#7A5800', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{l.season}</div>
               )}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 4, display: 'flex', gap: 12 }}>
+            <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <span>{l.member_count || 0} player{(l.member_count || 0) === 1 ? '' : 's'}</span>
               <span>·</span>
               <span>{l.event_count || 0} event{(l.event_count || 0) === 1 ? '' : 's'}</span>
               {l.scoring_format && <><span>·</span><span style={{ textTransform: 'uppercase' }}>{l.scoring_format}</span></>}
             </div>
+            {/* Round 11 — commissioner attribution. Helps players who
+                were added to leagues they didn't create see who runs each. */}
+            {l.commissioner_name && (
+              <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.45)', marginTop: 4 }}>
+                Run by {l.commissioner_name}{l.commissioner_handle ? ` · @${l.commissioner_handle}` : ''}
+              </div>
+            )}
             {l.description && (
               <div style={{
                 fontSize: 12, color: 'rgba(13,31,18,0.65)', marginTop: 8,
@@ -669,7 +676,7 @@ function StandingsView({ standings }) {
   return (
     <div>
       <div style={{
-        display: 'grid', gridTemplateColumns: '32px 1fr 40px 36px 50px',
+        display: 'grid', gridTemplateColumns: '36px 1fr 40px 36px 50px',
         gap: 8, padding: '6px 8px', borderBottom: '1px solid rgba(13,31,18,0.10)',
       }}>
         <div style={hdr}>POS</div>
@@ -678,23 +685,50 @@ function StandingsView({ standings }) {
         <div style={{ ...hdr, textAlign: 'center' }}>T3</div>
         <div style={{ ...hdr, textAlign: 'center' }}>AVG</div>
       </div>
-      {standings.players.map((p, i) => (
-        <div key={p.user_id} style={{
-          display: 'grid', gridTemplateColumns: '32px 1fr 40px 36px 50px',
-          gap: 8, padding: '10px 8px', alignItems: 'center',
-          borderBottom: '1px solid rgba(13,31,18,0.06)',
-          background: i === 0 ? 'rgba(201,160,64,0.10)' : 'transparent',
-        }}>
-          <div style={{ fontWeight: 900, color: i === 0 ? '#7A5800' : '#0E3B23' }}>{i + 1}</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#0E3B23', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-            {p.handle && <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.55)' }}>@{p.handle} · {p.played} played</div>}
-          </div>
-          <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 900, color: i === 0 ? '#7A5800' : '#0E3B23' }}>{p.wins}</div>
-          <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>{p.top3}</div>
-          <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>{p.avg_score ?? '—'}</div>
-        </div>
-      ))}
+      {(() => {
+        // Round 15 audit fix — assign tied positions ('T1', 'T2', etc.)
+        // when consecutive players match on wins/top3/avg. Previously
+        // every row got a sequential rank regardless of ties, which is
+        // misleading for a league that finishes a season with two
+        // players on identical records.
+        const tieKey = p => `${p.wins}|${p.top3}|${p.avg_score ?? 'x'}`
+        const positions = []
+        let lastKey = null, lastPos = 0
+        standings.players.forEach((p, i) => {
+          const k = tieKey(p)
+          if (k !== lastKey) { lastPos = i + 1; lastKey = k }
+          positions.push(lastPos)
+        })
+        // Count how many players share each position number so we can
+        // prefix 'T' when tied.
+        const counts = positions.reduce((m, v) => { m[v] = (m[v] || 0) + 1; return m }, {})
+        return standings.players.map((p, i) => {
+          const pos = positions[i]
+          const tied = counts[pos] > 1
+          const posStr = tied ? `T${pos}` : String(pos)
+          const isLeader = pos === 1
+          return (
+            <div key={p.user_id} style={{
+              display: 'grid', gridTemplateColumns: '36px 1fr 40px 36px 50px',
+              gap: 8, padding: '10px 8px', alignItems: 'center',
+              borderBottom: '1px solid rgba(13,31,18,0.06)',
+              background: isLeader ? 'rgba(201,160,64,0.10)' : 'transparent',
+            }}>
+              <div style={{
+                fontWeight: 900, color: isLeader ? '#7A5800' : '#0E3B23',
+                fontSize: tied ? 11 : 13,
+              }}>{posStr}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#0E3B23', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                {p.handle && <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.55)' }}>@{p.handle} · {p.played} played</div>}
+              </div>
+              <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 900, color: isLeader ? '#7A5800' : '#0E3B23' }}>{p.wins}</div>
+              <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>{p.top3}</div>
+              <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>{p.avg_score ?? '—'}</div>
+            </div>
+          )
+        })
+      })()}
     </div>
   )
 }
