@@ -289,10 +289,6 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   const livePosRef        = useRef({ teePt: null, greenPt: null, totalYards: 0 })
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
-  // Temporary debug — surfaces which guard the landing-zone marker
-  // effect is hitting so we can see on-device why the marker isn't
-  // appearing. Remove once root cause is fixed. (2026-05-01)
-  const [lzDebug, setLzDebug] = useState('idle')
   // Aim-point state. null means "use default" (midpoint of tee→green).
   // When the user drags the target, dragend commits the new {lat, lon}
   // here, which causes labels and line to re-render at the chosen spot.
@@ -406,7 +402,7 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // dragged. (2026-05-01 — Matt: not a circle around the player; a
   // marker in the direction of aim.)
   useEffect(() => {
-    if (!mapRef.current || !window.L) { setLzDebug('no_map'); return }
+    if (!mapRef.current || !window.L) return
     const L = window.L
     const map = mapRef.current
 
@@ -414,18 +410,26 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     if (landingZoneRef.current) { landingZoneRef.current.remove(); landingZoneRef.current = null }
     if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
 
-    if (!Number.isFinite(Number(clubYards)) || Number(clubYards) <= 0) {
-      setLzDebug(`no_club (${String(clubYards)})`)
-      return
-    }
+    if (!Number.isFinite(Number(clubYards)) || Number(clubYards) <= 0) return
 
-    // Player position fallback chain — same priority order as before.
+    // Player position fallback chain. Use GPS only when within 5 miles
+    // (8800 yards) of the course — otherwise the marker projects from
+    // the user's home into nowhere visible on the map. Same gate the
+    // GPS dot uses on line ~330. (2026-05-01 — Matt: marker invisible
+    // because home-GPS + course-bearing put landing far off the map.)
     const teePt = holePositions[currentHole]
     let player
-    if (gps?.lat != null && gps?.lon != null)        player = { lat: gps.lat, lon: gps.lon }
+    const courseAnchor = geocoded?.lat != null && geocoded?.lon != null
+      ? { lat: geocoded.lat, lon: geocoded.lon }
+      : (teePt?.lat != null && teePt?.lon != null ? teePt : null)
+    const gpsToCourse = (gps?.lat != null && courseAnchor)
+      ? haversineYards({ lat: gps.lat, lon: gps.lon }, courseAnchor)
+      : null
+    const gpsAtCourse = gpsToCourse != null && gpsToCourse < 8800
+    if (gpsAtCourse)                                 player = { lat: gps.lat, lon: gps.lon }
     else if (teePt?.lat != null && teePt?.lon != null) player = teePt
     else if (geocoded?.lat != null && geocoded?.lon != null) player = { lat: geocoded.lat, lon: geocoded.lon }
-    else { setLzDebug('no_player'); return }
+    else return
 
     // Aim direction: use the user's chosen aim point (state) if set;
     // otherwise fall back to the hole's default aim (par-aware
@@ -435,32 +439,29 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     const totalYards = courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage ?? 0
     const geometry = holeGeometries[currentHole]
     const aim = aimPoint || getDefaultAim({ par, totalYards, teePt, greenPt, geometry })
-    if (!aim) { setLzDebug(`no_aim (geom=${geometry?.length||0} green=${!!greenPt})`); return }
+    if (!aim) return
 
     // Bearing from player → aim, project the landing point at distance
     // = club avg yards along that bearing.
     const brng = calcBearing(player, aim)
-    if (!Number.isFinite(brng)) { setLzDebug('no_brng'); return }
+    if (!Number.isFinite(brng)) return
     const yards = Number(clubYards)
     const distMeters = yards * 0.9144
     const landing = projectPoint(player, distMeters, brng)
-    if (!landing) { setLzDebug('no_landing'); return }
+    if (!landing) return
 
-    // Gold ring marker at the projected landing point. Reverted from
-    // a divIcon-pulse disc (commit 3676377) because the divIcon wasn't
-    // rendering reliably inside leaflet-rotate's transformed marker
-    // pane. circleMarker paints into the SVG overlay pane and is
-    // dimensionally stable across rotation. (2026-05-01 — Matt)
+    // Gold ring marker at the projected landing point. circleMarker
+    // paints into the SVG overlay pane (more reliable than divIcon
+    // inside leaflet-rotate's transformed marker pane).
     landingZoneRef.current = L.circleMarker([landing.lat, landing.lon], {
       radius: 12,
-      color: '#F5E070',          // bright yellow ring
+      color: '#F5E070',
       weight: 3,
       opacity: 1,
       fillColor: '#F5E070',
       fillOpacity: 0.45,
       interactive: false,
     }).addTo(map)
-    setLzDebug(`ok ${yards}y @ ${landing.lat.toFixed(4)},${landing.lon.toFixed(4)}`)
   }, [
     clubYards, clubLabel,
     gps?.lat, gps?.lon,
@@ -768,19 +769,6 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
         <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 1 }}>
           {courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.yardage ?? '—'}y · Par {courseCtx?.tee?.holes?.find(h => h.hole === currentHole)?.par ?? '—'}
         </div>
-      </div>
-      {/* TEMP debug — landing-zone marker effect status. Shows which
-          guard the effect hit (no_club, no_player, no_aim, no_brng,
-          no_landing) or `ok yards @ lat,lon` if the marker was added.
-          Remove once the marker bug is fixed. (2026-05-01) */}
-      <div style={{
-        position: 'absolute', top: 70, left: 12, zIndex: 1000,
-        background: 'rgba(7,12,9,0.92)', border: '1px solid rgba(245,224,112,0.5)',
-        borderRadius: 8, padding: '5px 9px', maxWidth: 260,
-        color: '#F5E070', fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-        wordBreak: 'break-all',
-      }}>
-        LZ: {lzDebug}
       </div>
       {/* Legend */}
       <div style={{
