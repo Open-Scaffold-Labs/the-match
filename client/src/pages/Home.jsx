@@ -2134,60 +2134,31 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         title="Your profile, in pieces"
         body="The big number at top is your handicap index — auto-recalculates from your last 20 rounds (5+ needed). The Following / Followers / Mutuals pills tap into a list of those users. Rivalries shows your head-to-head records vs friends with avg score comparisons. Calendar at the bottom = your availability — tap dates you're free and friends can request matches."
       />
-      {/* Top bar — gold "The Match" title now has a soft breathing
-          drop-shadow halo so the white space feels alive instead of
-          flat. Two stacked drop-shadows (tight + wide) animate together
-          on a slow 3.5s ease-in-out cycle. (2026-05-01) */}
-      <style>{`
-        @keyframes tm-title-glow {
-          0%, 100% {
-            filter: drop-shadow(0 0 14px rgba(245,215,138,0.65))
-                    drop-shadow(0 0 36px rgba(201,160,64,0.40))
-                    drop-shadow(0 0 68px rgba(201,160,64,0.20));
-          }
-          50% {
-            filter: drop-shadow(0 0 22px rgba(245,215,138,0.90))
-                    drop-shadow(0 0 56px rgba(201,160,64,0.65))
-                    drop-shadow(0 0 96px rgba(245,215,138,0.32));
-          }
-        }
-        .tm-profile-title { animation: tm-title-glow 3.5s ease-in-out infinite; }
-      `}</style>
+      {/* Top bar — wordmark synced with the Home page version: 26px
+          Georgia serif gold-gradient, no breathing glow, no radial
+          halo. (Matt: 'make The Match at the top of my profile the
+          same as the match on home page.') */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '56px 20px 16px', gap: 12,
-        position: 'relative',
+        padding: '56px 20px 12px', gap: 12,
       }}>
-        {/* Soft radial warmth behind the title so the white area picks
-            up a hint of gold even between glow pulses. Sized big so it
-            spreads across most of the top-bar width. */}
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, calc(-50% + 8px))',
-          width: 420, height: 180, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse, rgba(201,160,64,0.22) 0%, rgba(245,215,138,0.12) 30%, rgba(201,160,64,0.05) 55%, transparent 75%)',
-          filter: 'blur(4px)',
-          zIndex: 0,
-        }} />
         <button onClick={onBack} aria-label="Back" style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
           borderRadius: 10, color: '#1B5E3B', fontSize: 18, fontWeight: 700,
           padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
           display: 'inline-flex', alignItems: 'center',
-          position: 'relative', zIndex: 1,
         }}>←</button>
-        <div className="tm-profile-title" style={{
-          fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
+        <div style={{
+          fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          fontFamily: '"Georgia", serif',
           flex: 1, textAlign: 'center',
-          position: 'relative', zIndex: 1,
         }}>The Match</div>
         <button onClick={onEditProfile} style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
           borderRadius: 10, color: '#1B5E3B', fontSize: 12,
           padding: '7px 12px', cursor: 'pointer',
-          position: 'relative', zIndex: 1,
         }}>Edit</button>
       </div>
 
