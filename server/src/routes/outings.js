@@ -832,6 +832,13 @@ router.put('/:code/scores/host', async (req, res) => {
     if (pi >= 0) {
       state.participants[pi].total       = total
       state.participants[pi].holes_played = holesPlayed
+      // 33-round audit fix: if the host enters a score for a no-show,
+      // auto-clear the no_show flag. Otherwise under DNS policy the
+      // player is hidden from the leaderboard despite having scores.
+      // (Item 6 polish.)
+      if (state.participants[pi].no_show && Number(score) > 0) {
+        state.participants[pi].no_show = false
+      }
     }
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
 
@@ -1271,6 +1278,13 @@ router.post('/:code/no-show', async (req, res) => {
     if (String(outing.host_id) !== String(req.user.id))
       return res.status(403).json({ error: 'Host only' })
 
+    // 33-round audit: same host-self-flag guard applied to no-show.
+    if (String(user_id) === String(outing.host_id) && no_show) {
+      return res.status(400).json({
+        error: 'Host cannot mark themselves as a no-show.',
+      })
+    }
+
     const state = outing.state || { participants: [] }
     const idx = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
     if (idx < 0) return res.status(404).json({ error: 'Participant not found' })
@@ -1324,6 +1338,16 @@ router.post('/:code/withdraw', async (req, res) => {
     if (!outing) return res.status(404).json({ error: 'Not found' })
     if (String(outing.host_id) !== String(req.user.id))
       return res.status(403).json({ error: 'Host only' })
+
+    // 33-round audit fix: block the host from withdrawing themselves.
+    // Host-withdraw leaves the outing in a confusing state (host's
+    // scores excluded, panel still allows host control). To leave the
+    // match, the host should /end or /cancel the outing instead.
+    if (String(user_id) === String(outing.host_id) && withdrawn) {
+      return res.status(400).json({
+        error: 'Host cannot withdraw themselves. End or cancel the match instead.',
+      })
+    }
 
     const state = outing.state || { participants: [] }
     const idx = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))

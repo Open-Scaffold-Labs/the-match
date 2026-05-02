@@ -137,14 +137,21 @@ export async function drainQueue() {
             dropped = true
             dropReason = `server rejected force-write (${res.status})`
           } else if (res.status === 409) {
-            // Non-force write hit a conflict. Read the existing
-            // value off the response so the drop notice can show it.
+            // Non-force write hit a conflict. Read the response body
+            // so the drop reason can carry the actual cause —
+            // score_conflict (someone else entered first) vs.
+            // player_withdrawn (host pulled the player) are surfaced
+            // differently in the UI. (33-round audit fix.)
             const errBody = await res.json().catch(() => ({}))
             console.warn('[offline-queue] dropping conflicting non-force write', errBody, item)
             dropped = true
-            dropReason = errBody?.existing_score != null
-              ? `someone else recorded a different score (${errBody.existing_score})`
-              : 'a conflicting score was recorded while you were offline'
+            if (errBody?.error === 'player_withdrawn') {
+              dropReason = errBody?.message || 'this player was withdrawn while you were offline'
+            } else if (errBody?.existing_score != null) {
+              dropReason = `someone else recorded a different score (${errBody.existing_score})`
+            } else {
+              dropReason = 'a conflicting score was recorded while you were offline'
+            }
           } else {
             console.warn('[offline-queue] dropping mutation', res.status, item)
             dropped = true

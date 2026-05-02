@@ -305,6 +305,46 @@ export default function PublicLeaderboard({ code }) {
     : null
   const bestBallTeams = bestBallTeamsRaw && bestBallTeamsRaw.length > 0 ? bestBallTeamsRaw : null
 
+  // 33-round audit fix: bring the USGA card-back tiebreak chain to
+  // the public board so spectators see the same order the in-app
+  // leaderboard shows. Chain: total stp → back-9 stp → last-6 → last-3
+  // → 18th hole. Only kicks in for the stroke-play sort path; skins
+  // and Stableford keep their existing primary sort and only fall
+  // back to gross-to-par as a final tiebreaker.
+  function rangeStp(p, lo, hi) {   // lo/hi inclusive, 0-indexed holes
+    const sc = p.scores || []
+    let s = 0
+    for (let h = lo; h <= hi && h < holePars.length; h++) {
+      const v = sc[h] || 0
+      if (v > 0) s += v - (holePars[h] || 4)
+    }
+    return s
+  }
+  const lastHoleIdx = holePars.length - 1
+  function cardBackChain(a, b) {
+    const da = totalStp(a, holePars), db = totalStp(b, holePars)
+    if (da == null && db == null) return 0
+    if (da == null) return 1
+    if (db == null) return -1
+    if (da !== db) return da - db
+    // Back-9 (only meaningful on 18+)
+    if (holePars.length >= 18) {
+      const ba = rangeStp(a, 9, 17), bb = rangeStp(b, 9, 17)
+      if (ba !== bb) return ba - bb
+    }
+    // Last-6
+    const lo6 = Math.max(0, lastHoleIdx - 5)
+    const a6 = rangeStp(a, lo6, lastHoleIdx), b6 = rangeStp(b, lo6, lastHoleIdx)
+    if (a6 !== b6) return a6 - b6
+    // Last-3
+    const lo3 = Math.max(0, lastHoleIdx - 2)
+    const a3 = rangeStp(a, lo3, lastHoleIdx), b3 = rangeStp(b, lo3, lastHoleIdx)
+    if (a3 !== b3) return a3 - b3
+    // Last hole
+    const al = rangeStp(a, lastHoleIdx, lastHoleIdx)
+    const bl = rangeStp(b, lastHoleIdx, lastHoleIdx)
+    return al - bl
+  }
   const sorted = [...participants].sort((a, b) => {
     if (isSkins) {
       const sa = skinsByPlayer[a.user_id] || 0
@@ -316,11 +356,7 @@ export default function PublicLeaderboard({ code }) {
       const pb = pointsByPlayer[b.user_id] || 0
       if (pa !== pb) return pb - pa
     }
-    const da = totalStp(a, holePars), db = totalStp(b, holePars)
-    if (da == null && db == null) return 0
-    if (da == null) return 1
-    if (db == null) return -1
-    return da - db
+    return cardBackChain(a, b)
   })
 
   // Headline metric for the TOT column. Format-driven.
@@ -359,7 +395,11 @@ export default function PublicLeaderboard({ code }) {
         <div style={{
           fontSize: 11, letterSpacing: '0.30em', color: AUGUSTA_GOLD, fontWeight: 700,
           marginBottom: 6,
-        }}>{data.status === 'ended' || data.status === 'closed' ? 'FINAL RESULTS' : 'LIVE LEADERBOARD'}</div>
+        }}>{data.status === 'cancelled'
+              ? 'MATCH CANCELLED'
+              : (data.status === 'ended' || data.status === 'closed')
+                ? 'FINAL RESULTS'
+                : 'LIVE LEADERBOARD'}</div>
         <div style={{
           fontSize: 22, fontWeight: 900, color: AUGUSTA_CREAM,
           letterSpacing: '-0.01em', marginBottom: 4,
