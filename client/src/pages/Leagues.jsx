@@ -612,36 +612,82 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
 
   return (
     <div style={hubBase}>
-      {/* Header */}
-      <div style={{ padding: 'calc(var(--safe-top) + 14px) 20px 12px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <button onClick={onBack} style={{
-            background: 'transparent', border: 'none', fontSize: 22,
-            color: '#0E3B23', padding: '0 4px', cursor: 'pointer',
-          }}>←</button>
-          <div style={{ flex: 1, minWidth: 0 }}>
+      {/* HERO HEADER — broadcast-board feel for the league. Replaces
+          the previous flat back-arrow + name layout. Spectator/commish
+          opens this and sees a real surface, not a placeholder.
+          (Visual polish pass — May 2026.) */}
+      <div style={{
+        padding: 'calc(var(--safe-top) + 14px) 20px 14px',
+        background: 'linear-gradient(160deg, #0E3B23 0%, #1A6B28 55%, #0E3B23 100%)',
+        borderBottom: '2px solid #C9A040',
+        position: 'relative', overflow: 'hidden',
+        flexShrink: 0,
+      }}>
+        {/* Subtle radial highlight in the top-right — adds depth. */}
+        <div style={{
+          position: 'absolute', top: -40, right: -40, width: 180, height: 180,
+          background: 'radial-gradient(circle, rgba(201,160,64,0.18) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        {/* Top row: back + commissioner pill (if applicable). */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, position: 'relative' }}>
+          <button onClick={onBack} aria-label="Back" style={{
+            background: 'rgba(241,231,200,0.08)', border: '1px solid rgba(241,231,200,0.20)',
+            borderRadius: 999, width: 36, height: 36, color: '#F1E7C8',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
+          {isCommissioner && (
             <div style={{
-              fontSize: 22, fontWeight: 900, color: '#0E3B23',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{league.name}</div>
-            <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 2 }}>
-              {league.season ? `${league.season} · ` : ''}
-              {league.member_count || 0} player{(league.member_count || 0) === 1 ? '' : 's'} · {league.event_count || 0} event{(league.event_count || 0) === 1 ? '' : 's'}
-              {isCommissioner ? ' · COMMISSIONER' : ''}
-            </div>
-          </div>
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.18em',
+              color: '#C9A040', textTransform: 'uppercase',
+              padding: '4px 10px', borderRadius: 999,
+              background: 'rgba(201,160,64,0.14)', border: '1px solid rgba(201,160,64,0.45)',
+            }}>Commissioner</div>
+          )}
         </div>
-        {league.description && (
-          <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.65)', lineHeight: 1.5, marginTop: 6 }}>
-            {league.description}
-          </div>
+        {/* Season tag overline */}
+        {league.season && (
+          <div style={{
+            fontSize: 10, letterSpacing: '0.30em', color: '#C9A040',
+            fontWeight: 800, textTransform: 'uppercase', marginBottom: 4,
+            position: 'relative',
+          }}>SEASON · {league.season}</div>
         )}
-        {/* 2026-05-02 audit Round 32 — League announcement banner
-            visible to ALL members (not just commissioner). The Comms
-            tab is gated to commissioner; without this, members never
-            saw posted announcements in-app, only via push. Per-id
-            dismiss persisted in localStorage. */}
-        <LeagueAnnouncementBanner league={league} />
+        {/* League name — large serif headline */}
+        <div style={{
+          fontSize: 26, fontWeight: 900, lineHeight: 1.1,
+          color: '#F1E7C8', fontFamily: '"Georgia", serif',
+          letterSpacing: '-0.01em',
+          textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+          position: 'relative',
+          marginBottom: league.description ? 6 : 12,
+        }}>{league.name}</div>
+        {league.description && (
+          <div style={{
+            fontSize: 12, color: 'rgba(241,231,200,0.75)', lineHeight: 1.45,
+            marginBottom: 12, fontStyle: 'italic', position: 'relative',
+          }}>{league.description}</div>
+        )}
+        {/* Stat tile row — Players · Events · Format */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: league.scoring_format ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+          gap: 8, marginBottom: 4, position: 'relative',
+        }}>
+          <StatTilePill label="Players" value={league.member_count || 0} />
+          <StatTilePill label="Events"  value={league.event_count || 0} />
+          {league.scoring_format && (
+            <StatTilePill label="Format" value={league.scoring_format.replace('_', ' ').toUpperCase()} small />
+          )}
+        </div>
+        {/* Banner sits BELOW the hero, in dark style. */}
+        <LeagueAnnouncementBanner league={league} hero />
       </div>
 
       {/* Tab bar — Rules + Comms tabs only render for the commissioner.
@@ -1044,8 +1090,33 @@ const hdr = {
   letterSpacing: '0.08em', textTransform: 'uppercase',
 }
 
+// ─── StatTilePill — small inline KPI tile for the LeagueDetail hero ─────
+function StatTilePill({ label, value, small = false }) {
+  return (
+    <div style={{
+      background: 'rgba(241,231,200,0.08)',
+      border: '1px solid rgba(241,231,200,0.18)',
+      borderRadius: 10, padding: '8px 10px',
+      display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+      gap: 2,
+    }}>
+      <div style={{
+        fontSize: 9, letterSpacing: '0.10em', textTransform: 'uppercase',
+        color: 'rgba(201,160,64,0.85)', fontWeight: 800,
+      }}>{label}</div>
+      <div style={{
+        fontSize: small ? 12 : 18, fontWeight: 900, color: '#F1E7C8',
+        fontFamily: '"Arial Black", Arial, sans-serif',
+        letterSpacing: small ? '0.04em' : '0',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        maxWidth: '100%',
+      }}>{value}</div>
+    </div>
+  )
+}
+
 // ─── LeagueAnnouncementBanner — pinned latest, visible to ALL members ──
-function LeagueAnnouncementBanner({ league }) {
+function LeagueAnnouncementBanner({ league, hero = false }) {
   const list = Array.isArray(league?.config?.announcements) ? league.config.announcements : []
   const latest = list[0]
   const [dismissed, setDismissed] = useState(false)
@@ -1069,36 +1140,54 @@ function LeagueAnnouncementBanner({ league }) {
     return `${Math.floor(min / 1440)}d ago`
   }
 
+  // Banner adapts based on whether it's inside the dark hero or
+  // floating on a light surface. (Visual polish.)
+  const palette = hero ? {
+    bg: 'rgba(0,0,0,0.30)',
+    border: '1px solid rgba(201,160,64,0.45)',
+    iconBg: 'rgba(201,160,64,0.30)',
+    iconBorder: '1px solid rgba(201,160,64,0.55)',
+    iconStroke: '#F5D78A',
+    overline: '#F5D78A',
+    timestamp: 'rgba(241,231,200,0.55)',
+    body: 'rgba(241,231,200,0.92)',
+    closeBtn: 'rgba(241,231,200,0.55)',
+  } : {
+    bg: 'linear-gradient(135deg, rgba(245,215,138,0.18), rgba(201,160,64,0.10))',
+    border: '1px solid rgba(245,215,138,0.50)',
+    iconBg: 'rgba(201,160,64,0.20)',
+    iconBorder: '1px solid rgba(201,160,64,0.35)',
+    iconStroke: '#7A5800',
+    overline: '#7A5800',
+    timestamp: 'rgba(13,31,18,0.45)',
+    body: '#0E3B23',
+    closeBtn: 'rgba(13,31,18,0.45)',
+  }
   return (
     <div style={{
       marginTop: 10, padding: '10px 12px', borderRadius: 12,
-      background: 'linear-gradient(135deg, rgba(245,215,138,0.18), rgba(201,160,64,0.10))',
-      border: '1px solid rgba(245,215,138,0.50)',
+      background: palette.bg, border: palette.border,
       display: 'flex', alignItems: 'flex-start', gap: 10,
     }}>
       <div style={{
         width: 28, height: 28, borderRadius: 6, flexShrink: 0,
-        background: 'rgba(201,160,64,0.20)',
-        border: '1px solid rgba(201,160,64,0.35)',
+        background: palette.iconBg, border: palette.iconBorder,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         marginTop: 1,
       }}>
-        {/* Round 29 audit — bespoke megaphone SVG instead of 📣. This
-            banner is visible to every league member; aesthetic
-            consistency with the rest of the app matters. */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={palette.iconStroke} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 11l18-5v12L3 13z"/>
           <path d="M11.6 16.8a3 3 0 1 1 -5.2 3"/>
         </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#7A5800', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: palette.overline, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
             {latest.posted_by_name || 'Commissioner'}
           </span>
-          <span style={{ fontSize: 9, color: 'rgba(13,31,18,0.45)' }}>· {whenStr(latest.posted_at)}</span>
+          <span style={{ fontSize: 9, color: palette.timestamp }}>· {whenStr(latest.posted_at)}</span>
         </div>
-        <div style={{ fontSize: 12, color: '#0E3B23', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{latest.text}</div>
+        <div style={{ fontSize: 12, color: palette.body, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{latest.text}</div>
       </div>
       <button
         onClick={() => {
@@ -1108,7 +1197,7 @@ function LeagueAnnouncementBanner({ league }) {
         aria-label="Dismiss"
         style={{
           background: 'transparent', border: 'none',
-          color: 'rgba(13,31,18,0.45)', fontSize: 16, cursor: 'pointer',
+          color: palette.closeBtn, fontSize: 16, cursor: 'pointer',
           padding: '0 4px', lineHeight: 1, flexShrink: 0,
         }}>✕</button>
     </div>
