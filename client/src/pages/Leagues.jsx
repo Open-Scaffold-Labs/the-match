@@ -20,15 +20,33 @@ const AUGUSTA_CREAM  = '#F1E7C8'
 
 // ─── Top-level decision: paywall vs hub ─────────────────────────────────
 export default function Leagues({ user, onCreateEventInLeague }) {
-  // Two-stage tier check:
-  //   1. If we already know the user (passed in by App), trust it.
-  //   2. Listen to fetch failures with status 402; if any, fall through
-  //      to paywall regardless of stale local user.tier.
+  // Round 7 audit fix — tier handling is more nuanced than "Elite=hub,
+  // free=paywall". A free-tier user added to a paying commissioner's
+  // league STILL needs to see standings + announcements + events for
+  // that league. The whole GTM motion depends on this: commissioner
+  // pays once, brings 16 players for free, those players get exposed
+  // to Elite via the product.
+  //
+  // New rules:
+  //   - LeaguesHub renders for everyone (Elite + free).
+  //   - LeaguesHub asks /api/leagues for leagues the user is a member
+  //     of. Free users see only the leagues they were ADDED to (none
+  //     if they're brand new). Elite users see those + ones they
+  //     created.
+  //   - Free users get an inline "Upgrade to create your own league"
+  //     card above the league list.
+  //   - 402 from a downstream commissioner-only action (create / edit
+  //     rules / post announcement) flips to the full paywall page so
+  //     the user knows exactly what they're trying to do that needs
+  //     Elite.
   const [view, setView]     = useState('hub')         // 'hub' | 'detail' | 'create'
   const [activeLeagueId, setActiveLeagueId] = useState(null)
   const [paywall, setPaywall] = useState(null)        // null or { current, message }
 
-  if (paywall || (user && user.tier !== 'elite')) {
+  // Only flip to full paywall when explicitly triggered by a 402
+  // response from a tier-gated action (create / edit rules / etc).
+  // Free users browsing leagues they're members of stay on the hub.
+  if (paywall) {
     return <LeaguesPaywall current={user?.tier || 'free'} reason={paywall?.message} />
   }
 
@@ -53,8 +71,20 @@ export default function Leagues({ user, onCreateEventInLeague }) {
   }
   return (
     <LeaguesHub
+      isElite={user?.tier === 'elite'}
       onOpen={(id) => { setActiveLeagueId(id); setView('detail') }}
-      onCreate={() => setView('create')}
+      onCreate={() => {
+        // Free user tapping Create → flip to full paywall with the
+        // exact upgrade copy. Elite user → wizard.
+        if (user?.tier !== 'elite') {
+          setPaywall({
+            current: user?.tier || 'free',
+            message: 'Creating leagues is part of The Match Elite. Upgrade to host your own.',
+          })
+        } else {
+          setView('create')
+        }
+      }}
       on402={(payload) => setPaywall(payload || { current: 'free' })}
     />
   )
@@ -164,7 +194,7 @@ function LeaguesPaywall({ current = 'free', reason }) {
 }
 
 // ─── LeaguesHub — list of my leagues ────────────────────────────────────
-function LeaguesHub({ onOpen, onCreate, on402 }) {
+function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
   const [leagues, setLeagues] = useState(null)
   const [error, setError]     = useState(null)
 
@@ -205,16 +235,32 @@ function LeaguesHub({ onOpen, onCreate, on402 }) {
       </div>
 
       <div className="page-scroll" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Round 7 audit fix — Create button is gold-outlined "Upgrade
+            to create" for free users, primary green for Elite. The
+            actual paywall flip happens in the parent's onCreate. */}
         <button onClick={onCreate}
           style={{
-            padding: '14px 16px', borderRadius: 14, border: 'none',
-            background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
-            color: '#fff', fontWeight: 800, fontSize: 15,
-            boxShadow: '0 4px 16px rgba(46,158,69,0.30)',
+            padding: '14px 16px', borderRadius: 14, border: isElite ? 'none' : '1px solid rgba(201,160,64,0.50)',
+            background: isElite
+              ? 'linear-gradient(135deg, #1A6B28, #2E9E45)'
+              : 'linear-gradient(135deg, rgba(245,215,138,0.20), rgba(201,160,64,0.10))',
+            color: isElite ? '#fff' : '#7A5800',
+            fontWeight: 800, fontSize: 15,
+            boxShadow: isElite ? '0 4px 16px rgba(46,158,69,0.30)' : 'none',
             cursor: 'pointer',
           }}>
-          + Create league
+          {isElite ? '+ Create league' : '✨ Upgrade to create a league'}
         </button>
+        {!isElite && (
+          <div style={{
+            fontSize: 11, color: 'rgba(13,31,18,0.55)',
+            background: 'rgba(255,255,255,0.6)',
+            border: '1px solid rgba(13,31,18,0.08)',
+            padding: '10px 12px', borderRadius: 10, lineHeight: 1.5,
+          }}>
+            You can still <strong>play in any league a friend invites you to</strong> — standings, schedules, and announcements are all visible. Hosting your own league requires The Match Elite ($7.50/mo annual).
+          </div>
+        )}
 
         {leagues == null ? (
           <div style={{ color: 'rgba(13,31,18,0.55)', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>

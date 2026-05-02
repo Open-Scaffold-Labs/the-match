@@ -22,7 +22,16 @@ const requireElite  = require('../middleware/requireElite')
 const db            = require('../db')
 
 router.use(requireAuth)
-router.use(requireElite)
+
+// Round 7 audit fix — DON'T gate every route behind requireElite.
+// Free-tier players added to a paying commissioner's league must
+// still be able to view standings, events, roster, and announcements.
+// That's the whole GTM lever: commissioner pays once, brings 16
+// players for free, those players become exposed to Elite via the
+// product. Only CREATE league + commissioner-only actions require
+// Elite tier. Read-only routes are auth + membership.
+//
+// Routes gated by Elite explicitly call requireElite below.
 
 // Round 3 audit fix — whitelist scoring formats. Without this any 32-char
 // string was accepted into tm_leagues.scoring_format and would later
@@ -57,8 +66,8 @@ router.get('/', async (req, res) => {
   }
 })
 
-// ─── POST /api/leagues — create ──────────────────────────────────────────
-router.post('/', async (req, res) => {
+// ─── POST /api/leagues — create (Elite only) ────────────────────────────
+router.post('/', requireElite, async (req, res) => {
   try {
     const { name, season, scoring_format, description, config } = req.body
     if (typeof name !== 'string' || name.trim().length === 0) {
@@ -133,8 +142,8 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// ─── PUT /api/leagues/:id — commissioner update ─────────────────────────
-router.put('/:id', async (req, res) => {
+// ─── PUT /api/leagues/:id — commissioner update (Elite only) ───────────
+router.put('/:id', requireElite, async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
     if (!league) return res.status(404).json({ error: 'Not found' })
@@ -181,8 +190,8 @@ router.put('/:id', async (req, res) => {
   }
 })
 
-// ─── DELETE /api/leagues/:id — commissioner delete ──────────────────────
-router.delete('/:id', async (req, res) => {
+// ─── DELETE /api/leagues/:id — commissioner delete (Elite only) ────────
+router.delete('/:id', requireElite, async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
     if (!league) return res.status(404).json({ error: 'Not found' })
@@ -383,8 +392,8 @@ router.get('/:id/members', async (req, res) => {
   }
 })
 
-// ─── POST /api/leagues/:id/members — commissioner adds player ──────────
-router.post('/:id/members', async (req, res) => {
+// ─── POST /api/leagues/:id/members — commissioner adds player (Elite) ─
+router.post('/:id/members', requireElite, async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
     if (!league) return res.status(404).json({ error: 'Not found' })
@@ -414,6 +423,8 @@ router.post('/:id/members', async (req, res) => {
 })
 
 // ─── DELETE /api/leagues/:id/members/:userId — soft-remove ─────────────
+// NOT Elite-gated — a free-tier member must be able to remove THEMSELVES.
+// Commissioner restrictions still apply via membership check inside.
 router.delete('/:id/members/:userId', async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
@@ -441,11 +452,11 @@ router.delete('/:id/members/:userId', async (req, res) => {
   }
 })
 
-// ─── POST /api/leagues/:id/announcement — push to every member ──────────
+// ─── POST /api/leagues/:id/announcement — push to every member (Elite) ─
 // Distinct from the per-event /:code/announcement (which only fans out to
 // one event's participants). This one targets the entire league roster.
 // Stored on league.config.announcements[] (capped at 50 most-recent).
-router.post('/:id/announcement', async (req, res) => {
+router.post('/:id/announcement', requireElite, async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
     if (!league) return res.status(404).json({ error: 'Not found' })
@@ -502,12 +513,12 @@ router.post('/:id/announcement', async (req, res) => {
   }
 })
 
-// ─── GET /api/leagues/:id/audit — cross-event audit aggregator ──────────
+// ─── GET /api/leagues/:id/audit — cross-event audit (Elite commish) ────
 // Aggregates tm_score_audit entries across every event in the league,
 // ordered newest first. Cursor pagination matches the per-event endpoint.
 // Commissioner-only — audit content reveals score corrections that the
 // roster shouldn't see.
-router.get('/:id/audit', async (req, res) => {
+router.get('/:id/audit', requireElite, async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
     if (!league) return res.status(404).json({ error: 'Not found' })
@@ -557,11 +568,11 @@ router.get('/:id/audit', async (req, res) => {
   }
 })
 
-// ─── GET /api/leagues/:id/export.csv — bundled season CSV ──────────────
+// ─── GET /api/leagues/:id/export.csv — bundled season CSV (Elite) ──────
 // Concatenates every event's results into one CSV with an extra
 // 'Event' column so the commissioner can pivot/filter externally.
 // Same formula-injection guards as the per-event export.
-router.get('/:id/export.csv', async (req, res) => {
+router.get('/:id/export.csv', requireElite, async (req, res) => {
   try {
     const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
     if (!league) return res.status(404).json({ error: 'Not found' })
