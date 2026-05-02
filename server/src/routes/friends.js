@@ -378,6 +378,16 @@ router.post('/request', async (req, res) => {
       [req.user.id, target.id]
     )
 
+    // Mirror into tm_follows. Per migration 007's pattern, sending a
+    // request = the requester is now following the requestee (one-way).
+    // Accept later adds the reverse direction. (2026-05-02 — runtime
+    // sync was missing; counts diverged from the legacy friend table.)
+    await db.query(
+      `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2)
+       ON CONFLICT (follower_id, following_id) DO NOTHING`,
+      [req.user.id, target.id]
+    )
+
     // Fire-and-forget push to the recipient. Don't await it — the
     // request response shouldn't wait on push provider latency, and a
     // push failure shouldn't fail the friend-request creation.
@@ -408,14 +418,30 @@ router.put('/:id/respond', async (req, res) => {
     )
     if (!row) return res.status(404).json({ error: 'Request not found' })
 
-    // Tell the original requester their request was accepted.
+    // Mirror into tm_follows so the follower/following/mutual counts
+    // stay in sync with friend-request acceptance. Accept inserts the
+    // reverse-direction follow (requestee → requester) — the forward
+    // direction was already inserted at request time.
     if (status === 'accepted') {
+      await db.query(
+        `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2)
+         ON CONFLICT (follower_id, following_id) DO NOTHING`,
+        [req.user.id, row.requester_id]
+      )
+
+      // Tell the original requester their request was accepted.
       sendPushToUser(row.requester_id, {
         title: 'Friend request accepted',
         body: `${req.user.name || 'They'} accepted your friend request`,
         url: '/',
         tag: 'friend-accepted',
       }).catch(err => console.error('[push] friend-accepted', err.message))
+    } else if (status === 'declined') {
+      // Remove the requester's one-way follow created at request time.
+      await db.query(
+        `DELETE FROM tm_follows WHERE follower_id = $1 AND following_id = $2`,
+        [row.requester_id, req.user.id]
+      )
     }
 
     res.json({ ok: true })
@@ -428,10 +454,26 @@ router.put('/:id/respond', async (req, res) => {
 // DELETE /api/friends/:id — remove friend
 router.delete('/:id', async (req, res) => {
   try {
+    // Look up the row first so we know both user ids — needed to clean
+    // up tm_follows in both directions.
+    const row = await db.one(
+      `SELECT requester_id, requestee_id FROM tm_friends WHERE id = $1
+       AND (requester_id = $2 OR requestee_id = $2)`,
+      [req.params.id, req.user.id]
+    )
     await db.query(
       `DELETE FROM tm_friends WHERE id = $1 AND (requester_id = $2 OR requestee_id = $2)`,
       [req.params.id, req.user.id]
     )
+    // Tear down both follow directions so the counts shrink in sync.
+    if (row) {
+      await db.query(
+        `DELETE FROM tm_follows
+         WHERE (follower_id = $1 AND following_id = $2)
+            OR (follower_id = $2 AND following_id = $1)`,
+        [row.requester_id, row.requestee_id]
+      )
+    }
     res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: 'Failed' })
