@@ -10,6 +10,7 @@ import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
 import PermissionsPrompt from './components/PermissionsPrompt.jsx'
+import PublicLeaderboard from './pages/PublicLeaderboard.jsx'
 import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
 
@@ -111,6 +112,19 @@ export default function App() {
       return () => clearTimeout(t)
     }
   }, [user?.id, user?.onboarding_completed_at])
+
+  // Public live leaderboard short-circuit. ?live=ABCD on the URL
+  // bypasses auth + onboarding entirely so a tee-box QR code or a
+  // shared link in a group chat just works for spectators who don't
+  // have an account. (Round 2 audit — public live leaderboard.)
+  const liveCode = (() => {
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const c = sp.get('live')
+      return c ? c.toUpperCase() : null
+    } catch { return null }
+  })()
+  if (liveCode) return <PublicLeaderboard code={liveCode} />
 
   if (loading) return <Splash />
   if (!user)   return <Login onLogin={setUser} />

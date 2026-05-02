@@ -2,6 +2,95 @@ const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
 
+// ─── PUBLIC live leaderboard — no auth ────────────────────────────────────────
+// GET /api/outings/:code/public
+//
+// Returns a sanitized snapshot of an outing's leaderboard so anyone
+// with the URL (e.g. tee-box QR scan, group-chat share) can see
+// live scores without an account. Strips emails + per-player
+// permissions + commissioner config; keeps name, handle, score,
+// position, and the format / course context.
+//
+// Mounted BEFORE the requireAuth middleware so the endpoint is
+// genuinely public. Cache-friendly (no Authorization header).
+//
+// (Round 2 audit — public live leaderboard.)
+router.get('/:code/public', async (req, res) => {
+  try {
+    const row = await db.one(
+      'SELECT id, code, name, course_name, course_par, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, state FROM tm_outings WHERE code = $1',
+      [req.params.code.toUpperCase()]
+    )
+    if (!row) return res.status(404).json({ error: 'Outing not found' })
+
+    // Enrich participants with live scores from tm_outing_participants
+    // (same pattern as the authed GET) but trim to public fields only.
+    const partRows = await db.many(
+      `SELECT op.user_id, op.scores, u.name, u.handle, u.handicap, u.avatar
+       FROM tm_outing_participants op
+       LEFT JOIN tm_users u ON u.id = op.user_id
+       WHERE op.outing_id = $1`,
+      [row.id]
+    )
+    const state = row.state || { participants: [] }
+    const enriched = (state.participants || []).map(p => {
+      if (p.is_guest) {
+        return {
+          user_id: p.user_id,
+          name: p.name,
+          is_guest: true,
+          scores: p.scores || [],
+          total: p.total ?? 0,
+          holes_played: p.holes_played ?? 0,
+          group_id: p.group_id ?? null,
+          team_id:  p.team_id  ?? null,
+          withdrawn: !!p.withdrawn,
+        }
+      }
+      const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
+      return {
+        user_id: p.user_id,
+        name: dp?.name || p.name || 'Player',
+        handle: dp?.handle || null,
+        avatar: dp?.avatar ?? null,
+        handicap: dp?.handicap ?? null,
+        scores: dp?.scores || [],
+        total: p.total ?? 0,
+        holes_played: p.holes_played ?? 0,
+        group_id: p.group_id ?? null,
+        team_id:  p.team_id  ?? null,
+        withdrawn: !!p.withdrawn,
+      }
+    })
+
+    res.json({
+      outing: {
+        code: row.code,
+        name: row.name,
+        course_name: row.course_name,
+        course_par:  row.course_par,
+        scoring_formats: row.scoring_formats,
+        status: row.status,
+        hole_pars: row.hole_pars,
+        hole_handicaps: row.hole_handicaps,
+        expected_players: row.expected_players,
+        team_breakdown: row.team_breakdown,
+        state: {
+          holes: state.holes ?? 18,
+          handicap_allowance: state.handicap_allowance ?? 100,
+          stableford_points: state.stableford_points ?? null,
+          groups: state.groups ?? [],
+          team_breakdown: state.team_breakdown ?? null,
+          participants: enriched.filter(p => !p.withdrawn),
+        },
+      },
+    })
+  } catch (err) {
+    console.error('[outings/public]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 router.use(requireAuth)
 
 // Generate a random 4-char alphanumeric code (no 0/O/I/1 confusion)

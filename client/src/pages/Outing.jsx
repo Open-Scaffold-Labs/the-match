@@ -3353,6 +3353,24 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
               borderRadius: 20, padding: '3px 10px',
               color: 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>+ Guest</button>
+            {/* Share live leaderboard URL — hands the commissioner a
+                no-auth public link to drop in their group chat or
+                print on the tee-box flyer. (Round 2 audit.) */}
+            <button onClick={() => {
+              const url = `${window.location.origin}/?live=${code}`
+              if (navigator.share) {
+                navigator.share({ title: outing.name, url, text: `${outing.name} · live leaderboard` }).catch(() => {})
+              } else {
+                navigator.clipboard?.writeText(url).then(() => alert('Live leaderboard link copied:\n' + url)).catch(() => alert(url))
+              }
+            }} style={{
+              background: 'rgba(94,212,122,0.10)', border: '1px solid rgba(94,212,122,0.40)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#5ED47A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }} title="Share a live, no-login link to this leaderboard — perfect for the tee box or your group chat">
+              📡 Share live
+            </button>
             <button onClick={() => setShowManage(true)} style={{
               background: 'rgba(245,215,138,0.12)', border: '1px solid rgba(245,215,138,0.35)',
               borderRadius: 20, padding: '3px 10px',
