@@ -413,14 +413,17 @@ router.put('/:id/respond', async (req, res) => {
     )
     if (!row) return res.status(404).json({ error: 'Request not found' })
 
-    // Mirror into tm_follows. ACCEPT creates BOTH directions of follow
-    // (mutual). DECLINE doesn't touch tm_follows because the request
-    // never created any follow row in the first place. (2026-05-02)
+    // Mirror into tm_follows. ACCEPT creates ONE direction:
+    // requester → requestee. The requestee was approached and said
+    // yes; the requester now follows them. Mutual requires the
+    // requestee to follow back (send their own request, get accepted)
+    // — not auto-created. (2026-05-02 — Matt: "in order for it to
+    // be mutual they would then have to follow back")
     if (status === 'accepted') {
       await db.query(
-        `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2), ($2, $1)
+        `INSERT INTO tm_follows (follower_id, following_id) VALUES ($1, $2)
          ON CONFLICT (follower_id, following_id) DO NOTHING`,
-        [req.user.id, row.requester_id]
+        [row.requester_id, req.user.id]
       )
 
       // Tell the original requester their request was accepted.
