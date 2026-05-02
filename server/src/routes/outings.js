@@ -14,6 +14,15 @@ const db          = require('../db')
 // Mounted BEFORE the requireAuth middleware so the endpoint is
 // genuinely public. Cache-friendly (no Authorization header).
 //
+// IMPORTANT — Vercel Deployment Protection. If Vercel's "Deployment
+// Protection" is on for the project, ALL routes (including this
+// public one) get an upstream 401 before our app ever sees the
+// request. To make the QR / share-link path actually work in prod,
+// Project Settings → Deployment Protection → Production must be
+// "Disabled" (or use a public bypass token). This is a deploy-time
+// setting, not a code change. (Round 20 audit — flagging here so a
+// future fresh deploy doesn't get caught by the same block.)
+//
 // (Round 2 audit — public live leaderboard.)
 router.get('/:code/public', async (req, res) => {
   try {

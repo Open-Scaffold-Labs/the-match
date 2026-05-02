@@ -5955,12 +5955,16 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)' }}>
                   {auditEntries ? `${auditEntries.length} change${auditEntries.length !== 1 ? 's' : ''}` : ''}
                 </div>
-                <button onClick={loadAudit} disabled={auditLoading} style={{
+                {/* 6.6 — disable Refresh while a "Load more" is in flight,
+                    so a refresh+pagination race can't interleave responses
+                    and leave the entries list mismatched against the cursor.
+                    (Round 16 edge-case audit.) */}
+                <button onClick={loadAudit} disabled={auditLoading || auditLoadingMore} style={{
                   padding: '4px 10px', borderRadius: 999,
                   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
                   color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700,
                   cursor: 'pointer', fontFamily: 'inherit',
-                  opacity: auditLoading ? 0.6 : 1,
+                  opacity: (auditLoading || auditLoadingMore) ? 0.6 : 1,
                 }}>{auditLoading ? '…' : 'Refresh'}</button>
               </div>
               {auditLoading && auditEntries == null && (
