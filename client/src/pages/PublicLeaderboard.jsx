@@ -295,12 +295,15 @@ export default function PublicLeaderboard({ code }) {
   const pointsByPlayer = isStableford
     ? computeStablefordPub(participants, holePars, data.state?.stableford_points)
     : {}
-  // Compute team standings only when best-ball is the format AND there
-  // are at least two teams declared. Otherwise the team view collapses
-  // to one block — better to fall through to flat player rows.
-  const bestBallTeams = isBestBall && teamsRaw.length >= 2
+  // Compute team standings only when best-ball is the format AND
+  // there are at least two teams declared. If no participants have
+  // a team_id (best-ball outing where teams were never assigned),
+  // computeBestBallPub returns []; fall back to the flat view in that
+  // case so players still show up. (Round 15 edge-case audit.)
+  const bestBallTeamsRaw = isBestBall && teamsRaw.length >= 2
     ? computeBestBallPub(participants, holePars, teamsRaw)
     : null
+  const bestBallTeams = bestBallTeamsRaw && bestBallTeamsRaw.length > 0 ? bestBallTeamsRaw : null
 
   const sorted = [...participants].sort((a, b) => {
     if (isSkins) {
