@@ -2041,7 +2041,12 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
   // Coerce to Number — NUMERIC(4,1) arrives as a string from pg.
-  const hcpNum = user?.handicap == null ? null : Number(user.handicap)
+  // Prefer stats.handicap (calculated from the user's last 5+ rounds)
+  // over user.handicap (seeded onboarding value) so the header here
+  // matches HcpBadge below — they used to disagree (18 vs 15.5) once
+  // the calculated index switched in. (2026-05-01 — Matt)
+  const rawHcp = stats?.handicap ?? user?.handicap
+  const hcpNum = rawHcp == null ? null : Number(rawHcp)
   const handicapDisplay = !Number.isFinite(hcpNum)
     ? '—'
     : hcpNum >= 0
