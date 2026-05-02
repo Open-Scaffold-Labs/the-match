@@ -169,13 +169,7 @@ export default function App() {
   return (
     <div style={{
       minHeight: '100dvh',
-      // Local background — Matt's edit of the Unsplash original with
-      // the cup hole filled in and the Titleist branding removed so we
-      // don't carry someone else's trademark in the app's hero shot.
-      // Same 1200x800 dimensions / aspect / focal area as the original
-      // so the existing backgroundSize: 'cover' + backgroundPosition:
-      // 'center 40%' continue to crop it identically. (2026-05-02)
-      backgroundImage: 'url("/bg-green.jpg")',
+      backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
       backgroundSize: 'cover',
       backgroundPosition: 'center 40%',
       backgroundAttachment: 'fixed',
