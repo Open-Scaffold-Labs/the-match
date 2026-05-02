@@ -154,6 +154,11 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
               background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>{user?.name ?? '—'}</div>
+            {user?.handle && (
+              <div style={{ color: 'rgba(122,88,0,0.65)', fontSize: 11, fontWeight: 600, marginBottom: 4, letterSpacing: '0.01em' }}>
+                @{user.handle}
+              </div>
+            )}
             {user?.home_course ? (
               <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -2256,6 +2261,12 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}>{user?.name ?? '—'}</div>
 
+                {user?.handle && (
+                  <div style={{ color: 'rgba(245,215,138,0.65)', fontSize: 12, fontWeight: 600, letterSpacing: '0.01em' }}>
+                    @{user.handle}
+                  </div>
+                )}
+
                 {user?.home_course ? (
                   <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -2900,8 +2911,15 @@ function UserSearchModal({ onSelectUser, onClose }) {
                     color: '#F5D78A', fontSize: 15, fontWeight: 800, flexShrink: 0,
                   }}>{(u.name || '?').slice(0,1).toUpperCase()}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {u.name}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, overflow: 'hidden' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {u.name}
+                      </span>
+                      {u.handle && (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(245,215,138,0.65)', whiteSpace: 'nowrap' }}>
+                          @{u.handle}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {[hcpStr, u.home_course].filter(Boolean).join(' · ') || u.email}

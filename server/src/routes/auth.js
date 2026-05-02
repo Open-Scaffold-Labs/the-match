@@ -3,6 +3,7 @@ const rateLimit = require('express-rate-limit')
 const bcrypt    = require('bcryptjs')
 const jwt       = require('jsonwebtoken')
 const db        = require('../db')
+const { generateUniqueHandle } = require('../lib/handle')
 
 function mintToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '90d' })
@@ -33,10 +34,13 @@ router.post('/signup', authLimiter, async (req, res) => {
     if (exists) return res.status(409).json({ error: 'Email already registered' })
 
     const hash = await bcrypt.hash(pin, 10)
+    // Auto-generate a unique handle from name + email. Mirrors the
+    // backfill in migration 014. (2026-05-01 — Matt)
+    const handle = await generateUniqueHandle(name, email, db)
     const user = await db.one(
-      `INSERT INTO tm_users (email, name, pin_hash) VALUES ($1, $2, $3)
-       RETURNING id, email, name, role, onboarding_completed_at, onboarding_steps, coach_marks_seen`,
-      [email.toLowerCase(), name.trim(), hash]
+      `INSERT INTO tm_users (email, name, pin_hash, handle) VALUES ($1, $2, $3, $4)
+       RETURNING id, email, name, handle, role, onboarding_completed_at, onboarding_steps, coach_marks_seen`,
+      [email.toLowerCase(), name.trim(), hash, handle]
     )
     res.status(201).json({ token: mintToken(user.id), user })
   } catch (err) {
@@ -52,7 +56,7 @@ router.post('/login', authLimiter, async (req, res) => {
     if (!email || !pin) return res.status(400).json({ error: 'email and pin required' })
 
     const user = await db.one(
-      'SELECT id, email, name, role, pin_hash FROM tm_users WHERE email = $1',
+      'SELECT id, email, name, handle, role, pin_hash FROM tm_users WHERE email = $1',
       [email.toLowerCase()]
     )
     if (!user) return res.status(401).json({ error: 'Invalid email or PIN' })
@@ -74,7 +78,7 @@ router.get('/me', async (req, res) => {
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
   try {
     const { sub } = jwt.verify(header.slice(7), process.env.JWT_SECRET)
-    const user = await db.one('SELECT id, email, name, role, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [sub])
+    const user = await db.one('SELECT id, email, name, handle, role, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [sub])
     if (!user) return res.status(401).json({ error: 'Not found' })
     res.json({ user })
   } catch {

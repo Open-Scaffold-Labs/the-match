@@ -22,6 +22,7 @@ router.get('/', async (req, res) => {
         `SELECT f.id, f.created_at,
                 CASE WHEN f.requester_id = $1 THEN u2.id ELSE u1.id END AS friend_id,
                 CASE WHEN f.requester_id = $1 THEN u2.name ELSE u1.name END AS friend_name,
+                CASE WHEN f.requester_id = $1 THEN u2.handle ELSE u1.handle END AS friend_handle,
                 CASE WHEN f.requester_id = $1 THEN u2.home_course ELSE u1.home_course END AS friend_home_course,
                 CASE WHEN f.requester_id = $1 THEN u2.handicap ELSE u1.handicap END AS friend_handicap
          FROM tm_friends f
@@ -96,7 +97,7 @@ router.get('/:friendId/profile', async (req, res) => {
     const [friend, seasonRows, allRoundRows, clubData, h2hRow, availability, followCounts, rivalryRows] = await Promise.all([
       // Friend's profile + avatar
       db.one(
-        `SELECT id, name, handicap, home_course, bio, avatar FROM tm_users WHERE id = $1`,
+        `SELECT id, name, handle, handicap, home_course, bio, avatar FROM tm_users WHERE id = $1`,
         [friendId]
       ),
 
@@ -266,23 +267,29 @@ router.get('/:friendId/profile', async (req, res) => {
 })
 
 
-// GET /api/friends/search?q= — find players by name or email (exclude self + existing relations)
+// GET /api/friends/search?q= — find players by name, email, or handle
+// (excludes self; results carry friend_status so the UI can render
+// the right pill). Strips a leading '@' from the query so users can
+// type '@mlav' or 'mlav' interchangeably.
 router.get('/search', async (req, res) => {
   try {
-    const { q } = req.query
-    if (!q || q.trim().length < 2) return res.json([])
+    const raw = (req.query.q ?? '').toString().trim()
+    const cleaned = raw.startsWith('@') ? raw.slice(1) : raw
+    if (!cleaned || cleaned.length < 2) return res.json([])
     const uid = req.user.id
-    const term = `%${q.trim().toLowerCase()}%`
+    const term = `%${cleaned.toLowerCase()}%`
 
+    // Handles are already stored lowercase per the CHECK constraint,
+    // so the lowercased LIKE term works directly against u.handle.
     const results = await db.many(
-      `SELECT u.id, u.name, u.email, u.handicap, u.home_course,
+      `SELECT u.id, u.name, u.email, u.handle, u.handicap, u.home_course,
               f.status AS friend_status
        FROM tm_users u
        LEFT JOIN tm_friends f
          ON (f.requester_id = u.id AND f.requestee_id = $1)
          OR (f.requestee_id = u.id AND f.requester_id = $1)
        WHERE u.id != $1
-         AND (LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2)
+         AND (LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2 OR u.handle LIKE $2)
        ORDER BY u.name
        LIMIT 10`,
       [uid, term]

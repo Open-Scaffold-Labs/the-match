@@ -216,6 +216,11 @@ function FriendSeasonCard({ friend, season, avg3 }) {
             <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
               {friend?.name}
             </div>
+            {(friend?.handle || data?.friend?.handle) && (
+              <div style={{ color: 'rgba(245,215,138,0.65)', fontSize: 11, fontWeight: 600, marginTop: 2, letterSpacing: '0.01em' }}>
+                @{friend?.handle || data?.friend?.handle}
+              </div>
+            )}
             {friend?.home_course && (
               <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
