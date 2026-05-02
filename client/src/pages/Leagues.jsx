@@ -147,21 +147,78 @@ function LeaguesPaywall({ current = 'free', reason }) {
       fontFamily: '"Georgia", serif',
       padding: 'calc(var(--safe-top) + 24px) 20px 80px',
       overflowY: 'auto',
+      position: 'relative',
+      overflow: 'hidden auto',
     }}>
-      {/* Hero */}
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+      {/* Ambient radial glow behind the trophy crest. Gives the hero
+          actual focus / depth instead of a flat green wash. Pinned to
+          the top center, sized so it bleeds off the edges. */}
+      <div aria-hidden style={{
+        position: 'absolute', top: 0, left: '50%',
+        transform: 'translateX(-50%)',
+        width: 520, height: 380,
+        background: 'radial-gradient(ellipse at center top, rgba(232,192,90,0.22) 0%, transparent 60%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+
+      {/* Hero crest — 'ELITE' laurel arrangement */}
+      <div style={{ textAlign: 'center', marginBottom: 24, position: 'relative', zIndex: 1 }}>
+        {/* Crest: large trophy framed by two laurel sprigs */}
         <div style={{
-          fontSize: 10, letterSpacing: '0.30em', color: AUGUSTA_GOLD,
-          fontWeight: 700, marginBottom: 6,
-        }}>THE MATCH ELITE</div>
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          gap: 12, marginBottom: 14,
+        }}>
+          {/* Left laurel */}
+          <svg width="38" height="56" viewBox="0 0 38 56" fill="none" stroke={AUGUSTA_GOLD} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}>
+            <path d="M30 4 Q 18 14 16 28 Q 16 42 30 52" />
+            <path d="M28 9 Q 22 11 22 17" /><path d="M25 14 Q 19 16 19 22" /><path d="M22 20 Q 16 22 16 28" />
+            <path d="M22 36 Q 16 36 16 30" /><path d="M25 42 Q 19 42 19 36" /><path d="M28 47 Q 22 47 22 41" />
+          </svg>
+          {/* Centerpiece — large trophy in a circular gold-bordered medallion */}
+          <div style={{
+            width: 88, height: 88, borderRadius: '50%',
+            background: 'radial-gradient(circle at 50% 35%, rgba(245,215,138,0.30) 0%, rgba(201,160,64,0.10) 70%, transparent 100%)',
+            border: '2px solid rgba(201,160,64,0.65)',
+            boxShadow: '0 4px 24px rgba(201,160,64,0.30), inset 0 0 24px rgba(245,215,138,0.18)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'relative',
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={AUGUSTA_GOLD} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 4h8v4a4 4 0 0 1-8 0V4z" fill="rgba(232,192,90,0.20)"/>
+              <path d="M8 6H6a2 2 0 0 0 2 2"/>
+              <path d="M16 6h2a2 2 0 0 1-2 2"/>
+              <line x1="12" y1="12" x2="12" y2="16"/>
+              <line x1="9" y1="20" x2="15" y2="20"/>
+              <line x1="10" y1="16" x2="14" y2="16"/>
+            </svg>
+          </div>
+          {/* Right laurel (mirrored) */}
+          <svg width="38" height="56" viewBox="0 0 38 56" fill="none" stroke={AUGUSTA_GOLD} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85, transform: 'scaleX(-1)' }}>
+            <path d="M30 4 Q 18 14 16 28 Q 16 42 30 52" />
+            <path d="M28 9 Q 22 11 22 17" /><path d="M25 14 Q 19 16 19 22" /><path d="M22 20 Q 16 22 16 28" />
+            <path d="M22 36 Q 16 36 16 30" /><path d="M25 42 Q 19 42 19 36" /><path d="M28 47 Q 22 47 22 41" />
+          </svg>
+        </div>
+
         <div style={{
-          fontSize: 32, fontWeight: 900, letterSpacing: '-0.02em',
-          background: 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)',
+          fontSize: 10, letterSpacing: '0.40em', color: AUGUSTA_GOLD,
+          fontWeight: 800, marginBottom: 8,
+          fontFamily: '"Arial Black", Arial, sans-serif',
+        }}>THE MATCH · ELITE</div>
+        <div style={{
+          fontSize: 34, fontWeight: 900, letterSpacing: '-0.02em',
+          background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          marginBottom: 8,
+          marginBottom: 8, lineHeight: 1.05,
+          textShadow: '0 2px 24px rgba(232,192,90,0.18)',
+          fontFamily: '"Georgia", serif',
         }}>Run real leagues</div>
-        <div style={{ fontSize: 14, color: 'rgba(241,231,200,0.75)', lineHeight: 1.5 }}>
-          Tournament-grade tools for commissioners running weekly leagues, member-guests, charity outings, or season-long ladders.
+        <div style={{
+          fontSize: 14, color: 'rgba(241,231,200,0.78)',
+          lineHeight: 1.55, maxWidth: 360, margin: '0 auto',
+          fontStyle: 'italic',
+        }}>
+          Tournament-grade tools for the commissioner. Built for weekly leagues, member-guests, charity outings, or season-long ladders.
         </div>
         {reason && (
           <div style={{
@@ -171,6 +228,19 @@ function LeaguesPaywall({ current = 'free', reason }) {
           }}>{reason}</div>
         )}
       </div>
+
+      {/* Gold flourish divider — a centered three-diamond ornament with
+          hairline rules running off both sides. Editorial transition
+          between the hero and the benefits list. */}
+      <FlourishDivider />
+
+      {/* Section overline */}
+      <div style={{
+        fontSize: 9, letterSpacing: '0.30em', textAlign: 'center',
+        color: AUGUSTA_GOLD, fontWeight: 800, marginBottom: 16,
+        fontFamily: '"Arial Black", Arial, sans-serif',
+        position: 'relative', zIndex: 1,
+      }}>WHAT&apos;S INSIDE</div>
 
       {/* Benefits grid — bespoke SVG glyphs in gold-tinted square tiles
           to match the rest of the app's Augusta iconography. */}
@@ -198,43 +268,114 @@ function LeaguesPaywall({ current = 'free', reason }) {
         ))}
       </div>
 
-      {/* Pricing card */}
+      {/* Flourish before pricing — sets up the membership-card moment */}
+      <FlourishDivider />
+
+      {/* Pricing card — engraved-membership-card aesthetic. Gold inner
+          border + corner ornaments + serial-number footer give it the
+          weight of a real club card, not a SaaS price tile. */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(245,215,138,0.18), rgba(201,160,64,0.10))',
-        border: '1px solid rgba(245,215,138,0.55)',
+        position: 'relative',
+        background: 'linear-gradient(135deg, rgba(245,215,138,0.22), rgba(201,160,64,0.12))',
+        border: '1px solid rgba(245,215,138,0.65)',
         borderRadius: 18,
-        padding: '20px 18px',
+        padding: '24px 20px 22px',
         textAlign: 'center',
         marginBottom: 18,
+        boxShadow: '0 8px 32px rgba(201,160,64,0.20), inset 0 1px 0 rgba(245,215,138,0.40)',
+        zIndex: 1,
       }}>
-        <div style={{ fontSize: 11, color: AUGUSTA_GOLD, letterSpacing: '0.20em', fontWeight: 700, marginBottom: 6 }}>
-          ELITE
+        {/* Inner double-line frame — subtle but evokes a real card. */}
+        <div aria-hidden style={{
+          position: 'absolute', inset: 8, borderRadius: 12,
+          border: '1px solid rgba(245,215,138,0.30)',
+          pointerEvents: 'none',
+        }} />
+        {/* Four corner ornaments */}
+        {[
+          { top: 10, left: 10, rot: 0 },
+          { top: 10, right: 10, rot: 90 },
+          { bottom: 10, right: 10, rot: 180 },
+          { bottom: 10, left: 10, rot: 270 },
+        ].map((c, i) => (
+          <svg key={i} aria-hidden width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={AUGUSTA_GOLD} strokeWidth="1.2" strokeLinecap="round" style={{
+            position: 'absolute', ...c, transform: `rotate(${c.rot}deg)`,
+            opacity: 0.55, pointerEvents: 'none',
+          }}>
+            <path d="M2 2 L7 2" /><path d="M2 2 L2 7" />
+            <circle cx="2" cy="2" r="1" fill={AUGUSTA_GOLD} stroke="none" />
+          </svg>
+        ))}
+
+        <div style={{
+          fontSize: 11, color: AUGUSTA_GOLD, letterSpacing: '0.30em',
+          fontWeight: 800, marginBottom: 10,
+          fontFamily: '"Arial Black", Arial, sans-serif',
+        }}>MEMBERSHIP</div>
+        <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ fontSize: 18, fontWeight: 900, color: AUGUSTA_CREAM, lineHeight: 1 }}>$</span>
+          <span style={{
+            fontSize: 44, fontWeight: 900, color: AUGUSTA_CREAM, lineHeight: 1,
+            fontFamily: '"Georgia", serif', letterSpacing: '-0.02em',
+          }}>12</span>
+          <span style={{ fontSize: 22, fontWeight: 900, color: AUGUSTA_CREAM, lineHeight: 1 }}>.99</span>
+          <span style={{ fontSize: 13, color: 'rgba(241,231,200,0.60)', marginLeft: 4 }}>/mo</span>
         </div>
-        <div style={{ fontSize: 36, fontWeight: 900, color: AUGUSTA_CREAM, lineHeight: 1 }}>
-          $12.99<span style={{ fontSize: 14, color: 'rgba(241,231,200,0.60)' }}>/month</span>
+        <div style={{ fontSize: 11, color: 'rgba(241,231,200,0.65)', marginTop: 6, letterSpacing: '0.04em' }}>
+          or <strong style={{ color: AUGUSTA_GOLD }}>$89.99/year</strong> · save $66
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(241,231,200,0.55)', marginTop: 4 }}>
-          or $89.99/year (save $66)
-        </div>
+
         <button
           onClick={() => alert('Stripe checkout coming soon. For early access, ping Matt for an invite code.')}
           style={{
-            marginTop: 16, width: '100%', padding: 14, borderRadius: 12,
-            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            marginTop: 18, width: '100%', padding: '15px 14px', borderRadius: 12,
+            background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
             color: '#1A1000', border: 'none',
-            fontWeight: 800, fontSize: 15, cursor: 'pointer',
-            fontFamily: 'inherit', letterSpacing: '0.02em',
+            fontWeight: 900, fontSize: 15, cursor: 'pointer',
+            fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            boxShadow: '0 4px 14px rgba(201,160,64,0.40), inset 0 1px 0 rgba(255,255,255,0.50)',
+            WebkitTapHighlightColor: 'transparent',
           }}>
           Upgrade to Elite
         </button>
+        <div style={{
+          fontSize: 9, letterSpacing: '0.18em', color: 'rgba(241,231,200,0.45)',
+          marginTop: 12, fontWeight: 700,
+          fontFamily: '"Arial Black", Arial, sans-serif',
+        }}>NO. {String(Date.now()).slice(-6)} · CHARTER MEMBER</div>
       </div>
 
       <div style={{
-        textAlign: 'center', fontSize: 11, color: 'rgba(241,231,200,0.45)',
-        lineHeight: 1.6,
+        textAlign: 'center', fontSize: 11, color: 'rgba(241,231,200,0.50)',
+        lineHeight: 1.6, position: 'relative', zIndex: 1,
       }}>
-        Current tier: <strong style={{ color: AUGUSTA_CREAM }}>{current}</strong> · Free users keep access to every standalone Match feature, GPS, scoring, head-to-head records, and Eagle Eye.
+        Current tier: <strong style={{ color: AUGUSTA_CREAM, letterSpacing: '0.02em' }}>{current}</strong>
+        <div style={{ marginTop: 6, fontSize: 10, color: 'rgba(241,231,200,0.40)' }}>
+          Free users keep access to every standalone Match feature — GPS, scoring,<br/>head-to-head records, and Eagle Eye.
+        </div>
       </div>
+    </div>
+  )
+}
+
+// Centered three-diamond gold flourish + flanking hairline rules. Used
+// as a section divider on the paywall to mark editorial transitions
+// (hero → benefits → pricing).
+function FlourishDivider() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: 12, margin: '12px 0 24px',
+      position: 'relative', zIndex: 1,
+    }}>
+      <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.55))' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" opacity="0.6" /></svg>
+        <svg width="8" height="8" viewBox="0 0 8 8"><polygon points="4,0 8,4 4,8 0,4" fill="#E8C05A" /></svg>
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" opacity="0.6" /></svg>
+      </div>
+      <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.55), transparent)' }} />
     </div>
   )
 }
