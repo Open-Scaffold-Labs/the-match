@@ -1671,6 +1671,19 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           animation: lz-pulse 1.5s ease-in-out infinite;
           pointer-events: none;
         }
+        /* Leaflet container default background is light gray (#ddd) —
+           shows through tile-to-tile fractional-pixel gaps as a white
+           grid pattern when the rotate plugin is active. Match the
+           page background so the gaps disappear. (2026-05-01) */
+        .leaflet-container {
+          background: #070C09 !important;
+        }
+        /* Each tile's box also gets a transparent outline so when the
+           rotate plugin transforms tiles, sub-pixel anti-aliasing
+           doesn't draw a visible seam at tile boundaries. */
+        .leaflet-tile {
+          outline: 1px solid transparent;
+        }
       `}</style>
 
       {/* ── Status bar ── */}
