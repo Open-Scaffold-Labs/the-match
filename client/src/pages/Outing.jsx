@@ -1337,6 +1337,11 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
       // stablefordPreset === 'custom'. Initialized to the standard
       // map so partial edits yield a sensible scoreboard.
       customStablefordPoints: { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 },
+      // No-show policy default. Item 6 + Round 4 audit fix: was
+      // previously undefined in form init, which worked only because
+      // server defaults to 'dns'. Initializing here makes the wizard's
+      // own state reads consistent.
+      noShowPolicy: 'dns',
       // Real course data captured by the picker; null when host opts out
       courseId:      slim?.courseId ?? null,
       courseTee:     slim?.courseTee ?? null,

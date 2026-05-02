@@ -24,6 +24,17 @@ const db            = require('../db')
 router.use(requireAuth)
 router.use(requireElite)
 
+// Round 3 audit fix — whitelist scoring formats. Without this any 32-char
+// string was accepted into tm_leagues.scoring_format and would later
+// flow into the wizard pre-fill, leaving the format selector in an
+// unknown state. Source of truth matches FORMATS in client wizard.
+const LEGAL_FORMATS = ['stroke', 'match', 'skins', 'stableford', 'best_ball']
+function sanitizeFormat(v) {
+  if (typeof v !== 'string') return null
+  const trimmed = v.trim()
+  return LEGAL_FORMATS.includes(trimmed) ? trimmed : null
+}
+
 // ─── GET /api/leagues — leagues I'm a member of ──────────────────────────
 router.get('/', async (req, res) => {
   try {
@@ -57,7 +68,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'name must be 80 characters or fewer' })
     }
     const seasonTag = (typeof season === 'string') ? season.trim().slice(0, 64) : null
-    const fmt       = (typeof scoring_format === 'string') ? scoring_format.trim().slice(0, 32) : null
+    const fmt       = sanitizeFormat(scoring_format)
     const desc      = (typeof description === 'string') ? description.trim().slice(0, 500) : null
     const cfg       = (config && typeof config === 'object') ? config : {}
 
@@ -143,7 +154,11 @@ router.put('/:id', async (req, res) => {
       add('season', tag)
     }
     if (scoring_format != null) {
-      add('scoring_format', (typeof scoring_format === 'string') ? scoring_format.trim().slice(0, 32) : null)
+      const fmt = sanitizeFormat(scoring_format)
+      if (fmt == null && scoring_format !== '') {
+        return res.status(400).json({ error: `scoring_format must be one of: ${LEGAL_FORMATS.join(', ')}` })
+      }
+      add('scoring_format', fmt)
     }
     if (description != null) {
       add('description', (typeof description === 'string') ? description.trim().slice(0, 500) : null)
@@ -215,18 +230,99 @@ router.get('/:id/standings', async (req, res) => {
     // per-player from each event's state.participants snapshot — same
     // approach as /season/:tag but scoped to league_id.
     const events = await db.many(
-      `SELECT id, name, code, status, state
+      `SELECT id, name, code, status, state, scoring_formats, course_par, hole_pars
        FROM tm_outings
        WHERE league_id = $1 AND status IN ('closed', 'cancelled', 'ended')
        ORDER BY id ASC`,
       [league.id]
     )
 
+    // Round 6 audit fix — format-aware event winner computation.
+    // Skins league: winner = player with most skins. Stableford: most
+    // points. Stroke / match / best_ball / unknown: lowest gross total.
+    // Without this, a Tuesday Night Skins commissioner's standings
+    // would rank by gross-stroke (wrong winner). Inlined here so the
+    // client doesn't need to recompute per-event ranking.
+    function holeParsFor(ev) {
+      const real = Array.isArray(ev.hole_pars) ? ev.hole_pars : null
+      const state = ev.state || {}
+      const holes = state.holes ?? 18
+      if (real && real.length >= holes) return real.slice(0, holes)
+      const cp = ev.course_par ?? 72
+      const base = Math.floor(cp / holes), extra = cp - base * holes
+      return Array.from({ length: holes }, (_, i) => i < extra ? base + 1 : base)
+    }
+    function rankParticipants(ev, parts) {
+      const formats = Array.isArray(ev.scoring_formats) ? ev.scoring_formats : []
+      const isSkins      = formats.includes('skins')
+      const isStableford = formats.includes('stableford')
+      const holePars     = holeParsFor(ev)
+
+      // Skins: 1 point per hole low-tied-only, ties carry forward.
+      function computeSkins() {
+        const skinsByPlayer = {}
+        let carry = 0
+        for (let h = 0; h < holePars.length; h++) {
+          const entries = parts
+            .map(p => ({ id: p.user_id, s: (p.scores || [])[h] || 0 }))
+            .filter(x => x.s > 0)
+          if (entries.length < 2) continue
+          let low = Infinity, lowCount = 0, lowId = null
+          for (const e of entries) {
+            if (e.s < low)        { low = e.s; lowCount = 1; lowId = e.id }
+            else if (e.s === low) { lowCount += 1 }
+          }
+          if (lowCount === 1) {
+            skinsByPlayer[lowId] = (skinsByPlayer[lowId] || 0) + (1 + carry)
+            carry = 0
+          } else { carry += 1 }
+        }
+        return skinsByPlayer
+      }
+      // Stableford with the standard preset; honors any custom map
+      // stored on state.stableford_points.
+      function computeStableford() {
+        const pts = (ev.state && ev.state.stableford_points) || {
+          double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1,
+        }
+        const out = {}
+        for (const p of parts) {
+          let total = 0
+          const sc = p.scores || []
+          for (let h = 0; h < holePars.length; h++) {
+            const s = sc[h] || 0
+            if (s <= 0) continue
+            const diff = s - (holePars[h] || 4)
+            const bucket = diff <= -3 ? 'double_eagle'
+              : diff === -2 ? 'eagle'
+              : diff === -1 ? 'birdie'
+              : diff === 0  ? 'par'
+              : diff === 1  ? 'bogey'
+              : diff === 2  ? 'double'
+              : 'worse'
+            total += (pts[bucket] ?? 0)
+          }
+          out[p.user_id] = total
+        }
+        return out
+      }
+      if (isSkins) {
+        const s = computeSkins()
+        return [...parts].sort((a, b) => (s[b.user_id] || 0) - (s[a.user_id] || 0))
+      }
+      if (isStableford) {
+        const p = computeStableford()
+        return [...parts].sort((a, b) => (p[b.user_id] || 0) - (p[a.user_id] || 0))
+      }
+      // Stroke / match / best_ball / unknown — lowest gross wins.
+      return [...parts].sort((a, b) => (a.total ?? 9_999_999) - (b.total ?? 9_999_999))
+    }
+
     const playerMap = new Map()
     for (const ev of (events || [])) {
       const state = ev.state || {}
       const parts = (state.participants || []).filter(p => !p.withdrawn && !p.no_show)
-      const sorted = [...parts].sort((a, b) => (a.total ?? 9_999_999) - (b.total ?? 9_999_999))
+      const sorted = rankParticipants(ev, parts)
       sorted.forEach((p, idx) => {
         if (!p.user_id) return
         const k = String(p.user_id)
@@ -479,6 +575,28 @@ router.get('/:id/export.csv', async (req, res) => {
       [league.id]
     )
 
+    // Round 5 audit fix — pull live scores from tm_outing_participants,
+    // not from the state.participants JSONB cache. Cache lags behind
+    // commissioner score edits in tm_outing_participants until the next
+    // refresh; the per-event CSV was fixed in a prior round but the
+    // league CSV still read stale state. Single bulk query keyed by
+    // outing_id, then attach to each event below.
+    const outingIds = events.map(e => e.id)
+    const liveByOuting = new Map()
+    if (outingIds.length > 0) {
+      const liveRows = await db.many(
+        `SELECT op.outing_id, op.user_id, op.scores, u.name, u.handle
+         FROM tm_outing_participants op
+         LEFT JOIN tm_users u ON u.id = op.user_id
+         WHERE op.outing_id = ANY($1::int[])`,
+        [outingIds]
+      )
+      for (const r of (liveRows || [])) {
+        if (!liveByOuting.has(r.outing_id)) liveByOuting.set(r.outing_id, [])
+        liveByOuting.get(r.outing_id).push(r)
+      }
+    }
+
     function csvEscape(v) {
       if (v == null) return ''
       let s = String(v)
@@ -497,13 +615,21 @@ router.get('/:id/export.csv', async (req, res) => {
 
     for (const ev of (events || [])) {
       const state = ev.state || {}
+      const live  = liveByOuting.get(ev.id) || []
       const sorted = (state.participants || [])
         .filter(p => !p.withdrawn)
         .map(p => {
-          const sc = Array.isArray(p.scores) ? p.scores : []
+          // Live scores from tm_outing_participants take precedence
+          // over state.participants[i].scores (the JSONB cache).
+          // Guests have no live row; fall back to state. (Round 5 audit.)
+          const dp = live.find(r => String(r.user_id) === String(p.user_id))
+          const sc = Array.isArray(dp?.scores) ? dp.scores
+            : (Array.isArray(p.scores) ? p.scores : [])
           const total = sc.reduce((s, v) => s + (Number(v) || 0), 0)
           return {
             ...p,
+            name: dp?.name || p.name,
+            handle: dp?.handle || p.handle,
             _total: total,
             _front: sc.slice(0, 9).reduce((s, v) => s + (v || 0), 0),
             _back:  sc.slice(9, 18).reduce((s, v) => s + (v || 0), 0),
