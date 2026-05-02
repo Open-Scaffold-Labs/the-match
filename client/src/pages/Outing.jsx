@@ -836,8 +836,9 @@ function RivalryDetail({ rivalry, userId, onBack }) {
 
 // ─── End Match / Winner Ceremony ──────────────────────────────────────────────
 function EndMatchScreen({ summary, onDone }) {
-  const { winner, podium = [], highlights, course, course_par, format } = summary
+  const { code, name, winner, podium = [], highlights, course, course_par, format } = summary
   const [shared, setShared] = useState(false)
+  const [linkShared, setLinkShared] = useState(false)
 
   async function share() {
     const lines = [`${winner?.name} wins ${winner?.name ? '"' + (course || 'The Match') + '"' : ''}!`]
@@ -853,6 +854,20 @@ function EndMatchScreen({ summary, onDone }) {
     } else {
       await navigator.clipboard.writeText(text)
       setShared(true); setTimeout(() => setShared(false), 2500)
+    }
+  }
+
+  // Share the public final-results URL — same /?live=CODE link
+  // used during play, but the public board now reads 'FINAL RESULTS'
+  // for ended outings. (Round 8 audit.)
+  async function shareLink() {
+    if (!code) return
+    const url = `${window.location.origin}/?live=${code}`
+    if (navigator.share) {
+      try { await navigator.share({ title: name || 'The Match', url, text: `${name || 'Match'} — final leaderboard` }) } catch {}
+    } else {
+      await navigator.clipboard.writeText(url)
+      setLinkShared(true); setTimeout(() => setLinkShared(false), 2500)
     }
   }
 
@@ -952,6 +967,24 @@ function EndMatchScreen({ summary, onDone }) {
           </svg>
           {shared ? 'Copied to clipboard!' : 'Share Results'}
         </button>
+        {/* Live link share — sends the public final-results URL.
+            Lets the commissioner drop a clickable link in the group
+            chat that opens a beautiful FINAL leaderboard for anyone,
+            no app required. (Round 8 audit.) */}
+        {code && (
+          <button onClick={shareLink} style={{
+            width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer',
+            background: 'rgba(94,212,122,0.10)', border: '1px solid rgba(94,212,122,0.35)',
+            color: '#5ED47A', fontWeight: 800, fontSize: 14,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            {linkShared ? 'Link copied!' : 'Share live link'}
+          </button>
+        )}
         <button onClick={onDone} style={{
           width: '100%', padding: '16px', borderRadius: 14, cursor: 'pointer',
           background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',

@@ -982,6 +982,11 @@ router.post('/:code/end', async (req, res) => {
     res.json({
       ok: true,
       summary: {
+        // Outing identifier + name — needed by EndMatchScreen so it
+        // can build the public live URL (now FINAL) and print flyer.
+        // (Round 8 audit.)
+        code: outing.code,
+        name: outing.name,
         winner: podium[0] || null,
         podium,
         course: outing.course_name,
