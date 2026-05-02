@@ -53,8 +53,10 @@ export default function PublicLeaderboard({ code }) {
   // than silently stale data. Round 4 audit fix.
   const [reconnecting, setReconnecting] = useState(false)
 
-  // Polling fetch loop. Sets up once, lives until the component
-  // unmounts (e.g. user navigates away).
+  // Polling fetch loop. Pauses when the tab is hidden — saves
+  // battery + bandwidth for spectators who tabbed away or locked
+  // their phone. Resumes (with one immediate refetch) on
+  // visibilitychange. Round 6 audit.
   useEffect(() => {
     let cancelled = false
     let interval = null
@@ -65,9 +67,6 @@ export default function PublicLeaderboard({ code }) {
         if (!res.ok) {
           consecutiveFailures += 1
           if (!cancelled) {
-            // 404 is permanent (match doesn't exist) — show fatal error.
-            // 5xx and other transient codes flip to reconnecting state
-            // after 2 failures so spectators know data may be stale.
             if (res.status === 404) {
               setError('Match not found')
               setReconnecting(false)
@@ -96,9 +95,33 @@ export default function PublicLeaderboard({ code }) {
         if (!cancelled) setLoading(false)
       }
     }
-    load()
-    interval = setInterval(load, 5000)
-    return () => { cancelled = true; if (interval) clearInterval(interval) }
+
+    function startPolling() {
+      if (interval) return
+      load()
+      interval = setInterval(load, 5000)
+    }
+    function stopPolling() {
+      if (interval) { clearInterval(interval); interval = null }
+    }
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') stopPolling()
+      else startPolling()
+    }
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      // Don't start polling immediately if we already loaded once
+      // and the tab is currently hidden.
+      load()  // single load to populate initial state
+    } else {
+      startPolling()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      cancelled = true
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [code, data])
 
   if (loading && !data) {

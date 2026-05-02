@@ -2962,7 +2962,22 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
         setRecentEvent({ name: targetPlayer.name, hole, score, par: parForHole, ts: Date.now() })
       }
       await loadOuting()
-    } catch (e) { console.error(e) }
+    } catch (e) {
+      // Surface the failure to the user instead of silently
+      // swallowing. Auth-expired, withdrawn-player rejection, and
+      // unexpected server errors all land here; the user needs a
+      // signal so they can react. (Round 6 audit.)
+      console.error('[saveScore]', e)
+      const msg = e?.payload?.error === 'player_withdrawn'
+        ? (e.payload.message || 'Player has been withdrawn.')
+        : e?.status === 401
+          ? 'Your session expired. Please sign in again.'
+          : (e?.message || 'Could not save score. Try again.')
+      // Lightweight banner via the existing recent-event slot —
+      // hijack ts to make it auto-dismiss; payload distinguishes
+      // 'event' vs 'error' below.
+      setRecentEvent({ kind: 'error', message: msg, ts: Date.now() })
+    }
     finally { setSaving(false) }
   }
 
@@ -3497,7 +3512,31 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
       {/* Recent score event banner — pops down from above the board for ~4s
           when any score is entered. Broadcast lower-third feel.
           (2026-04-30 PM round 10) */}
-      {recentEvent && (() => {
+      {recentEvent && recentEvent.kind === 'error' && (
+        // Error variant — red banner when saveScore failed (auth
+        // expired, withdrawn player, server error). Auto-dismisses
+        // via the same 4-second timer that handles event banners.
+        // (Round 6 audit.)
+        <div
+          key={recentEvent.ts}
+          className="tm-event-pop"
+          style={{
+            position: 'absolute', top: 100, left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #C13B3B 0%, #A02B2B 100%)',
+            color: '#FFF',
+            border: '1px solid #E55858',
+            padding: '8px 18px',
+            borderRadius: 24,
+            fontSize: 12, fontWeight: 800,
+            letterSpacing: '0.04em',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.40)',
+            zIndex: 5,
+            maxWidth: '85%',
+            textAlign: 'center',
+          }}>{recentEvent.message}</div>
+      )}
+      {recentEvent && recentEvent.kind !== 'error' && (() => {
         const lastName = (recentEvent.name || '').trim().split(/\s+/).slice(-1)[0]?.toUpperCase() || '—'
         const label = scoreLabel(recentEvent.score, recentEvent.par)
         const isUnder = recentEvent.score < recentEvent.par
@@ -4578,8 +4617,8 @@ function LiveShareModal({ outing, onClose }) {
   body { margin: 0; font-family: Georgia, "Times New Roman", serif; color: #0E3B23; background: #F1E7C8; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
   .wrap { max-width: 720px; text-align: center; padding: 36px 24px; border: 4px double #C9A040; border-radius: 18px; background: #FFFAEB; }
   .kicker { font-size: 12px; letter-spacing: 0.30em; color: #C9A040; font-weight: 700; margin-bottom: 12px; }
-  .title { font-size: 38px; font-weight: 900; letter-spacing: -0.01em; color: #0E3B23; margin: 0 0 8px; }
-  .sub { font-size: 16px; color: rgba(14,59,35,0.65); margin-bottom: 28px; }
+  .title { font-size: 38px; font-weight: 900; letter-spacing: -0.01em; color: #0E3B23; margin: 0 0 8px; word-break: break-word; }
+  .sub { font-size: 16px; color: rgba(14,59,35,0.65); margin-bottom: 28px; word-break: break-word; }
   .qr { display: block; margin: 0 auto 20px; max-width: 320px; height: auto; border: 8px solid #C9A040; border-radius: 12px; background: #fff; }
   .qr-fallback { display: none; padding: 60px 20px; border: 4px dashed #C9A040; border-radius: 12px; background: #fff; max-width: 320px; margin: 0 auto 20px; font-size: 12px; color: #0E3B23; }
   .scan { font-size: 14px; color: #0E3B23; font-weight: 600; margin-bottom: 4px; }
