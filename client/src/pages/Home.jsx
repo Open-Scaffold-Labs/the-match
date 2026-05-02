@@ -2141,7 +2141,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           same as the match on home page.') */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '56px 20px 12px', gap: 12,
+        padding: '56px 20px 6px', gap: 12,
       }}>
         <button onClick={onBack} aria-label="Back" style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
@@ -2161,6 +2161,19 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           borderRadius: 10, color: '#1B5E3B', fontSize: 12,
           padding: '7px 12px', cursor: 'pointer',
         }}>Edit</button>
+      </div>
+
+      {/* Editorial hairline divider — same gold + tiny diamond as the
+          Home page. Sized to occupy exactly the 6px we shaved off the
+          top bar's padding-bottom (was 12, now 6) so nothing below
+          this point shifts position. (2026-05-02) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 10, padding: '0 20px',
+      }}>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45))' }} />
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" /></svg>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.45), transparent)' }} />
       </div>
 
       {/* Body container — dark theme matching the FriendProfile cards.
