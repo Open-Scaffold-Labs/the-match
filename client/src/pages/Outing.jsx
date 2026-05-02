@@ -1291,6 +1291,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       // alternatives are 80/85/90/95 for various tournament formats.
       // (B4a)
       handicapAllowance: 100,
+      // Stableford preset: 'standard' (USGA traditional 1-2-3-4) or
+      // 'modified' (PGA Tour Reno-Tahoe -3/-1/0/2/5). Only meaningful
+      // when format='stableford'. (B4b)
+      stablefordPreset: 'standard',
       // Real course data captured by the picker; null when host opts out
       courseId:      slim?.courseId ?? null,
       courseTee:     slim?.courseTee ?? null,
@@ -1341,6 +1345,8 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         teamBreakdown: form.players > 4 ? form.teamBreakdown : null,
         // Handicap allowance % for net scoring. (B4a)
         handicapAllowance: form.handicapAllowance,
+        // Stableford preset (only used when format=stableford). (B4b)
+        stablefordPreset: form.format === 'stableford' ? form.stablefordPreset : null,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1476,6 +1482,33 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
           {form.format === f.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--tm-green)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>✓</div>}
         </button>
       ))}
+
+      {/* Stableford preset (only when format=stableford). Standard =
+          1/2/3/4 (USGA traditional); Modified = -3/-1/0/2/5 (PGA Tour
+          Reno-Tahoe variant). Custom point maps deferred to v2. (B4b) */}
+      {form.format === 'stableford' && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+            Stableford Preset
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { id: 'standard', label: 'Standard', desc: 'Bogey 1 · Par 2 · Birdie 3 · Eagle 4' },
+              { id: 'modified', label: 'Modified', desc: 'Bogey −1 · Par 0 · Birdie 2 · Eagle 5 · Double −3' },
+            ].map(opt => (
+              <button key={opt.id} onClick={() => set('stablefordPreset', opt.id)} style={{
+                flex: 1, padding: '10px 12px', borderRadius: 'var(--tm-radius)',
+                border: '1px solid', borderColor: form.stablefordPreset === opt.id ? 'var(--tm-green)' : 'var(--tm-border)',
+                background: form.stablefordPreset === opt.id ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
+                color: 'var(--tm-text)', textAlign: 'left', cursor: 'pointer',
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 800 }}>{opt.label}</div>
+                <div style={{ fontSize: 10, color: 'var(--tm-text-3)', marginTop: 2 }}>{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Handicap allowance — 100% means full hcp, lower percentages
           are common in tournament settings (member-guest 80%, 4ball
@@ -2031,6 +2064,64 @@ function computePositions(sorted, getScores, holePars) {
   const counts = {}
   rawRanks.forEach(r => { if (r !== '—') counts[r] = (counts[r] || 0) + 1 })
   return rawRanks.map(r => r === '—' ? r : counts[r] > 1 ? `T${r}` : `${r}`)
+}
+
+// ─── Stableford helpers ───────────────────────────────────────────────────────
+// Stableford rewards aggressive play with a points system. Many
+// variants exist; we ship two well-known presets and accept a custom
+// point map per outing. Keys are score-relative-to-par buckets:
+//   double_eagle: -3 (albatross)
+//   eagle:        -2
+//   birdie:       -1
+//   par:           0
+//   bogey:        +1
+//   double:       +2
+//   worse:        +3 or worse  (treated as one bucket — collapsing
+//                 the long tail keeps the math + UI simple)
+//
+// Two presets (USGA traditional + PGA Tour Modified):
+//
+//                 STANDARD   MODIFIED
+//   double-eagle   8          8
+//   eagle          4          5
+//   birdie         3          2
+//   par            2          0
+//   bogey          1         -1
+//   double         0         -3
+//   worse         -1         -3
+//
+// (2026-05-01 — league must-have B4b.)
+const STABLEFORD_PRESETS = {
+  standard: { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 },
+  modified: { double_eagle: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double: -3, worse: -3 },
+}
+
+// Returns { pointsByPlayer: {user_id: number} } for the active outing.
+// Uses the outing's saved point map if present, else the Standard
+// preset. Skips holes with no score entered.
+function computeStableford(participants, holePars, getScores, pointMap) {
+  const pts = pointMap || STABLEFORD_PRESETS.standard
+  const out = {}
+  for (const p of participants) {
+    let total = 0
+    const scores = getScores(p) || []
+    for (let h = 0; h < holePars.length; h++) {
+      const s = scores[h] || 0
+      if (s <= 0) continue
+      const diff = s - (holePars[h] || 4)
+      let bucket
+      if (diff <= -3)      bucket = 'double_eagle'
+      else if (diff === -2) bucket = 'eagle'
+      else if (diff === -1) bucket = 'birdie'
+      else if (diff === 0)  bucket = 'par'
+      else if (diff === 1)  bucket = 'bogey'
+      else if (diff === 2)  bucket = 'double'
+      else                  bucket = 'worse'
+      total += (pts[bucket] ?? 0)
+    }
+    out[p.user_id] = total
+  }
+  return { pointsByPlayer: out }
 }
 
 // ─── Skins helpers ────────────────────────────────────────────────────────────
@@ -2657,19 +2748,36 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   }
 
   // ── Skins format: compute per-hole outcomes + per-player skin counts.
-  // Skipped for non-skins outings to avoid pointless work. (B4c)
   const isSkinsFormat = (outing.scoring_formats || []).includes('skins')
   const skinsData     = isSkinsFormat ? computeSkins(participants, holePars, getScores) : null
   const skinsByPlayer = skinsData?.skinsByPlayer || {}
 
-  // Leaderboard order. For skins, primary key is skins won (desc),
-  // tiebreak via the same card-back-style strokes-to-par chain.
-  // For everything else, use the standard leaderboardSort directly.
+  // ── Stableford format: compute per-player point totals using the
+  // outing's saved point map (or the Standard preset). Higher = better.
+  // (B4b)
+  const isStablefordFormat = (outing.scoring_formats || []).includes('stableford')
+  const stablefordPointMap = outing.state?.stableford_points || STABLEFORD_PRESETS.standard
+  const stablefordData     = isStablefordFormat
+    ? computeStableford(participants, holePars, getScores, stablefordPointMap)
+    : null
+  const stablefordByPlayer = stablefordData?.pointsByPlayer || {}
+
+  // Leaderboard order:
+  //   Skins      → primary: skins won desc, tiebreak: card-back STP
+  //   Stableford → primary: points desc,    tiebreak: card-back STP
+  //   Else       → standard leaderboardSort (card-back chain)
   const sorted = isSkinsFormat
     ? [...participants].sort((a, b) => {
         const sa = skinsByPlayer[a.user_id] || 0
         const sb = skinsByPlayer[b.user_id] || 0
-        if (sa !== sb) return sb - sa  // more skins first
+        if (sa !== sb) return sb - sa
+        return leaderboardSort(a, b)
+      })
+    : isStablefordFormat
+    ? [...participants].sort((a, b) => {
+        const pa = stablefordByPlayer[a.user_id] || 0
+        const pb = stablefordByPlayer[b.user_id] || 0
+        if (pa !== pb) return pb - pa  // more points first
         return leaderboardSort(a, b)
       })
     : [...participants].sort(leaderboardSort)

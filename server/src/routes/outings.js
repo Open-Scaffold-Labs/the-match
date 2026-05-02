@@ -103,6 +103,11 @@ router.post('/', async (req, res) => {
     // clamp to 100 server-side rather than reject (the wizard already
     // restricts to those buttons).
     handicapAllowance,
+    // Stableford preset (B4b): 'standard' or 'modified'. Only stored
+    // when format=stableford. Server resolves to the full point map
+    // and stashes it in state so the client can read it without
+    // shipping the preset table to every render.
+    stablefordPreset,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -135,10 +140,21 @@ router.post('/', async (req, res) => {
   const allowanceVal = Number.isFinite(allowanceN) && allowanceN > 0 && allowanceN <= 100
     ? Math.round(allowanceN)
     : 100
+  // Resolve Stableford preset to its full point map. Only attached
+  // when the active format actually uses Stableford. (B4b)
+  const STABLEFORD_PRESETS_S = {
+    standard: { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 },
+    modified: { double_eagle: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double: -3, worse: -3 },
+  }
+  const stablefordPointMap = (Array.isArray(scoringFormats) && scoringFormats.includes('stableford'))
+    ? (STABLEFORD_PRESETS_S[stablefordPreset] || STABLEFORD_PRESETS_S.standard)
+    : null
+
   const state  = {
     holes,
     participants: [],
     handicap_allowance: allowanceVal,
+    ...(stablefordPointMap ? { stableford_points: stablefordPointMap } : {}),
     ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
     ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
   }
