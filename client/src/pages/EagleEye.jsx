@@ -439,17 +439,19 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     const landing = projectPoint(player, distMeters, brng)
     if (!landing) return
 
-    // Pulsing yellow disc marker — projected to the landing point.
-    // No label box; the toggle UI on the right already shows which
-    // club is active. divIcon lets us pulse via CSS keyframes.
-    landingZoneRef.current = L.marker([landing.lat, landing.lon], {
+    // Gold ring marker at the projected landing point. Reverted from
+    // a divIcon-pulse disc (commit 3676377) because the divIcon wasn't
+    // rendering reliably inside leaflet-rotate's transformed marker
+    // pane. circleMarker paints into the SVG overlay pane and is
+    // dimensionally stable across rotation. (2026-05-01 — Matt)
+    landingZoneRef.current = L.circleMarker([landing.lat, landing.lon], {
+      radius: 12,
+      color: '#F5E070',          // bright yellow ring
+      weight: 3,
+      opacity: 1,
+      fillColor: '#F5E070',
+      fillOpacity: 0.45,
       interactive: false,
-      icon: L.divIcon({
-        className: '',  // suppress Leaflet's default white square
-        html: '<div class="lz-marker"></div>',
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      }),
     }).addTo(map)
   }, [
     clubYards, clubLabel,
@@ -1976,22 +1978,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 </div>
               )}
 
-              {/* Analyze Shot — primary CTA */}
-              <button onClick={() => setShowCamera(true)} style={{
-                width: '100%', padding: '17px', borderRadius: 18, border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg, #B8860B 0%, #C9A040 40%, #E8C05A 100%)',
-                color: '#070C09', fontWeight: 900, fontSize: 16, letterSpacing: '0.04em',
-                boxShadow: '0 8px 32px rgba(201,160,64,0.5)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                marginBottom: 10,
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(7,12,9,0.8)" strokeWidth="1.8" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
-                  <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
-                  <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-                </svg>
-                Analyze Shot
-              </button>
+              {/* Analyze Shot button moved out of the HUD bottom-stack
+                  on 2026-05-01 — it now lives as a small floating pill
+                  at the bottom-left, mirroring the BAG toggle on the
+                  right. The previous full-width primary CTA was eating
+                  too much vertical map space. */}
 
               {/* Mark Tee Position button removed 2026-05-01 — every
                   hole now has tee coords from OSM (holePositions),
@@ -2037,6 +2028,33 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       {/* Floating Scorecard pill removed 2026-05-01 — the page header
           already exposes a Scorecard link, the floating pill duplicated
           it and crowded the bottom-right where the BAG toggle lives. */}
+
+      {/* Analyze Shot — small floating pill at bottom-left, mirrors
+          the BAG toggle on the right. Replaces the full-width primary
+          CTA that used to sit inside the HUD stack. (2026-05-01) */}
+      {!showCamera && !showPicker && (
+        <button onClick={() => setShowCamera(true)} style={{
+          position: 'absolute',
+          bottom: 16, left: 16,
+          background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
+          border: '1px solid rgba(245,215,138,0.85)',
+          borderRadius: 999, padding: '8px 12px',
+          color: '#070C09',
+          fontSize: 11, fontWeight: 900, letterSpacing: '0.06em',
+          cursor: 'pointer',
+          boxShadow: '0 6px 18px rgba(201,160,64,0.45)',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontFamily: 'inherit',
+          zIndex: 1000,
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#070C09" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+            <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+          </svg>
+          ANALYZE
+        </button>
+      )}
 
       {/* Club toggle — idle state:
           single BAG button. Tap once → AI picks the best club match
