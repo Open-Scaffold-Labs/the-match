@@ -2127,7 +2127,12 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
     return (
       <button onClick={recommend} style={{
         position: 'absolute',
-        top: '50%', right: 16,
+        // Anchor at calc(50% + 22px) so the BAG button visually lines
+        // up with the zoom control on the left edge — the zoom stack
+        // is two buttons tall (~60px) and centered at 50%, so its
+        // midline sits a bit lower than a single 40px BAG centered
+        // at the same point. (2026-05-01 — Matt)
+        top: 'calc(50% + 22px)', right: 16,
         transform: 'translateY(-50%)',
         background: 'rgba(7,12,9,0.85)',
         border: '1px solid rgba(245,215,138,0.40)',
@@ -2180,7 +2185,9 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
   return (
     <div style={{
       position: 'absolute',
-      top: '50%', right: 16,
+      // Same anchor as the idle BAG above — keeps the active toggle
+      // visually parallel with the zoom control on the left.
+      top: 'calc(50% + 22px)', right: 16,
       transform: 'translateY(-50%)',
       display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
       zIndex: 1000,
