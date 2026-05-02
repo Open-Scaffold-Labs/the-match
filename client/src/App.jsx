@@ -267,6 +267,14 @@ function TabPanel({ active, children }) {
       top: 0, left: 0, right: 0, bottom: '56px',
       overflowY: 'auto', overflowX: 'hidden',
       WebkitOverflowScrolling: 'touch',
+      // Stop iOS rubber-band overscroll on the per-tab scroll container
+      // so pulling past the bottom of a page doesn't expose the App-
+      // level fixed Unsplash background image behind it. Earlier fix
+      // to .page-scroll didn't apply here — Home/Match/etc. all live
+      // inside TabPanel, not the .page-scroll class. (2026-05-02 — Matt
+      // surfaced screenshot showing the golf-course photo bleeding
+      // through under the cream tint at the bottom of Home.)
+      overscrollBehavior: 'none',
       display: active ? 'block' : 'none',
     }}>
       {children}
