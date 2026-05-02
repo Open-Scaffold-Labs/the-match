@@ -3607,12 +3607,13 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '0 4px', marginBottom: 12,
           }}>
-            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.40))' }} />
+            <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.85))' }} />
             <div style={{
-              fontSize: 11, fontWeight: 800, letterSpacing: '0.22em',
-              color: '#7A5800', fontFamily: '"Georgia", serif',
+              fontSize: 13, fontWeight: 900, letterSpacing: '0.22em',
+              color: '#5A4810', fontFamily: '"Georgia", serif',
+              textShadow: '0 1px 0 rgba(255,253,248,0.6)',
             }}>TEE TIMES</div>
-            <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.40), transparent)' }} />
+            <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, rgba(201,160,64,0.85), transparent)' }} />
           </div>
 
         {/* GolfNow booking card */}
