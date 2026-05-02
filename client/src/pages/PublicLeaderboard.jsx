@@ -48,26 +48,50 @@ export default function PublicLeaderboard({ code }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
+  // Reconnecting indicator — turns on when two or more consecutive
+  // polls fail. Spectators with bad signal see "reconnecting" rather
+  // than silently stale data. Round 4 audit fix.
+  const [reconnecting, setReconnecting] = useState(false)
 
   // Polling fetch loop. Sets up once, lives until the component
   // unmounts (e.g. user navigates away).
   useEffect(() => {
     let cancelled = false
     let interval = null
+    let consecutiveFailures = 0
     async function load() {
       try {
         const res = await fetch(`/api/outings/${encodeURIComponent(code)}/public`)
         if (!res.ok) {
-          if (!cancelled) setError(res.status === 404 ? 'Match not found' : 'Could not load')
+          consecutiveFailures += 1
+          if (!cancelled) {
+            // 404 is permanent (match doesn't exist) — show fatal error.
+            // 5xx and other transient codes flip to reconnecting state
+            // after 2 failures so spectators know data may be stale.
+            if (res.status === 404) {
+              setError('Match not found')
+              setReconnecting(false)
+            } else if (data && consecutiveFailures >= 2) {
+              setReconnecting(true)
+            } else if (!data) {
+              setError('Could not load')
+            }
+          }
           return
         }
+        consecutiveFailures = 0
         const body = await res.json()
         if (!cancelled) {
           setData(body.outing)
           setError(null)
+          setReconnecting(false)
         }
       } catch {
-        if (!cancelled) setError('Could not load')
+        consecutiveFailures += 1
+        if (!cancelled) {
+          if (data && consecutiveFailures >= 2) setReconnecting(true)
+          else if (!data) setError('Could not load')
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -75,7 +99,7 @@ export default function PublicLeaderboard({ code }) {
     load()
     interval = setInterval(load, 5000)
     return () => { cancelled = true; if (interval) clearInterval(interval) }
-  }, [code])
+  }, [code, data])
 
   if (loading && !data) {
     return (
@@ -131,10 +155,13 @@ export default function PublicLeaderboard({ code }) {
         borderBottom: `1px solid ${AUGUSTA_GOLD}`,
         background: 'linear-gradient(180deg, rgba(0,0,0,0.30), transparent)',
       }}>
+        {/* Status kicker — flips to FINAL when the host has ended
+            the match. Spectators can tell at a glance whether the
+            board is still updating. (Round 4 audit.) */}
         <div style={{
           fontSize: 11, letterSpacing: '0.30em', color: AUGUSTA_GOLD, fontWeight: 700,
           marginBottom: 6,
-        }}>LIVE LEADERBOARD</div>
+        }}>{data.status === 'ended' || data.status === 'closed' ? 'FINAL RESULTS' : 'LIVE LEADERBOARD'}</div>
         <div style={{
           fontSize: 22, fontWeight: 900, color: AUGUSTA_CREAM,
           letterSpacing: '-0.01em', marginBottom: 4,
@@ -145,6 +172,20 @@ export default function PublicLeaderboard({ code }) {
             <> · {String(data.scoring_formats[0]).replace('_', ' ').toUpperCase()}</>
           )}
         </div>
+        {/* Reconnecting badge — appears when polls have failed twice
+            in a row but we have stale cached data to keep showing.
+            (Round 4 audit.) */}
+        {reconnecting && (
+          <div style={{
+            marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '4px 10px', borderRadius: 999,
+            background: 'rgba(248,180,113,0.15)', border: '1px solid rgba(248,180,113,0.50)',
+            color: '#F8B471', fontSize: 10, fontWeight: 700, letterSpacing: '0.10em',
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F8B471' }} />
+            RECONNECTING · DATA MAY BE STALE
+          </div>
+        )}
       </div>
 
       {/* Leaders banner */}

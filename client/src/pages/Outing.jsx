@@ -1858,7 +1858,21 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
           ))}
         </div>
 
-        <button onClick={() => onSave(val)} style={{
+        <button onClick={() => {
+          // Typo guard — most "11 on a par-3" entries are mis-taps.
+          // Warn when score is more than +5 over par (or 2× par,
+          // whichever is higher). Round 4 audit.
+          const overBy = val - (par || 4)
+          const isUnusual = overBy >= 5 || val > (par || 4) * 2
+          if (isUnusual) {
+            const ok = window.confirm(
+              `${val} on a par-${par || 4}? That's ${overBy} over par. ` +
+              `Tap Cancel to fix it, OK to save anyway.`
+            )
+            if (!ok) return
+          }
+          onSave(val)
+        }} style={{
           width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
           background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
           color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 16, border: 'none', cursor: 'pointer',
@@ -2140,6 +2154,47 @@ function computePositions(sorted, getScores, holePars) {
   const counts = {}
   rawRanks.forEach(r => { if (r !== '—') counts[r] = (counts[r] || 0) + 1 })
   return rawRanks.map(r => r === '—' ? r : counts[r] > 1 ? `T${r}` : `${r}`)
+}
+
+// ─── Display name helpers ─────────────────────────────────────────────────────
+// Build a map of user_id → display name that disambiguates collisions.
+// "Matt Lavin" + "Matt Smith" → "Matt L." + "Matt S." rather than
+// two indistinguishable "Matt"s on the leaderboard. If two players
+// share BOTH first and last initial, fall back to the full name for
+// the colliding pair only. (Round 4 audit — same-name disambiguation.)
+function buildDisplayNames(participants) {
+  const out = {}
+  // First pass: take everyone's first-name token.
+  const firsts = participants.map(p => {
+    const tokens = String(p.name || '').trim().split(/\s+/).filter(Boolean)
+    return { id: p.user_id, full: p.name || '', first: tokens[0] || (p.name || 'Player'), tokens }
+  })
+  // Bucket by first name (case-insensitive). Collisions get last initials.
+  const byFirst = new Map()
+  for (const e of firsts) {
+    const key = e.first.toLowerCase()
+    if (!byFirst.has(key)) byFirst.set(key, [])
+    byFirst.get(key).push(e)
+  }
+  for (const [, group] of byFirst) {
+    if (group.length === 1) {
+      out[group[0].id] = group[0].first
+      continue
+    }
+    // Collision — try first + last initial.
+    const withLi = group.map(e => {
+      const last = e.tokens.length > 1 ? e.tokens[e.tokens.length - 1] : ''
+      const li = last ? `${last[0].toUpperCase()}.` : ''
+      return { ...e, attempt: li ? `${e.first} ${li}` : e.first }
+    })
+    // If the attempted names collide too, fall back to full name for those.
+    const counts = {}
+    for (const e of withLi) counts[e.attempt] = (counts[e.attempt] || 0) + 1
+    for (const e of withLi) {
+      out[e.id] = counts[e.attempt] > 1 ? (e.full || e.first) : e.attempt
+    }
+  }
+  return out
 }
 
 // ─── Best Ball helpers ────────────────────────────────────────────────────────
@@ -2925,7 +2980,18 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
 
   // All participants in state, including withdrawn. Used by the
   // commissioner panel which needs to see everyone. (B3)
-  const allParticipants = outing.state?.participants ?? []
+  const allParticipantsRaw = outing.state?.participants ?? []
+  // Same-name disambiguation: 'Matt Lavin' + 'Matt Smith' →
+  // 'Matt L.' + 'Matt S.' Override the .name field on each
+  // participant so every render path gets the disambiguated label
+  // for free (leaderboard, scorecard, score modal, audit, etc.).
+  // (Round 4 audit — same-name disambiguation.)
+  const namesMap = buildDisplayNames(allParticipantsRaw)
+  const allParticipants = allParticipantsRaw.map(p => ({
+    ...p,
+    display_name: namesMap[p.user_id] || p.name,
+    name: namesMap[p.user_id] || p.name,
+  }))
   // Active leaderboard pool — withdrawn players are excluded from
   // ranking, scoring, and leaderboard rendering.
   const participants = allParticipants.filter(p => !p.withdrawn)
@@ -4482,13 +4548,31 @@ function LiveShareModal({ outing, onClose }) {
       text: `${outing.name} · live leaderboard`,
     }).catch(() => {})
   }
+  // HTML-escape for the print flyer. Outing names can include
+  // user-typed characters; without this, a name like
+  //   "Matt's <Open> & Friends"
+  // would break the markup. (Round 4 audit — XSS hardening.)
+  function escHtml(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
   function openPrintFlyer() {
     // Open a new window with the flyer HTML. window.print() fires
     // automatically on load. Styled for letter / A4 with a big QR.
     const w = window.open('', '_blank')
     if (!w) { alert('Please allow popups to open the printable flyer.'); return }
+    const safeName    = escHtml(outing.name || 'Match')
+    const safeCourse  = escHtml(outing.course_name || '')
+    const safeUrl     = escHtml(url)
+    const safeCode    = escHtml(code)
+    const safeQrSrc   = escHtml(qrSrc)
     const html = `<!doctype html>
-<html><head><title>${outing.name} — Live Leaderboard</title><style>
+<html><head><title>${safeName} — Live Leaderboard</title><style>
   @page { size: letter; margin: 0.5in; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Georgia, "Times New Roman", serif; color: #0E3B23; background: #F1E7C8; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -4497,6 +4581,7 @@ function LiveShareModal({ outing, onClose }) {
   .title { font-size: 38px; font-weight: 900; letter-spacing: -0.01em; color: #0E3B23; margin: 0 0 8px; }
   .sub { font-size: 16px; color: rgba(14,59,35,0.65); margin-bottom: 28px; }
   .qr { display: block; margin: 0 auto 20px; max-width: 320px; height: auto; border: 8px solid #C9A040; border-radius: 12px; background: #fff; }
+  .qr-fallback { display: none; padding: 60px 20px; border: 4px dashed #C9A040; border-radius: 12px; background: #fff; max-width: 320px; margin: 0 auto 20px; font-size: 12px; color: #0E3B23; }
   .scan { font-size: 14px; color: #0E3B23; font-weight: 600; margin-bottom: 4px; }
   .url { font-size: 13px; color: rgba(14,59,35,0.70); margin-bottom: 22px; word-break: break-all; }
   .powered { font-size: 10px; letter-spacing: 0.30em; color: #C9A040; font-weight: 700; margin: 12px 0 4px; }
@@ -4505,14 +4590,15 @@ function LiveShareModal({ outing, onClose }) {
 </style></head>
 <body><div class="wrap">
   <div class="kicker">LIVE LEADERBOARD</div>
-  <div class="title">${(outing.name || 'Match').replace(/</g,'&lt;')}</div>
-  <div class="sub">${(outing.course_name || '').replace(/</g,'&lt;')}</div>
-  <img class="qr" src="${qrSrc}" alt="QR code"/>
+  <div class="title">${safeName}</div>
+  <div class="sub">${safeCourse}</div>
+  <img class="qr" src="${safeQrSrc}" alt="QR code" onerror="this.style.display='none'; document.getElementById('qr-fb').style.display='block';"/>
+  <div id="qr-fb" class="qr-fallback">QR couldn't load.<br/>Type the URL below into your phone's browser instead.</div>
   <div class="scan">Scan to follow scores live</div>
-  <div class="url">${url}</div>
+  <div class="url">${safeUrl}</div>
   <div class="powered">POWERED BY</div>
   <div class="brand">The Match</div>
-  <div class="code">CODE · ${code}</div>
+  <div class="code">CODE · ${safeCode}</div>
 </div>
 <script>window.addEventListener('load', () => setTimeout(() => window.print(), 400));</script>
 </body></html>`
@@ -4546,14 +4632,30 @@ function LiveShareModal({ outing, onClose }) {
         </div>
 
         {/* QR — white card so the camera scans it cleanly even on the
-            dark theme. */}
+            dark theme. Falls back to the URL if the QR API fails to
+            load. (Round 4 audit — fallback for offline / API down.) */}
         <div style={{
           background: '#fff', padding: 14, borderRadius: 14,
           marginBottom: 14, textAlign: 'center',
           border: '1px solid rgba(245,215,138,0.30)',
+          minHeight: 268,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <img src={qrSrc} alt="QR code"
-            style={{ width: '100%', maxWidth: 240, height: 'auto', display: 'block', margin: '0 auto' }} />
+            style={{ width: '100%', maxWidth: 240, height: 'auto', display: 'block', margin: '0 auto' }}
+            onError={(e) => {
+              const img = e.currentTarget
+              img.style.display = 'none'
+              const fb = document.getElementById('tm-qr-fallback')
+              if (fb) fb.style.display = 'block'
+            }} />
+          <div id="tm-qr-fallback" style={{
+            display: 'none', color: '#0E3B23', fontSize: 12, lineHeight: 1.5,
+            padding: '20px', textAlign: 'center',
+          }}>
+            QR generator unreachable.<br/>
+            Use the URL below — it still works.
+          </div>
         </div>
 
         {/* URL row + copy */}
