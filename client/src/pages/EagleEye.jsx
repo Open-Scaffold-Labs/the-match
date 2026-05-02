@@ -1971,17 +1971,12 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 Analyze Shot
               </button>
 
-              {/* Mark Tee secondary */}
-              <button onClick={() => setTeeGps(gps)} style={{
-                width: '100%', padding: '11px', borderRadius: 14, cursor: 'pointer',
-                background: 'rgba(4,8,6,0.72)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                Mark Tee Position
-              </button>
+              {/* Mark Tee Position button removed 2026-05-01 — every
+                  hole now has tee coords from OSM (holePositions),
+                  so the user no longer needs to manually anchor the
+                  tee point. teeGps state stays defined on the off
+                  chance a future code path wants to capture a custom
+                  shot origin, but is no longer surfaced in the UI. */}
             </div>
           </div>
         </div>
