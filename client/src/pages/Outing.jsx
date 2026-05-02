@@ -2378,15 +2378,36 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   async function saveScore(hole, score, targetUserId) {
     setSaving(true)
     try {
-      if (String(outing?.host_id) === String(user?.id)) {
-        // Host can enter any player's score
-        await put(`/api/outings/${code}/scores/host`, { hole, score, user_id: targetUserId })
-      } else if (isMarkerFor(String(user?.id), String(targetUserId))) {
-        // Assigned marker enters scores for their group via the marker endpoint
-        await put(`/api/outings/${code}/scores/marker`, { hole, score, user_id: targetUserId })
-      } else {
-        // Non-marker: submit own score only
-        await put(`/api/outings/${code}/scores`, { hole, score })
+      // Host endpoint also handles same-foursome marker writes per
+      // the 2026-05-01 widening — call it whenever the writer isn't
+      // the player themselves. The server gates permissions.
+      const isSelfEdit = String(targetUserId) === String(user?.id)
+      const callHost = async (force = false) =>
+        put(`/api/outings/${code}/scores/host`, { hole, score, user_id: targetUserId, ...(force ? { force: true } : {}) })
+
+      try {
+        if (isSelfEdit && String(outing?.host_id) !== String(user?.id) && !isMarkerFor(String(user?.id), String(targetUserId))) {
+          // Plain self-entry uses the simpler endpoint (no permission
+          // checks, just owns-own-card).
+          await put(`/api/outings/${code}/scores`, { hole, score })
+        } else {
+          await callHost(false)
+        }
+      } catch (err) {
+        // Score-conflict handshake (B2). Server returns 409 with the
+        // existing different score; ask the user before overwriting.
+        if (err?.status === 409 && err?.payload?.error === 'score_conflict') {
+          const existing = err.payload.existing_score
+          const ok = window.confirm(
+            `Hole ${Number(hole) + 1} already has a score of ${existing}. ` +
+            `Replace it with ${score}?`
+          )
+          if (!ok) { setSaving(false); return }
+          // Retry with force flag.
+          await callHost(true)
+        } else {
+          throw err
+        }
       }
       // Pop the recent-event banner — broadcast feel when a score lands.
       // Looks up the par from current outing state, and the player name.

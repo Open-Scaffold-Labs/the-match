@@ -417,6 +417,24 @@ router.post('/:code/bulk-join', async (req, res) => {
   }
 })
 
+// Append to tm_score_audit. Used by both score-write endpoints below.
+// Failures here don't roll back the score write — audit is best-effort.
+async function writeScoreAudit({ outing_id, user_id, hole, old_score, new_score, edited_by_id }) {
+  try {
+    await db.query(
+      `INSERT INTO tm_score_audit (outing_id, user_id, hole, old_score, new_score, edited_by_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [outing_id, String(user_id), Number(hole), old_score == null ? null : Number(old_score), Number(new_score), edited_by_id]
+    )
+  } catch (err) {
+    // The audit table CHECK only allows hole 0-17. Guest user_ids are
+    // strings so we'd already break tm_outings.user_id BIGINT — but we
+    // store them as text via String() above. If the migration's
+    // user_id BIGINT type rejects, log + continue.
+    console.warn('[score-audit] insert failed', err.message)
+  }
+}
+
 // ─── PUT /api/outings/:code/scores ────────────────────────────────────────────
 router.put('/:code/scores', async (req, res) => {
   const { hole, score } = req.body
@@ -433,7 +451,11 @@ router.put('/:code/scores', async (req, res) => {
   )
   if (!existing) return res.status(403).json({ error: 'Not in this outing' })
 
+  // Capture old score for audit. Self-entry path — no conflict check
+  // needed (you own your own card; you can change your mind freely).
   const scores = existing.scores || []
+  const oldScore = scores[hole] ?? 0
+
   scores[hole] = score
   const total = scores.reduce((s, x) => s + (x || 0), 0)
   const holesPlayed = scores.filter(x => x > 0).length
@@ -450,6 +472,15 @@ router.put('/:code/scores', async (req, res) => {
     state.participants[pi].total = total
     state.participants[pi].holes_played = holesPlayed
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+  }
+
+  // Audit — only when the value actually changed (don't log no-ops
+  // from network retries or repeated taps on the same number).
+  if (Number(oldScore || 0) !== Number(score)) {
+    writeScoreAudit({
+      outing_id: outing.id, user_id: req.user.id, hole,
+      old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
+    })
   }
 
   res.json({ ok: true, total, holesPlayed })
@@ -494,7 +525,7 @@ router.post('/:code/guests', async (req, res) => {
 router.put('/:code/scores/host', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase()
-    const { hole, score, user_id } = req.body
+    const { hole, score, user_id, force } = req.body
     if (hole === undefined || score === undefined || !user_id)
       return res.status(400).json({ error: 'hole, score, user_id required' })
 
@@ -526,6 +557,18 @@ router.put('/:code/scores/host', async (req, res) => {
       const holes  = outing.state?.holes ?? 18
       const scores = Array.isArray(state.participants[pi].scores) ? [...state.participants[pi].scores] : new Array(holes).fill(0)
       while (scores.length < holes) scores.push(0)
+      const oldScore = scores[hole] ?? 0
+      // Conflict guard: refuse to silently overwrite a different
+      // existing non-zero score unless the requester is the host
+      // OR they explicitly confirmed via force:true. Self-edits
+      // never hit this path (guests have no auth) so always check.
+      if (!force && !isHost && Number(oldScore) > 0 && Number(oldScore) !== Number(score)) {
+        return res.status(409).json({
+          error: 'score_conflict',
+          message: `Hole ${Number(hole) + 1} already has a score of ${oldScore}. Resubmit with force:true to overwrite.`,
+          existing_score: Number(oldScore),
+        })
+      }
       scores[hole] = score
       const total       = scores.reduce((s, x) => s + (x || 0), 0)
       const holesPlayed = scores.filter(x => x > 0).length
@@ -533,6 +576,12 @@ router.put('/:code/scores/host', async (req, res) => {
       state.participants[pi].total       = total
       state.participants[pi].holes_played = holesPlayed
       await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      if (Number(oldScore || 0) !== Number(score)) {
+        writeScoreAudit({
+          outing_id: outing.id, user_id, hole,
+          old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
+        })
+      }
       return res.json({ ok: true, total, holesPlayed })
     }
 
@@ -546,6 +595,19 @@ router.put('/:code/scores/host', async (req, res) => {
     const holes  = outing.state?.holes ?? 18
     const scores = Array.isArray(existing.scores) ? [...existing.scores] : new Array(holes).fill(0)
     while (scores.length < holes) scores.push(0)
+    const oldScore = scores[hole] ?? 0
+    // Same conflict guard as the guest path. Player overwriting their
+    // own score is allowed without force (they're using a different
+    // endpoint anyway — /:code/scores — but this covers the case
+    // where the host endpoint is called for self).
+    const isSelfEdit = String(user_id) === String(req.user.id)
+    if (!force && !isHost && !isSelfEdit && Number(oldScore) > 0 && Number(oldScore) !== Number(score)) {
+      return res.status(409).json({
+        error: 'score_conflict',
+        message: `Hole ${Number(hole) + 1} already has a score of ${oldScore}. Resubmit with force:true to overwrite.`,
+        existing_score: Number(oldScore),
+      })
+    }
     scores[hole] = score
 
     const total       = scores.reduce((s, x) => s + (x || 0), 0)
@@ -563,9 +625,45 @@ router.put('/:code/scores/host', async (req, res) => {
     }
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
 
+    if (Number(oldScore || 0) !== Number(score)) {
+      writeScoreAudit({
+        outing_id: outing.id, user_id, hole,
+        old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
+      })
+    }
+
     res.json({ ok: true, total, holesPlayed })
   } catch (err) {
     console.error('[outings/scores/host]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── GET /api/outings/:code/audit ────────────────────────────────────────────
+// Host-only readout of every score change in this outing, newest first.
+// Powers the commissioner correction panel's history view.
+// (2026-05-01 — league must-have B2.)
+router.get('/:code/audit', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const outing = await db.one('SELECT id, host_id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const rows = await db.many(
+      `SELECT a.id, a.user_id, a.hole, a.old_score, a.new_score, a.created_at,
+              a.edited_by_id, u.name AS edited_by_name
+       FROM tm_score_audit a
+       LEFT JOIN tm_users u ON u.id = a.edited_by_id
+       WHERE a.outing_id = $1
+       ORDER BY a.created_at DESC
+       LIMIT 200`,
+      [outing.id]
+    )
+    res.json({ entries: rows || [] })
+  } catch (err) {
+    console.error('[outings/audit]', err.message)
     res.status(500).json({ error: 'Failed' })
   }
 })

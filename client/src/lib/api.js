@@ -26,7 +26,12 @@ async function fetchWithRetry(url, opts = {}, attempt = 0) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw Object.assign(new Error(err.error ?? 'Request failed'), { status: res.status })
+    // Attach status + raw payload so callers can branch on specific
+    // error shapes (e.g. score-conflict 409 needs existing_score).
+    throw Object.assign(new Error(err.error ?? 'Request failed'), {
+      status: res.status,
+      payload: err,
+    })
   }
 
   return res.json()
