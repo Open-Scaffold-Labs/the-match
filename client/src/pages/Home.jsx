@@ -678,11 +678,13 @@ export function AvailabilityCalendar({
     headingColor:  '#1B5E3B',
     headingBg:     'rgba(255,253,248,0.85)',
     headingShadow: '0 1px 1px rgba(255,255,255,0.4)',
-    // Translucent glass — matches the ProfileHeroCard, TEE TIMES,
-    // and REQUESTS box treatments so the calendar reads as part of
-    // the same family on Home. (2026-05-02)
-    cardBg:        'rgba(255,255,255,0.22)',
-    cardBorder:    '1px solid rgba(255,255,255,0.45)',
+    // Translucent glass — same family as the other Home boxes but
+    // a notch more opaque (0.55 vs 0.22) because the calendar is
+    // dense with small content (day numbers, labels, grid lines)
+    // that needs to read clearly against the page tint behind it.
+    // (2026-05-02 — Matt: "can u make the calander more visible?")
+    cardBg:        'rgba(255,255,255,0.55)',
+    cardBorder:    '1px solid rgba(255,255,255,0.65)',
     divider:       'rgba(27,94,59,0.10)',
     monthArrow:    'rgba(27,94,59,0.45)',
     monthText:     '#1B5E3B',
