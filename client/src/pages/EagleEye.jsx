@@ -1884,32 +1884,32 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               Analyze Shot button should never be hidden by tiles.) */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none', zIndex: 800 }}>
 
-            {/* ── Top: yardage card ── */}
-            <div style={{ alignSelf: 'center', pointerEvents: 'auto', textAlign: 'center',
-              background: 'rgba(4,8,6,0.78)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)',
-              padding: '16px 32px 14px', boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+            {/* ── Top yardage card — compact, top-right corner so it
+                doesn't block the player's view of the shot. (2026-05-01
+                — Matt: smaller + upper right.) */}
+            <div style={{ alignSelf: 'flex-end', pointerEvents: 'auto', textAlign: 'right',
+              background: 'rgba(4,8,6,0.82)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: 14, border: '1px solid rgba(255,255,255,0.10)',
+              padding: '8px 12px 8px', boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
+              minWidth: 110,
             }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.35)', marginBottom: 2 }}>
-                {gpsToGreen != null ? 'TO GREEN · LIVE GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
+              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.40)', marginBottom: 1 }}>
+                {gpsToGreen != null ? 'TO GREEN · GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', lineHeight: 1 }}>
-                <span style={{ fontSize: 88, fontWeight: 900, letterSpacing: '-4px', color: '#fff', lineHeight: 0.9, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', lineHeight: 1, gap: 3 }}>
+                <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1.5px', color: '#fff', lineHeight: 0.9, fontVariantNumeric: 'tabular-nums' }}>
                   {displayYards ?? '—'}
                 </span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.35)', paddingTop: 14, marginLeft: 5 }}>YDS</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', paddingBottom: 3 }}>YDS</span>
               </div>
-              {osmLoading && <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', marginTop: 4, letterSpacing: '0.06em' }}>Loading course data…</div>}
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, justifyContent: 'center' }}>
-                <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 6, padding: '3px 12px' }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#5ED47A' }}>PAR {holeData?.par ?? '—'}</span>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 12px' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>HDCP {holeData?.handicap ?? '—'}</span>
+              {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-end' }}>
+                <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 4, padding: '1px 6px' }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: '#5ED47A' }}>PAR {holeData?.par ?? '—'}</span>
                 </div>
                 {holeData?.yardage && gpsToGreen != null && (
-                  <div style={{ background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 6, padding: '3px 12px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#C9A040' }}>{holeData.yardage}Y TEE</span>
+                  <div style={{ background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 4, padding: '1px 6px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#C9A040' }}>{holeData.yardage}Y TEE</span>
                   </div>
                 )}
               </div>
