@@ -2730,6 +2730,9 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // saveScore promise can await the user's decision. (Final pass.)
   const [conflictPrompt, setConflictPrompt] = useState(null)
   // { hole, existing, incoming, resolve }
+  // Live-share modal — QR + URL + tee-box print page. Opens from
+  // the host action row's '📡 Share live' button. (Round 3 audit.)
+  const [showLiveShare, setShowLiveShare] = useState(false)
   // Offline queue size — surfaces a small pill when scores are
   // pending sync (cell signal dropped on the course). (B5)
   const [queuedCount, setQueuedCount] = useState(0)
@@ -3353,22 +3356,14 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
               borderRadius: 20, padding: '3px 10px',
               color: 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>+ Guest</button>
-            {/* Share live leaderboard URL — hands the commissioner a
-                no-auth public link to drop in their group chat or
-                print on the tee-box flyer. (Round 2 audit.) */}
-            <button onClick={() => {
-              const url = `${window.location.origin}/?live=${code}`
-              if (navigator.share) {
-                navigator.share({ title: outing.name, url, text: `${outing.name} · live leaderboard` }).catch(() => {})
-              } else {
-                navigator.clipboard?.writeText(url).then(() => alert('Live leaderboard link copied:\n' + url)).catch(() => alert(url))
-              }
-            }} style={{
+            {/* Share live leaderboard — opens a modal with the URL +
+                QR code + tee-box print page. (Round 2/3 audit.) */}
+            <button onClick={() => setShowLiveShare(true)} style={{
               background: 'rgba(94,212,122,0.10)', border: '1px solid rgba(94,212,122,0.40)',
               borderRadius: 20, padding: '3px 10px',
               color: '#5ED47A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', gap: 4,
-            }} title="Share a live, no-login link to this leaderboard — perfect for the tee box or your group chat">
+            }} title="QR code, link, and printable tee-box flyer">
               📡 Share live
             </button>
             <button onClick={() => setShowManage(true)} style={{
@@ -3902,6 +3897,14 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Live-share modal — QR + URL + tee-box print. (Round 3 audit.) */}
+      {showLiveShare && outing && (
+        <LiveShareModal
+          outing={outing}
+          onClose={() => setShowLiveShare(false)}
+        />
       )}
 
       {/* Commissioner correction panel — host-only. Withdraw / reinstate
@@ -4448,6 +4451,155 @@ const TEAM_PALETTE = ['#C9A040', '#E8C05A', '#60A5FA', '#F87171', '#A78BFA', '#F
 // ─── Group / Marker Setup ─────────────────────────────────────────────────────
 // Host divides players into groups of ≤4 and designates one marker per group.
 // Marker can enter scores for everyone in their group.
+// ─── LiveShareModal — live URL + QR + tee-box print page ─────────────────────
+//
+// Opened from the host action row's '📡 Share live' button. Hands
+// the commissioner three things in one place:
+//   1. The live URL (text + 'Copy' / native-share buttons)
+//   2. A QR code rendered via api.qrserver.com (no npm dep)
+//   3. A 'Print tee-box flyer' button that opens window.print() on
+//      a styled flyer page — drop on the first tee for the
+//      half-price-for-flyer-exposure motion.
+//
+// (2026-05-01 — Matt's GTM motion: half price + flyer + QR.)
+function LiveShareModal({ outing, onClose }) {
+  const code = outing.code
+  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/?live=${code}`
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=8&data=${encodeURIComponent(url)}`
+  const [copied, setCopied] = useState(false)
+
+  function copy() {
+    if (!navigator.clipboard) return
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {})
+  }
+  function nativeShare() {
+    if (!navigator.share) { copy(); return }
+    navigator.share({
+      title: outing.name,
+      url,
+      text: `${outing.name} · live leaderboard`,
+    }).catch(() => {})
+  }
+  function openPrintFlyer() {
+    // Open a new window with the flyer HTML. window.print() fires
+    // automatically on load. Styled for letter / A4 with a big QR.
+    const w = window.open('', '_blank')
+    if (!w) { alert('Please allow popups to open the printable flyer.'); return }
+    const html = `<!doctype html>
+<html><head><title>${outing.name} — Live Leaderboard</title><style>
+  @page { size: letter; margin: 0.5in; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, "Times New Roman", serif; color: #0E3B23; background: #F1E7C8; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .wrap { max-width: 720px; text-align: center; padding: 36px 24px; border: 4px double #C9A040; border-radius: 18px; background: #FFFAEB; }
+  .kicker { font-size: 12px; letter-spacing: 0.30em; color: #C9A040; font-weight: 700; margin-bottom: 12px; }
+  .title { font-size: 38px; font-weight: 900; letter-spacing: -0.01em; color: #0E3B23; margin: 0 0 8px; }
+  .sub { font-size: 16px; color: rgba(14,59,35,0.65); margin-bottom: 28px; }
+  .qr { display: block; margin: 0 auto 20px; max-width: 320px; height: auto; border: 8px solid #C9A040; border-radius: 12px; background: #fff; }
+  .scan { font-size: 14px; color: #0E3B23; font-weight: 600; margin-bottom: 4px; }
+  .url { font-size: 13px; color: rgba(14,59,35,0.70); margin-bottom: 22px; word-break: break-all; }
+  .powered { font-size: 10px; letter-spacing: 0.30em; color: #C9A040; font-weight: 700; margin: 12px 0 4px; }
+  .brand { font-size: 24px; font-weight: 900; color: #0E3B23; }
+  .code { font-size: 11px; color: rgba(14,59,35,0.50); letter-spacing: 0.10em; margin-top: 14px; }
+</style></head>
+<body><div class="wrap">
+  <div class="kicker">LIVE LEADERBOARD</div>
+  <div class="title">${(outing.name || 'Match').replace(/</g,'&lt;')}</div>
+  <div class="sub">${(outing.course_name || '').replace(/</g,'&lt;')}</div>
+  <img class="qr" src="${qrSrc}" alt="QR code"/>
+  <div class="scan">Scan to follow scores live</div>
+  <div class="url">${url}</div>
+  <div class="powered">POWERED BY</div>
+  <div class="brand">The Match</div>
+  <div class="code">CODE · ${code}</div>
+</div>
+<script>window.addEventListener('load', () => setTimeout(() => window.print(), 400));</script>
+</body></html>`
+    w.document.open(); w.document.write(html); w.document.close()
+  }
+
+  return createPortal(
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.65)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 380,
+        background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
+        borderRadius: 20, padding: '22px 22px 24px',
+        border: '1px solid rgba(245,215,138,0.30)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: '0.18em', color: '#5ED47A', fontWeight: 800 }}>📡 LIVE LEADERBOARD</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', marginTop: 2 }}>Share with players + spectators</div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+            borderRadius: 999, width: 30, height: 30, color: '#fff', fontSize: 16, cursor: 'pointer',
+            fontFamily: 'inherit', flexShrink: 0,
+          }}>✕</button>
+        </div>
+
+        {/* QR — white card so the camera scans it cleanly even on the
+            dark theme. */}
+        <div style={{
+          background: '#fff', padding: 14, borderRadius: 14,
+          marginBottom: 14, textAlign: 'center',
+          border: '1px solid rgba(245,215,138,0.30)',
+        }}>
+          <img src={qrSrc} alt="QR code"
+            style={{ width: '100%', maxWidth: 240, height: 'auto', display: 'block', margin: '0 auto' }} />
+        </div>
+
+        {/* URL row + copy */}
+        <div style={{
+          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)',
+          borderRadius: 10, padding: '10px 12px',
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+        }}>
+          <div style={{
+            flex: 1, minWidth: 0, fontSize: 12, color: 'rgba(255,255,255,0.85)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            fontFamily: 'monospace',
+          }}>{url}</div>
+          <button onClick={copy} style={{
+            padding: '5px 10px', borderRadius: 6,
+            background: copied ? 'rgba(94,212,122,0.20)' : 'rgba(245,215,138,0.16)',
+            border: '1px solid', borderColor: copied ? 'rgba(94,212,122,0.40)' : 'rgba(245,215,138,0.40)',
+            color: copied ? '#5ED47A' : '#F5D78A',
+            fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+          }}>{copied ? 'Copied ✓' : 'Copy'}</button>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <button onClick={nativeShare} style={{
+            flex: 1, padding: '12px',
+            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            border: 'none', borderRadius: 12, color: '#070C09',
+            fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+          }}>Share</button>
+          <button onClick={openPrintFlyer} style={{
+            flex: 1, padding: '12px',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+            borderRadius: 12, color: '#fff',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}>🖨 Print flyer</button>
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', textAlign: 'center', marginTop: 10, lineHeight: 1.4 }}>
+          Print the flyer for the first-tee post. Anyone who scans it<br />sees this leaderboard live — no app required.
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── CommissionerPanel — host-only Manage modal ──────────────────────────────
 //
 // Lives between GroupSetup and the rest of the page. Two tabs:
