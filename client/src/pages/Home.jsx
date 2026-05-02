@@ -3399,17 +3399,66 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
     )
   }
 
+  // Today's date — for the polished overline above the wordmark.
+  // Format: 'FRIDAY · MAY 1' — uppercase + spaced caps for editorial feel.
+  const todayStr = (() => {
+    const d = new Date()
+    const day = d.toLocaleDateString(undefined, { weekday: 'long' })
+    const md  = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' })
+    return `${day} · ${md}`.toUpperCase()
+  })()
+  // Live-match indicator — count games with a real tee_time today/in-progress.
+  const liveMatchCount = (games?.confirmed || []).filter(g => {
+    if (g.status !== 'active' && g.status !== 'in_progress') return false
+    return true
+  }).length
+
   return (
-    <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
+    <div style={{
+      minHeight: '100dvh',
+      background: 'linear-gradient(180deg, rgba(255,253,248,0.0) 0%, rgba(255,253,248,0.6) 60%, rgba(241,231,200,0.35) 100%)',
+      paddingBottom: 100,
+    }}>
+      {/* Polished page-top: TODAY overline → wordmark + actions →
+          gold flourish hairline. Was just 'The Match' on a blank
+          background — now reads as an editorial dashboard. */}
+      <div style={{
+        padding: '56px 20px 4px',
+      }}>
+        <div style={{
+          fontSize: 9, letterSpacing: '0.30em', fontWeight: 800,
+          color: 'rgba(122,88,0,0.65)',
+          fontFamily: '"Arial Black", Arial, sans-serif',
+          marginBottom: 6,
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span>{todayStr}</span>
+          {liveMatchCount > 0 && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '2px 8px', borderRadius: 999,
+              background: 'rgba(46,158,69,0.12)',
+              border: '1px solid rgba(46,158,69,0.45)',
+              color: '#1A6B28', fontSize: 9, letterSpacing: '0.10em',
+            }}>
+              <span className="tm-live-pulse" style={{
+                width: 6, height: 6, borderRadius: '50%', background: '#2E9E45',
+              }} />
+              LIVE · {liveMatchCount}
+            </span>
+          )}
+        </div>
+      </div>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '56px 20px 16px',
+        padding: '0 20px 12px',
       }}>
         <div style={{
-          fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
+          fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em',
           background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          fontFamily: '"Georgia", serif',
         }}>The Match</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Admin gear — only renders for users with role='admin'. Opens
@@ -3451,6 +3500,17 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             padding: '7px 12px', cursor: 'pointer',
           }}>My Profile</button>
         </div>
+      </div>
+      {/* Editorial hairline divider under the page header — gold
+          gradient with a tiny diamond flourish in the middle. Reads
+          like a tournament-program section break. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 10, padding: '0 20px', marginBottom: 12,
+      }}>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45))' }} />
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" /></svg>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.45), transparent)' }} />
       </div>
       {adminOpen && <AdminUsersModal onClose={() => setAdminOpen(false)} />}
 
