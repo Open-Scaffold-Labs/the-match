@@ -2,6 +2,7 @@ const express     = require('express')
 const router      = express.Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
+const { sendPushToUser } = require('../lib/push')
 
 router.use(requireAuth)
 
@@ -41,6 +42,13 @@ router.post('/', async (req, res) => {
          ON CONFLICT (game_id, user_id) DO NOTHING`,
         [gameId, invId]
       )
+      // Push the invitee. Don't await — fire-and-forget.
+      sendPushToUser(invId, {
+        title: 'Match invite',
+        body: `${req.user.name || 'Someone'} invited you to play${course_name ? ` at ${course_name}` : ''}`,
+        url: '/?notifs=open',
+        tag: `game-invite-${gameId}`,
+      }).catch(err => console.error('[push] game-invite', err.message))
     }
 
     res.json({ id: gameId })

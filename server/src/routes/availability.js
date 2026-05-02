@@ -1,6 +1,7 @@
 const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
+const { sendPushToUser } = require('../lib/push')
 
 router.use(requireAuth)
 
@@ -150,6 +151,19 @@ router.post('/tee-request', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [req.user.id, to_user_id, date, course_name ?? null, message ?? null, rtype]
     )
+
+    // Push the recipient.
+    const dateLabel = (() => {
+      try { return new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) }
+      catch { return date }
+    })()
+    sendPushToUser(to_user_id, {
+      title: 'Tee time request',
+      body: `${req.user.name || 'Someone'} wants to play${course_name ? ` at ${course_name}` : ''} · ${dateLabel}`,
+      url: '/?notifs=open',
+      tag: 'tee-request',
+    }).catch(err => console.error('[push] tee-request', err.message))
+
     res.status(201).json({ ok: true })
   } catch (err) {
     console.error('[tee-request]', err.message)

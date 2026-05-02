@@ -2,6 +2,7 @@ const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
 const { isRoundCompleted, computeHandicapFromRounds } = require('../lib/handicap')
+const { sendPushToUser } = require('../lib/push')
 
 router.use(requireAuth)
 
@@ -366,6 +367,17 @@ router.post('/request', async (req, res) => {
       `INSERT INTO tm_friends (requester_id, requestee_id) VALUES ($1, $2)`,
       [req.user.id, target.id]
     )
+
+    // Fire-and-forget push to the recipient. Don't await it — the
+    // request response shouldn't wait on push provider latency, and a
+    // push failure shouldn't fail the friend-request creation.
+    sendPushToUser(target.id, {
+      title: 'New friend request',
+      body: `${req.user.name || 'Someone'} wants to be friends`,
+      url: '/?notifs=open',
+      tag: 'friend-request',
+    }).catch(err => console.error('[push] friend-request', err.message))
+
     res.status(201).json({ ok: true, name: target.name })
   } catch (err) {
     console.error('[friends/request]', err.message)
@@ -378,12 +390,24 @@ router.put('/:id/respond', async (req, res) => {
   try {
     const { status } = req.body
     if (!['accepted', 'declined'].includes(status)) return res.status(400).json({ error: 'Invalid status' })
+    // Pull requester_id back so we can push them on accept.
     const row = await db.one(
       `UPDATE tm_friends SET status = $1, updated_at = NOW()
-       WHERE id = $2 AND requestee_id = $3 RETURNING id`,
+       WHERE id = $2 AND requestee_id = $3 RETURNING id, requester_id`,
       [status, req.params.id, req.user.id]
     )
     if (!row) return res.status(404).json({ error: 'Request not found' })
+
+    // Tell the original requester their request was accepted.
+    if (status === 'accepted') {
+      sendPushToUser(row.requester_id, {
+        title: 'Friend request accepted',
+        body: `${req.user.name || 'They'} accepted your friend request`,
+        url: '/',
+        tag: 'friend-accepted',
+      }).catch(err => console.error('[push] friend-accepted', err.message))
+    }
+
     res.json({ ok: true })
   } catch (err) {
     console.error('[friends/respond]', err.message)

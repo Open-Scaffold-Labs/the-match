@@ -9,7 +9,9 @@ import MyBag from './pages/MyBag.jsx'
 import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
+import PermissionsPrompt from './components/PermissionsPrompt.jsx'
 import { getToken } from './lib/api.js'
+import { ensurePushSubscription, pushSupported } from './lib/push.js'
 
 
 export default function App() {
@@ -45,6 +47,11 @@ export default function App() {
   // course on Eye for "what if" exploration mid-match without the live
   // match's polling re-snapping Eye back. (2026-05-01)
   const [sharedCourse, setSharedCourse] = useState(null)
+  // Permissions prompt — shown once per device on first signed-in
+  // visit after onboarding finishes. Asks for notifications + location
+  // in a single sheet. Gated by localStorage flag tm-perms-asked so
+  // we don't pester users who already chose. (2026-05-01)
+  const [showPermsPrompt, setShowPermsPrompt] = useState(false)
 
   useEffect(() => {
     // Check for token in URL fragment (post-auth bounce). After parsing,
@@ -76,6 +83,34 @@ export default function App() {
   useEffect(() => {
     setMountedTabs(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
   }, [tab])
+
+  // First-run permissions trigger. Only after the user is signed in
+  // AND past onboarding. Shows the prompt if:
+  //   - We've never asked on this device (no tm-perms-asked flag)
+  //   - AND notifications permission is still 'default' (untouched)
+  //   - AND push is supported
+  // If permission was already granted (e.g. they hit Allow in a
+  // previous session and we just lost the subscription state), make
+  // sure the SW subscription is registered server-side without showing
+  // the UI.
+  useEffect(() => {
+    if (!user || !user.onboarding_completed_at) return
+    let asked = null
+    try { asked = localStorage.getItem('tm-perms-asked') } catch { /* ignore */ }
+    const supported = pushSupported()
+    const perm = supported ? Notification.permission : 'unsupported'
+
+    if (perm === 'granted') {
+      // Re-bind subscription quietly — no UI.
+      ensurePushSubscription().catch(() => {})
+      return
+    }
+    if (!asked && supported && perm === 'default') {
+      // Tiny delay so the splash → home transition lands first.
+      const t = setTimeout(() => setShowPermsPrompt(true), 600)
+      return () => clearTimeout(t)
+    }
+  }, [user?.id, user?.onboarding_completed_at])
 
   if (loading) return <Splash />
   if (!user)   return <Login onLogin={setUser} />
@@ -159,6 +194,15 @@ export default function App() {
         {/* Fixed nav pinned to bottom of screen */}
         <BottomNav active={tab} onChange={setTab} />
       </div>
+
+      {/* First-signin permissions prompt. Renders outside the maxWidth
+          shell so the slide-up sheet covers the full viewport. */}
+      {showPermsPrompt && (
+        <PermissionsPrompt
+          user={user}
+          onClose={() => setShowPermsPrompt(false)}
+        />
+      )}
     </div>
   )
 }
