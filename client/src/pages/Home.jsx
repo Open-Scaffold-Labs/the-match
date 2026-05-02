@@ -675,7 +675,12 @@ export function AvailabilityCalendar({
     friendDotMine: '#F5D78A',
     friendDot:     '#F5D78A',
   } : {
-    headingColor:  '#1B5E3B',
+    // 'AVAILABILITY CALENDAR' header pill — dark gold instead of
+    // green so it ties into the rest of the gold-trim vocabulary
+    // on Home (gold flourish dividers, gold borders, gold accents).
+    // (2026-05-02 — Matt: "make the green availability calander
+    // letters gold")
+    headingColor:  '#7A5800',
     headingBg:     'rgba(255,253,248,0.85)',
     headingShadow: '0 1px 1px rgba(255,255,255,0.4)',
     // Translucent glass — same family as the other Home boxes but
