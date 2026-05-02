@@ -322,7 +322,13 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       // ESRI satellite imagery — keepBuffer:4 keeps more tiles in memory during pans
       L.tileLayer(
         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 20, tileSize: 256, keepBuffer: 4, updateWhenZooming: false }
+        // tileSize: 257 (not 256) forces ESRI to render tiles 1px oversized so
+        // adjacent tiles physically overlap by 1px at the source. Closes the
+        // sub-pixel seams that leaflet-rotate's fractional positioning creates.
+        // Image stretch is 0.4% — invisible at any zoom. See
+        // wiki/synthesis/eagle-eye-tile-grid-handoff-2026-05-01.md for the
+        // 5 prior CSS attempts that didn't land.
+        { maxZoom: 20, tileSize: 257, keepBuffer: 4, updateWhenZooming: false }
       ).addTo(map)
 
       // GPS dot — only show if user is within ~5 miles of course
