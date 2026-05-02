@@ -417,12 +417,21 @@ export default function PublicLeaderboard({ code }) {
         {data.league && (
           <div style={{
             marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '4px 10px', borderRadius: 999,
+            padding: '5px 12px', borderRadius: 999,
             background: 'rgba(201,160,64,0.18)',
             border: '1px solid rgba(201,160,64,0.55)',
             color: AUGUSTA_GOLD, fontSize: 10, fontWeight: 800, letterSpacing: '0.10em',
           }}>
-            <span>🏆</span>
+            {/* Round 28 audit — bespoke trophy SVG. This is THE pill on
+                the GTM-critical tee-box QR surface. Visual polish here
+                is directly tied to conversion. */}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={AUGUSTA_GOLD} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/>
+              <path d="M8 6H6a2 2 0 0 0 2 2"/>
+              <path d="M16 6h2a2 2 0 0 1-2 2"/>
+              <line x1="12" y1="12" x2="12" y2="16"/>
+              <line x1="9" y1="20" x2="15" y2="20"/>
+            </svg>
             <span style={{ textTransform: 'uppercase' }}>
               Part of {data.league.name}{data.league.season ? ` · ${data.league.season}` : ''}
             </span>

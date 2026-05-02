@@ -1514,9 +1514,20 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
           <div style={{
             width: 32, height: 32, borderRadius: 8, flexShrink: 0,
             background: 'rgba(201,160,64,0.20)',
+            border: '1px solid rgba(201,160,64,0.35)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16,
-          }}>🏆</div>
+          }}>
+            {/* Round 27 audit — emoji 🏆 replaced with bespoke SVG to
+                match the rest of the app's Augusta iconography. */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/>
+              <path d="M8 6H6a2 2 0 0 0 2 2"/>
+              <path d="M16 6h2a2 2 0 0 1-2 2"/>
+              <line x1="12" y1="12" x2="12" y2="16"/>
+              <line x1="9" y1="20" x2="15" y2="20"/>
+              <line x1="10" y1="16" x2="14" y2="16"/>
+            </svg>
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: '#7A5800', textTransform: 'uppercase' }}>
               Event for league
@@ -3924,14 +3935,22 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                 the league page is on the Leagues tab. */}
             {outing.league && (
               <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                marginTop: 4, padding: '2px 8px', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                marginTop: 4, padding: '3px 9px', borderRadius: 999,
                 background: 'rgba(245,215,138,0.18)',
                 border: '1px solid rgba(245,215,138,0.45)',
                 fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
                 color: '#F5D78A', textTransform: 'uppercase',
               }}>
-                <span>🏆</span>
+                {/* Round 28 audit — bespoke trophy SVG instead of 🏆.
+                    Augusta language consistency on the in-app pill. */}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/>
+                  <path d="M8 6H6a2 2 0 0 0 2 2"/>
+                  <path d="M16 6h2a2 2 0 0 1-2 2"/>
+                  <line x1="12" y1="12" x2="12" y2="16"/>
+                  <line x1="9" y1="20" x2="15" y2="20"/>
+                </svg>
                 <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {outing.league.name}
                 </span>

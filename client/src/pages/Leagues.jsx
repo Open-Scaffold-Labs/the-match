@@ -264,6 +264,22 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
 
   return (
     <div style={hubBase}>
+      {/* Round 31 audit — tap feedback for league cards. Without this
+          the cards feel inert on touch. Augusta-grade UI requires
+          visible response. */}
+      <style>{`
+        .tm-league-card:active {
+          transform: scale(0.985);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
+          border-color: rgba(201,160,64,0.55) !important;
+        }
+        @media (hover: hover) {
+          .tm-league-card:hover {
+            box-shadow: 0 4px 14px rgba(0,0,0,0.10) !important;
+            border-color: rgba(201,160,64,0.50) !important;
+          }
+        }
+      `}</style>
       <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0' }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
@@ -311,18 +327,52 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
         {leagues == null ? (
           <div style={{ color: 'rgba(13,31,18,0.55)', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
         ) : leagues.length === 0 ? (
-          <div style={{
-            padding: '32px 20px', textAlign: 'center',
-            background: 'rgba(255,255,255,0.6)',
-            border: '1px dashed rgba(27,94,59,0.35)', borderRadius: 14,
-          }}>
-            <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.65)', marginBottom: 8, fontWeight: 700 }}>No leagues yet</div>
-            <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', lineHeight: 1.5 }}>
-              Create one for your Tuesday Night skins, your member-guest, or any season-long competition. Standings + roster + commissioner tools all live here.
+          /* Round 32 audit — empty state shows three named templates
+              instead of a flat dashed-border card. Each is a non-
+              interactive preview (clicking still goes through Create)
+              but they SHOW the host what's possible the moment they
+              land. The bar is "ecstatic, not comfortable." */
+          <div>
+            <div style={{
+              padding: '20px 20px 12px', textAlign: 'center',
+              background: 'rgba(255,255,255,0.6)',
+              border: '1px solid rgba(201,160,64,0.30)', borderRadius: 14,
+              marginBottom: 12,
+            }}>
+              <div style={{ fontSize: 14, color: '#0E3B23', marginBottom: 4, fontWeight: 800 }}>
+                {isElite ? 'Start your first league' : 'Leagues you can join'}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.60)', lineHeight: 1.5 }}>
+                {isElite
+                  ? 'Pick a template below to start, or tap Create above to design your own.'
+                  : 'Once a friend invites you to their league, it\'ll appear here.'}
+              </div>
             </div>
+            {isElite && [
+              { name: 'Tuesday Night Skins',  format: 'skins',      detail: 'Weekly skins with carryover. Most leagues land here.' },
+              { name: 'Member-Guest',         format: 'best_ball',  detail: '2-day team event. Best Ball formats supported.' },
+              { name: 'Season Stroke Ladder', format: 'stableford', detail: 'Custom Stableford points across an entire season.' },
+            ].map(tpl => (
+              <button key={tpl.name} onClick={onCreate} style={{
+                width: '100%', textAlign: 'left', cursor: 'pointer',
+                padding: '12px 14px', borderRadius: 12, marginBottom: 8,
+                background: 'rgba(255,255,255,0.55)',
+                border: '1px dashed rgba(201,160,64,0.40)',
+                fontFamily: 'inherit',
+                transition: 'background 120ms, border-color 120ms',
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#0E3B23' }}>{tpl.name}</div>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: '#7A5800', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{tpl.format.replace('_', ' ')}</div>
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 3 }}>{tpl.detail}</div>
+              </button>
+            ))}
           </div>
         ) : leagues.map(l => (
           <button key={l.id} onClick={() => onOpen(l.id)}
+            className="tm-league-card"
             style={{
               textAlign: 'left', cursor: 'pointer',
               padding: '14px 16px', borderRadius: 14,
@@ -330,6 +380,8 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
               border: '1px solid rgba(201,160,64,0.30)',
               boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
               fontFamily: 'inherit',
+              transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease',
+              WebkitTapHighlightColor: 'transparent',
             }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
               <div style={{ fontSize: 16, fontWeight: 900, color: '#0E3B23', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
@@ -999,9 +1051,18 @@ function LeagueAnnouncementBanner({ league }) {
       <div style={{
         width: 28, height: 28, borderRadius: 6, flexShrink: 0,
         background: 'rgba(201,160,64,0.20)',
+        border: '1px solid rgba(201,160,64,0.35)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, marginTop: 1,
-      }}>📣</div>
+        marginTop: 1,
+      }}>
+        {/* Round 29 audit — bespoke megaphone SVG instead of 📣. This
+            banner is visible to every league member; aesthetic
+            consistency with the rest of the app matters. */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 11l18-5v12L3 13z"/>
+          <path d="M11.6 16.8a3 3 0 1 1 -5.2 3"/>
+        </svg>
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
           <span style={{ fontSize: 9, fontWeight: 800, color: '#7A5800', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
@@ -1376,7 +1437,17 @@ function LeagueCommsTab({ leagueId, league }) {
           color: text.trim().length > 0 ? '#fff' : 'rgba(13,31,18,0.40)',
           border: 'none', fontWeight: 800, fontSize: 12, cursor: posting ? 'not-allowed' : 'pointer',
           fontFamily: 'inherit', opacity: posting ? 0.7 : 1,
-        }}>{posting ? 'Posting…' : '📣 Post & notify'}</button>
+        }}>
+          {posting ? 'Posting…' : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 11l18-5v12L3 13z"/>
+                <path d="M11.6 16.8a3 3 0 1 1 -5.2 3"/>
+              </svg>
+              Post & notify
+            </span>
+          )}
+        </button>
       </div>
       {error && (
         <div style={{
