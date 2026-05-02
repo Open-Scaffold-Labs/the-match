@@ -380,44 +380,99 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
             ))}
           </div>
         ) : leagues.map(l => (
+          /* Tournament-board card. Three-row anatomy:
+              1. Top accent strip (gold gradient) → SEASON · FORMAT pills
+              2. Middle: name + commissioner attribution
+              3. Bottom: 3-column StatBlock row (Players / Events / Format) */
           <button key={l.id} onClick={() => onOpen(l.id)}
             className="tm-league-card"
             style={{
               textAlign: 'left', cursor: 'pointer',
-              padding: '14px 16px', borderRadius: 14,
-              background: 'rgba(255,255,255,0.85)',
-              border: '1px solid rgba(201,160,64,0.30)',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              padding: 0, borderRadius: 16,
+              background: 'linear-gradient(180deg, #FFFCF3 0%, #F4E9C4 100%)',
+              border: '1px solid rgba(201,160,64,0.40)',
+              boxShadow: '0 4px 14px rgba(13,31,18,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
               fontFamily: 'inherit',
               transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease',
               WebkitTapHighlightColor: 'transparent',
+              overflow: 'hidden',
+              position: 'relative',
             }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#0E3B23', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</div>
+            {/* Top accent strip — gold gradient with season + format
+                pills sitting on top. Sets the tournament-board feel
+                immediately. */}
+            <div style={{
+              height: 32,
+              background: 'linear-gradient(90deg, #C9A040 0%, #E8C05A 50%, #C9A040 100%)',
+              padding: '0 14px',
+              display: 'flex', alignItems: 'center',
+              justifyContent: l.season ? 'space-between' : 'flex-end',
+              borderBottom: '1px solid rgba(13,31,18,0.18)',
+            }}>
               {l.season && (
-                <div style={{ fontSize: 10, color: '#7A5800', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{l.season}</div>
+                <div style={{
+                  fontSize: 9, fontWeight: 900, letterSpacing: '0.18em',
+                  color: '#0E3B23', textTransform: 'uppercase',
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                  textShadow: '0 1px 0 rgba(255,255,255,0.30)',
+                }}>SEASON · {l.season}</div>
+              )}
+              {l.scoring_format && (
+                <div style={{
+                  fontSize: 9, fontWeight: 900, letterSpacing: '0.16em',
+                  color: '#0E3B23', textTransform: 'uppercase',
+                  padding: '3px 10px', borderRadius: 999,
+                  background: 'rgba(14,59,35,0.12)',
+                  border: '1px solid rgba(14,59,35,0.30)',
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                }}>{l.scoring_format.replace('_', ' ')}</div>
               )}
             </div>
-            <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <span>{l.member_count || 0} player{(l.member_count || 0) === 1 ? '' : 's'}</span>
-              <span>·</span>
-              <span>{l.event_count || 0} event{(l.event_count || 0) === 1 ? '' : 's'}</span>
-              {l.scoring_format && <><span>·</span><span style={{ textTransform: 'uppercase' }}>{l.scoring_format}</span></>}
-            </div>
-            {/* Round 11 — commissioner attribution. Helps players who
-                were added to leagues they didn't create see who runs each. */}
-            {l.commissioner_name && (
-              <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.45)', marginTop: 4 }}>
-                Run by {l.commissioner_name}{l.commissioner_handle ? ` · @${l.commissioner_handle}` : ''}
-              </div>
-            )}
-            {l.description && (
+            {/* Body */}
+            <div style={{ padding: '14px 16px 12px' }}>
               <div style={{
-                fontSize: 12, color: 'rgba(13,31,18,0.65)', marginTop: 8,
-                lineHeight: 1.4, display: '-webkit-box',
-                WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              }}>{l.description}</div>
-            )}
+                fontSize: 18, fontWeight: 900, color: '#0E3B23',
+                fontFamily: '"Georgia", serif', letterSpacing: '-0.01em',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                lineHeight: 1.15,
+              }}>{l.name}</div>
+              {l.commissioner_name && (
+                <div style={{
+                  fontSize: 10, color: 'rgba(13,31,18,0.55)', marginTop: 3,
+                  letterSpacing: '0.04em',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  Run by <strong style={{ color: '#7A5800', fontWeight: 700 }}>{l.commissioner_name}</strong>{l.commissioner_handle ? ` · @${l.commissioner_handle}` : ''}
+                </div>
+              )}
+              {l.description && (
+                <div style={{
+                  fontSize: 11.5, color: 'rgba(13,31,18,0.65)', marginTop: 10,
+                  lineHeight: 1.45, fontStyle: 'italic',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>{l.description}</div>
+              )}
+              {/* Stat row — two compact blocks. Splits members + events
+                  visually so the eye locks on the numbers. */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6,
+                marginTop: 12,
+              }}>
+                <CardStatBlock label="Players" value={l.member_count || 0} />
+                <CardStatBlock label="Events"  value={l.event_count || 0} />
+              </div>
+            </div>
+            {/* Right-edge subtle chevron arrow — signals tappable. */}
+            <div style={{
+              position: 'absolute', top: 32, right: 8, bottom: 0,
+              display: 'flex', alignItems: 'center',
+              pointerEvents: 'none', color: 'rgba(13,31,18,0.20)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
           </button>
         ))}
       </div>
@@ -1088,6 +1143,29 @@ function MembersView({ members, isCommissioner, commissionerId, leagueId, onRefr
 const hdr = {
   fontSize: 9, fontWeight: 800, color: 'rgba(13,31,18,0.55)',
   letterSpacing: '0.08em', textTransform: 'uppercase',
+}
+
+// ─── CardStatBlock — light-mode stat tile for LeaguesHub league cards ──
+// Distinct from StatTilePill (dark-on-dark for the hero). This one sits
+// on the cream gradient of the league card with green Augusta typography.
+function CardStatBlock({ label, value }) {
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.55)',
+      border: '1px solid rgba(13,31,18,0.10)',
+      borderRadius: 8, padding: '7px 10px',
+      display: 'flex', flexDirection: 'column', gap: 2,
+    }}>
+      <div style={{
+        fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase',
+        color: '#7A5800', fontWeight: 800,
+      }}>{label}</div>
+      <div style={{
+        fontSize: 17, fontWeight: 900, color: '#0E3B23',
+        fontFamily: '"Arial Black", Arial, sans-serif', lineHeight: 1,
+      }}>{value}</div>
+    </div>
+  )
 }
 
 // ─── StatTilePill — small inline KPI tile for the LeagueDetail hero ─────
