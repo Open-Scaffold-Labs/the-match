@@ -345,4 +345,196 @@ router.delete('/:id/members/:userId', async (req, res) => {
   }
 })
 
+// ─── POST /api/leagues/:id/announcement — push to every member ──────────
+// Distinct from the per-event /:code/announcement (which only fans out to
+// one event's participants). This one targets the entire league roster.
+// Stored on league.config.announcements[] (capped at 50 most-recent).
+router.post('/:id/announcement', async (req, res) => {
+  try {
+    const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
+    if (!league) return res.status(404).json({ error: 'Not found' })
+    if (role !== 'commissioner') return res.status(403).json({ error: 'Commissioner only' })
+
+    const { text } = req.body
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      return res.status(400).json({ error: 'text required' })
+    }
+    if (text.length > 600) return res.status(400).json({ error: 'too long (600 char max)' })
+
+    const author = await db.one('SELECT name FROM tm_users WHERE id = $1', [req.user.id])
+    const announcement = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: text.trim(),
+      posted_by_id: req.user.id,
+      posted_by_name: author?.name || 'Commissioner',
+      posted_at: new Date().toISOString(),
+    }
+    const cfg = (league.config && typeof league.config === 'object') ? league.config : {}
+    const list = Array.isArray(cfg.announcements) ? cfg.announcements : []
+    const next = [announcement, ...list].slice(0, 50)
+    cfg.announcements = next
+
+    await db.query(
+      'UPDATE tm_leagues SET config = $1, updated_at = NOW() WHERE id = $2',
+      [JSON.stringify(cfg), league.id]
+    )
+
+    // Push fan-out to every active league member except the sender.
+    try {
+      const { sendPushToUser } = require('../lib/push')
+      const members = await db.many(
+        `SELECT user_id FROM tm_league_members
+         WHERE league_id = $1 AND removed_at IS NULL AND user_id <> $2`,
+        [league.id, req.user.id]
+      )
+      for (const m of (members || [])) {
+        sendPushToUser(m.user_id, {
+          title: `${league.name} · Commissioner`,
+          body: announcement.text.slice(0, 180),
+          url: `/?league=${league.id}`,
+          tag: `league-announcement-${league.id}`,
+        })
+      }
+    } catch (err) {
+      console.error('[leagues/announcement] push fan-out failed', err.message)
+    }
+
+    res.json({ ok: true, announcement, announcements: next })
+  } catch (err) {
+    console.error('[leagues/announcement]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── GET /api/leagues/:id/audit — cross-event audit aggregator ──────────
+// Aggregates tm_score_audit entries across every event in the league,
+// ordered newest first. Cursor pagination matches the per-event endpoint.
+// Commissioner-only — audit content reveals score corrections that the
+// roster shouldn't see.
+router.get('/:id/audit', async (req, res) => {
+  try {
+    const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
+    if (!league) return res.status(404).json({ error: 'Not found' })
+    if (role !== 'commissioner') return res.status(403).json({ error: 'Commissioner only' })
+
+    const rawLimit = Number(req.query.limit)
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(200, Math.max(1, Math.round(rawLimit))) : 100
+
+    let cursorClause = ''
+    const params = [league.id]
+    if (typeof req.query.cursor === 'string' && req.query.cursor.length > 0) {
+      const [ts, idRaw] = req.query.cursor.split('|')
+      const id = Number(idRaw)
+      const tsDate = new Date(ts)
+      if (Number.isFinite(id) && !Number.isNaN(tsDate.getTime())) {
+        params.push(tsDate.toISOString(), id)
+        cursorClause = ` AND (a.created_at < $${params.length - 1}
+                              OR (a.created_at = $${params.length - 1} AND a.id < $${params.length}))`
+      }
+    }
+    params.push(limit + 1)
+    const rows = await db.many(
+      `SELECT a.id, a.outing_id, a.user_id, a.hole, a.old_score, a.new_score, a.created_at,
+              a.edited_by_id, u.name AS edited_by_name,
+              o.name AS outing_name, o.code AS outing_code
+       FROM tm_score_audit a
+       LEFT JOIN tm_users   u ON u.id = a.edited_by_id
+       LEFT JOIN tm_outings o ON o.id = a.outing_id
+       WHERE o.league_id = $1${cursorClause}
+       ORDER BY a.created_at DESC, a.id DESC
+       LIMIT $${params.length}`,
+      params
+    )
+    const all = rows || []
+    let nextCursor = null
+    let entries = all
+    if (all.length > limit) {
+      entries = all.slice(0, limit)
+      const last = entries[entries.length - 1]
+      nextCursor = `${new Date(last.created_at).toISOString()}|${last.id}`
+    }
+    res.json({ entries, next_cursor: nextCursor })
+  } catch (err) {
+    console.error('[leagues/audit]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── GET /api/leagues/:id/export.csv — bundled season CSV ──────────────
+// Concatenates every event's results into one CSV with an extra
+// 'Event' column so the commissioner can pivot/filter externally.
+// Same formula-injection guards as the per-event export.
+router.get('/:id/export.csv', async (req, res) => {
+  try {
+    const { league, role } = await loadLeagueMembership(req.params.id, req.user.id)
+    if (!league) return res.status(404).json({ error: 'Not found' })
+    if (role !== 'commissioner') return res.status(403).json({ error: 'Commissioner only' })
+
+    const events = await db.many(
+      `SELECT id, code, name, course_name, course_par, hole_pars, scoring_formats, status, state
+       FROM tm_outings
+       WHERE league_id = $1
+       ORDER BY id ASC`,
+      [league.id]
+    )
+
+    function csvEscape(v) {
+      if (v == null) return ''
+      let s = String(v)
+      if (/^[=+\-@]/.test(s)) s = "'" + s
+      if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"'
+      return s
+    }
+
+    const lines = []
+    lines.push(`# League: ${csvEscape(league.name)}`)
+    lines.push(`# Season: ${csvEscape(league.season || '—')}`)
+    lines.push(`# Events: ${events.length}`)
+    lines.push(`# Exported: ${new Date().toISOString()}`)
+    lines.push('')
+    lines.push(['Event', 'Code', 'Course', 'Position', 'Player', 'Total', 'Front', 'Back', 'Status'].map(csvEscape).join(','))
+
+    for (const ev of (events || [])) {
+      const state = ev.state || {}
+      const sorted = (state.participants || [])
+        .filter(p => !p.withdrawn)
+        .map(p => {
+          const sc = Array.isArray(p.scores) ? p.scores : []
+          const total = sc.reduce((s, v) => s + (Number(v) || 0), 0)
+          return {
+            ...p,
+            _total: total,
+            _front: sc.slice(0, 9).reduce((s, v) => s + (v || 0), 0),
+            _back:  sc.slice(9, 18).reduce((s, v) => s + (v || 0), 0),
+            _status: p.no_show ? 'NoShow' : (total > 0 ? 'Active' : 'Inactive'),
+            _sortKey: p.no_show ? 9_999_999 : (total > 0 ? total : 9_999_998),
+          }
+        })
+        .sort((a, b) => a._sortKey - b._sortKey)
+      sorted.forEach((p, i) => {
+        lines.push([
+          ev.name || `Event ${ev.id}`,
+          ev.code || '',
+          ev.course_name || '',
+          String(i + 1),
+          p.name || `Player ${p.user_id}`,
+          p._total > 0 ? String(p._total) : '',
+          p._front > 0 ? String(p._front) : '',
+          p._back  > 0 ? String(p._back)  : '',
+          p._status,
+        ].map(csvEscape).join(','))
+      })
+    }
+
+    const filename = `league-${league.id}-${(league.name || 'export').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.send(lines.join('\r\n') + '\r\n')
+  } catch (err) {
+    console.error('[leagues/export]', err.message)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
 module.exports = router

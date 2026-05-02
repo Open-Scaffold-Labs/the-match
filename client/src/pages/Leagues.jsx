@@ -478,15 +478,19 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
         )}
       </div>
 
-      {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 6, padding: '0 20px', flexShrink: 0 }}>
+      {/* Tab bar — Rules + Comms tabs only render for the commissioner */}
+      <div style={{ display: 'flex', gap: 6, padding: '0 20px', flexShrink: 0, flexWrap: 'wrap' }}>
         {[
           { id: 'standings', label: 'Standings' },
           { id: 'events',    label: `Events (${league.event_count || 0})` },
           { id: 'members',   label: `Roster (${league.member_count || 0})` },
+          ...(isCommissioner ? [
+            { id: 'rules', label: 'Rules' },
+            { id: 'comms', label: 'Comms' },
+          ] : []),
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
-            flex: 1, padding: '8px 6px', borderRadius: 10,
+            flex: '1 1 30%', minWidth: 80, padding: '8px 6px', borderRadius: 10,
             background: tab === t.id ? 'rgba(46,158,69,0.10)' : 'rgba(255,255,255,0.5)',
             border: '1px solid', borderColor: tab === t.id ? '#1A6B28' : 'rgba(13,31,18,0.10)',
             color: tab === t.id ? '#0E3B23' : 'rgba(13,31,18,0.55)',
@@ -511,11 +515,66 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
           <MembersView members={members} isCommissioner={isCommissioner} commissionerId={league.commissioner_id} leagueId={leagueId}
             onRefresh={() => setMembers(null)} />
         )}
+        {tab === 'rules' && isCommissioner && (
+          <LeagueRulesEditor
+            leagueId={leagueId}
+            league={league}
+            onSaved={(updated) => setData(d => d ? { ...d, league: { ...d.league, ...updated } } : d)}
+          />
+        )}
+        {tab === 'comms' && isCommissioner && (
+          <LeagueCommsTab
+            leagueId={leagueId}
+            league={league}
+          />
+        )}
+
+        {/* Commissioner cross-event tools — visible on every tab so they're
+            always one tap away. Danger zone (delete) at the very bottom. */}
+        {isCommissioner && (
+          <div style={{
+            marginTop: 24, padding: '12px 14px', borderRadius: 12,
+            background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(13,31,18,0.10)',
+          }}>
+            <div style={{ fontSize: 10, color: '#7A5800', fontWeight: 800, letterSpacing: '0.10em', marginBottom: 6 }}>
+              CROSS-EVENT TOOLS
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <button onClick={async () => {
+                try {
+                  const res = await fetch(`/api/leagues/${leagueId}/export.csv`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('tm_token')}` },
+                  })
+                  if (!res.ok) throw new Error(`Export failed (${res.status})`)
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url; a.download = `league-${leagueId}.csv`
+                  document.body.appendChild(a); a.click(); a.remove()
+                  URL.revokeObjectURL(url)
+                } catch (err) { alert(err?.message || 'Export failed') }
+              }} style={{
+                padding: '7px 12px', borderRadius: 8,
+                background: 'rgba(245,215,138,0.15)', border: '1px solid rgba(201,160,64,0.45)',
+                color: '#7A5800', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+              }}>⬇ Season CSV</button>
+              <button onClick={() => setTab('audit')} style={{
+                padding: '7px 12px', borderRadius: 8,
+                background: 'rgba(46,158,69,0.10)', border: '1px solid rgba(26,107,40,0.40)',
+                color: '#1A6B28', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+              }}>📋 League audit log</button>
+            </div>
+          </div>
+        )}
+
+        {tab === 'audit' && isCommissioner && (
+          <LeagueAuditLog leagueId={leagueId} />
+        )}
 
         {/* Commissioner controls — danger zone */}
         {isCommissioner && (
           <div style={{
-            marginTop: 24, padding: '12px 14px', borderRadius: 12,
+            marginTop: 16, padding: '12px 14px', borderRadius: 12,
             background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.25)',
           }}>
             <div style={{ fontSize: 11, color: '#A03030', fontWeight: 800, letterSpacing: '0.06em', marginBottom: 4 }}>
@@ -766,4 +825,386 @@ function MembersView({ members, isCommissioner, commissionerId, leagueId, onRefr
 const hdr = {
   fontSize: 9, fontWeight: 800, color: 'rgba(13,31,18,0.55)',
   letterSpacing: '0.08em', textTransform: 'uppercase',
+}
+
+// ─── LeagueAuditLog — paginated cross-event audit ────────────────────────
+function LeagueAuditLog({ leagueId }) {
+  const [entries, setEntries] = useState(null)
+  const [cursor, setCursor]   = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    api(`/api/leagues/${leagueId}/audit?limit=50`)
+      .then(d => { if (!cancelled) { setEntries(d?.entries || []); setCursor(d?.next_cursor || null) } })
+      .catch(() => { if (!cancelled) setEntries([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [leagueId])
+
+  async function loadMore() {
+    if (!cursor || loading) return
+    setLoading(true)
+    try {
+      const d = await api(`/api/leagues/${leagueId}/audit?limit=50&cursor=${encodeURIComponent(cursor)}`)
+      setEntries(prev => [...(prev || []), ...(d?.entries || [])])
+      setCursor(d?.next_cursor || null)
+    } catch {/* keep cursor non-null so user can retry */}
+    finally { setLoading(false) }
+  }
+
+  function whenStr(iso) {
+    if (!iso) return ''
+    const ms = Date.now() - new Date(iso).getTime()
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    if (min < 1440) return `${Math.floor(min / 60)}h ago`
+    return `${Math.floor(min / 1440)}d ago`
+  }
+
+  if (entries == null) return <div style={{ color: 'rgba(13,31,18,0.55)', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
+  if (entries.length === 0) {
+    return (
+      <div style={{
+        padding: '24px 20px', textAlign: 'center', marginTop: 12,
+        background: 'rgba(255,255,255,0.6)',
+        border: '1px dashed rgba(27,94,59,0.35)', borderRadius: 14,
+      }}>
+        <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>No score corrections yet across any event.</div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.10em', color: 'rgba(13,31,18,0.55)', textTransform: 'uppercase', marginBottom: 8 }}>
+        League audit · {entries.length} change{entries.length === 1 ? '' : 's'}
+      </div>
+      {entries.map(e => (
+        <div key={e.id} style={{
+          padding: '8px 10px', borderRadius: 8, marginBottom: 4,
+          background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(13,31,18,0.08)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#0E3B23' }}>
+              {e.outing_name || `Event ${e.outing_id}`} · Hole {Number(e.hole) + 1}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.45)' }}>{whenStr(e.created_at)}</div>
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.60)', marginTop: 2 }}>
+            {e.old_score == null ? 'Set to' : `${e.old_score} →`} <strong style={{ color: '#7A5800' }}>{e.new_score}</strong>
+            {e.edited_by_name ? ` · by ${e.edited_by_name}` : ''}
+          </div>
+        </div>
+      ))}
+      {cursor && (
+        <button onClick={loadMore} disabled={loading} style={{
+          width: '100%', padding: 10, borderRadius: 10, marginTop: 4,
+          background: 'rgba(245,215,138,0.15)', border: '1px solid rgba(201,160,64,0.40)',
+          color: '#7A5800', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+          fontFamily: 'inherit', opacity: loading ? 0.6 : 1,
+        }}>{loading ? 'Loading…' : 'Load more · 50 older'}</button>
+      )}
+    </div>
+  )
+}
+
+// ─── LeagueRulesEditor — set defaults that cascade to every event ────────
+// Stores rules on league.config (handicap_allowance, stableford_preset,
+// stableford_points, no_show_policy) plus league.scoring_format. The
+// CreateWizard reads these on mount when pendingLeagueId is set, so the
+// commissioner only configures rules once and every event inherits.
+function LeagueRulesEditor({ leagueId, league, onSaved }) {
+  const initialFormat   = league.scoring_format || 'stroke'
+  const initialCfg      = (league.config && typeof league.config === 'object') ? league.config : {}
+  const [scoringFormat, setScoringFormat] = useState(initialFormat)
+  const [allowance, setAllowance]   = useState(Number.isFinite(Number(initialCfg.handicap_allowance)) ? Number(initialCfg.handicap_allowance) : 100)
+  const [preset, setPreset]         = useState(initialCfg.stableford_preset || 'standard')
+  const [customPts, setCustomPts]   = useState(initialCfg.stableford_points || { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 })
+  const [noShow, setNoShow]         = useState(initialCfg.no_show_policy || 'dns')
+  const [expectedPlayers, setExpectedPlayers] = useState(Number.isFinite(Number(initialCfg.expected_players)) ? Number(initialCfg.expected_players) : '')
+  const [saving, setSaving]         = useState(false)
+  const [savedAt, setSavedAt]       = useState(null)
+  const [error, setError]           = useState(null)
+
+  async function save() {
+    setSaving(true); setError(null)
+    try {
+      const cfg = {
+        ...initialCfg,
+        handicap_allowance: Math.max(1, Math.min(100, Math.round(Number(allowance) || 100))),
+        stableford_preset:  preset,
+        stableford_points:  preset === 'custom' ? customPts : null,
+        no_show_policy:     noShow,
+      }
+      const expN = Number(expectedPlayers)
+      if (Number.isFinite(expN) && expN >= 2 && expN <= 150) cfg.expected_players = Math.round(expN)
+      else delete cfg.expected_players
+
+      const data = await put(`/api/leagues/${leagueId}`, {
+        scoring_format: scoringFormat,
+        config: cfg,
+      })
+      onSaved?.(data?.league || {})
+      setSavedAt(Date.now())
+    } catch (err) {
+      setError(err?.message || 'Could not save rules')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.65)', marginBottom: 12, lineHeight: 1.45 }}>
+        These rules cascade <strong>down to every new event</strong> in this league. Hosts can override on any single event without changing the league default.
+      </div>
+
+      {/* Default scoring format */}
+      <RulesSection title="Default scoring format">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {[
+            { id: 'stroke', label: 'Stroke' },
+            { id: 'match', label: 'Match' },
+            { id: 'skins', label: 'Skins' },
+            { id: 'stableford', label: 'Stableford' },
+            { id: 'best_ball', label: 'Best Ball' },
+          ].map(f => (
+            <button key={f.id} onClick={() => setScoringFormat(f.id)} style={pill(scoringFormat === f.id)}>{f.label}</button>
+          ))}
+        </div>
+      </RulesSection>
+
+      {/* Handicap allowance */}
+      <RulesSection title="Handicap allowance %">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {[100, 95, 90, 85, 80, 75].map(v => (
+            <button key={v} onClick={() => setAllowance(v)} style={pill(allowance === v)}>{v}%</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.55)', marginTop: 4 }}>
+          100% = full handicap. Lower percentages tighten the field for tournament play.
+        </div>
+      </RulesSection>
+
+      {/* Stableford preset (only when format includes stableford) */}
+      {scoringFormat === 'stableford' && (
+        <RulesSection title="Stableford preset">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {[
+              { id: 'standard', label: 'Standard' },
+              { id: 'modified', label: 'Modified' },
+              { id: 'custom',   label: 'Custom' },
+            ].map(p => (
+              <button key={p.id} onClick={() => setPreset(p.id)} style={pill(preset === p.id)}>{p.label}</button>
+            ))}
+          </div>
+          {preset === 'custom' && (
+            <div style={{
+              marginTop: 8, padding: 10, background: 'rgba(255,255,255,0.6)',
+              border: '1px solid rgba(13,31,18,0.10)', borderRadius: 10,
+              display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6,
+            }}>
+              {[
+                { key: 'double_eagle', label: 'Double Eagle (−3)' },
+                { key: 'eagle',        label: 'Eagle (−2)' },
+                { key: 'birdie',       label: 'Birdie (−1)' },
+                { key: 'par',          label: 'Par' },
+                { key: 'bogey',        label: 'Bogey (+1)' },
+                { key: 'double',       label: 'Double (+2)' },
+                { key: 'worse',        label: 'Triple+ (+3 or worse)' },
+              ].map(b => (
+                <label key={b.key} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 8, padding: '6px 8px',
+                  background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(13,31,18,0.08)',
+                  borderRadius: 8,
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#0E3B23' }}>{b.label}</span>
+                  <input
+                    type="number" step="1" min="-10" max="20"
+                    value={customPts[b.key] ?? 0}
+                    onChange={e => setCustomPts(prev => ({ ...prev, [b.key]: e.target.value === '' ? 0 : Number(e.target.value) }))}
+                    style={{
+                      width: 50, height: 28, textAlign: 'center', fontSize: 13, fontWeight: 800,
+                      color: '#0E3B23', background: '#fff', border: '1px solid rgba(13,31,18,0.12)',
+                      borderRadius: 6,
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+        </RulesSection>
+      )}
+
+      {/* No-show policy */}
+      <RulesSection title="No-show policy">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {[
+            { id: 'dns',        label: 'DNS', sub: 'excluded' },
+            { id: 'max_plus_2', label: 'Max +2', sub: 'par+2 every hole' },
+            { id: 'manual',     label: 'Manual', sub: 'commissioner sets' },
+          ].map(p => (
+            <button key={p.id} onClick={() => setNoShow(p.id)} style={{
+              ...pill(noShow === p.id),
+              flex: '1 1 30%', minWidth: 90, textAlign: 'left',
+              padding: '8px 10px',
+            }}>
+              <div>{p.label}</div>
+              <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.7, marginTop: 2 }}>{p.sub}</div>
+            </button>
+          ))}
+        </div>
+      </RulesSection>
+
+      {/* Expected players */}
+      <RulesSection title="Expected players per event (optional)">
+        <input
+          type="number" inputMode="numeric" min={2} max={150}
+          value={expectedPlayers}
+          onChange={e => setExpectedPlayers(e.target.value)}
+          placeholder="Leave blank for ad-hoc"
+          style={{
+            width: 100, padding: '8px 10px', fontSize: 14, fontWeight: 700,
+            color: '#0E3B23', background: '#fff',
+            border: '1px solid rgba(13,31,18,0.18)', borderRadius: 8,
+            fontFamily: 'inherit',
+          }}
+        />
+        <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.55)', marginTop: 4 }}>
+          Past 4 players, foursomes auto-create. Leave blank to pick per event.
+        </div>
+      </RulesSection>
+
+      {error && (
+        <div style={{
+          padding: '8px 10px', borderRadius: 8, fontSize: 11, marginBottom: 10,
+          background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.40)',
+          color: '#A03030',
+        }}>{error}</div>
+      )}
+      <button onClick={save} disabled={saving} style={{
+        width: '100%', padding: 12, borderRadius: 12, border: 'none',
+        background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+        color: '#fff', fontWeight: 800, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit', opacity: saving ? 0.6 : 1, marginTop: 4,
+      }}>
+        {saving ? 'Saving…' : savedAt ? '✓ Rules saved' : 'Save rules'}
+      </button>
+    </div>
+  )
+}
+
+function RulesSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.10em', color: '#0E3B23', textTransform: 'uppercase', marginBottom: 6 }}>{title}</div>
+      {children}
+    </div>
+  )
+}
+
+function pill(active) {
+  return {
+    padding: '7px 12px', borderRadius: 999, border: '1px solid',
+    borderColor: active ? '#1A6B28' : 'rgba(13,31,18,0.18)',
+    background: active ? 'rgba(46,158,69,0.10)' : 'rgba(255,255,255,0.7)',
+    color: active ? '#0E3B23' : 'rgba(13,31,18,0.65)',
+    fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+  }
+}
+
+// ─── LeagueCommsTab — push announcements to every league member ──────────
+// Distinct from the per-event Comms tab: this fans out to the whole
+// league roster (not just one event's participants). Posts to
+// /api/leagues/:id/announcement which logs the message and pushes.
+function LeagueCommsTab({ leagueId, league }) {
+  const [text, setText]     = useState('')
+  const [posting, setPosting] = useState(false)
+  const [error, setError]   = useState(null)
+  const [history, setHistory] = useState(Array.isArray(league.config?.announcements) ? league.config.announcements : [])
+
+  async function postAnnouncement() {
+    const t = text.trim()
+    if (t.length === 0) return
+    if (t.length > 600) { setError('Too long (600 char max).'); return }
+    setError(null); setPosting(true)
+    try {
+      const data = await post(`/api/leagues/${leagueId}/announcement`, { text: t })
+      setHistory(data?.announcements || [])
+      setText('')
+    } catch (err) {
+      setError(err?.message || 'Could not post')
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  function whenStr(iso) {
+    if (!iso) return ''
+    const ms = Date.now() - new Date(iso).getTime()
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    if (min < 1440) return `${Math.floor(min / 60)}h ago`
+    return `${Math.floor(min / 1440)}d ago`
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.65)', marginBottom: 8, lineHeight: 1.45 }}>
+        Push a message to <strong>every player on the league roster</strong>. They get a push notification AND see it pinned on the league page.
+      </div>
+      <textarea
+        value={text} onChange={e => setText(e.target.value)}
+        placeholder="e.g. Week 6 is at Pebble. $30 buy-in. Tee off at 9am."
+        rows={3} maxLength={600}
+        style={{
+          width: '100%', padding: 10, fontFamily: 'inherit', fontSize: 13,
+          background: '#fff', border: '1px solid rgba(13,31,18,0.18)',
+          borderRadius: 10, color: '#0E3B23', resize: 'vertical', boxSizing: 'border-box',
+        }}
+      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+        <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.40)' }}>{text.length} / 600</div>
+        <button onClick={postAnnouncement} disabled={posting || text.trim().length === 0} style={{
+          padding: '8px 14px', borderRadius: 12,
+          background: text.trim().length > 0
+            ? 'linear-gradient(135deg, #1A6B28, #2E9E45)'
+            : 'rgba(13,31,18,0.10)',
+          color: text.trim().length > 0 ? '#fff' : 'rgba(13,31,18,0.40)',
+          border: 'none', fontWeight: 800, fontSize: 12, cursor: posting ? 'not-allowed' : 'pointer',
+          fontFamily: 'inherit', opacity: posting ? 0.7 : 1,
+        }}>{posting ? 'Posting…' : '📣 Post & notify'}</button>
+      </div>
+      {error && (
+        <div style={{
+          marginTop: 8, padding: '8px 10px', borderRadius: 8, fontSize: 11,
+          background: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.40)',
+          color: '#A03030',
+        }}>{error}</div>
+      )}
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.10em', color: 'rgba(13,31,18,0.55)', textTransform: 'uppercase', marginTop: 18, marginBottom: 8 }}>
+        Recent announcements
+      </div>
+      {history.length === 0 ? (
+        <div style={{ color: 'rgba(13,31,18,0.45)', textAlign: 'center', padding: 18, fontSize: 12, fontStyle: 'italic' }}>
+          None yet.
+        </div>
+      ) : history.map(a => (
+        <div key={a.id} style={{
+          padding: '10px 12px', borderRadius: 10, marginBottom: 6,
+          background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(13,31,18,0.08)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#7A5800' }}>{a.posted_by_name || 'Commissioner'}</div>
+            <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.45)' }}>{whenStr(a.posted_at)}</div>
+          </div>
+          <div style={{ fontSize: 13, color: '#0E3B23', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{a.text}</div>
+        </div>
+      ))}
+    </div>
+  )
 }

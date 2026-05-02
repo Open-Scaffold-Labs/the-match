@@ -237,6 +237,10 @@ router.post('/', async (req, res) => {
     // it without a follow-up PATCH. Validated below: caller must be
     // a member of the league (or the league commissioner).
     leagueId,
+    // 2026-05-02 — no-show policy can be set at create time when the
+    // league pushes its default down. Legal: 'dns' | 'max_plus_2' | 'manual'.
+    // Stored on outing.state.no_show_policy.
+    noShowPolicy,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -307,10 +311,17 @@ router.post('/', async (req, res) => {
     ? (sanitizedCustom || STABLEFORD_PRESETS_S[stablefordPreset] || STABLEFORD_PRESETS_S.standard)
     : null
 
+  // No-show policy at create time — picked up from the wizard
+  // (which inherits it from the league when leagueId is present).
+  // Defaults to 'dns'.
+  const legalNoShow = ['dns', 'max_plus_2', 'manual']
+  const noShowVal = legalNoShow.includes(noShowPolicy) ? noShowPolicy : 'dns'
+
   const state  = {
     holes,
     participants: [],
     handicap_allowance: allowanceVal,
+    no_show_policy: noShowVal,
     ...(stablefordPointMap ? { stableford_points: stablefordPointMap } : {}),
     ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
     ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
@@ -535,6 +546,19 @@ router.get('/:code', async (req, res) => {
     const row = await db.one('SELECT * FROM tm_outings WHERE code = $1', [req.params.code.toUpperCase()])
     if (!row) return res.status(404).json({ error: 'Outing not found' })
 
+    // 2026-05-02 — when this event is part of a league, attach the
+    // league's name so the LiveOuting header can render a "Part of
+    // [League]" pill linking back to the league surface.
+    let league = null
+    if (row.league_id) {
+      try {
+        league = await db.one(
+          'SELECT id, name, season FROM tm_leagues WHERE id = $1',
+          [row.league_id]
+        )
+      } catch { /* fall through — pill just won't render */ }
+    }
+
     // Enrich state participants with per-hole scores, handicap, and avatar
     // from tm_users so the Augusta scorecard can show profile pictures.
     // (avatar added 2026-04-30 — user requested player photos on the board)
@@ -556,7 +580,7 @@ router.get('/:code', async (req, res) => {
         avatar: dp?.avatar ?? null,
       }
     })
-    res.json({ outing: { ...row, state: { ...state, participants: enriched } } })
+    res.json({ outing: { ...row, league, state: { ...state, participants: enriched } } })
   } catch (err) {
     console.error('[outings/get]', err)
     res.status(500).json({ error: 'Failed' })

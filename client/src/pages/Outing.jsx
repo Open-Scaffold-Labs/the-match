@@ -1351,6 +1351,49 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // 2026-05-02 — When opened from a league, fetch league.config and
+  // seed the form with its default rules. This is what bridges the
+  // per-event tooling (handicap allowance, Stableford map, no-show
+  // policy) DOWN from the league level so commissioners only set
+  // those rules once. Form fields stay editable — host can override
+  // for a particular event without affecting the league default.
+  const [linkedLeague, setLinkedLeague] = useState(null)
+  useEffect(() => {
+    if (!pendingLeagueId) { setLinkedLeague(null); return }
+    let cancelled = false
+    api(`/api/leagues/${pendingLeagueId}`)
+      .then(d => {
+        if (cancelled || !d?.league) return
+        setLinkedLeague(d.league)
+        const l = d.league
+        const cfg = (l.config && typeof l.config === 'object') ? l.config : {}
+        setForm(f => ({
+          ...f,
+          // Default scoring format flows down. Host can change it.
+          format: l.scoring_format || f.format,
+          // Handicap allowance, no-show policy from config.
+          handicapAllowance: Number.isFinite(Number(cfg.handicap_allowance))
+            ? Number(cfg.handicap_allowance) : f.handicapAllowance,
+          // Stableford map: the league may store either a preset name
+          // ('standard'/'modified') or a full custom point map. Both
+          // get translated into the wizard's two pieces of state.
+          stablefordPreset: cfg.stableford_preset || f.stablefordPreset,
+          customStablefordPoints: (cfg.stableford_points && typeof cfg.stableford_points === 'object')
+            ? cfg.stableford_points
+            : f.customStablefordPoints,
+          // No-show policy threads through state on the outing itself
+          // (see outings.js create handler). Stored separately so the
+          // POST body can carry it.
+          noShowPolicy: cfg.no_show_policy || f.noShowPolicy,
+          // Default expected players if league sets a target field count.
+          ...(Number.isFinite(Number(cfg.expected_players))
+            ? { players: Math.max(2, Math.min(150, Math.round(Number(cfg.expected_players)))) }
+            : {}),
+        }))
+      })
+      .catch(() => { /* silently fall through to wizard defaults */ })
+    return () => { cancelled = true }
+  }, [pendingLeagueId])
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
@@ -1417,6 +1460,9 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
         // attach the new event to that league. Server validates that
         // the caller is a league member or commissioner before honoring.
         leagueId: pendingLeagueId || null,
+        // No-show policy default flows from the league or wizard form.
+        // Server normalizes / falls back to 'dns' if missing. (Item 6.)
+        noShowPolicy: form.noShowPolicy || null,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1435,6 +1481,36 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLe
   const steps = [
     // Step 0: Name + Course
     <div key="0" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Linked-to-league hint banner — surfaces when wizard was opened
+          from inside a league. Tells the host the new event will
+          inherit league rules + auto-attach. (2026-05-02) */}
+      {linkedLeague && (
+        <div style={{
+          padding: '10px 12px', borderRadius: 12,
+          background: 'linear-gradient(135deg, rgba(245,215,138,0.18), rgba(201,160,64,0.10))',
+          border: '1px solid rgba(245,215,138,0.45)',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+            background: 'rgba(201,160,64,0.20)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16,
+          }}>🏆</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: '#7A5800', textTransform: 'uppercase' }}>
+              Event for league
+            </div>
+            <div style={{
+              fontSize: 14, fontWeight: 800, color: 'var(--tm-text)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{linkedLeague.name}</div>
+            <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.55)', marginTop: 1 }}>
+              Format + handicap rules + Stableford map prefilled from the league. Edit any field to override for this event only.
+            </div>
+          </div>
+        </div>
+      )}
       <div>
         <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Match Name</div>
         <input value={form.name} onChange={e => set('name', e.target.value)} placeholder={`${user.name}'s Match`}
@@ -3821,6 +3897,26 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           <div style={{ textAlign: 'center', flex: 1, padding: '0 8px' }}>
             <div style={{ fontWeight: 900, color: AUGUSTA_TEXT, fontSize: 15, lineHeight: 1.2, fontFamily: '"Georgia", serif', fontStyle: 'italic', letterSpacing: '0.03em' }}>{outing.name}</div>
             <div style={{ fontSize: 11, color: 'rgba(26,107,40,0.65)', marginTop: 2 }}>{outing.course_name}{coursePar ? ` · Par ${coursePar}` : ''}</div>
+            {/* Part-of-League pill (2026-05-02). Surfaces the league
+                this event belongs to, so players viewing the live
+                board know it's part of a season. Tap-target small
+                — non-interactive pill for now; full link-back to
+                the league page is on the Leagues tab. */}
+            {outing.league && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                marginTop: 4, padding: '2px 8px', borderRadius: 999,
+                background: 'rgba(245,215,138,0.18)',
+                border: '1px solid rgba(245,215,138,0.45)',
+                fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
+                color: '#F5D78A', textTransform: 'uppercase',
+              }}>
+                <span>🏆</span>
+                <span style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {outing.league.name}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <div style={{ background: '#FFD700', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, letterSpacing: 2, fontFamily: '"Arial Black", Arial, sans-serif' }}>{code}</div>
