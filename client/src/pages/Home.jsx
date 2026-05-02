@@ -1353,7 +1353,7 @@ function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
         return (
           <div key={`g-${g.id}`} style={{
             background: 'rgba(255,255,255,0.78)',
-            border: '1px dashed rgba(201,160,64,0.55)',
+            border: '2px solid rgba(201,160,64,0.70)',
             borderRadius: 14, padding: '14px 16px', marginBottom: 8,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -1394,7 +1394,7 @@ function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
         return (
           <div key={`tr-${tr.id}`} style={{
             background: 'rgba(255,255,255,0.78)',
-            border: '1px dashed rgba(201,160,64,0.55)',
+            border: '2px solid rgba(201,160,64,0.70)',
             borderRadius: 14, padding: '14px 16px', marginBottom: 8,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
