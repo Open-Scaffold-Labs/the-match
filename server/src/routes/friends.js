@@ -81,14 +81,50 @@ router.get('/:friendId/profile', async (req, res) => {
     const year     = currentSeasonYear()
     const start    = seasonStart(year)
 
-    // Verify they're actually friends
+    // Find the friendship row in any state — accepted means full
+    // access, anything else (or nothing) means we return a LIMITED
+    // shape so search-and-tap from UserSearchModal can preview a
+    // stranger's basic info instead of a hard 403.
+    // (2026-05-01 — Matt: tap-to-view from search shouldn't dead-end.)
     const link = await db.one(
-      `SELECT id FROM tm_friends
-       WHERE ((requester_id = $1 AND requestee_id = $2) OR (requester_id = $2 AND requestee_id = $1))
-         AND status = 'accepted'`,
+      `SELECT id, status, requester_id, requestee_id FROM tm_friends
+       WHERE ((requester_id = $1 AND requestee_id = $2) OR (requester_id = $2 AND requestee_id = $1))`,
       [uid, friendId]
     )
-    if (!link) return res.status(403).json({ error: 'Not friends' })
+    const isAccepted = link && link.status === 'accepted'
+
+    if (!isAccepted) {
+      // Limited preview — basic public info + empty arrays for the
+      // friendship-gated sections. Client renders an Add-Friend
+      // banner using `limited` + `friendStatus`.
+      const friend = await db.one(
+        `SELECT id, name, handle, handicap, home_course, bio, avatar FROM tm_users WHERE id = $1`,
+        [friendId]
+      )
+      if (!friend) return res.status(404).json({ error: 'User not found' })
+
+      let friendStatus = 'none'  // 'none' | 'pending_outgoing' | 'pending_incoming' | 'declined'
+      if (link) {
+        if (link.status === 'pending') {
+          friendStatus = String(link.requester_id) === String(uid) ? 'pending_outgoing' : 'pending_incoming'
+        } else if (link.status === 'declined') {
+          friendStatus = 'declined'
+        }
+      }
+
+      return res.json({
+        friend,
+        limited: true,
+        friendStatus,
+        season: { wins: 0, losses: 0, ties: 0 },
+        rounds: [],
+        rivalries: [],
+        h2h: null,
+        availability: [],
+        followCounts: { following: 0, followers: 0, mutuals: 0 },
+        clubs: {},
+      })
+    }
 
     // Big batch — same data shape as ProfileView consumes for "My Profile"
     // so the FriendProfile UI can mirror it exactly. Anything specific to
@@ -301,14 +337,18 @@ router.get('/search', async (req, res) => {
   }
 })
 
-// POST /api/friends/request — send friend request by email
+// POST /api/friends/request — send friend request by email OR user_id.
+// Email path is the legacy invite-by-typing-an-email flow. user_id is
+// the new search → tap-to-add flow (we already know who they are).
 router.post('/request', async (req, res) => {
   try {
-    const { email } = req.body
-    if (!email) return res.status(400).json({ error: 'Email required' })
+    const { email, user_id } = req.body
+    if (!email && !user_id) return res.status(400).json({ error: 'Email or user_id required' })
 
-    const target = await db.one('SELECT id, name FROM tm_users WHERE email = $1', [email.toLowerCase()])
-    if (!target) return res.status(404).json({ error: 'No player found with that email' })
+    const target = user_id
+      ? await db.one('SELECT id, name FROM tm_users WHERE id = $1', [user_id])
+      : await db.one('SELECT id, name FROM tm_users WHERE email = $1', [String(email).toLowerCase()])
+    if (!target) return res.status(404).json({ error: 'No player found' })
     if (String(target.id) === String(req.user.id)) return res.status(400).json({ error: "Can't add yourself" })
 
     const existing = await db.one(

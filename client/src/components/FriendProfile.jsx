@@ -470,6 +470,28 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
   // Friend's first name for the H2H "THEM" label and the Request-Match CTA.
   const firstName  = friend?.name?.split(' ')[0] || 'Player'
 
+  // Limited preview state — server returns this when the viewer is
+  // NOT yet friends with this user (search → tap-result flow). The
+  // header still shows but the rest of the friendship-gated sections
+  // are hidden. Banner up top has the right CTA based on friendship
+  // state. (2026-05-01 — Matt: search shouldn't dead-end on
+  // 'couldn't load'.)
+  const isLimited       = !!data?.limited
+  const limitedStatus   = data?.friendStatus  // 'none' | 'pending_outgoing' | 'pending_incoming' | 'declined'
+  const [requestState, setRequestState] = useState('idle')  // idle | sending | sent | error
+  async function sendFriendRequest() {
+    if (!friend) return
+    setRequestState('sending')
+    try {
+      // /api/friends/request accepts user_id OR email — pass user_id
+      // since we have it from the limited profile load.
+      await post('/api/friends/request', { user_id: friend.id })
+      setRequestState('sent')
+    } catch {
+      setRequestState('error')
+    }
+  }
+
   // Shared-games list (upcoming tee times the viewer has on the books with
   // this friend) — kept from the original FriendProfile.
   const sharedGames = confirmedGames.filter(g =>
@@ -581,9 +603,68 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
             }} />
 
             <div style={{ padding: '20px 18px 18px', position: 'relative' }}>
-              <div style={{ color: 'rgba(245,215,138,0.75)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
-                SEASON {data?.season?.year}
-              </div>
+              {/* Limited preview banner — only when the viewer isn't
+                  yet friends with this user. Replaces the SEASON
+                  label since season stats aren't loaded for non-
+                  friends. (2026-05-01) */}
+              {isLimited ? (
+                <div style={{
+                  marginBottom: 14, padding: '10px 14px', borderRadius: 12,
+                  background: limitedStatus === 'pending_outgoing'
+                    ? 'rgba(245,215,138,0.10)'
+                    : limitedStatus === 'pending_incoming'
+                      ? 'rgba(94,212,122,0.10)'
+                      : 'rgba(255,255,255,0.04)',
+                  border: '1px solid', borderColor: limitedStatus === 'pending_incoming'
+                    ? 'rgba(94,212,122,0.30)' : 'rgba(245,215,138,0.30)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(245,215,138,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <path d="M12 22s-8-4.5-8-11.5a8 8 0 0 1 16 0c0 7-8 11.5-8 11.5z" opacity="0"/>
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 7v5l3 2"/>
+                  </svg>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(245,215,138,0.85)', letterSpacing: '0.06em' }}>
+                      {limitedStatus === 'pending_outgoing'  ? 'REQUEST PENDING'
+                       : limitedStatus === 'pending_incoming' ? 'WANTS TO BE FRIENDS'
+                       : limitedStatus === 'declined'          ? 'NOT FRIENDS'
+                                                                : 'NOT FRIENDS YET'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 2 }}>
+                      {limitedStatus === 'pending_outgoing'  ? "You've already sent a request — waiting on " + firstName + "."
+                       : limitedStatus === 'pending_incoming' ? `Accept ${firstName}'s request from your inbox to unlock the full profile.`
+                       : limitedStatus === 'declined'          ? `Send a new request to start over.`
+                                                                : 'Add as a friend to see rounds, stats, and play together.'}
+                    </div>
+                  </div>
+                  {(limitedStatus === 'none' || limitedStatus === 'declined') && requestState !== 'sent' && (
+                    <button
+                      onClick={sendFriendRequest}
+                      disabled={requestState === 'sending'}
+                      style={{
+                        padding: '7px 12px', borderRadius: 999, border: 'none',
+                        background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                        color: '#070C09', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                        fontFamily: 'inherit', flexShrink: 0,
+                        opacity: requestState === 'sending' ? 0.6 : 1,
+                      }}>
+                      {requestState === 'sending' ? 'Sending…' : 'Add Friend'}
+                    </button>
+                  )}
+                  {requestState === 'sent' && (
+                    <span style={{
+                      padding: '5px 10px', borderRadius: 999,
+                      background: 'rgba(94,212,122,0.16)', border: '1px solid rgba(94,212,122,0.35)',
+                      color: '#5ED47A', fontSize: 11, fontWeight: 800, flexShrink: 0,
+                    }}>Sent ✓</span>
+                  )}
+                </div>
+              ) : (
+                <div style={{ color: 'rgba(245,215,138,0.75)', fontSize: 10, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 12 }}>
+                  SEASON {data?.season?.year}
+                </div>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
                 {/* Big player card */}
@@ -637,10 +718,10 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                 </div>
               </div>
 
-              {/* Friend's own follow counts — non-interactive when shown
-                  on someone else's profile (the viewer's tap would open
-                  THEIR connections, which is confusing). Render as
-                  read-only stat pills. */}
+              {/* Friend's own follow counts + Season W-L-T-AVG3 —
+                  friendship-gated. Hidden together in limited preview;
+                  fragment wrapper keeps the conditional valid JSX. */}
+              {!isLimited && (<>
               <div style={{
                 display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8,
                 marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)',
@@ -662,7 +743,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                 ))}
               </div>
 
-              {/* Season W-L-T-AVG3 */}
+              {/* Season W-L-T-AVG3 — same friendship gate as follow counts above */}
               <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
                 {[
                   { label: 'WINS',     value: data?.season?.wins   ?? 0,   color: '#4ADE80' },
@@ -680,15 +761,19 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                   </div>
                 ))}
               </div>
+              </>)}
             </div>
           </div>
 
-          {/* HcpBadge with embedded trend chart — friend's data */}
+          {/* HcpBadge with embedded trend chart — friend's data.
+              Hidden in limited preview because no rounds load. */}
+          {!isLimited && (
           <HcpBadge
             hcp={data?.stats?.handicap ?? friend?.handicap ?? null}
             roundCount={data?.stats?.roundCount}
             rounds={data?.recentRounds}
           />
+          )}
 
           {/* Avg / Best stat tiles (friend's stats) */}
           {data?.stats && (() => {
