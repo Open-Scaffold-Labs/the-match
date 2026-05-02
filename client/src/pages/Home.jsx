@@ -3631,23 +3631,6 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           </div>
         </a>
 
-        {/* Pending game invites + tee time requests — moved up under
-            GolfNow so users discover the inbox surface immediately.
-            Always renders (with an empty-state placeholder) so it's
-            visible even when nothing is pending. */}
-        <GameInbox
-          games={games}
-          teeRequests={teeRequests.incoming}
-          onRespond={async (id, status) => {
-            await handleGameRespond(id, status)
-          }}
-          onRespondTeeRequest={async (id, status) => {
-            await post(`/api/availability/tee-requests/${id}`, { status })
-            const tr = await api('/api/availability/tee-requests')
-            setTeeRequests(tr ?? { incoming: [], outgoing: [] })
-          }}
-        />
-
         {/* Upcoming confirmed games — only games with a real tee time
             in tm_games. Outgoing pending requests live in their own
             SentRequests section below. */}
