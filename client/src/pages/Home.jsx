@@ -773,6 +773,30 @@ export function AvailabilityCalendar({
   const freeCount = mine.length
   const overlapCount = [...myDaySet].filter(d => friendDaySet.has(d)).length
 
+  // Smart insight — the soonest future date where I'm free AND at
+  // least one friend is also free. Powers the "NEXT MATCH OPPORTUNITY"
+  // banner (item 1) so the calendar reads as an active matchmaker
+  // instead of a passive grid. (2026-05-02)
+  const todayY = todayYMD()
+  const nextOverlap = (() => {
+    const candidates = mine
+      .filter(d => d >= todayY)
+      .map(d => ({ ymd: d, friends: friendsOnDate(d) }))
+      .filter(c => c.friends.length > 0)
+      .sort((a, b) => a.ymd.localeCompare(b.ymd))
+    return candidates[0] || null
+  })()
+
+  // Friendly date label — "Today", "Tomorrow", or "Sat May 9".
+  function bannerDateLabel(ymd) {
+    if (ymd === todayY) return 'Today'
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    const tymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (ymd === tymd) return 'Tomorrow'
+    return new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
   function prevMonth() {
     if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
     else setViewMonth(m => m - 1)
@@ -835,6 +859,52 @@ export function AvailabilityCalendar({
           </div>
           <button onClick={nextMonth} style={{ background: 'none', border: 'none', color: C.monthArrow, cursor: 'pointer', fontSize: 18, padding: '0 4px', lineHeight: 1 }}>›</button>
         </div>
+
+        {/* Smart insight banner — surfaces the soonest future overlap
+            day so the calendar acts like a matchmaker. Tapping opens
+            the DaySheet for that date so the user can hit "Schedule a
+            Group Match" without scanning the grid. Hides when there's
+            nothing actionable, in friend-view, or self-only mode.
+            (item 1 — smart insight banner) */}
+        {!friendView && !selfOnly && nextOverlap && (
+          <button
+            onClick={() => setSelectedDay(nextOverlap.ymd)}
+            style={{
+              width: '100%',
+              background: dark
+                ? 'linear-gradient(135deg, rgba(245,215,138,0.14), rgba(245,215,138,0.05))'
+                : 'linear-gradient(135deg, rgba(201,160,64,0.20), rgba(201,160,64,0.08))',
+              border: 'none',
+              borderBottom: `1px solid ${C.divider}`,
+              padding: '12px 16px',
+              display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 9, letterSpacing: '0.18em', fontWeight: 800,
+                color: dark ? 'rgba(245,215,138,0.85)' : '#7A5800',
+                marginBottom: 3,
+              }}>NEXT MATCH OPPORTUNITY</div>
+              <div style={{
+                fontSize: 13, fontWeight: 700,
+                color: dark ? '#fff' : '#0D1F12',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {bannerDateLabel(nextOverlap.ymd)} — {nextOverlap.friends.length} {nextOverlap.friends.length === 1 ? 'friend' : 'friends'} free with you
+              </div>
+            </div>
+            <span style={{
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              color: '#070C09', borderRadius: 8, fontSize: 11, fontWeight: 800,
+              padding: '7px 12px', letterSpacing: '0.04em',
+              flexShrink: 0,
+            }}>
+              Schedule →
+            </span>
+          </button>
+        )}
 
         {/* Day labels */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', padding: '8px 8px 0' }}>
@@ -908,13 +978,41 @@ export function AvailabilityCalendar({
                 )}
                 {day}
                 {hasFriend && !isPast && (
+                  /* Stacked friend avatars — replaces the single 4px
+                     dot. Up to 2 small initial-circles overlapping by
+                     3px, with a "+N" tail when more friends are free.
+                     Way more personal than a generic dot — you can
+                     see WHO is free at a glance. (item 2 — better
+                     friend visualization) */
                   <div style={{
-                    width: 4, height: 4, borderRadius: '50%',
-                    background: isMine ? C.friendDotMine : C.friendDot,
-                    position: 'absolute', bottom: 3,
+                    position: 'absolute', bottom: 2,
+                    display: 'flex', alignItems: 'center',
                     transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    transform: justToggled ? 'scale(1.4)' : 'scale(1)',
-                  }} />
+                    transform: justToggled ? 'scale(1.25)' : 'scale(1)',
+                  }}>
+                    {friends.slice(0, 2).map((f, idx) => {
+                      const initial = (f.name || '?').trim().charAt(0).toUpperCase() || '?'
+                      return (
+                        <div key={f.user_id ?? `${f.name}-${idx}`} style={{
+                          width: 11, height: 11, borderRadius: '50%',
+                          background: isMine ? C.friendDotMine : C.friendDot,
+                          color: dark ? '#0D1F12' : '#fff',
+                          fontSize: 7, fontWeight: 800, lineHeight: 1,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          marginLeft: idx > 0 ? -3 : 0,
+                          border: `1px solid ${dark ? 'rgba(13,31,18,0.55)' : 'rgba(255,253,248,0.95)'}`,
+                          boxSizing: 'border-box',
+                        }}>{initial}</div>
+                      )
+                    })}
+                    {friends.length > 2 && (
+                      <span style={{
+                        fontSize: 7, fontWeight: 800, lineHeight: 1,
+                        color: isMine ? C.friendDotMine : C.friendDot,
+                        marginLeft: 2, letterSpacing: '0.02em',
+                      }}>+{friends.length - 2}</span>
+                    )}
+                  </div>
                 )}
               </button>
             )
