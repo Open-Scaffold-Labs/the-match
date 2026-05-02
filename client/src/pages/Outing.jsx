@@ -1939,26 +1939,63 @@ function findTapHint({ sorted, getScores, isHost, isMarkerFor, userId }) {
 // Compute leaderboard positions for an already-sorted player array.
 // Returns an array of strings parallel to `sorted`: "1", "T2", "3", or "—"
 // for players with no scores yet. (2026-04-30 PM round 8 — rank badges)
+// Compute display rank labels (1, T2, T2, 4, ...) for a sorted-by-
+// leaderboardSort participants array. Two adjacent entries are
+// considered tied (sharing position) ONLY when their full multi-key
+// comparison comes out equal — i.e. same total AND same card-back
+// AND same last-6/3/last-hole. If any tiebreaker separated them, the
+// earlier one gets the cleaner rank. (2026-05-01 — league must-have B1.)
 function computePositions(sorted, getScores, holePars) {
-  const stps = sorted.map(p => {
+  const holeCount = holePars.length
+  const lastIdx   = holeCount - 1
+  // All four tiebreaker key ranges, computed once per call.
+  const tieRanges = []
+  if (holeCount >= 18) tieRanges.push([9, 17])
+  tieRanges.push([Math.max(0, lastIdx - 5), lastIdx])
+  tieRanges.push([Math.max(0, lastIdx - 2), lastIdx])
+  tieRanges.push([lastIdx, lastIdx])
+
+  function strokesToParRange(p, startIdx, endIdx) {
     const sc = getScores(p)
-    const played = sc.filter(s => s > 0)
-    if (played.length === 0) return null
-    const stp = sc.reduce((sum, s, i) => s > 0 ? sum + (s - holePars[i]) : sum, 0)
-    return stp
-  })
-  const positions = []
-  let prev = null
-  let pos = 0
-  stps.forEach((stp, idx) => {
-    if (stp == null) { positions.push('—'); return }
-    if (stp !== prev) { pos = idx + 1; prev = stp }
-    positions.push(pos)
-  })
-  // Add T-prefix for ties
+    let total = 0
+    for (let i = startIdx; i <= endIdx; i++) {
+      const s = sc[i] || 0
+      if (s > 0) total += s - (holePars[i] || 4)
+    }
+    return total
+  }
+  function totalStp(p) {
+    const sc = getScores(p)
+    const played = sc.map((s, i) => ({ s, i })).filter(x => x.s > 0)
+    if (!played.length) return null
+    return played.reduce((sum, x) => sum + (x.s - (holePars[x.i] || 4)), 0)
+  }
+
+  // Returns true if two players are tied through ALL tiebreaker keys.
+  function fullyTied(a, b) {
+    const da = totalStp(a), db = totalStp(b)
+    if (da == null || db == null) return da === db
+    if (da !== db) return false
+    for (const [s, e] of tieRanges) {
+      if (strokesToParRange(a, s, e) !== strokesToParRange(b, s, e)) return false
+    }
+    return true
+  }
+
+  // First pass: assign raw rank. New rank only when not tied with the
+  // immediately preceding entry. Players with no scores get '—'.
+  const rawRanks = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (totalStp(sorted[i]) == null) { rawRanks.push('—'); continue }
+    if (i === 0) { rawRanks.push(1); continue }
+    const prevRank = rawRanks[i - 1]
+    if (prevRank === '—') { rawRanks.push(i + 1); continue }
+    rawRanks.push(fullyTied(sorted[i - 1], sorted[i]) ? prevRank : i + 1)
+  }
+  // Second pass: T-prefix any rank that appears more than once.
   const counts = {}
-  positions.forEach(p => { if (p !== '—') counts[p] = (counts[p] || 0) + 1 })
-  return positions.map(p => p === '—' ? p : counts[p] > 1 ? `T${p}` : `${p}`)
+  rawRanks.forEach(r => { if (r !== '—') counts[r] = (counts[r] || 0) + 1 })
+  return rawRanks.map(r => r === '—' ? r : counts[r] > 1 ? `T${r}` : `${r}`)
 }
 
 // ─── Match Play helpers ───────────────────────────────────────────────────────
@@ -2454,17 +2491,57 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     return cellColor(totalSoFar || 0, parSoFar || 1)
   }
 
-  // Sort leaderboard: fewer strokes vs par played = better
-  function leaderboardSort(a, b) {
-    const calcNet = p => {
-      const sc = getScores(p)
-      const holesPlayed = sc.map((s, i) => ({ s, i })).filter(x => x.s > 0)
-      if (!holesPlayed.length) return 999
-      const parSoFar = holesPlayed.reduce((sum, x) => sum + (holePars[x.i] || 4), 0)
-      const totalSoFar = holesPlayed.reduce((sum, x) => sum + x.s, 0)
-      return totalSoFar - parSoFar
+  // ── Sort leaderboard with USGA-standard card-back tiebreaker ──
+  // Primary key: total strokes-to-par (lower = better, no scores = 999)
+  // Tiebreakers (USGA Section 5.2 — applied automatically when totals tie):
+  //   (a) lowest back-9 score (skipped on 9-hole rounds)
+  //   (b) lowest last 6 holes
+  //   (c) lowest last 3 holes
+  //   (d) lowest 18th hole (or last hole played, for partial cards)
+  // After all four, if still tied, players share the position. Sudden
+  // death isn't supported here — that's a live-tournament action.
+  // (2026-05-01 — league must-have B1.)
+
+  // Compute strokes-to-par over a slice of holes for the player. Holes
+  // that haven't been played (score = 0) contribute 0 — they're "even
+  // par for unplayed" by USGA convention for card-back purposes.
+  function strokesToParRange(p, startIdx, endIdx) {
+    const sc = getScores(p)
+    let total = 0
+    for (let i = startIdx; i <= endIdx; i++) {
+      const s = sc[i] || 0
+      if (s > 0) total += s - (holePars[i] || 4)
     }
-    return calcNet(a) - calcNet(b)
+    return total
+  }
+
+  function totalStrokesToPar(p) {
+    const sc = getScores(p)
+    const played = sc.map((s, i) => ({ s, i })).filter(x => x.s > 0)
+    if (!played.length) return 999
+    const parSum   = played.reduce((sum, x) => sum + (holePars[x.i] || 4), 0)
+    const strokes  = played.reduce((sum, x) => sum + x.s, 0)
+    return strokes - parSum
+  }
+
+  function leaderboardSort(a, b) {
+    // Primary
+    const da = totalStrokesToPar(a)
+    const db = totalStrokesToPar(b)
+    if (da !== db) return da - db
+    // Hole-count slice depends on actual holes played in the round.
+    const lastIdx = holeCount - 1                    // 17 for 18-hole, 8 for 9-hole
+    const tieRanges = []
+    if (holeCount >= 18) tieRanges.push([9, 17])     // back-9 (only meaningful on 18-hole)
+    tieRanges.push([Math.max(0, lastIdx - 5), lastIdx])  // last 6
+    tieRanges.push([Math.max(0, lastIdx - 2), lastIdx])  // last 3
+    tieRanges.push([lastIdx, lastIdx])               // last hole
+    for (const [s, e] of tieRanges) {
+      const ra = strokesToParRange(a, s, e)
+      const rb = strokesToParRange(b, s, e)
+      if (ra !== rb) return ra - rb
+    }
+    return 0  // still tied — share position
   }
 
   const sorted = [...participants].sort(leaderboardSort)
