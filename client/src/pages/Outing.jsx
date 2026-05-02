@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put, del } from '../lib/api.js'
+import { runWithQueue, subscribeQueue } from '../lib/offline-queue.js'
 import CoachMark from '../components/CoachMark.jsx'
 import { warn } from '../lib/logger.js'
 // Renamed on import to avoid shadowing the existing local scoreColor(strokes, par)
@@ -2525,6 +2526,10 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // Commissioner correction panel — host-only modal with withdraw
   // toggles + audit log readout. (B3, 2026-05-01)
   const [showManage, setShowManage] = useState(false)
+  // Offline queue size — surfaces a small pill when scores are
+  // pending sync (cell signal dropped on the course). (B5)
+  const [queuedCount, setQueuedCount] = useState(0)
+  useEffect(() => subscribeQueue(setQueuedCount), [])
   const [scoreModal, setScoreModal] = useState(null) // { userId, userName, hole }
   const [showGuestModal, setShowGuestModal] = useState(false)
   const [netMode, setNetMode] = useState(false)
@@ -2638,18 +2643,19 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
       // Host endpoint also handles same-foursome marker writes per
       // the 2026-05-01 widening — call it whenever the writer isn't
       // the player themselves. The server gates permissions.
+      // All writes route through runWithQueue so a flaky cell signal
+      // doesn't lose the score — it's queued in localStorage and
+      // replayed when connectivity returns. (B5)
       const isSelfEdit = String(targetUserId) === String(user?.id)
-      const callHost = async (force = false) =>
-        put(`/api/outings/${code}/scores/host`, { hole, score, user_id: targetUserId, ...(force ? { force: true } : {}) })
+      const targetUrl = isSelfEdit && String(outing?.host_id) !== String(user?.id) && !isMarkerFor(String(user?.id), String(targetUserId))
+        ? `/api/outings/${code}/scores`
+        : `/api/outings/${code}/scores/host`
+      const baseBody = isSelfEdit && targetUrl.endsWith('/scores')
+        ? { hole, score }
+        : { hole, score, user_id: targetUserId }
 
       try {
-        if (isSelfEdit && String(outing?.host_id) !== String(user?.id) && !isMarkerFor(String(user?.id), String(targetUserId))) {
-          // Plain self-entry uses the simpler endpoint (no permission
-          // checks, just owns-own-card).
-          await put(`/api/outings/${code}/scores`, { hole, score })
-        } else {
-          await callHost(false)
-        }
+        await runWithQueue({ url: targetUrl, method: 'PUT', body: baseBody })
       } catch (err) {
         // Score-conflict handshake (B2). Server returns 409 with the
         // existing different score; ask the user before overwriting.
@@ -2660,8 +2666,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
             `Replace it with ${score}?`
           )
           if (!ok) { setSaving(false); return }
-          // Retry with force flag.
-          await callHost(true)
+          await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true } })
         } else {
           throw err
         }
@@ -3046,6 +3051,17 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
               borderRadius: 20, padding: '3px 10px',
               color: 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>+ Guest</button>
+            {queuedCount > 0 && (
+              <div title="Saved locally — will sync when reconnected" style={{
+                background: 'rgba(248,180,113,0.14)', border: '1px solid rgba(248,180,113,0.40)',
+                borderRadius: 20, padding: '3px 10px',
+                color: '#F8B471', fontSize: 11, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F8B471' }} />
+                {queuedCount} pending
+              </div>
+            )}
             <button onClick={() => setShowManage(true)} style={{
               background: 'rgba(245,215,138,0.12)', border: '1px solid rgba(245,215,138,0.35)',
               borderRadius: 20, padding: '3px 10px',
