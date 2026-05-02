@@ -3444,7 +3444,10 @@ function NotificationsModal({
 
 export default function Home({ onNavigate, onNavigateToOuting }) {
   const [profile, setProfile] = useState(null)
-  const [friends, setFriends] = useState({ friends: [], incoming: [], activity: [] })
+  // outgoing: [] was missing here — caused the REQUESTS box to crash
+  // on first render (friends.outgoing.length on undefined) before the
+  // /api/friends fetch resolved. (2026-05-02)
+  const [friends, setFriends] = useState({ friends: [], incoming: [], outgoing: [], activity: [] })
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
