@@ -91,14 +91,52 @@ export default function Leagues({ user, onCreateEventInLeague }) {
 }
 
 // ─── LeaguesPaywall — free-user upgrade screen ──────────────────────────
+// Round 26 audit — bespoke SVG glyphs replace the emoji icons that
+// previously broke the Augusta brand language. Stroke-on-gold styling
+// matches the rest of the app's iconography. (2026-05-02)
+function GlyphTrophy() {
+  return (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/><path d="M8 6H6a2 2 0 0 0 2 2"/><path d="M16 6h2a2 2 0 0 1-2 2"/>
+    <line x1="12" y1="12" x2="12" y2="16"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="10" y1="16" x2="14" y2="16"/>
+  </svg>)
+}
+function GlyphRoster() {
+  return (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3"/><path d="M3 21v-1a6 6 0 0 1 12 0v1"/>
+    <circle cx="17" cy="9" r="2.5"/><path d="M14.5 21v-1a4.5 4.5 0 0 1 6.5-4"/>
+  </svg>)
+}
+function GlyphControls() {
+  return (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
+    <circle cx="8" cy="6" r="2" fill="#0E3B23"/><circle cx="14" cy="12" r="2" fill="#0E3B23"/><circle cx="10" cy="18" r="2" fill="#0E3B23"/>
+  </svg>)
+}
+function GlyphChart() {
+  return (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="20" x2="21" y2="20"/>
+    <rect x="6" y="11" width="3" height="9"/><rect x="11" y="6" width="3" height="14"/><rect x="16" y="14" width="3" height="6"/>
+  </svg>)
+}
+function GlyphBroadcast() {
+  return (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 13a8 8 0 0 1 14 0"/><path d="M3 9a12 12 0 0 1 18 0"/>
+    <circle cx="12" cy="18" r="2"/>
+  </svg>)
+}
+function GlyphScale() {
+  return (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v18"/><path d="M3 8h18"/><path d="M3 8l3 6h-6z" fill="#C9A04030"/><path d="M21 8l3 6h-6z" fill="#C9A04030"/>
+  </svg>)
+}
 function LeaguesPaywall({ current = 'free', reason }) {
   const benefits = [
-    { icon: '🏆', title: 'Season-long standings', body: 'Aggregate wins, top-3 finishes, and average score across every event.' },
-    { icon: '📋', title: 'Persistent league rosters', body: 'No more re-inviting players for every match. The league knows who plays.' },
-    { icon: '🎯', title: 'Commissioner controls', body: 'Set scoring rules once. Cancel rain-outs. Push announcements to the whole roster.' },
-    { icon: '📊', title: 'CSV exports + history', body: 'Every event archived. Download standings any time for your records.' },
-    { icon: '📡', title: 'Unlimited live leaderboards', body: 'Tee-box QR codes, public spectator boards, branded print sheets.' },
-    { icon: '🤝', title: 'Up to 150 players per event', body: 'Foursomes auto-assigned. Bulk-foursome score entry. League-grade scale.' },
+    { Icon: GlyphTrophy,    title: 'Season-long standings',     body: 'Aggregate wins, top-3 finishes, and average score across every event.' },
+    { Icon: GlyphRoster,    title: 'Persistent league rosters', body: 'No more re-inviting players for every match. The league knows who plays.' },
+    { Icon: GlyphControls,  title: 'Commissioner controls',     body: 'Set scoring rules once. Cancel rain-outs. Push announcements to the whole roster.' },
+    { Icon: GlyphChart,     title: 'CSV exports + history',     body: 'Every event archived. Download standings any time for your records.' },
+    { Icon: GlyphBroadcast, title: 'Unlimited live leaderboards', body: 'Tee-box QR codes, public spectator boards, branded print sheets.' },
+    { Icon: GlyphScale,     title: 'Up to 150 players per event', body: 'Foursomes auto-assigned. Bulk-foursome score entry. League-grade scale.' },
   ]
 
   return (
@@ -134,16 +172,24 @@ function LeaguesPaywall({ current = 'free', reason }) {
         )}
       </div>
 
-      {/* Benefits grid */}
+      {/* Benefits grid — bespoke SVG glyphs in gold-tinted square tiles
+          to match the rest of the app's Augusta iconography. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
         {benefits.map(b => (
           <div key={b.title} style={{
-            display: 'flex', gap: 12,
+            display: 'flex', gap: 12, alignItems: 'flex-start',
             padding: '14px 16px', borderRadius: 14,
             background: 'rgba(241,231,200,0.06)',
             border: '1px solid rgba(201,160,64,0.20)',
           }}>
-            <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>{b.icon}</div>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(201,160,64,0.12)',
+              border: '1px solid rgba(201,160,64,0.30)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <b.Icon />
+            </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: AUGUSTA_CREAM, marginBottom: 3 }}>{b.title}</div>
               <div style={{ fontSize: 12, color: 'rgba(241,231,200,0.65)', lineHeight: 1.45 }}>{b.body}</div>
@@ -537,8 +583,10 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
         <LeagueAnnouncementBanner league={league} />
       </div>
 
-      {/* Tab bar — Rules + Comms tabs only render for the commissioner */}
-      <div style={{ display: 'flex', gap: 6, padding: '0 20px', flexShrink: 0, flexWrap: 'wrap' }}>
+      {/* Tab bar — Rules + Comms tabs only render for the commissioner.
+          Round 19 audit fix: role=tablist + aria-selected so screen
+          readers announce the tab state correctly. */}
+      <div role="tablist" aria-label="League sections" style={{ display: 'flex', gap: 6, padding: '0 20px', flexShrink: 0, flexWrap: 'wrap' }}>
         {[
           { id: 'standings', label: 'Standings' },
           { id: 'events',    label: `Events (${league.event_count || 0})` },
@@ -548,7 +596,10 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
             { id: 'comms', label: 'Comms' },
           ] : []),
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
+          <button key={t.id} onClick={() => setTab(t.id)}
+            role="tab"
+            aria-selected={tab === t.id}
+            style={{
             flex: '1 1 30%', minWidth: 80, padding: '8px 6px', borderRadius: 10,
             background: tab === t.id ? 'rgba(46,158,69,0.10)' : 'rgba(255,255,255,0.5)',
             border: '1px solid', borderColor: tab === t.id ? '#1A6B28' : 'rgba(13,31,18,0.10)',

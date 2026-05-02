@@ -188,7 +188,15 @@ router.put('/:id', requireElite, async (req, res) => {
       add('description', (typeof description === 'string') ? description.trim().slice(0, 500) : null)
     }
     if (config && typeof config === 'object') {
-      add('config', JSON.stringify(config))
+      // Round 20 audit fix — MERGE the incoming config with the
+      // existing one instead of replacing. Without this, a Rules-tab
+      // save would clobber announcements (which also live on config)
+      // and any other config fields the editor doesn't own. The
+      // editor sends only the fields it knows about; everything else
+      // (announcements[], future flags) is preserved.
+      const existing = (league.config && typeof league.config === 'object') ? league.config : {}
+      const merged = { ...existing, ...config }
+      add('config', JSON.stringify(merged))
     }
     if (sets.length === 0) return res.json({ league })
 

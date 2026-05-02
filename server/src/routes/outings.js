@@ -337,6 +337,11 @@ router.post('/', async (req, res) => {
     participants: [],
     handicap_allowance: allowanceVal,
     no_show_policy: noShowVal,
+    // Round 24 audit fix — when this event is created under a
+    // league, copy the league's season tag onto state.season so the
+    // public board renders 'SEASON · 2026' under the title without
+    // the host having to re-enter it per event.
+    ...(leagueSeason ? { season: String(leagueSeason).slice(0, 64) } : {}),
     ...(stablefordPointMap ? { stableford_points: stablefordPointMap } : {}),
     ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
     ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
@@ -346,21 +351,30 @@ router.post('/', async (req, res) => {
   // commissioner OR an active member can create an event under a
   // league. Anything else nulls out so a malicious client can't
   // attach to a league they don't belong to.
+  // Round 24 audit fix — when valid, copy league.season into the
+  // event's state.season so spectators on the public board see the
+  // season context without the host having to set the per-event tag
+  // separately.
   let validLeagueId = null
+  let leagueSeason = null
   if (leagueId != null) {
     try {
-      const lg = await db.one('SELECT id, commissioner_id FROM tm_leagues WHERE id = $1', [leagueId])
+      const lg = await db.one('SELECT id, commissioner_id, season FROM tm_leagues WHERE id = $1', [leagueId])
       if (lg) {
         const isComm = String(lg.commissioner_id) === String(req.user.id)
         if (isComm) {
           validLeagueId = lg.id
+          leagueSeason = lg.season
         } else {
           const mem = await db.one(
             `SELECT 1 FROM tm_league_members
              WHERE league_id = $1 AND user_id = $2 AND removed_at IS NULL`,
             [lg.id, req.user.id]
           )
-          if (mem) validLeagueId = lg.id
+          if (mem) {
+            validLeagueId  = lg.id
+            leagueSeason   = lg.season
+          }
         }
       }
     } catch (err) {

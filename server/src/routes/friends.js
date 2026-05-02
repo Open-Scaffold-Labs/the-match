@@ -331,7 +331,17 @@ router.get('/search', async (req, res) => {
        LIMIT 10`,
       [uid, term]
     )
-    res.json(results)
+    // Round 25 audit fix — strip email from results for non-friends.
+    // The search WHERE clause still matches against email so 'email
+    // address lookup' works (you can find a friend by typing their
+    // email), but the response only INCLUDES email when the user is
+    // already a friend (or has a pending request). Prevents PII leak
+    // through bulk-scrape via repeated searches.
+    const sanitized = (results || []).map(u => ({
+      ...u,
+      email: u.friend_status === 'accepted' ? u.email : null,
+    }))
+    res.json(sanitized)
   } catch (err) {
     console.error('[friends/search]', err.message)
     res.status(500).json({ error: 'Search failed' })
