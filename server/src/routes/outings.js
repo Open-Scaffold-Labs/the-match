@@ -982,7 +982,10 @@ router.get('/:code/export.csv', async (req, res) => {
     const rows = (state.participants || []).map(sp => {
       const dp = partRows.find(r => String(r.user_id) === String(sp.user_id))
       const scores = (dp?.scores && Array.isArray(dp.scores)) ? dp.scores : (sp.scores || [])
-      const total = Number(dp?.total ?? sp.total) || 0
+      // Compute total from scores rather than trusting dp.total — the
+      // cached total can be stale relative to the latest score writes.
+      // (Self-review fix on item 8.)
+      const total = (Array.isArray(scores) ? scores : []).reduce((s, v) => s + (Number(v) || 0), 0)
       const front = scores.slice(0, 9).reduce((s, v) => s + (v || 0), 0)
       const back  = scores.slice(9, 18).reduce((s, v) => s + (v || 0), 0)
       const ov    = overrides[String(sp.user_id)]

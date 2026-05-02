@@ -3845,6 +3845,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           </div>
         )}
 
+        {/* Item 7 — Latest announcement banner. Visible to EVERY
+            participant (not just host). Dismissible per-session per-
+            announcement-id via localStorage so the user only sees a
+            given message once. New announcements pop a fresh banner. */}
+        <AnnouncementBanner outing={outing} />
+
         {/* Offline-queue pill — visible to ALL viewers (host + every
             participant), not just the host, since their own writes
             might be queued. (Iteration fix B5-3.) */}
@@ -5307,6 +5313,83 @@ function LiveShareModal({ outing, onClose }) {
       </div>
     </div>,
     document.body
+  )
+}
+
+// ─── AnnouncementBanner (item 7) ─────────────────────────────────────────────
+// Surfaces the most recent commissioner announcement at the top of the
+// Outing page for every participant. Dismissible per-id via localStorage
+// so a user who's already read the message doesn't keep seeing it across
+// page navigations. New announcements get a fresh id → fresh banner.
+// (2026-05-02)
+function AnnouncementBanner({ outing }) {
+  const list = Array.isArray(outing.state?.announcements) ? outing.state.announcements : []
+  const latest = list[0]
+  const [dismissed, setDismissed] = useState(false)
+  const code = outing.code
+
+  // Load dismissed-id from localStorage on mount + when code changes.
+  useEffect(() => {
+    setDismissed(false)
+    if (!latest?.id) return
+    try {
+      const seen = localStorage.getItem(`tm_announce_seen_${code}`)
+      if (seen === latest.id) setDismissed(true)
+    } catch { /* ignore */ }
+  }, [code, latest?.id])
+
+  if (!latest || dismissed) return null
+
+  function whenStr(iso) {
+    if (!iso) return ''
+    const t = new Date(iso).getTime()
+    if (!Number.isFinite(t)) return ''
+    const ms = Date.now() - t
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    if (min < 1440) return `${Math.floor(min / 60)}h ago`
+    return `${Math.floor(min / 1440)}d ago`
+  }
+
+  return (
+    <div style={{
+      marginTop: 8, padding: '10px 14px',
+      background: 'linear-gradient(135deg, rgba(46,160,255,0.14), rgba(46,160,255,0.04))',
+      border: '1px solid rgba(46,160,255,0.40)',
+      borderRadius: 12,
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+    }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CC5FF"
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ flexShrink: 0, marginTop: 1 }}>
+        <path d="M3 11l18-5v12L3 13z"/>
+        <path d="M11.6 16.8a3 3 0 11-5.2 3"/>
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#7CC5FF', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+            Commissioner
+          </span>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>· {whenStr(latest.posted_at)}</span>
+        </div>
+        <div style={{
+          fontSize: 12, color: 'rgba(255,255,255,0.92)',
+          lineHeight: 1.45, whiteSpace: 'pre-wrap',
+        }}>{latest.text}</div>
+      </div>
+      <button
+        onClick={() => {
+          try { localStorage.setItem(`tm_announce_seen_${code}`, latest.id) } catch { /* ignore */ }
+          setDismissed(true)
+        }}
+        aria-label="Dismiss"
+        style={{
+          background: 'transparent', border: 'none',
+          color: 'rgba(255,255,255,0.55)', fontSize: 16, cursor: 'pointer',
+          padding: '0 4px', lineHeight: 1, flexShrink: 0,
+        }}>✕</button>
+    </div>
   )
 }
 
