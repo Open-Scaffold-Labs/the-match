@@ -3389,12 +3389,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   return (
     <div style={{
       minHeight: '100dvh',
-      // Uniform translucent Augusta-cream tint from top to bottom —
-      // no fade-in at the top, no fall-off at the bottom. Photo
-      // behind shows through at the same intensity everywhere.
-      // (2026-05-02 — Matt: "remove that ramp up that's not what
-      // i asked for either … the tint should not cut off")
-      background: 'rgba(241,231,200,0.5)',
+      // Tint lives on the phone-frame parent in App.jsx now, so it
+      // covers the rubber-band overscroll area too. Wrapper itself
+      // is transparent so the tint isn't double-stacked.
+      background: 'transparent',
       paddingBottom: 100,
     }}>
       {/* Polished page-top: TODAY overline → wordmark + actions →

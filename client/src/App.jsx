@@ -179,7 +179,13 @@ export default function App() {
       <div style={{
         width: '100%', maxWidth: 430,
         height: '100dvh',
-        background: 'transparent',
+        // Translucent Augusta cream — same tint that was on the
+        // Home wrapper, lifted up one level so it covers the entire
+        // phone-frame area including iOS rubber-band overscroll past
+        // the bottom of any page. Photo behind (App outer wrapper)
+        // still shows through at the same opacity. (2026-05-02 —
+        // Matt: tint should extend down the entire page, not cut off)
+        background: 'rgba(241,231,200,0.5)',
         position: 'relative',
         overflow: 'hidden',
       }}>
