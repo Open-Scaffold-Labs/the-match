@@ -3743,16 +3743,124 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
         </div>
         {/* /TEE TIMES box */}
 
-        {/* Friends */}
-        <FriendsPanel
-          friends={friends.friends}
-          incoming={friends.incoming}
-          outgoing={friends.outgoing}
-          activity={friends.activity}
-          onRespond={handleFriendRespond}
-          onAddFriend={() => setAddFriendOpen(true)}
-          onSelectFriend={setSelectedFriend}
-        />
+        {/* REQUESTS — third translucent-glass box (sibling to the
+            ProfileHeroCard and the TEE TIMES box). Houses incoming
+            friend requests (people who want to friend you) and
+            outgoing pending requests (people you've sent to). The
+            old PLAYING PARTNERS section has been removed; finding +
+            adding new partners now happens via the magnifying-glass
+            in the top bar. (2026-05-02 — Matt: "remove playing
+            partners, make a third translucent box, same as the ones
+            above and name it requests.... and divide it into
+            incoming and outgoing") */}
+        <div style={{
+          borderRadius: 22,
+          background: 'rgba(255,255,255,0.22)',
+          border: '1px solid rgba(255,255,255,0.45)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          padding: '14px 12px 8px',
+          marginBottom: 16,
+        }}>
+          {/* Section header — same flourish vocabulary as TEE TIMES */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '0 4px', marginBottom: 12,
+          }}>
+            <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.85))' }} />
+            <div style={{
+              fontSize: 13, fontWeight: 900, letterSpacing: '0.22em',
+              color: '#5A4810', fontFamily: '"Georgia", serif',
+              textShadow: '0 1px 0 rgba(255,253,248,0.6)',
+            }}>REQUESTS</div>
+            <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, rgba(201,160,64,0.85), transparent)' }} />
+          </div>
+
+          {(friends.incoming.length === 0 && friends.outgoing.length === 0) ? (
+            <div style={{
+              textAlign: 'center', padding: '14px 14px 18px',
+              color: 'rgba(13,31,18,0.55)', fontSize: 12,
+            }}>
+              No incoming or outgoing requests
+            </div>
+          ) : (
+            <>
+              {/* INCOMING sub-section */}
+              {friends.incoming.length > 0 && (
+                <div style={{ marginBottom: friends.outgoing.length > 0 ? 14 : 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 4px' }}>
+                    <div style={{
+                      color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+                      background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+                      textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+                    }}>INCOMING</div>
+                    <span style={{
+                      background: '#1B5E3B', color: '#FFFFFF',
+                      borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
+                    }}>{friends.incoming.length}</span>
+                  </div>
+                  {friends.incoming.map(req => (
+                    <div key={req.id} style={{
+                      background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(27,94,59,0.10)',
+                      borderRadius: 12, padding: '10px 14px', marginBottom: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    }}>
+                      <div>
+                        <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
+                        <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>wants to be your playing partner</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => handleFriendRespond(req.id, 'accepted')} style={{
+                          background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
+                          padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        }}>Accept</button>
+                        <button onClick={() => handleFriendRespond(req.id, 'declined')} style={{
+                          background: 'rgba(13,31,18,0.06)', color: 'rgba(13,31,18,0.45)',
+                          border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+                        }}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* OUTGOING sub-section */}
+              {friends.outgoing.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 4px' }}>
+                    <div style={{
+                      color: '#7A5800', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+                      background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+                      textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+                    }}>OUTGOING</div>
+                    <span style={{
+                      background: '#C9A040', color: '#FFFFFF',
+                      borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
+                    }}>{friends.outgoing.length}</span>
+                  </div>
+                  {friends.outgoing.map(req => (
+                    <div key={req.id} style={{
+                      background: 'rgba(255,255,255,0.88)', border: '1px solid rgba(27,94,59,0.10)',
+                      borderRadius: 12, padding: '10px 14px', marginBottom: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                    }}>
+                      <div>
+                        <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requestee_name}</div>
+                        <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>Request sent</div>
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
+                        color: '#7A5800',
+                        background: 'rgba(201,160,64,0.12)', borderRadius: 6, padding: '3px 8px',
+                      }}>PENDING</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        {/* /REQUESTS box */}
 
         {/* Standalone My Bag card removed (2026-05-02) — now lives
             inside the ProfileHeroCard as a sibling to the mailbox
