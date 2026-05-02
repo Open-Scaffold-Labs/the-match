@@ -179,12 +179,7 @@ export default function App() {
       <div style={{
         width: '100%', maxWidth: 430,
         height: '100dvh',
-        // Augusta cream — matches the bottom of every tab's gradient,
-        // so iOS rubber-band overscroll past the end of any page reveals
-        // the same cream tint instead of the App-level fixed Unsplash
-        // golf-course photo behind it. (2026-05-02 — Matt: "make the
-        // cream tint cover the length of the entire background")
-        background: '#F1E7C8',
+        background: 'transparent',
         position: 'relative',
         overflow: 'hidden',
       }}>

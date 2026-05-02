@@ -3389,7 +3389,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   return (
     <div style={{
       minHeight: '100dvh',
-      background: 'linear-gradient(180deg, rgba(255,253,248,0.0) 0%, rgba(255,253,248,0.6) 60%, rgba(241,231,200,0.35) 100%)',
+      // Tint holds steady from 60% down — was falling off from
+      // 60% alpha to 35% alpha at the bottom, which made it feel
+      // like the cream "ran out" on long scrolls. (2026-05-02)
+      background: 'linear-gradient(180deg, rgba(255,253,248,0.0) 0%, rgba(255,253,248,0.6) 60%, rgba(241,231,200,0.6) 100%)',
       paddingBottom: 100,
     }}>
       {/* Polished page-top: TODAY overline → wordmark + actions →
