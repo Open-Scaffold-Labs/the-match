@@ -102,6 +102,69 @@ function computeStablefordPub(participants, holePars, pointMap) {
   return out
 }
 
+// 6.3 — Best Ball clustering. Group participants by team_id, compute the
+// per-team best score on each hole (gross, since the public board doesn't
+// apply per-player handicap strokes), sum them, and return ranked teams
+// with their member rosters. Players with no team_id are skipped here —
+// they fall back to the per-player render so individual stragglers in a
+// best-ball outing still show up. (2026-05-02)
+function computeBestBallPub(participants, holePars, teams) {
+  // Build a name+meta lookup for each declared team
+  const teamMeta = new Map()
+  for (const t of (teams || [])) {
+    teamMeta.set(String(t.id), {
+      id: String(t.id),
+      name: t.name || `Team ${t.id}`,
+      color: t.color || null,
+    })
+  }
+  // Group participants by team_id; players without a team go into 'solo'
+  const teamMap = new Map()
+  for (const p of participants) {
+    if (p.team_id == null) continue
+    const key = String(p.team_id)
+    if (!teamMap.has(key)) teamMap.set(key, [])
+    teamMap.get(key).push(p)
+  }
+  const ranked = []
+  for (const [teamId, members] of teamMap) {
+    const meta = teamMeta.get(teamId) || { id: teamId, name: `Team ${teamId}`, color: null }
+    let total = 0
+    let holesPlayed = 0
+    for (let h = 0; h < holePars.length; h++) {
+      const memberScores = members
+        .map(m => (m.scores || [])[h] || 0)
+        .filter(s => s > 0)
+      if (memberScores.length === 0) continue
+      total += Math.min(...memberScores)
+      holesPlayed += 1
+    }
+    // Course par played up to this point — used for "to par" display.
+    const parThrough = holePars.slice(0, holesPlayed).reduce((s, p) => s + (p || 4), 0)
+    ranked.push({
+      id: teamId,
+      name: meta.name,
+      color: meta.color,
+      members,
+      total,
+      holesPlayed,
+      stp: holesPlayed === 0 ? null : (total - parThrough),
+    })
+  }
+  // Best (lowest) total wins — but a team that has played MORE holes
+  // shouldn't be punished for having a bigger raw total than a team
+  // with one hole done. Sort by stp (to-par) primarily; teams with no
+  // holes played sort to the bottom.
+  ranked.sort((a, b) => {
+    if (a.stp == null && b.stp == null) return 0
+    if (a.stp == null) return 1
+    if (b.stp == null) return -1
+    if (a.stp !== b.stp) return a.stp - b.stp
+    return b.holesPlayed - a.holesPlayed
+  })
+  return ranked
+}
+
 export default function PublicLeaderboard({ code }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
@@ -220,10 +283,21 @@ export default function PublicLeaderboard({ code }) {
   const formats = data.scoring_formats || []
   const isSkins      = formats.includes('skins')
   const isStableford = formats.includes('stableford')
+  // 6.3 — Best Ball clustering. When a best-ball outing has team data,
+  // render team blocks with each member nested underneath instead of a
+  // flat per-player list. The team total drives the leaderboard sort.
+  const isBestBall   = formats.includes('best_ball')
+  const teamsRaw     = data.state?.teams || []
   const skinsByPlayer = isSkins ? computeSkinsPub(participants, holePars) : {}
   const pointsByPlayer = isStableford
     ? computeStablefordPub(participants, holePars, data.state?.stableford_points)
     : {}
+  // Compute team standings only when best-ball is the format AND there
+  // are at least two teams declared. Otherwise the team view collapses
+  // to one block — better to fall through to flat player rows.
+  const bestBallTeams = isBestBall && teamsRaw.length >= 2
+    ? computeBestBallPub(participants, holePars, teamsRaw)
+    : null
 
   const sorted = [...participants].sort((a, b) => {
     if (isSkins) {
@@ -320,28 +394,150 @@ export default function PublicLeaderboard({ code }) {
         }}>LEADERS</div>
       </div>
 
-      {/* Player rows */}
+      {/* Player rows — flat for stroke / skins / stableford, team-clustered
+          for Best Ball when there are 2+ teams declared (6.3). */}
       <div style={{ padding: '6px 14px 0' }}>
-        {/* Column headers */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: '40px 1fr 60px 60px',
-          gap: 8, alignItems: 'center',
-          padding: '8px 6px', borderBottom: `1px solid rgba(201,160,64,0.40)`,
-        }}>
-          <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
-          <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em' }}>PLAYER</div>
-          <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>{totColLabel}</div>
-          <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
-        </div>
+        {bestBallTeams ? (
+          /* TEAM-CLUSTERED VIEW (Best Ball, 2+ teams) ─────────────────── */
+          <>
+            {/* Team column header */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '40px 1fr 60px 60px',
+              gap: 8, alignItems: 'center',
+              padding: '8px 6px', borderBottom: `1px solid rgba(201,160,64,0.40)`,
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em' }}>TEAM</div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>TOT</div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
+            </div>
 
-        {sorted.length === 0 && (
-          <div style={{
-            padding: '40px 20px', textAlign: 'center',
-            color: 'rgba(241,231,200,0.55)', fontStyle: 'italic',
-          }}>Waiting for the first scores…</div>
-        )}
+            {bestBallTeams.length === 0 && (
+              <div style={{
+                padding: '40px 20px', textAlign: 'center',
+                color: 'rgba(241,231,200,0.55)', fontStyle: 'italic',
+              }}>Waiting for the first scores…</div>
+            )}
 
-        {sorted.map((p, idx) => {
+            {bestBallTeams.map((team, idx) => {
+              const played = team.holesPlayed > 0
+              const stp = team.stp
+              const stpStr = !played
+                ? '—'
+                : stp === 0 ? 'E' : stp > 0 ? `+${stp}` : `${stp}`
+              const totColor = !played
+                ? 'rgba(241,231,200,0.40)'
+                : idx === 0
+                  ? AUGUSTA_GOLD
+                  : stp < 0 ? '#E55858'
+                    : stp === 0 ? AUGUSTA_CREAM
+                    : 'rgba(241,231,200,0.85)'
+              const teamAccent = team.color || (idx === 0 ? AUGUSTA_GOLD : 'rgba(201,160,64,0.30)')
+              return (
+                <div key={team.id} style={{
+                  borderBottom: '1px solid rgba(241,231,200,0.10)',
+                  background: idx === 0 && played ? 'rgba(201,160,64,0.12)' : 'transparent',
+                  paddingBottom: 8,
+                }}>
+                  {/* Team header row — POS · NAME · TOT · THRU */}
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '40px 1fr 60px 60px',
+                    gap: 8, alignItems: 'center',
+                    padding: '12px 6px 8px',
+                    borderLeft: `4px solid ${teamAccent}`,
+                  }}>
+                    <div style={{
+                      fontSize: 14, fontWeight: 900, textAlign: 'center',
+                      color: idx === 0 && played ? AUGUSTA_GOLD : AUGUSTA_CREAM,
+                    }}>{played ? idx + 1 : '—'}</div>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{
+                        fontSize: 14, fontWeight: 900, color: AUGUSTA_CREAM,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                      }}>{team.name}</div>
+                      <div style={{ fontSize: 10, color: 'rgba(201,160,64,0.65)', marginTop: 2 }}>
+                        {team.members.length} player{team.members.length === 1 ? '' : 's'} · best ball
+                      </div>
+                    </div>
+                    <div style={{
+                      textAlign: 'center', fontSize: 16, fontWeight: 900,
+                      color: totColor,
+                    }}>{stpStr}</div>
+                    <div style={{
+                      textAlign: 'center', fontSize: 13,
+                      color: 'rgba(241,231,200,0.65)', fontWeight: 700,
+                    }}>{played ? (team.holesPlayed >= (data.state?.holes ?? 18) ? 'F' : team.holesPlayed) : '—'}</div>
+                  </div>
+                  {/* Member rows — gross score per player nested under the
+                      team. Subtler styling so the team total is the
+                      primary read. */}
+                  {team.members.map(m => {
+                    const mPlayed = (m.scores || []).some(s => s > 0)
+                    const mStp    = totalStp(m, holePars)
+                    const mDisp   = mStp == null ? '—' : (mStp === 0 ? 'E' : mStp > 0 ? `+${mStp}` : `${mStp}`)
+                    return (
+                      <div key={m.user_id} style={{
+                        display: 'grid', gridTemplateColumns: '40px 1fr 60px 60px',
+                        gap: 8, alignItems: 'center',
+                        padding: '6px 6px 6px 14px',
+                        marginLeft: 4,
+                        borderLeft: `2px solid rgba(201,160,64,0.20)`,
+                      }}>
+                        <div />
+                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                          <div style={{
+                            fontSize: 12, fontWeight: 700,
+                            color: 'rgba(241,231,200,0.85)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{m.name}</div>
+                          {m.handle && (
+                            <div style={{ fontSize: 9, color: 'rgba(201,160,64,0.50)' }}>@{m.handle}</div>
+                          )}
+                        </div>
+                        <div style={{
+                          textAlign: 'center', fontSize: 12, fontWeight: 700,
+                          color: !mPlayed
+                            ? 'rgba(241,231,200,0.30)'
+                            : mStp == null ? 'rgba(241,231,200,0.30)'
+                              : mStp < 0 ? '#E55858'
+                              : mStp === 0 ? 'rgba(241,231,200,0.85)'
+                              : 'rgba(241,231,200,0.55)',
+                        }}>{mDisp}</div>
+                        <div style={{
+                          textAlign: 'center', fontSize: 11,
+                          color: 'rgba(241,231,200,0.40)', fontWeight: 600,
+                        }}>{thruLabel(m, data.state?.holes ?? 18)}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </>
+        ) : (
+          /* FLAT PLAYER VIEW (everything else) ──────────────────────────── */
+          <>
+            {/* Column headers */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '40px 1fr 60px 60px',
+              gap: 8, alignItems: 'center',
+              padding: '8px 6px', borderBottom: `1px solid rgba(201,160,64,0.40)`,
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em' }}>PLAYER</div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>{totColLabel}</div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
+            </div>
+
+            {sorted.length === 0 && (
+              <div style={{
+                padding: '40px 20px', textAlign: 'center',
+                color: 'rgba(241,231,200,0.55)', fontStyle: 'italic',
+              }}>Waiting for the first scores…</div>
+            )}
+
+            {sorted.map((p, idx) => {
           const played = hasPlayedAny(p)
           const stp = totalStp(p, holePars)
           // Color rules: under-par red, even cream, over dim. For
@@ -387,6 +583,8 @@ export default function PublicLeaderboard({ code }) {
             </div>
           )
         })}
+          </>
+        )}
       </div>
 
       {/* Footer brand + install CTA */}

@@ -80,6 +80,18 @@ router.get('/:code/public', async (req, res) => {
           handicap_allowance: state.handicap_allowance ?? 100,
           stableford_points: state.stableford_points ?? null,
           groups: state.groups ?? [],
+          // Expose teams so the public Best Ball leaderboard (6.3) can
+          // cluster players by team and show per-team total. Only id /
+          // name / color / member_ids — no internal commissioner fields.
+          // (2026-05-02)
+          teams: Array.isArray(state.teams)
+            ? state.teams.map(t => ({
+                id: t.id,
+                name: t.name,
+                color: t.color || null,
+                member_ids: Array.isArray(t.member_ids) ? t.member_ids : [],
+              }))
+            : [],
           team_breakdown: state.team_breakdown ?? null,
           participants: enriched.filter(p => !p.withdrawn),
         },

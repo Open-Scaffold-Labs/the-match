@@ -4,9 +4,9 @@
     "source_id": "06512a7e-69f2-45d3-be81-bb309de0388f"
   },
   "wiki/log.md": {
-    "mtime": 1777638849.2928295,
-    "source_id": "b4690eea-9a68-4d27-8e76-c382d96b8782",
-    "verified_at": 1777639017.353972
+    "mtime": 1777683637.9428802,
+    "source_id": "44891ee1-0d94-46a5-87c9-4d477f9a2dd3",
+    "verified_at": 1777683682.092488
   },
   "wiki/index.md": {
     "mtime": 1777638864.8846574,
@@ -45,5 +45,10 @@
     "mtime": 1777639508.3526518,
     "source_id": "d05a2d21-e1a2-46d7-ab3e-a8c980afc2d2",
     "verified_at": 1777639953.4141362
+  },
+  "wiki/synthesis/eagle-eye-tile-grid-handoff-2026-05-01.md": {
+    "mtime": 1777683387.6880083,
+    "source_id": "838b1722-d7c2-4d63-86ea-83d98165447d",
+    "verified_at": 1777683687.3069088
   }
 }
