@@ -719,12 +719,31 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
                 padding: '7px 12px', borderRadius: 8,
                 background: 'rgba(245,215,138,0.15)', border: '1px solid rgba(201,160,64,0.45)',
                 color: '#7A5800', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-              }}>⬇ Season CSV</button>
+              }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Season CSV
+                </span>
+              </button>
               <button onClick={() => setTab('audit')} style={{
                 padding: '7px 12px', borderRadius: 8,
                 background: 'rgba(46,158,69,0.10)', border: '1px solid rgba(26,107,40,0.40)',
                 color: '#1A6B28', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-              }}>📋 League audit log</button>
+              }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="16" rx="1"/>
+                    <line x1="7" y1="9" x2="17" y2="9"/>
+                    <line x1="7" y1="13" x2="17" y2="13"/>
+                    <line x1="7" y1="17" x2="13" y2="17"/>
+                  </svg>
+                  League audit log
+                </span>
+              </button>
             </div>
           </div>
         )}
