@@ -119,6 +119,11 @@
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    /* Stop iOS rubber-band overscroll inside the scroll container so
+       you can't pull past the end of the page and reveal a different
+       background underneath. (2026-05-02 — Matt: "stop the page from
+       being allowed to continue scrolling after the page ends") */
+    overscroll-behavior: none;
     padding-top: calc(var(--safe-top) + 16px);
     padding-bottom: 24px;
     display: flex;
