@@ -232,6 +232,11 @@ router.post('/', async (req, res) => {
     // in [-10, 20] (covers every real-world variant) and falls back
     // to 'standard' if anything is malformed.
     customStablefordPoints,
+    // 2026-05-02 — when the host creates an event from inside a
+    // league, we attach league_id directly so the event groups under
+    // it without a follow-up PATCH. Validated below: caller must be
+    // a member of the league (or the league commissioner).
+    leagueId,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -311,14 +316,41 @@ router.post('/', async (req, res) => {
     ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
   }
 
+  // 2026-05-02 — Validate league attachment. Only the league
+  // commissioner OR an active member can create an event under a
+  // league. Anything else nulls out so a malicious client can't
+  // attach to a league they don't belong to.
+  let validLeagueId = null
+  if (leagueId != null) {
+    try {
+      const lg = await db.one('SELECT id, commissioner_id FROM tm_leagues WHERE id = $1', [leagueId])
+      if (lg) {
+        const isComm = String(lg.commissioner_id) === String(req.user.id)
+        if (isComm) {
+          validLeagueId = lg.id
+        } else {
+          const mem = await db.one(
+            `SELECT 1 FROM tm_league_members
+             WHERE league_id = $1 AND user_id = $2 AND removed_at IS NULL`,
+            [lg.id, req.user.id]
+          )
+          if (mem) validLeagueId = lg.id
+        }
+      }
+    } catch (err) {
+      console.warn('[outings/create] league validation failed', err.message)
+    }
+  }
+
   const row = await db.one(
     `INSERT INTO tm_outings (
        code, name, host_id, course_name, course_par,
        team_format, point_method, scoring_formats, state,
        course_id, course_tee, hole_pars, hole_yardages, hole_handicaps,
-       course_rating, slope_rating, expected_players, team_breakdown
+       course_rating, slope_rating, expected_players, team_breakdown,
+       league_id
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING *`,
     [
       code, name, req.user.id,
@@ -334,6 +366,7 @@ router.post('/', async (req, res) => {
       Number.isFinite(Number(slopeRating))  ? Number(slopeRating)  : null,
       expectedPlayersVal,
       teamBreakdownVal,
+      validLeagueId,
     ]
   )
 

@@ -22,6 +22,12 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [pendingOutingPlayers, setPendingOutingPlayers] = useState([])
+  // Cross-tab "create event for this league" handoff. Set when
+  // LeagueDetail's '+ New event' button is tapped; consumed by Outing
+  // (which auto-opens the CreateWizard with leagueId pre-filled).
+  // Cleared when the wizard finishes or the user backs out.
+  // (2026-05-02 — League-attached event creation.)
+  const [pendingLeagueId, setPendingLeagueId] = useState(null)
   // Lazy-keep-alive: track which tabs the user has visited. Each visited
   // tab stays mounted (display: block when active, display: none otherwise)
   // so component state, polling, GPS subscriptions, and the BOARD/SCORECARD
@@ -204,6 +210,8 @@ export default function App() {
               user={user}
               pendingPlayers={pendingOutingPlayers}
               onClearPending={() => setPendingOutingPlayers([])}
+              pendingLeagueId={pendingLeagueId}
+              onClearPendingLeague={() => setPendingLeagueId(null)}
               onGoToEagleEye={hole => { setEyeHoleNudge(hole); setTab(TABS.EYE) }}
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
@@ -217,7 +225,13 @@ export default function App() {
         )}
         {mountedTabs.has(TABS.LEAGUES) && (
           <TabPanel active={tab === TABS.LEAGUES}>
-            <Leagues user={user} />
+            <Leagues
+              user={user}
+              onCreateEventInLeague={(leagueId) => {
+                setPendingLeagueId(leagueId)
+                setTab(TABS.OUTING)
+              }}
+            />
           </TabPanel>
         )}
         {mountedTabs.has(TABS.TOUR) && (

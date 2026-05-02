@@ -19,7 +19,7 @@ const AUGUSTA_GOLD   = '#C9A040'
 const AUGUSTA_CREAM  = '#F1E7C8'
 
 // ─── Top-level decision: paywall vs hub ─────────────────────────────────
-export default function Leagues({ user }) {
+export default function Leagues({ user, onCreateEventInLeague }) {
   // Two-stage tier check:
   //   1. If we already know the user (passed in by App), trust it.
   //   2. Listen to fetch failures with status 402; if any, fall through
@@ -38,6 +38,7 @@ export default function Leagues({ user }) {
         leagueId={activeLeagueId}
         onBack={() => { setActiveLeagueId(null); setView('hub') }}
         on402={(payload) => setPaywall(payload || { current: 'free' })}
+        onCreateEvent={onCreateEventInLeague}
       />
     )
   }
@@ -386,7 +387,7 @@ function Field({ label, hint, children }) {
 }
 
 // ─── LeagueDetail — standings + events + members + commissioner controls ─
-function LeagueDetail({ leagueId, onBack, on402 }) {
+function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
   const [data, setData]   = useState(null)   // { league, role }
   const [tab, setTab]     = useState('standings')   // 'standings' | 'events' | 'members'
   const [standings, setStandings] = useState(null)
@@ -500,7 +501,11 @@ function LeagueDetail({ leagueId, onBack, on402 }) {
           <StandingsView standings={standings} />
         )}
         {tab === 'events' && (
-          <EventsView events={events} />
+          <EventsView
+            events={events}
+            isCommissioner={isCommissioner}
+            onCreateEvent={() => onCreateEvent?.(leagueId)}
+          />
         )}
         {tab === 'members' && (
           <MembersView members={members} isCommissioner={isCommissioner} commissionerId={league.commissioner_id} leagueId={leagueId}
@@ -583,24 +588,34 @@ function StandingsView({ standings }) {
   )
 }
 
-function EventsView({ events }) {
+function EventsView({ events, isCommissioner, onCreateEvent }) {
   if (events == null) return <div style={{ color: 'rgba(13,31,18,0.55)', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading…</div>
-  if (events.length === 0) {
-    return (
-      <div style={{
-        padding: '32px 20px', textAlign: 'center',
-        background: 'rgba(255,255,255,0.6)',
-        border: '1px dashed rgba(27,94,59,0.35)', borderRadius: 14,
-      }}>
-        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.65)', marginBottom: 4, fontWeight: 700 }}>No events yet</div>
-        <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', lineHeight: 1.5 }}>
-          From the Match tab, tap Create — then in the wizard, tag it to this league.
-        </div>
-      </div>
-    )
-  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {isCommissioner && (
+        <button onClick={onCreateEvent} style={{
+          padding: '11px 14px', borderRadius: 12,
+          background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+          color: '#fff', border: 'none',
+          fontWeight: 800, fontSize: 13, cursor: 'pointer',
+          fontFamily: 'inherit',
+          boxShadow: '0 2px 10px rgba(46,158,69,0.30)',
+        }}>+ New event in this league</button>
+      )}
+      {events.length === 0 && (
+        <div style={{
+          padding: '24px 20px', textAlign: 'center',
+          background: 'rgba(255,255,255,0.6)',
+          border: '1px dashed rgba(27,94,59,0.35)', borderRadius: 14,
+        }}>
+          <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.65)', marginBottom: 4, fontWeight: 700 }}>No events yet</div>
+          <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', lineHeight: 1.5 }}>
+            {isCommissioner
+              ? 'Tap the button above to create the first one — it auto-attaches to this league.'
+              : 'The commissioner hasn\'t created the first event yet.'}
+          </div>
+        </div>
+      )}
       {events.map(e => (
         <div key={e.id} style={{
           padding: '10px 12px', borderRadius: 10,

@@ -1302,7 +1302,7 @@ function deriveSlimFromSharedCourse(sc) {
   }
 }
 
-function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCourse = null, onCourseSelected }) {
+function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLeagueId = null, sharedCourse = null, onCourseSelected }) {
   const [step, setStep] = useState(0)
   const [form, setForm] = useState(() => {
     // Pre-fill from sharedCourse so the wizard opens with a course
@@ -1413,6 +1413,10 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         customStablefordPoints: form.format === 'stableford' && form.stablefordPreset === 'custom'
           ? form.customStablefordPoints
           : null,
+        // 2026-05-02 — when the wizard was opened from inside a league,
+        // attach the new event to that league. Server validates that
+        // the caller is a league member or commissioner before honoring.
+        leagueId: pendingLeagueId || null,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -7021,7 +7025,7 @@ function CodeShare({ outing, onEnter }) {
 }
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
-export default function Outing({ user, pendingPlayers = [], onClearPending, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -7039,6 +7043,12 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, onGo
   useEffect(() => {
     if (pendingPlayers.length > 0) setShowCreate(true)
   }, [pendingPlayers])
+
+  // Auto-open CreateWizard when navigated from a League's "+ New event"
+  // button. Same lazy-keep-alive considerations as pendingPlayers above.
+  useEffect(() => {
+    if (pendingLeagueId != null) setShowCreate(true)
+  }, [pendingLeagueId])
 
   if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} />
 
@@ -7099,14 +7109,16 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, onGo
         <CreateWizard
           user={user}
           pendingPlayers={pendingPlayers}
+          pendingLeagueId={pendingLeagueId}
           sharedCourse={sharedCourse}
           onCourseSelected={onCourseSelected}
-          onClose={() => { setShowCreate(false); onClearPending?.() }}
+          onClose={() => { setShowCreate(false); onClearPending?.(); onClearPendingLeague?.() }}
           onCreated={o => {
             setShowCreate(false)
             setFreshOuting(o)
             setView('code-share')
             onClearPending?.()
+            onClearPendingLeague?.()
           }}
         />
       )}
