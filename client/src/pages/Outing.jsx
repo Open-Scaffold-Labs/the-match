@@ -3283,6 +3283,13 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     } catch (e) { console.error(e); setEnding(false) }
   }
 
+  // Returns true on success (including conflict-resolved force-write
+  // and queued-while-offline), false on user-cancelled conflict, and
+  // false on any unrecoverable failure. The bulk-foursome modal (6.2)
+  // checks this return value to decide whether to keep iterating —
+  // catching errors INSIDE saveScore (so the per-row banner still
+  // pops) is fine, but a bulk caller still needs to know not to keep
+  // saving when the previous row blew up. (Round 12 edge-case audit.)
   async function saveScore(hole, score, targetUserId) {
     setSaving(true)
     try {
@@ -3312,7 +3319,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
             setConflictPrompt({ hole: Number(hole), existing, incoming: Number(score), resolve })
           })
           setConflictPrompt(null)
-          if (!ok) { setSaving(false); return }
+          if (!ok) { setSaving(false); return false }   // user said "keep existing" — bulk should stop
           await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true } })
         } else {
           throw err
@@ -3329,6 +3336,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
         setRecentEvent({ name: targetPlayer.name, hole, score, par: parForHole, ts: Date.now() })
       }
       await loadOuting()
+      return true
     } catch (e) {
       // Surface the failure to the user instead of silently
       // swallowing. Auth-expired, withdrawn-player rejection, and
@@ -3344,6 +3352,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
       // hijack ts to make it auto-dismiss; payload distinguishes
       // 'event' vs 'error' below.
       setRecentEvent({ kind: 'error', message: msg, ts: Date.now() })
+      return false
     }
     finally { setSaving(false) }
   }
@@ -4359,18 +4368,21 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           holeCount={holeCount}
           onClose={() => setBulkEntryHole(null)}
           onSaveAll={async (entries) => {
-            // entries: [{ userId, name, score }, ...] only those with a numeric score
-            // Run sequentially so the offline queue preserves causal order
-            // and the score-conflict dialog (B2) can interrupt mid-batch.
+            // entries: [{ userId, name, score }, ...] only those with a
+            // numeric score. Run sequentially so the offline queue
+            // preserves causal order and the score-conflict dialog (B2)
+            // can interrupt mid-batch. saveScore returns true/false —
+            // false = stop the batch (user cancelled a conflict, or a
+            // server rejection like player_withdrawn fired).
+            // (Round 12 — saveScore now returns a status indicator
+            // instead of throwing, so wire that here.)
             for (const e of entries) {
-              try {
-                await saveScore(bulkEntryHole, e.score, e.userId)
-              } catch (err) {
-                // saveScore already surfaces a user-facing error banner via
-                // the saving/error state. Stop the batch so the host sees
-                // the failure rather than racing past it.
-                console.error('[bulk-save]', e.name, err)
-                throw err
+              const ok = await saveScore(bulkEntryHole, e.score, e.userId)
+              if (!ok) {
+                // Throw so the BulkScoreModal's inner try/catch surfaces
+                // the partial-save banner. The user can dismiss + retry
+                // the remaining rows.
+                throw new Error(`Stopped at ${e.name}. Earlier rows were saved.`)
               }
             }
             setBulkEntryHole(null)
