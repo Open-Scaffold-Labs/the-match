@@ -1018,6 +1018,16 @@ const TEAMS = [
   { id: 'big_team',   label: 'Multiple Teams', desc: 'Create 3 or more teams — ideal for larger groups' },
 ]
 
+// For outings > 4 players. Replaces the "Competition Structure" step
+// (TEAMS) with a simpler 3-button question: how is the field split
+// into competitive units within each foursome? Maps directly to the
+// team_breakdown column on tm_outings (migration 013).
+const TEAM_BREAKDOWNS = [
+  { id: 'singles',   label: 'Singles',   desc: 'No teams — everyone plays for themselves across all foursomes' },
+  { id: 'doubles',   label: 'Doubles',   desc: '2-vs-2 within each foursome — paired by join order' },
+  { id: 'foursomes', label: 'Foursomes', desc: 'Each foursome is one team — group-vs-group competition' },
+]
+
 // CoursePicker — search-as-you-type for real courses (GolfCourseAPI via
 // /api/courses/search). When the host picks a course, it loads the full
 // course detail and lets them choose a tee; the resulting hole_pars[] flows
@@ -1269,8 +1279,14 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       holes: 18,
       // Expected total golfers in the match. Defaults to 1 + any
       // pre-filled players (e.g. when this wizard was opened from a
-      // schedule modal that already knows the group size).
-      players: Math.max(2, Math.min(4, 1 + (pendingPlayers?.length || 0))),
+      // schedule modal that already knows the group size). Capped
+      // at 150 — large outings split into foursomes.
+      players: Math.max(2, Math.min(150, 1 + (pendingPlayers?.length || 0))),
+      // For outings > 4, the host picks how the field is divided into
+      // competitive units within each foursome. See migration 013.
+      // Null for small outings — the legacy team_format field handles
+      // their 1v1 / 2v2 setup.
+      teamBreakdown: null,
       // Real course data captured by the picker; null when host opts out
       courseId:      slim?.courseId ?? null,
       courseTee:     slim?.courseTee ?? null,
@@ -1317,6 +1333,8 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
         // by the Match page Live Now card to show "waiting for N more"
         // until the slots fill in.
         expectedPlayers: form.players,
+        // Only meaningful for > 4. Server ignores when count ≤ 4.
+        teamBreakdown: form.players > 4 ? form.teamBreakdown : null,
       })
       // Auto-add all pre-filled players — they're already committed, skip the join-code step
       if (pendingPlayers.length > 0) {
@@ -1379,20 +1397,63 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       </div>
       <div>
         <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Golfers</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[2,3,4].map(n => (
+        {/* Stepper +/- around a numeric value, plus quick-pick chips
+            for common sizes. Supports 2-150; large outings (>4)
+            unlock a Team Breakdown step. (2026-05-01) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <button
+            onClick={() => set('players', Math.max(2, Number(form.players) - 1))}
+            disabled={Number(form.players) <= 2}
+            style={{
+              width: 44, height: 44, borderRadius: 'var(--tm-radius)',
+              border: '1px solid var(--tm-border)',
+              background: 'var(--tm-surface-2)',
+              color: Number(form.players) <= 2 ? 'var(--tm-text-3)' : 'var(--tm-text)',
+              fontSize: 22, fontWeight: 800, cursor: Number(form.players) <= 2 ? 'default' : 'pointer',
+            }}
+          >−</button>
+          <input
+            type="number" inputMode="numeric" min={2} max={150}
+            value={form.players}
+            onChange={e => {
+              const n = Math.max(2, Math.min(150, Math.round(Number(e.target.value) || 2)))
+              set('players', n)
+            }}
+            style={{
+              flex: 1, textAlign: 'center', fontSize: 22, fontWeight: 800,
+              background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border-2)',
+              borderRadius: 'var(--tm-radius)', color: 'var(--tm-text)',
+              padding: '10px 0', outline: 'none',
+            }}
+          />
+          <button
+            onClick={() => set('players', Math.min(150, Number(form.players) + 1))}
+            disabled={Number(form.players) >= 150}
+            style={{
+              width: 44, height: 44, borderRadius: 'var(--tm-radius)',
+              border: '1px solid var(--tm-border)',
+              background: 'var(--tm-surface-2)',
+              color: Number(form.players) >= 150 ? 'var(--tm-text-3)' : 'var(--tm-text)',
+              fontSize: 22, fontWeight: 800, cursor: Number(form.players) >= 150 ? 'default' : 'pointer',
+            }}
+          >+</button>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {[4,8,12,16,24,32,48,72,100,144].map(n => (
             <button key={n} onClick={() => set('players', n)} style={{
-              flex: 1, padding: '12px 0',
-              borderRadius: 'var(--tm-radius)', border: '1px solid',
-              borderColor: form.players === n ? 'var(--tm-green)' : 'var(--tm-border)',
-              background:  form.players === n ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
-              color:       form.players === n ? 'var(--tm-green-text)' : 'var(--tm-text-2)',
-              fontWeight: 700,
+              padding: '6px 12px',
+              borderRadius: 999, border: '1px solid',
+              borderColor: Number(form.players) === n ? 'var(--tm-green)' : 'var(--tm-border)',
+              background:  Number(form.players) === n ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
+              color:       Number(form.players) === n ? 'var(--tm-green-text)' : 'var(--tm-text-2)',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer',
             }}>{n}</button>
           ))}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 6 }}>
-          Including you. Used to show "waiting for N more" on the Live card.
+        <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 8 }}>
+          Including you. {Number(form.players) > 4
+            ? `Splits into ${Math.ceil(Number(form.players) / 4)} foursomes — you'll pick a team breakdown next.`
+            : 'Used to show "waiting for N more" on the Live card.'}
         </div>
       </div>
     </div>,
@@ -1411,22 +1472,48 @@ function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], sharedCou
       ))}
     </div>,
 
-    // Step 2: Team format
-    <div key="2" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {TEAMS.map(t => (
-        <button key={t.id} onClick={() => set('team', t.id)}
-          style={{ padding: '16px', borderRadius: 'var(--tm-radius-lg)', border: '2px solid', borderColor: form.team === t.id ? 'var(--tm-gold)' : 'var(--tm-border)', background: form.team === t.id ? 'var(--tm-gold-muted)' : 'var(--tm-surface)', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{t.label}</div>
-            <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginTop: 2 }}>{t.desc}</div>
-          </div>
-          {form.team === t.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--tm-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tm-text-inv)', fontSize: 11, fontWeight: 800 }}>✓</div>}
-        </button>
-      ))}
-    </div>,
+    // Step 2: Competition Structure — content forks on player count.
+    // ≤4 players → existing TEAMS picker (individual / 2 teams / multi).
+    // >4 players  → TEAM_BREAKDOWNS picker (singles / doubles / foursomes).
+    Number(form.players) > 4 ? (
+      <div key="2-large" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: 12, color: 'var(--tm-text-3)', marginBottom: 4 }}>
+          {Math.ceil(Number(form.players) / 4)} foursomes · {form.players} golfers
+        </div>
+        {TEAM_BREAKDOWNS.map(t => (
+          <button key={t.id} onClick={() => set('teamBreakdown', t.id)}
+            style={{ padding: '16px', borderRadius: 'var(--tm-radius-lg)', border: '2px solid', borderColor: form.teamBreakdown === t.id ? 'var(--tm-gold)' : 'var(--tm-border)', background: form.teamBreakdown === t.id ? 'var(--tm-gold-muted)' : 'var(--tm-surface)', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{t.label}</div>
+              <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginTop: 2 }}>{t.desc}</div>
+            </div>
+            {form.teamBreakdown === t.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--tm-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tm-text-inv)', fontSize: 11, fontWeight: 800 }}>✓</div>}
+          </button>
+        ))}
+      </div>
+    ) : (
+      <div key="2-small" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {TEAMS.map(t => (
+          <button key={t.id} onClick={() => set('team', t.id)}
+            style={{ padding: '16px', borderRadius: 'var(--tm-radius-lg)', border: '2px solid', borderColor: form.team === t.id ? 'var(--tm-gold)' : 'var(--tm-border)', background: form.team === t.id ? 'var(--tm-gold-muted)' : 'var(--tm-surface)', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{t.label}</div>
+              <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginTop: 2 }}>{t.desc}</div>
+            </div>
+            {form.team === t.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--tm-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tm-text-inv)', fontSize: 11, fontWeight: 800 }}>✓</div>}
+          </button>
+        ))}
+      </div>
+    ),
   ]
 
-  const stepTitles = ['Set the Stage', 'Scoring Format', 'Competition Structure']
+  // Step 2's title shifts when the outing is large — same step number,
+  // different question.
+  const stepTitles = [
+    'Set the Stage',
+    'Scoring Format',
+    Number(form.players) > 4 ? 'Team Breakdown' : 'Competition Structure',
+  ]
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
@@ -2156,6 +2243,11 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // Thread 1). null = use auto default (BOARD for 4+ players, else SCORECARD).
   // Set explicitly when the user taps the toggle.
   const [viewMode, setViewMode] = useState(null)
+  // For large outings (>4 players, split into foursomes). Tracks which
+  // group the user is currently viewing in scorecard mode. Defaults to
+  // their own group; host can switch to any group via the chip selector.
+  // Null means "all groups" (small outing or fallback). (2026-05-01)
+  const [activeGroupId, setActiveGroupId] = useState(null)
 
   const loadOuting = useCallback(async () => {
     try {
@@ -2301,12 +2393,26 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   const isHost       = String(outing.host_id) === String(user?.id)
   const isTeamFormat = outing.team_format && outing.team_format !== 'individual'
 
-  // Returns true if userId is an assigned marker responsible for targetId's scores
+  // Returns true if userId is an assigned marker responsible for
+  // targetId's scores OR (in a large outing) they're in the same
+  // foursome. The same-group rule lets any group member enter scores
+  // for anyone else in their foursome — needed for >4 outings where
+  // explicit marker assignments aren't done up front. Host already
+  // gets blanket access via the `isHost` check at every call site.
+  // (2026-05-01 — Matt: any player can enter scores for the foursome
+  // they're grouped with, only the creator can enter for ALL.)
   function isMarkerFor(userId, targetId) {
-    return markers.some(m =>
+    if (markers.some(m =>
       String(m.marker_id) === String(userId) &&
       m.member_ids.map(String).includes(String(targetId))
-    )
+    )) return true
+    // Same-foursome fallback for large outings.
+    const u = participants.find(p => String(p.user_id) === String(userId))
+    const t = participants.find(p => String(p.user_id) === String(targetId))
+    if (u?.group_id != null && t?.group_id != null && u.group_id === t.group_id) {
+      return true
+    }
+    return false
   }
   // Returns true if userId is any marker in this match
   const isMarker = markers.some(m => String(m.marker_id) === String(user?.id))
@@ -2362,6 +2468,25 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   }
 
   const sorted = [...participants].sort(leaderboardSort)
+
+  // ── Large-outing group context ─────────────────────────────────
+  // For outings >4 players, participants are split into foursomes.
+  // The Scoreboard view shows everyone (with a Group X badge).
+  // The Scorecard view shows ONLY the active group's foursome so the
+  // table fits a phone screen and players can read their own card.
+  const stateGroups   = outing.state?.groups ?? []
+  const isLargeOuting = stateGroups.length > 0
+  const myParticipant = participants.find(p => String(p.user_id) === String(user?.id))
+  const myGroupId     = myParticipant?.group_id ?? null
+  // Default the active group to the user's own foursome when they
+  // haven't chosen one yet. Host can switch via the chip selector.
+  const effectiveGroupId = activeGroupId ?? myGroupId ?? (stateGroups[0]?.id ?? null)
+  const groupName = (gid) => stateGroups.find(g => g.id === gid)?.name || `Group ${gid}`
+  // What the Scorecard view actually renders. For small outings:
+  // everyone. For large outings: just the active foursome.
+  const scorecardParticipants = isLargeOuting && effectiveGroupId != null
+    ? sorted.filter(p => p.group_id === effectiveGroupId)
+    : sorted
 
   // Match Play: only active for 2-player matches with 'match' format
   const isMatchPlay   = (outing.scoring_formats || []).includes('match') && participants.length === 2
@@ -2714,13 +2839,36 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
             </div>
           ) : (
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              {/* Group selector chips — only for large outings. Lets
+                  the user (or host) switch which foursome's scorecard
+                  is on screen. For small outings these don't render. */}
+              {isLargeOuting && (
+                <div style={{
+                  padding: '10px 12px 8px', display: 'flex', gap: 6,
+                  flexWrap: 'wrap', borderBottom: '1px solid ' + AUGUSTA_GOLD_DIM,
+                  background: AUGUSTA_PANEL,
+                }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: AUGUSTA_INK, letterSpacing: '0.1em', alignSelf: 'center', marginRight: 4 }}>
+                    {isHost ? 'GROUPS:' : 'YOUR GROUP:'}
+                  </div>
+                  {(isHost ? stateGroups : stateGroups.filter(g => g.id === myGroupId)).map(g => (
+                    <button key={g.id} onClick={() => setActiveGroupId(g.id)} style={{
+                      padding: '4px 10px', borderRadius: 999, border: '1px solid',
+                      borderColor: g.id === effectiveGroupId ? AUGUSTA_GREEN : AUGUSTA_GOLD_DIM,
+                      background: g.id === effectiveGroupId ? AUGUSTA_GREEN : 'transparent',
+                      color: g.id === effectiveGroupId ? '#FFF' : AUGUSTA_INK,
+                      fontSize: 11, fontWeight: 800, cursor: 'pointer',
+                    }}>{g.name}</button>
+                  ))}
+                </div>
+              )}
               {/* ── Front 9 ── */}
               <ScorecardTable
                 label="FRONT 9"
                 holes={frontHoles}
                 holePars={holePars}
                 subtotalPar={frontPar}
-                participants={sorted}
+                participants={scorecardParticipants}
                 getScores={getScores}
                 isHost={isHost}
                 userId={user?.id}
@@ -2728,7 +2876,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                 playerTeam={playerTeam}
                 onCellTap={(p, h) => setScoreModal({ userId: p.user_id, userName: p.name, hole: h })}
                 matchPlayData={isMatchPlay ? matchPlayData : null}
-                isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
+                isP1={(p) => isMatchPlay && String(p.user_id) === String(scorecardParticipants[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
                 RANK_COL={RANK_COL}
                 AVATAR_COL={AVATAR_COL}
@@ -2748,7 +2896,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                   holes={backHoles}
                   holePars={holePars}
                   subtotalPar={backPar}
-                  participants={sorted}
+                  participants={scorecardParticipants}
                   getScores={getScores}
                   isHost={isHost}
                   userId={user?.id}
@@ -2756,7 +2904,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                   playerTeam={playerTeam}
                   onCellTap={(p, h) => setScoreModal({ userId: p.user_id, userName: p.name, hole: h })}
                   matchPlayData={isMatchPlay ? matchPlayData : null}
-                  isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
+                  isP1={(p) => isMatchPlay && String(p.user_id) === String(scorecardParticipants[0]?.user_id)}
                   PLAYER_COL={PLAYER_COL}
                   HOLE_COL={HOLE_COL}
                   SUB_COL={SUB_COL}
@@ -2766,7 +2914,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
               )}
               {/* ── Totals row ── */}
               <TotalsRow
-                participants={sorted}
+                participants={scorecardParticipants}
                 holePars={holePars}
                 holeCount={holeCount}
                 coursePar={coursePar}

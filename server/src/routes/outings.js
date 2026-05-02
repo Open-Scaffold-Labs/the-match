@@ -13,6 +13,75 @@ function genCode() {
 }
 
 // ─── POST /api/outings — create ───────────────────────────────────────────────
+// Letter labels for foursomes. Group A, Group B, ... (only ever need
+// up to 38 = ceil(150/4), so 26 letters + AA-MM is plenty.)
+function groupLetter(idx) {
+  if (idx < 26) return String.fromCharCode(65 + idx)
+  // Past Z, repeat: AA, BB, CC ...
+  const second = idx - 26
+  return String.fromCharCode(65 + (second % 26)).repeat(2)
+}
+
+// Builds the empty groups skeleton for a large outing. Players slot
+// into groups as they join via /:code/join (FCFS into first group
+// with capacity). team_breakdown determines team labeling within
+// each foursome — see migration 013 for the value semantics.
+function makeGroupsSkeleton(expectedPlayers) {
+  const n = Math.max(0, Math.min(150, Math.round(expectedPlayers)))
+  if (n <= 4) return []  // small outings don't need group structure
+  const groupCount = Math.ceil(n / 4)
+  const groups = []
+  for (let i = 0; i < groupCount; i++) {
+    groups.push({
+      id: i + 1,                     // 1-indexed for human readability
+      name: `Group ${groupLetter(i)}`,
+      capacity: Math.min(4, n - i * 4),
+    })
+  }
+  return groups
+}
+
+// Slots a participant into the first group with remaining capacity.
+// Mutates state.participants[i].group_id. If a group has just filled,
+// assigns team_id to all its members based on team_breakdown:
+//   'singles'   → team_id stays null
+//   'doubles'   → join-order pairs: 0+1 = "{group}-A", 2+3 = "{group}-B"
+//   'foursomes' → all 4 share team_id = "G{group_id}"
+// Returns the participant entry that was placed (with group_id set).
+function assignParticipantToGroup(state, participant) {
+  if (!state.groups || state.groups.length === 0) return participant
+  // Count current members per group from the existing participants
+  // array (excluding the one being placed).
+  const counts = {}
+  for (const p of state.participants) {
+    if (p.group_id != null) counts[p.group_id] = (counts[p.group_id] || 0) + 1
+  }
+  // Find first group with capacity remaining.
+  const target = state.groups.find(g => (counts[g.id] || 0) < g.capacity)
+  if (!target) return participant  // outing full; participant joins without a group_id
+  participant.group_id = target.id
+
+  // Did this fill the group? If so, assign team_ids to everyone in it.
+  const newCount = (counts[target.id] || 0) + 1
+  if (newCount === target.capacity && state.team_breakdown) {
+    const members = state.participants.filter(p => p.group_id === target.id)
+    members.push(participant)  // include the one being placed
+    // Sort by join order — participants array order IS join order.
+    members.sort((a, b) => state.participants.indexOf(a) - state.participants.indexOf(b))
+    if (state.team_breakdown === 'foursomes') {
+      const teamId = `G${target.id}`
+      for (const m of members) m.team_id = teamId
+    } else if (state.team_breakdown === 'doubles') {
+      // First two members = sub-team A, second two = sub-team B.
+      // For groups smaller than 4 (last group when N % 4 != 0), still
+      // pair join-order: 0+1=A, 2=B (alone).
+      members.forEach((m, i) => { m.team_id = `G${target.id}-${i < 2 ? 'A' : 'B'}` })
+    }
+    // 'singles' → no team_id assigned.
+  }
+  return participant
+}
+
 router.post('/', async (req, res) => {
   const {
     name, courseName, coursePar, scoringFormats, teamFormat, pointMethod,
@@ -25,6 +94,10 @@ router.post('/', async (req, res) => {
     // New (2026-05-01): expected total golfers in the match. Used by the
     // Match page to show "Waiting for N more" until the field fills up.
     expectedPlayers,
+    // New (2026-05-01 — large outings): when expectedPlayers > 4, host
+    // picks how the field's broken into competitive units. See
+    // migration 013 for the allowed values.
+    teamBreakdown,
   } = req.body
   if (!name) return res.status(400).json({ error: 'name is required' })
 
@@ -36,20 +109,37 @@ router.post('/', async (req, res) => {
   } while (existing)
 
   const holes  = coursePar && coursePar <= 40 ? 9 : 18
-  const state  = { holes, participants: [] }
 
-  // Clamp expected_players to 2-8 (sane match sizes). Skip if missing.
+  // Clamp expected_players to 2-150 (DB CHECK enforces 1-150).
   const expN = Number(expectedPlayers)
-  const expectedPlayersVal = Number.isFinite(expN) && expN >= 2 && expN <= 8 ? Math.round(expN) : null
+  const expectedPlayersVal = Number.isFinite(expN) && expN >= 2 && expN <= 150 ? Math.round(expN) : null
+
+  // Clamp team_breakdown to valid set; null otherwise. Only meaningful
+  // for outings > 4 players — small outings still use scoring_formats
+  // + team_format for their 1v1 / 2v2 setup.
+  const validBreakdowns = ['singles', 'doubles', 'foursomes']
+  const teamBreakdownVal = (expectedPlayersVal != null && expectedPlayersVal > 4 && validBreakdowns.includes(teamBreakdown))
+    ? teamBreakdown
+    : null
+
+  // Build empty groups skeleton for large outings. Each group is an
+  // empty foursome at this point; players slot in via /:code/join.
+  const groupsSkeleton = makeGroupsSkeleton(expectedPlayersVal || 0)
+  const state  = {
+    holes,
+    participants: [],
+    ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
+    ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
+  }
 
   const row = await db.one(
     `INSERT INTO tm_outings (
        code, name, host_id, course_name, course_par,
        team_format, point_method, scoring_formats, state,
        course_id, course_tee, hole_pars, hole_yardages, hole_handicaps,
-       course_rating, slope_rating, expected_players
+       course_rating, slope_rating, expected_players, team_breakdown
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING *`,
     [
       code, name, req.user.id,
@@ -64,15 +154,23 @@ router.post('/', async (req, res) => {
       Number.isFinite(Number(courseRating)) ? Number(courseRating) : null,
       Number.isFinite(Number(slopeRating))  ? Number(slopeRating)  : null,
       expectedPlayersVal,
+      teamBreakdownVal,
     ]
   )
 
-  // Auto-add host as participant
+  // Auto-add host as participant. For large outings, slot host into
+  // Group A (first foursome) as the first member.
   await db.query(
     `INSERT INTO tm_outing_participants (outing_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
     [row.id, req.user.id]
   )
-  state.participants.push({ user_id: req.user.id, name: req.user.name, total: 0, holes_played: 0 })
+  const hostEntry = { user_id: req.user.id, name: req.user.name, total: 0, holes_played: 0 }
+  if (groupsSkeleton.length > 0) {
+    hostEntry.group_id = groupsSkeleton[0].id  // host = Group A
+    // Team assignment within group is deferred until the group fills,
+    // since pair-vs-pair structure depends on join order.
+  }
+  state.participants.push(hostEntry)
   await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), row.id])
 
   res.status(201).json({ outing: { ...row, code, state } })
@@ -269,9 +367,12 @@ router.post('/:code/join', async (req, res) => {
   const state = outing.state || { holes: 18, participants: [] }
   const exists = state.participants?.find(p => p.user_id === req.user.id)
   if (!exists) {
-    state.participants = [...(state.participants || []), {
-      user_id: req.user.id, name: req.user.name, total: 0, holes_played: 0,
-    }]
+    const entry = { user_id: req.user.id, name: req.user.name, total: 0, holes_played: 0 }
+    // Slot into next available foursome (large outings only). Mutates
+    // entry to add group_id and may assign team_id to other group
+    // members if this join fills the group.
+    assignParticipantToGroup(state, entry)
+    state.participants = [...(state.participants || []), entry]
     await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), outing.id])
   }
 
@@ -301,7 +402,10 @@ router.post('/:code/bulk-join', async (req, res) => {
       )
       const u = await db.one(`SELECT id, name FROM tm_users WHERE id = $1`, [uid])
       if (u && !state.participants?.find(p => String(p.user_id) === String(uid))) {
-        state.participants.push({ user_id: u.id, name: u.name, total: 0, holes_played: 0 })
+        const entry = { user_id: u.id, name: u.name, total: 0, holes_played: 0 }
+        // Slot into next available foursome for large outings.
+        assignParticipantToGroup(state, entry)
+        state.participants.push(entry)
       }
     }
 
@@ -382,7 +486,11 @@ router.post('/:code/guests', async (req, res) => {
 })
 
 // ─── PUT /api/outings/:code/scores/host ───────────────────────────────────────
-// Host-only: enter a score for any participant (app user or guest)
+// Permissioned score-on-behalf endpoint. Was host-only; widened on
+// 2026-05-01 (Matt) so any participant in the SAME FOURSOME as the
+// target user can enter their score. Host can still enter for anyone
+// across groups. Marker assignments (state.markers) also bypass the
+// same-group check. Mirror of the client-side isMarkerFor logic.
 router.put('/:code/scores/host', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase()
@@ -392,8 +500,21 @@ router.put('/:code/scores/host', async (req, res) => {
 
     const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
     if (!outing) return res.status(404).json({ error: 'Not found' })
-    if (String(outing.host_id) !== String(req.user.id))
-      return res.status(403).json({ error: 'Host only' })
+
+    // Permission gate: host (creator) OR explicit marker OR same-group.
+    const isHost = String(outing.host_id) === String(req.user.id)
+    const stParticipants = outing.state?.participants ?? []
+    const stMarkers      = outing.state?.markers ?? []
+    const me     = stParticipants.find(p => String(p.user_id) === String(req.user.id))
+    const target = stParticipants.find(p => String(p.user_id) === String(user_id))
+    const isExplicitMarker = stMarkers.some(m =>
+      String(m.marker_id) === String(req.user.id) &&
+      (m.member_ids || []).map(String).includes(String(user_id))
+    )
+    const isSameGroup = me?.group_id != null && target?.group_id != null &&
+      me.group_id === target.group_id
+    if (!isHost && !isExplicitMarker && !isSameGroup)
+      return res.status(403).json({ error: 'Not permitted to enter scores for this player' })
 
     const state = outing.state || { participants: [] }
     const isGuest = String(user_id).startsWith('guest_')
