@@ -44,6 +44,64 @@ function totalStp(p, holePars) {
   return played.reduce((sum, x) => sum + (x.s - (holePars[x.i] || 4)), 0)
 }
 
+// ─── Format-aware scoring (mirrors Outing.jsx helpers) ─────────────
+// We re-implement the math locally instead of importing from Outing.jsx
+// because (a) it's small and (b) PublicLeaderboard is a no-auth page
+// that shouldn't drag in the entire authoring surface. Keep these
+// in sync with the in-app helpers — same algorithms, same outputs.
+// (Round 7 audit: format-aware public leaderboard.)
+const STABLEFORD_PRESETS_PUB = {
+  standard: { double_eagle: 8, eagle: 4, birdie: 3, par: 2, bogey: 1, double: 0, worse: -1 },
+  modified: { double_eagle: 8, eagle: 5, birdie: 2, par: 0, bogey: -1, double: -3, worse: -3 },
+}
+
+function computeSkinsPub(participants, holePars) {
+  const skinsByPlayer = {}
+  let carry = 0
+  for (let h = 0; h < holePars.length; h++) {
+    const entries = participants
+      .map(p => ({ id: p.user_id, s: (p.scores || [])[h] || 0 }))
+      .filter(x => x.s > 0)
+    if (entries.length < 2) continue
+    let low = Infinity, lowCount = 0, lowId = null
+    for (const e of entries) {
+      if (e.s < low)        { low = e.s; lowCount = 1; lowId = e.id }
+      else if (e.s === low) { lowCount += 1 }
+    }
+    if (lowCount === 1) {
+      skinsByPlayer[lowId] = (skinsByPlayer[lowId] || 0) + (1 + carry)
+      carry = 0
+    } else {
+      carry += 1
+    }
+  }
+  return skinsByPlayer
+}
+
+function computeStablefordPub(participants, holePars, pointMap) {
+  const pts = pointMap || STABLEFORD_PRESETS_PUB.standard
+  const out = {}
+  for (const p of participants) {
+    let total = 0
+    const sc = p.scores || []
+    for (let h = 0; h < holePars.length; h++) {
+      const s = sc[h] || 0
+      if (s <= 0) continue
+      const diff = s - (holePars[h] || 4)
+      const bucket = diff <= -3 ? 'double_eagle'
+        : diff === -2 ? 'eagle'
+        : diff === -1 ? 'birdie'
+        : diff === 0  ? 'par'
+        : diff === 1  ? 'bogey'
+        : diff === 2  ? 'double'
+        : 'worse'
+      total += (pts[bucket] ?? 0)
+    }
+    out[p.user_id] = total
+  }
+  return out
+}
+
 export default function PublicLeaderboard({ code }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
@@ -155,13 +213,50 @@ export default function PublicLeaderboard({ code }) {
     return Array.from({ length: holes }, (_, i) => i < extra ? base + 1 : base)
   })()
   const participants = data.state?.participants ?? []
+  // Format detection — skins / stableford have non-STP primary
+  // sort keys, so the public leaderboard needs the same logic the
+  // in-app scoreboard uses. Otherwise spectators see 'gross-to-par'
+  // for a skins league, which is the wrong winner. (Round 7 audit.)
+  const formats = data.scoring_formats || []
+  const isSkins      = formats.includes('skins')
+  const isStableford = formats.includes('stableford')
+  const skinsByPlayer = isSkins ? computeSkinsPub(participants, holePars) : {}
+  const pointsByPlayer = isStableford
+    ? computeStablefordPub(participants, holePars, data.state?.stableford_points)
+    : {}
+
   const sorted = [...participants].sort((a, b) => {
+    if (isSkins) {
+      const sa = skinsByPlayer[a.user_id] || 0
+      const sb = skinsByPlayer[b.user_id] || 0
+      if (sa !== sb) return sb - sa
+    }
+    if (isStableford) {
+      const pa = pointsByPlayer[a.user_id] || 0
+      const pb = pointsByPlayer[b.user_id] || 0
+      if (pa !== pb) return pb - pa
+    }
     const da = totalStp(a, holePars), db = totalStp(b, holePars)
     if (da == null && db == null) return 0
     if (da == null) return 1
     if (db == null) return -1
     return da - db
   })
+
+  // Headline metric for the TOT column. Format-driven.
+  const totColLabel = isSkins ? 'SKINS' : isStableford ? 'PTS' : 'TOT'
+  function totDisplayFor(p) {
+    if (isSkins)      return `${skinsByPlayer[p.user_id] || 0}`
+    if (isStableford) {
+      const v = pointsByPlayer[p.user_id]
+      return v == null || v === 0 ? '0' : (v > 0 ? `+${v}` : `${v}`)
+    }
+    const stp = totalStp(p, holePars)
+    return stp == null ? '—' : (stp === 0 ? 'E' : stp > 0 ? `+${stp}` : `${stp}`)
+  }
+  function hasPlayedAny(p) {
+    return (p.scores || []).some(s => s > 0)
+  }
 
   return (
     <div style={{
@@ -235,7 +330,7 @@ export default function PublicLeaderboard({ code }) {
         }}>
           <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
           <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em' }}>PLAYER</div>
-          <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>TOT</div>
+          <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>{totColLabel}</div>
           <div style={{ fontSize: 9, fontWeight: 800, color: AUGUSTA_GOLD, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
         </div>
 
@@ -247,20 +342,30 @@ export default function PublicLeaderboard({ code }) {
         )}
 
         {sorted.map((p, idx) => {
-          const tot = totalStp(p, holePars)
-          const totDisplay = tot == null ? '—' : (tot === 0 ? 'E' : tot > 0 ? `+${tot}` : `${tot}`)
+          const played = hasPlayedAny(p)
+          const stp = totalStp(p, holePars)
+          // Color rules: under-par red, even cream, over dim. For
+          // skins/stableford, brighten the leader.
+          const totColor = !played
+            ? 'rgba(241,231,200,0.40)'
+            : isSkins || isStableford
+              ? (idx === 0 ? AUGUSTA_GOLD : AUGUSTA_CREAM)
+              : stp == null ? 'rgba(241,231,200,0.40)'
+                : stp < 0 ? '#E55858'
+                : stp === 0 ? AUGUSTA_CREAM
+                : 'rgba(241,231,200,0.85)'
           return (
             <div key={p.user_id} style={{
               display: 'grid', gridTemplateColumns: '40px 1fr 60px 60px',
               gap: 8, alignItems: 'center',
               padding: '12px 6px',
               borderBottom: '1px solid rgba(241,231,200,0.10)',
-              background: idx === 0 && tot != null ? 'rgba(201,160,64,0.14)' : 'transparent',
+              background: idx === 0 && played ? 'rgba(201,160,64,0.14)' : 'transparent',
             }}>
               <div style={{
                 fontSize: 14, fontWeight: 900, textAlign: 'center',
-                color: idx === 0 && tot != null ? AUGUSTA_GOLD : AUGUSTA_CREAM,
-              }}>{tot == null ? '—' : idx + 1}</div>
+                color: idx === 0 && played ? AUGUSTA_GOLD : AUGUSTA_CREAM,
+              }}>{played ? idx + 1 : '—'}</div>
               <div style={{ minWidth: 0, overflow: 'hidden' }}>
                 <div style={{
                   fontSize: 14, fontWeight: 800, color: AUGUSTA_CREAM,
@@ -273,11 +378,8 @@ export default function PublicLeaderboard({ code }) {
               </div>
               <div style={{
                 textAlign: 'center', fontSize: 16, fontWeight: 900,
-                color: tot == null ? 'rgba(241,231,200,0.40)'
-                  : tot < 0 ? '#E55858'
-                  : tot === 0 ? AUGUSTA_CREAM
-                  : 'rgba(241,231,200,0.85)',
-              }}>{totDisplay}</div>
+                color: totColor,
+              }}>{totDisplayFor(p)}</div>
               <div style={{
                 textAlign: 'center', fontSize: 13,
                 color: 'rgba(241,231,200,0.65)', fontWeight: 700,
