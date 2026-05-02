@@ -1940,6 +1940,259 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
   )
 }
 
+// ─── Bulk Score Modal (6.2) ──────────────────────────────────────────────────
+// Host-only bulk entry for an entire foursome on a single hole. Opens when
+// the host taps a hole numeral on the scorecard header. Shows one row per
+// player in the active group, pre-filled with their existing score (or
+// blank). The "Save all" button writes them in sequence via the parent's
+// onSaveAll(entries) — empty rows are dropped, only changed rows actually
+// hit the server. Designed for a commissioner collecting a paper card from
+// a foursome at the turn or after the round. (2026-05-02)
+function BulkScoreModal({ hole, par, participants, getScores, holeCount, onClose, onSaveAll }) {
+  // Local edit state per participant — keyed by user_id. Empty string = blank
+  // row (skipped on save). Numbers stored as strings to allow trailing
+  // edits; coerced to int on save.
+  const [vals, setVals] = useState(() => {
+    const m = {}
+    for (const p of participants) {
+      const sc = getScores(p) || []
+      m[p.user_id] = sc[hole] > 0 ? String(sc[hole]) : ''
+    }
+    return m
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState(null)
+
+  // First blank input gets focus on open — so the host can start typing
+  // immediately without an extra tap. (UX)
+  const firstInputRef = useRef(null)
+  useEffect(() => {
+    if (firstInputRef.current) firstInputRef.current.focus()
+  }, [])
+
+  function setVal(uid, raw) {
+    // Allow only digits, max 2 chars (covers up to 99 — way more than any
+    // real golf score). Empty string is fine for "skip this row."
+    const cleaned = String(raw).replace(/[^\d]/g, '').slice(0, 2)
+    setVals(prev => ({ ...prev, [uid]: cleaned }))
+  }
+
+  function bumpVal(uid, delta) {
+    setVals(prev => {
+      const cur = parseInt(prev[uid], 10)
+      const base = Number.isFinite(cur) ? cur : (par || 4)
+      const next = Math.max(1, Math.min(99, base + delta))
+      return { ...prev, [uid]: String(next) }
+    })
+  }
+
+  // Count rows with a real score so we can label the button. Empty inputs
+  // are intentionally skipped — the host can leave the field blank if a
+  // player picked up or didn't post.
+  const filledEntries = participants
+    .map(p => ({ userId: p.user_id, name: p.name, raw: vals[p.user_id] }))
+    .filter(e => e.raw !== '' && e.raw != null)
+    .map(e => ({ userId: e.userId, name: e.name, score: parseInt(e.raw, 10) }))
+    .filter(e => Number.isFinite(e.score) && e.score >= 1)
+
+  // Detect which rows actually changed vs. their pre-existing score so we
+  // don't generate "no-op" PUTs that flood the audit log. (B2 audit row
+  // creation is gated on a real value change, but it's cleaner to skip
+  // unchanged rows up here too.)
+  const changedEntries = filledEntries.filter(e => {
+    const p = participants.find(pp => String(pp.user_id) === String(e.userId))
+    const sc = p ? (getScores(p) || []) : []
+    return Number(sc[hole]) !== e.score
+  })
+
+  // Suspicious-score guard — same heuristic as the per-player ScoreModal.
+  // If ANY row is more than +5 over par or 2× par, prompt once instead of
+  // surprising the host after they tap save.
+  function findSuspicious() {
+    return changedEntries.find(e => {
+      const overBy = e.score - (par || 4)
+      return overBy >= 5 || e.score > (par || 4) * 2
+    })
+  }
+
+  async function handleSave() {
+    if (saving) return
+    setError(null)
+    if (changedEntries.length === 0) {
+      // Nothing to save — just close. Better UX than disabling the button
+      // silently when the host opened the modal "just to look."
+      onClose()
+      return
+    }
+    const sus = findSuspicious()
+    if (sus) {
+      const ok = window.confirm(
+        `${sus.name}: ${sus.score} on a par-${par || 4}? That's ${sus.score - (par || 4)} over. ` +
+        `Tap Cancel to fix it, OK to save the batch.`
+      )
+      if (!ok) return
+    }
+    setSaving(true)
+    try {
+      await onSaveAll(changedEntries)
+    } catch (err) {
+      // Caller throws on first failure so subsequent rows don't pile on.
+      // Show a banner here so the host can decide whether to retry. They
+      // can dismiss the modal — already-saved rows stay saved (they
+      // committed to the server before the failing row).
+      setError(err?.message || 'Save failed. Already-saved rows are kept; tap Save to retry the rest.')
+      setSaving(false)
+    }
+  }
+
+  return createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end',
+    }} onClick={saving ? undefined : onClose}>
+      <div style={{
+        width: '100%', maxWidth: 430, margin: '0 auto',
+        background: 'var(--tm-surface)', borderRadius: '20px 20px 0 0',
+        padding: '24px 20px 36px',
+        maxHeight: '85vh', overflowY: 'auto',
+      }} onClick={e => e.stopPropagation()}>
+        {/* Handle */}
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--tm-border-2)', margin: '0 auto 14px' }} />
+        {/* Title row — hole + par + helper */}
+        <div style={{ textAlign: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', color: 'var(--tm-gold)', textTransform: 'uppercase' }}>
+            Bulk entry · Foursome
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--tm-text)', marginTop: 4 }}>
+            Hole {hole + 1}{par ? ` · Par ${par}` : ''}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--tm-text-3)', marginTop: 4 }}>
+            Leave blank to skip a player
+          </div>
+        </div>
+
+        {/* Row per player */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+          {participants.map((p, idx) => {
+            const raw    = vals[p.user_id] ?? ''
+            const num    = parseInt(raw, 10)
+            const valid  = Number.isFinite(num) && num >= 1
+            const diff   = valid ? num - (par || 4) : 0
+            const colorBg = valid ? cellBg(num, par) : null
+            const color   = valid ? cellColor(num, par) : 'var(--tm-text-3)'
+            const diffLabel = valid
+              ? (diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`)
+              : ''
+            return (
+              <div key={p.user_id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px',
+                background: 'var(--tm-surface-2)',
+                borderRadius: 12,
+                border: '1px solid var(--tm-border)',
+              }}>
+                {/* Avatar / initials */}
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  flexShrink: 0, overflow: 'hidden',
+                  background: avatarBg(p.name),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 900, fontSize: 13,
+                  fontFamily: '"Arial Black", Arial, sans-serif',
+                }}>
+                  {p.avatar ? (
+                    <img src={p.avatar} alt={p.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : initials(p.name)}
+                </div>
+                {/* Name */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 14, fontWeight: 700, color: 'var(--tm-text)',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>{p.name}</div>
+                  {valid && (
+                    <div style={{ fontSize: 11, fontWeight: 800, color, marginTop: 2 }}>
+                      {diffLabel}
+                    </div>
+                  )}
+                </div>
+                {/* −/+ stepper hugging the input */}
+                <button type="button"
+                  onClick={() => bumpVal(p.user_id, -1)}
+                  aria-label={`Decrement ${p.name} score`}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    background: 'var(--tm-surface-3)', border: '1px solid var(--tm-border)',
+                    color: 'var(--tm-text)', fontSize: 18, fontWeight: 300, cursor: 'pointer',
+                  }}>−</button>
+                <input
+                  ref={idx === 0 ? firstInputRef : null}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={raw}
+                  onChange={e => setVal(p.user_id, e.target.value)}
+                  placeholder={String(par || 4)}
+                  aria-label={`${p.name} score for hole ${hole + 1}`}
+                  style={{
+                    width: 56, height: 40, textAlign: 'center',
+                    fontSize: 22, fontWeight: 900,
+                    color: valid ? color : 'var(--tm-text)',
+                    background: colorBg || 'var(--tm-surface)',
+                    border: '1px solid var(--tm-border)',
+                    borderRadius: 10,
+                    fontFamily: '"Arial Black", Arial, sans-serif',
+                  }}
+                />
+                <button type="button"
+                  onClick={() => bumpVal(p.user_id, +1)}
+                  aria-label={`Increment ${p.name} score`}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    background: 'var(--tm-surface-3)', border: '1px solid var(--tm-border)',
+                    color: 'var(--tm-text)', fontSize: 18, fontWeight: 300, cursor: 'pointer',
+                  }}>+</button>
+              </div>
+            )
+          })}
+        </div>
+
+        {error && (
+          <div style={{
+            background: 'rgba(220, 70, 70, 0.12)', border: '1px solid rgba(220, 70, 70, 0.40)',
+            color: '#F0B0B0', padding: '10px 12px', borderRadius: 10, marginBottom: 12,
+            fontSize: 12,
+          }}>{error}</div>
+        )}
+
+        {/* Action row */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} disabled={saving} style={{
+            flex: 1, padding: 14, borderRadius: 'var(--tm-radius-lg)',
+            background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',
+            color: 'var(--tm-text)', fontWeight: 700, fontSize: 14, cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? 0.6 : 1,
+          }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{
+            flex: 2, padding: 14, borderRadius: 'var(--tm-radius-lg)',
+            background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
+            color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 15, border: 'none',
+            cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
+          }}>
+            {saving
+              ? 'Saving…'
+              : changedEntries.length === 0
+                ? 'Nothing to save'
+                : `Save ${changedEntries.length} score${changedEntries.length === 1 ? '' : 's'}`}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Add Guest Modal ──────────────────────────────────────────────────────────
 // Add Player Modal — search-as-you-type for app users, fallback to manual guest.
 //   - Type 2+ chars → calls /api/friends/search?q=… (debounced 250ms)
@@ -2845,6 +3098,13 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     return () => clearTimeout(t)
   }, [droppedNotice])
   const [scoreModal, setScoreModal] = useState(null) // { userId, userName, hole }
+  // Bulk-foursome score entry (6.2). When the host taps a hole number on the
+  // scorecard header, this is set to that hole index and a modal pops with
+  // one numeric input per player in the active group — pre-filled with the
+  // current score (or blank). Saves all rows in sequence, with one final
+  // loadOuting() after the batch instead of per-row, so a foursome's hole
+  // can be entered in one round-trip-ish flow.
+  const [bulkEntryHole, setBulkEntryHole] = useState(null) // 0-indexed hole or null
   const [showGuestModal, setShowGuestModal] = useState(false)
   const [netMode, setNetMode] = useState(false)
   const [ending, setEnding] = useState(false)
@@ -3349,6 +3609,18 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   // Players with no scores yet get "—". Ties get a "T" prefix.
   const positions = computePositions(sorted, getScores, holePars)
 
+  // Auto-end suggestion — when EVERY active (non-withdrawn) player
+  // has filled the full holeCount, prompt the host once to end the
+  // match. Dismissible (per-session via showAutoEndPrompt state)
+  // so the host can keep the board live for celebration if they
+  // want. Only the host sees it. (Round 11 audit.)
+  const allFinished = participants.length > 0 && participants.every(p => {
+    const sc = getScores(p) || []
+    return sc.filter(s => s > 0).length >= holeCount
+  })
+  const [autoEndDismissed, setAutoEndDismissed] = useState(false)
+  const showAutoEndPrompt = isHost && allFinished && !autoEndDismissed && outing.status !== 'ended'
+
   // Active hole — next hole to be played. = max(holes_played) + 1, capped
   // at the last hole. Used to show a green flag pin under the hole number
   // in the HOLE row. (2026-04-30 PM round 9 — Tier 2)
@@ -3403,6 +3675,44 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
             )}
           </div>
         </div>
+
+        {/* Auto-end suggestion — host only, when every active player
+            has filled all 18 holes. Single-tap to End, or × to dismiss
+            and keep watching the leaderboard. (Round 11 audit.) */}
+        {showAutoEndPrompt && (
+          <div style={{
+            marginTop: 8, padding: '10px 14px',
+            background: 'linear-gradient(135deg, rgba(245,215,138,0.18), rgba(201,160,64,0.10))',
+            border: '1px solid rgba(245,215,138,0.40)',
+            borderRadius: 12,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M8 21h8M12 17v4M17 3H7l1 7a5 5 0 0010 0l1-7z"/>
+              <path d="M7 3H4a2 2 0 000 4h3M17 3h3a2 2 0 010 4h-3"/>
+            </svg>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#F5D78A', letterSpacing: '0.04em' }}>
+                ALL PLAYERS FINISHED
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>
+                Wrap up the match to lock in results and update rivalries.
+              </div>
+            </div>
+            <button onClick={endMatch} disabled={ending} style={{
+              padding: '7px 12px', borderRadius: 999, border: 'none',
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              color: '#070C09', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+              opacity: ending ? 0.6 : 1,
+            }}>{ending ? 'Ending…' : 'End match'}</button>
+            <button onClick={() => setAutoEndDismissed(true)} aria-label="Dismiss" style={{
+              background: 'transparent', border: 'none',
+              color: 'rgba(255,255,255,0.55)', fontSize: 16, cursor: 'pointer',
+              padding: '0 4px',
+            }}>✕</button>
+          </div>
+        )}
 
         {/* Offline-queue pill — visible to ALL viewers (host + every
             participant), not just the host, since their own writes
@@ -3811,6 +4121,12 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                 isMarkerFor={isMarkerFor}
                 playerTeam={playerTeam}
                 onCellTap={(p, h) => setScoreModal({ userId: p.user_id, userName: p.name, hole: h })}
+                // 6.2 — Host can tap a hole-number header to bulk-enter every
+                // player in the foursome at once. Only enabled when there are
+                // at least 2 players to enter (single-player tables don't
+                // benefit). Tap is wired through ScorecardTable's
+                // onHoleHeaderTap prop. (2026-05-02)
+                onHoleHeaderTap={isHost && scorecardParticipants.length >= 2 ? (h) => setBulkEntryHole(h) : null}
                 matchPlayData={isMatchPlay ? matchPlayData : null}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(scorecardParticipants[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
@@ -3840,6 +4156,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                   isMarkerFor={isMarkerFor}
                   playerTeam={playerTeam}
                   onCellTap={(p, h) => setScoreModal({ userId: p.user_id, userName: p.name, hole: h })}
+                  onHoleHeaderTap={isHost && scorecardParticipants.length >= 2 ? (h) => setBulkEntryHole(h) : null}
                   matchPlayData={isMatchPlay ? matchPlayData : null}
                   isP1={(p) => isMatchPlay && String(p.user_id) === String(scorecardParticipants[0]?.user_id)}
                   PLAYER_COL={PLAYER_COL}
@@ -3944,6 +4261,39 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
           />
         )
       })()}
+
+      {/* 6.2 — Bulk-foursome score entry. Host taps a hole numeral on the
+          scorecard header → modal shows one numeric input per group member,
+          pre-filled with their current score for that hole. Saves all rows
+          in sequence then refreshes the outing once. The biggest commissioner
+          time-saver after each foursome turns in their card. (2026-05-02) */}
+      {bulkEntryHole != null && (
+        <BulkScoreModal
+          hole={bulkEntryHole}
+          par={holePars[bulkEntryHole] || 4}
+          participants={scorecardParticipants}
+          getScores={getScores}
+          holeCount={holeCount}
+          onClose={() => setBulkEntryHole(null)}
+          onSaveAll={async (entries) => {
+            // entries: [{ userId, name, score }, ...] only those with a numeric score
+            // Run sequentially so the offline queue preserves causal order
+            // and the score-conflict dialog (B2) can interrupt mid-batch.
+            for (const e of entries) {
+              try {
+                await saveScore(bulkEntryHole, e.score, e.userId)
+              } catch (err) {
+                // saveScore already surfaces a user-facing error banner via
+                // the saving/error state. Stop the batch so the host sees
+                // the failure rather than racing past it.
+                console.error('[bulk-save]', e.name, err)
+                throw err
+              }
+            }
+            setBulkEntryHole(null)
+          }}
+        />
+      )}
 
       {/* Add Player sheet — search-as-you-type for app users + manual guest fallback */}
       {showGuestModal && (
@@ -4088,7 +4438,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
+function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, onHoleHeaderTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -4144,27 +4494,66 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
   return (
     <div style={{ marginBottom: 0 }}>
       {/* HOLE row — green panel with white numerals + gold OUT/IN.
-          Active hole gets a small green flag pin on top of the numeral. */}
+          Active hole gets a small green flag pin on top of the numeral.
+          When onHoleHeaderTap is provided (host on a multi-player group),
+          each hole numeral becomes a tappable button that opens the bulk
+          entry modal — see "BulkScoreModal" / setBulkEntryHole. (6.2) */}
       <div style={headerRow}>
         <div style={headerNameCol}>{label}</div>
         <div style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
-          {holes.map(h => (
-            <div key={h} style={{ ...headerHoleCell, position: 'relative' }}>
-              {h + 1}
-              {activeHole === h && (
-                <span style={{
-                  position: 'absolute', top: -6, right: 2,
-                  width: 9, height: 12,
-                  pointerEvents: 'none',
-                }} aria-label="Active hole">
-                  <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
-                    <line x1="1" y1="0" x2="1" y2="12" stroke="#fff" strokeWidth="1" />
-                    <path d="M1 1 L8 3 L1 5 Z" fill={AUGUSTA_GOLD} stroke="#000" strokeWidth="0.5" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              )}
-            </div>
-          ))}
+          {holes.map(h => {
+            const tappable = !!onHoleHeaderTap
+            const cellInner = (
+              <>
+                {h + 1}
+                {activeHole === h && (
+                  <span style={{
+                    position: 'absolute', top: -6, right: 2,
+                    width: 9, height: 12,
+                    pointerEvents: 'none',
+                  }} aria-label="Active hole">
+                    <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
+                      <line x1="1" y1="0" x2="1" y2="12" stroke="#fff" strokeWidth="1" />
+                      <path d="M1 1 L8 3 L1 5 Z" fill={AUGUSTA_GOLD} stroke="#000" strokeWidth="0.5" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                )}
+                {tappable && (
+                  <span style={{
+                    position: 'absolute', bottom: -1, left: '50%',
+                    transform: 'translateX(-50%)',
+                    width: 14, height: 2, borderRadius: 1,
+                    background: 'rgba(232,192,90,0.55)',
+                    pointerEvents: 'none',
+                  }} aria-hidden />
+                )}
+              </>
+            )
+            const baseStyle = { ...headerHoleCell, position: 'relative' }
+            return tappable ? (
+              <button
+                key={h}
+                type="button"
+                onClick={() => onHoleHeaderTap(h)}
+                aria-label={`Bulk enter scores for hole ${h + 1}`}
+                style={{
+                  ...baseStyle,
+                  appearance: 'none',
+                  border: 0,
+                  borderLeft: headerHoleCell.borderLeft,
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                {cellInner}
+              </button>
+            ) : (
+              <div key={h} style={baseStyle}>
+                {cellInner}
+              </div>
+            )
+          })}
           <div style={subtotalHeaderCell}>{label === 'BACK 9' ? 'IN' : 'OUT'}</div>
         </div>
       </div>
