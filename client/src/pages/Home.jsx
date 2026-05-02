@@ -3551,20 +3551,20 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
     } catch { /* ignore */ }
   }
 
-  // Tracks incoming requests the user just accepted, so the row stays
-  // visible with a "Follow back?" prompt before it disappears. Keyed by
-  // tm_friends row id; value is { userId, name } of the requester.
-  // (2026-05-02 — Matt: "a button should then appear that says follow
-  // back, and then the user who sent the initial friend request will
-  // now receive one themselves and when they accept then it becomes
-  // mutual")
-  const [followBackPrompts, setFollowBackPrompts] = useState({})
+  // Set of incoming-request ids the user just accepted, so the row
+  // stays visible with a "Follow back?" prompt before it disappears.
+  // Keyed by tm_friends row id only — render pulls the requester's
+  // name + id from friends.incoming itself, so the prompt works no
+  // matter where Accept was tapped from (in-page card OR mailbox
+  // modal). (2026-05-02 — first attempt keyed by passed-in info
+  // missed the mailbox path entirely.)
+  const [followBackPrompts, setFollowBackPrompts] = useState(() => new Set())
 
-  async function handleFriendRespond(id, status, requesterInfo) {
-    if (status === 'accepted' && requesterInfo) {
+  async function handleFriendRespond(id, status) {
+    if (status === 'accepted') {
       // Keep the row visible with the Follow back? prompt; defer refetch
       // until the user dismisses or follows back.
-      setFollowBackPrompts(prev => ({ ...prev, [id]: requesterInfo }))
+      setFollowBackPrompts(prev => { const n = new Set(prev); n.add(id); return n })
     }
     try {
       await put(`/api/friends/${id}/respond`, { status })
@@ -3575,7 +3575,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
     } catch {
       // On failure, undo the optimistic prompt so the row returns to
       // its original Accept / ✕ state.
-      setFollowBackPrompts(prev => { const n = { ...prev }; delete n[id]; return n })
+      setFollowBackPrompts(prev => { const n = new Set(prev); n.delete(id); return n })
     }
   }
 
@@ -3583,13 +3583,13 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
     try {
       await post('/api/friends/request', { user_id: targetUserId })
     } catch { /* ignore — already-friends conflict is fine */ }
-    setFollowBackPrompts(prev => { const n = { ...prev }; delete n[reqId]; return n })
+    setFollowBackPrompts(prev => { const n = new Set(prev); n.delete(reqId); return n })
     const f = await api('/api/friends')
     setFriends(f)
   }
 
   async function dismissFollowBackPrompt(reqId) {
-    setFollowBackPrompts(prev => { const n = { ...prev }; delete n[reqId]; return n })
+    setFollowBackPrompts(prev => { const n = new Set(prev); n.delete(reqId); return n })
     const f = await api('/api/friends')
     setFriends(f)
   }
@@ -4048,7 +4048,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
                     // followBackPrompts so the row doesn't disappear
                     // immediately after Accept fires; the user gets a
                     // chance to choose Follow back. (2026-05-02)
-                    const justAccepted = followBackPrompts[req.id]
+                    const justAccepted = followBackPrompts.has(req.id)
                     if (justAccepted) {
                       return (
                         <div key={req.id} style={{
@@ -4064,7 +4064,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
                             <div style={{ color: 'rgba(122,88,0,0.85)', fontSize: 11, fontWeight: 600 }}>Follow back?</div>
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => handleFollowBack(req.id, justAccepted.userId)} style={{
+                            <button onClick={() => handleFollowBack(req.id, req.requester_id)} style={{
                               background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
                               color: '#070C09', border: 'none', borderRadius: 8,
                               padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -4088,12 +4088,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
                           <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>wants to be your playing partner</div>
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => handleFriendRespond(req.id, 'accepted', { userId: req.requester_id, name: req.requester_name })}
-                            style={{
-                              background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
-                              padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                            }}>Accept</button>
+                          <button onClick={() => handleFriendRespond(req.id, 'accepted')} style={{
+                            background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
+                            padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          }}>Accept</button>
                           <button onClick={() => handleFriendRespond(req.id, 'declined')} style={{
                             background: 'rgba(13,31,18,0.06)', color: 'rgba(13,31,18,0.45)',
                             border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12, cursor: 'pointer',
