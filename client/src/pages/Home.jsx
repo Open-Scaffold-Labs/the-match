@@ -45,7 +45,7 @@ function todayYMD() { return toYMD(new Date()) }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCountsChange, onStartSeason, onEditProfile, onOpenCard }) {
+function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCountsChange, onStartSeason, onEditProfile, onOpenCard, notifCount = 0, onOpenNotifications }) {
   const seasonBanner = season && !season.seasonStarted && season.year === currentSeasonYear()
   const [banner] = useState(randomBanner)
 
@@ -211,18 +211,60 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
           ))}
         </div>
 
-        {/* Streak */}
-        {streak > 0 && (
+        {/* Mailbox — replaces the streak chip 2026-05-01. Tap opens
+            the NotificationsModal listing pending friend requests,
+            match invites, and tee-time requests. Red badge shows
+            total pending count; hidden when zero so the slot is
+            quiet at rest. (Streak still surfaces on the Profile
+            view's stats body.) */}
+        <button
+          onClick={onOpenNotifications}
+          aria-label={`Notifications${notifCount > 0 ? ` (${notifCount} pending)` : ''}`}
+          style={{
+            marginTop: 10, width: '100%',
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: notifCount > 0
+              ? 'linear-gradient(135deg, rgba(201,160,64,0.16), rgba(232,192,90,0.10))'
+              : 'rgba(201,160,64,0.06)',
+            border: '1px solid', borderColor: notifCount > 0 ? 'rgba(201,160,64,0.45)' : 'rgba(201,160,64,0.18)',
+            borderRadius: 10, padding: '10px 14px',
+            cursor: 'pointer', fontFamily: 'inherit',
+            position: 'relative',
+          }}
+        >
+          {/* Envelope icon */}
           <div style={{
-            marginTop: 10, display: 'flex', alignItems: 'center', gap: 8,
-            background: 'rgba(201,160,64,0.08)', border: '1px solid rgba(201,160,64,0.22)', borderRadius: 10, padding: '8px 14px',
+            position: 'relative', width: 22, height: 22,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="#C9A040" stroke="none"><path d="M12 2c0 0-5 5.5-5 10a5 5 0 0 0 10 0c0-4.5-5-10-5-10zm0 13a2 2 0 0 1-2-2c0-2 2-5 2-5s2 3 2 5a2 2 0 0 1-2 2z"/></svg>
-            <span style={{ color: '#7A5800', fontSize: 12, fontWeight: 600 }}>
-              {streak}-week streak — you're locked in
-            </span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke={notifCount > 0 ? '#7A5800' : 'rgba(122,88,0,0.6)'}
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <polyline points="3 7 12 13 21 7"/>
+            </svg>
+            {/* Red count badge */}
+            {notifCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -6, right: -8,
+                minWidth: 16, height: 16, padding: '0 4px',
+                background: '#E5484D', color: '#fff',
+                borderRadius: 999, fontSize: 10, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1, border: '1.5px solid rgba(255,255,255,0.95)',
+              }}>{notifCount > 99 ? '99+' : notifCount}</span>
+            )}
           </div>
-        )}
+          <span style={{ color: notifCount > 0 ? '#7A5800' : 'rgba(122,88,0,0.7)', fontSize: 12, fontWeight: 700, flex: 1, textAlign: 'left' }}>
+            {notifCount > 0
+              ? `${notifCount} ${notifCount === 1 ? 'notification' : 'notifications'}`
+              : 'No new notifications'}
+          </span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="rgba(122,88,0,0.5)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
       </div>
     </div>
   )
@@ -2702,6 +2744,258 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   )
 }
 
+// ─── NotificationsModal — slide-up popup of all pending items ────────────────
+//
+// Triggered by the mailbox in the ProfileHeroCard. Aggregates three
+// existing sources into one inbox surface so users have one place to
+// triage everything that's waiting on them:
+//   1. Pending incoming friend requests
+//   2. Pending incoming match invites
+//   3. Pending incoming tee-time requests
+//
+// Accept/Decline handlers are passed in from Home — they call the same
+// /api/*/respond endpoints the per-section UIs already use, so this
+// modal is purely a re-presentation layer (no new state).
+// (2026-05-01 — Matt: mailbox in the header.)
+function NotificationsModal({
+  user,
+  friendRequests = [],
+  gameInvites = [],
+  teeRequests = [],
+  onFriendRespond,
+  onGameRespond,
+  onTeeRespond,
+  onSelectFriend,
+  onClose,
+}) {
+  const total = friendRequests.length + gameInvites.length + teeRequests.length
+
+  // Helper to format a date string into a relative "2h ago" / "Apr 28"
+  // — used as a small timestamp on each notification row.
+  function whenStr(iso) {
+    if (!iso) return ''
+    const t = new Date(iso).getTime()
+    if (!Number.isFinite(t)) return ''
+    const ms = Date.now() - t
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    const hr = Math.floor(min / 60)
+    if (hr < 24)  return `${hr}h ago`
+    const d = Math.floor(hr / 24)
+    if (d < 7)    return `${d}d ago`
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const sectionStyle = {
+    marginBottom: 18,
+  }
+  const sectionHeader = (label, count, color) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      marginBottom: 10,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 800, letterSpacing: '0.10em',
+        color: 'rgba(255,255,255,0.55)',
+      }}>{label.toUpperCase()}</div>
+      <div style={{
+        background: color, borderRadius: 10, padding: '1px 7px',
+        fontSize: 10, fontWeight: 800, color: '#070C09',
+      }}>{count}</div>
+    </div>
+  )
+  const rowStyle = {
+    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '12px 14px', borderRadius: 12,
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    marginBottom: 8,
+  }
+  const acceptBtn = {
+    padding: '6px 12px', borderRadius: 999, border: 'none',
+    background: 'linear-gradient(135deg, #4ADE80, #22C55E)',
+    color: '#062313', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+    fontFamily: 'inherit',
+  }
+  const declineBtn = {
+    padding: '6px 10px', borderRadius: 999,
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.18)',
+    color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+    fontFamily: 'inherit',
+  }
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'flex-end',
+        animation: 'tm-fade-in 180ms ease-out',
+      }}
+    >
+      <style>{`
+        @keyframes tm-fade-in { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes tm-slide-up {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+      `}</style>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 430, margin: '0 auto',
+          background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
+          borderRadius: '24px 24px 0 0',
+          maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.6)',
+          animation: 'tm-slide-up 280ms cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '4px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <div>
+            <div style={{ fontSize: 19, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+              Notifications
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+              {total === 0 ? "You're all caught up" : `${total} pending`}
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+            borderRadius: 999, width: 32, height: 32, color: '#fff', fontSize: 18, cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 28px' }}>
+          {total === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.45)' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.04)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                marginBottom: 12,
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="2"/>
+                  <polyline points="3 7 12 13 21 7"/>
+                </svg>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Inbox empty</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>New friend requests and match invites will land here.</div>
+            </div>
+          )}
+
+          {/* Friend Requests */}
+          {friendRequests.length > 0 && (
+            <div style={sectionStyle}>
+              {sectionHeader('Friend Requests', friendRequests.length, '#F5D78A')}
+              {friendRequests.map(req => (
+                <div key={`fr-${req.id}`} style={rowStyle}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: 'rgba(245,215,138,0.18)', border: '1px solid rgba(245,215,138,0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#F5D78A', fontSize: 14, fontWeight: 800, flexShrink: 0,
+                  }}>{(req.requester_name || '?').slice(0,1).toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {req.requester_name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+                      Wants to be friends · {whenStr(req.created_at)}
+                    </div>
+                  </div>
+                  <button onClick={() => onFriendRespond?.(req.id, 'accepted')} style={acceptBtn}>Accept</button>
+                  <button onClick={() => onFriendRespond?.(req.id, 'declined')} style={declineBtn}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Match Invites */}
+          {gameInvites.length > 0 && (
+            <div style={sectionStyle}>
+              {sectionHeader('Match Invites', gameInvites.length, '#5ED47A')}
+              {gameInvites.map(g => (
+                <div key={`gi-${g.id}`} style={rowStyle}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'rgba(94,212,122,0.16)', border: '1px solid rgba(94,212,122,0.40)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5ED47A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {g.creator_name || 'Someone'} invited you
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+                      {g.date ? new Date(g.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Date TBD'}
+                      {g.course_name ? ` · ${g.course_name}` : ''}
+                      {g.start_time ? ` · ${g.start_time}` : ''}
+                    </div>
+                  </div>
+                  <button onClick={() => onGameRespond?.(g.id, 'accepted')} style={acceptBtn}>Accept</button>
+                  <button onClick={() => onGameRespond?.(g.id, 'declined')} style={declineBtn}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tee Time Requests */}
+          {teeRequests.length > 0 && (
+            <div style={sectionStyle}>
+              {sectionHeader('Tee Time Requests', teeRequests.length, '#7FBFFF')}
+              {teeRequests.map(tr => (
+                <div key={`tr-${tr.id}`} style={rowStyle}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'rgba(127,191,255,0.16)', border: '1px solid rgba(127,191,255,0.40)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7FBFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {tr.requester_name || 'Someone'} wants to play
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+                      {tr.date ? new Date(tr.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : whenStr(tr.created_at)}
+                    </div>
+                  </div>
+                  <button onClick={() => onTeeRespond?.(tr.id, 'accepted')} style={acceptBtn}>Accept</button>
+                  <button onClick={() => onTeeRespond?.(tr.id, 'declined')} style={declineBtn}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 export default function Home({ onNavigate, onNavigateToOuting }) {
   const [profile, setProfile] = useState(null)
   const [friends, setFriends] = useState({ friends: [], incoming: [], activity: [] })
@@ -2734,6 +3028,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   // Admin-only Users modal — gated on user.role === 'admin'. Surfaced
   // by the gear icon in the home top bar. (2026-05-01)
   const [adminOpen, setAdminOpen] = useState(false)
+  // Notifications inbox modal — opened by tapping the mailbox in the
+  // ProfileHeroCard. Aggregates pending friend requests + match invites
+  // + tee-time requests into one slide-up sheet. (2026-05-01)
+  const [notifsOpen, setNotifsOpen] = useState(false)
   // Onboarding checklist inputs — driven by data the page already
   // fetches in loadAll(), populated alongside everything else.
   const [bagClubs, setBagClubs] = useState([])
@@ -2925,6 +3223,33 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
       </div>
       {adminOpen && <AdminUsersModal onClose={() => setAdminOpen(false)} />}
 
+      {/* Notifications inbox — opened by mailbox tap on the hero card.
+          Sources read directly from already-loaded state; no new
+          network calls. Accept/Decline handlers reuse the existing
+          per-section flows so updates ripple through the rest of the
+          page (FriendsPanel, GameInbox, etc.) too. */}
+      {notifsOpen && (
+        <NotificationsModal
+          user={user}
+          friendRequests={friends?.incoming || []}
+          gameInvites={games?.incoming || []}
+          teeRequests={teeRequests?.incoming || []}
+          onFriendRespond={handleFriendRespond}
+          onGameRespond={handleGameRespond}
+          onTeeRespond={async (id, status) => {
+            try {
+              // Match the endpoint pattern used elsewhere in this file
+              // (line ~3347): POST /api/availability/tee-requests/:id
+              // with { status }, then refresh from /api/availability/tee-requests.
+              await post(`/api/availability/tee-requests/${id}`, { status })
+              const t = await api('/api/availability/tee-requests')
+              setTeeRequests(t ?? { incoming: [], outgoing: [] })
+            } catch { /* ignore */ }
+          }}
+          onClose={() => setNotifsOpen(false)}
+        />
+      )}
+
       <div style={{ padding: '0 16px' }}>
         {/* Profile hero */}
         <ProfileHeroCard
@@ -2934,6 +3259,8 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           onStartSeason={handleStartSeason}
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
+          notifCount={(friends?.incoming?.length || 0) + (games?.incoming?.length || 0) + (teeRequests?.incoming?.length || 0)}
+          onOpenNotifications={() => setNotifsOpen(true)}
         />
 
         {/* Onboarding checklist — auto-hides once every item is checked
