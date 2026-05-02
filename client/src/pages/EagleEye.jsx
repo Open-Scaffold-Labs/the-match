@@ -1677,6 +1677,13 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         .leaflet-container {
           background: #070C09 !important;
         }
+        /* Move the +/- zoom control off the top-left where it gets
+           covered by the hole-1 distance badge / hole-strip; park it
+           on the middle-left edge instead. (2026-05-01 — Matt) */
+        .leaflet-top.leaflet-left {
+          top: 50% !important;
+          transform: translateY(-50%);
+        }
         /* Force GPU compositing on the tile pane + slightly oversize
            each tile so adjacent tiles physically overlap by ~1 pixel
            after the rotate plugin's transform. Together these kill
@@ -1900,17 +1907,17 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
           />
 
-          {/* HUD overlay — explicit z-index 800 keeps the yardage
-              card + Analyze Shot button safely above Leaflet's tile
-              and marker panes (which top out at 700). DOM order alone
-              wasn't reliable on iOS Safari — the rotate plugin's
-              transform on the map pane creates a stacking context
-              that can outpaint sibling overlays without an explicit
-              lift. Floating SCORECARD + BAG buttons sit at 1000.
-              (2026-05-01 — Matt: yardage card was invisible; bring
-              the bump back. Grid lines fix lives in CSS, independent
-              of z-index.) */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none', zIndex: 800 }}>
+          {/* HUD overlay — wrapper stays at auto z-index because it
+              spans the full map (`inset: 0`) and at z-index 800 its
+              empty middle was occluding the landing-zone marker
+              inside Leaflet's marker pane. Instead, each visible
+              child below carries its own zIndex: 800 so the yardage
+              card + Analyze Shot still paint above the rotate-plugin
+              transformed leaflet content, while the empty middle of
+              the HUD lets the marker show through. Floating BAG sits
+              at 1000. (2026-05-01 — Matt: landing-zone marker was
+              hidden under the HUD layer.) */}
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
 
             {/* ── Top yardage card — compact, top-right corner so it
                 doesn't block the player's view of the shot. marginTop
@@ -1923,6 +1930,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               padding: '8px 12px 8px', boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
               minWidth: 110,
               marginTop: 12,
+              zIndex: 800,
             }}>
               <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.40)', marginBottom: 1 }}>
                 {gpsToGreen != null ? 'TO GREEN · GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
@@ -1947,7 +1955,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             </div>
 
             {/* ── Bottom: actions ── */}
-            <div style={{ pointerEvents: 'auto' }}>
+            <div style={{ pointerEvents: 'auto', zIndex: 800 }}>
               {/* Conditions pills removed 2026-05-01 — same wind/temp
                   values are already shown in the page header, so the
                   duplicate row above the Analyze Shot button was dead
@@ -2026,31 +2034,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         />
       )}
 
-      {/* Floating bottom-right Scorecard pill. Persistent across all Eagle
-          Eye view states — distance, map, camera-result. Sits above the
-          bottom nav. Only renders when the parent (App.jsx) provided
-          onGoToScorecard, so EagleEye still works standalone. (2026-05-01) */}
-      {onGoToScorecard && !showCamera && !showPicker && (
-        <button onClick={onGoToScorecard} style={{
-          position: 'absolute',
-          bottom: 16, right: 16,
-          background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
-          border: '1px solid rgba(245,215,138,0.6)',
-          borderRadius: 999, padding: '10px 16px',
-          color: '#0D1F12',
-          fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
-          cursor: 'pointer',
-          boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          fontFamily: 'inherit',
-          zIndex: 1000,
-        }}>
-          SCORECARD
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-      )}
+      {/* Floating Scorecard pill removed 2026-05-01 — the page header
+          already exposes a Scorecard link, the floating pill duplicated
+          it and crowded the bottom-right where the BAG toggle lives. */}
 
-      {/* Club toggle — sits above the SCORECARD pill. Idle state:
+      {/* Club toggle — idle state:
           single BAG button. Tap once → AI picks the best club match
           for the current target yardage and a vertical toggle takes
           over with ▲ (longer) and ▼ (shorter) arrows around the
