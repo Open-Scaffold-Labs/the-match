@@ -1011,6 +1011,7 @@ const FORMATS = [
   { id: 'match',     label: 'Match Play',     desc: 'Hole-by-hole wins' },
   { id: 'stableford',label: 'Stableford',     desc: 'Points system' },
   { id: 'skins',     label: 'Skins',          desc: 'Win each hole outright' },
+  { id: 'best_ball', label: 'Best Ball',      desc: 'Best of each team per hole — pairs or foursomes' },
 ]
 const TEAMS = [
   { id: 'individual', label: 'Individual',     desc: 'Everyone scores for themselves — head-to-head records tracked' },
@@ -2066,6 +2067,77 @@ function computePositions(sorted, getScores, holePars) {
   return rawRanks.map(r => r === '—' ? r : counts[r] > 1 ? `T${r}` : `${r}`)
 }
 
+// ─── Best Ball helpers ────────────────────────────────────────────────────────
+// Best Ball / 4-ball: each player plays their own ball; per hole the
+// team's score = the lowest member's score. The team with the lowest
+// cumulative best-ball total wins.
+//
+// For 2-person teams (doubles team_breakdown, or small outings with
+// team_format='teams' and 2 players per team), this is straightforward:
+// min of two scores per hole.
+//
+// For 4-person teams (foursomes team_breakdown), we take min of four
+// per hole. We don't currently support "two best balls of 4" (sum of
+// two lowest per hole, member-guest variant) — that's a v2 add via a
+// separate format option.
+//
+// Returns:
+//   teams:           [{ id, members[], holes[], total, holesPlayed }]
+//   playerTeamTotal: { user_id: team total }    so the per-player
+//                    leaderboard can show each player's team standing
+//
+// (2026-05-01 — league must-have B4d.)
+function computeBestBall(participants, holePars, getScores, netStrokes) {
+  // Group participants by their team_id. Players with no team_id go
+  // into a synthetic 'solo:user_id' bucket so the math doesn't crash;
+  // they'll just be a one-player team with their own scores.
+  const teamMap = new Map()
+  for (const p of participants) {
+    const key = p.team_id != null ? `T:${p.team_id}` : `solo:${p.user_id}`
+    if (!teamMap.has(key)) teamMap.set(key, { id: key, label: p.team_id ?? 'Solo', members: [] })
+    teamMap.get(key).members.push(p)
+  }
+
+  // Net strokes are deducted across the round (not per hole) — same
+  // convention as stroke play. We do per-hole net distribution by
+  // splitting strokes across the hardest holes per the hole_handicaps
+  // when available; otherwise apply at end. For v1 simplicity we
+  // subtract once per hole as: net_per_hole = score - floor(handicap_for_player / holeCount).
+  // This is approximate but produces sensible totals; per-hole stroke
+  // index allocation is a v2 polish.
+  const teams = []
+  const playerTeamTotal = {}
+  for (const team of teamMap.values()) {
+    let total = 0
+    let holesPlayed = 0
+    const holes = []
+    for (let h = 0; h < holePars.length; h++) {
+      // Each member's net score for this hole (0 if not played).
+      const memberHoleScores = team.members.map(m => {
+        const raw = (getScores(m) || [])[h] || 0
+        if (raw <= 0) return null  // not played
+        // Approximate per-hole stroke split: total handicap evenly
+        // distributed across all holes. v2 should respect hole_handicaps.
+        const perHole = (netStrokes(m) || 0) / holePars.length
+        return raw - perHole
+      }).filter(s => s != null)
+      if (memberHoleScores.length === 0) {
+        holes.push(null)
+        continue
+      }
+      const best = Math.min(...memberHoleScores)
+      holes.push(best)
+      total += best
+      holesPlayed += 1
+    }
+    teams.push({ id: team.id, label: team.label, members: team.members, holes, total, holesPlayed })
+    for (const m of team.members) playerTeamTotal[m.user_id] = total
+  }
+  // Sort teams by total ascending (best ball = lowest total wins).
+  teams.sort((a, b) => a.total - b.total)
+  return { teams, playerTeamTotal }
+}
+
 // ─── Stableford helpers ───────────────────────────────────────────────────────
 // Stableford rewards aggressive play with a points system. Many
 // variants exist; we ship two well-known presets and accept a custom
@@ -2770,9 +2842,19 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     : null
   const stablefordByPlayer = stablefordData?.pointsByPlayer || {}
 
+  // ── Best Ball: compute per-team totals (lowest of each team's
+  // members per hole, summed). Players with the same team_id share
+  // a team total; lowest team total wins. (B4d)
+  const isBestBallFormat = (outing.scoring_formats || []).includes('best_ball')
+  const bestBallData     = isBestBallFormat
+    ? computeBestBall(participants, holePars, getScores, netStrokes)
+    : null
+  const bestBallByPlayer = bestBallData?.playerTeamTotal || {}
+
   // Leaderboard order:
   //   Skins      → primary: skins won desc, tiebreak: card-back STP
   //   Stableford → primary: points desc,    tiebreak: card-back STP
+  //   Best Ball  → primary: team total asc, tiebreak: card-back STP
   //   Else       → standard leaderboardSort (card-back chain)
   const sorted = isSkinsFormat
     ? [...participants].sort((a, b) => {
@@ -2785,7 +2867,14 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     ? [...participants].sort((a, b) => {
         const pa = stablefordByPlayer[a.user_id] || 0
         const pb = stablefordByPlayer[b.user_id] || 0
-        if (pa !== pb) return pb - pa  // more points first
+        if (pa !== pb) return pb - pa
+        return leaderboardSort(a, b)
+      })
+    : isBestBallFormat
+    ? [...participants].sort((a, b) => {
+        const ta = bestBallByPlayer[a.user_id] ?? 9999
+        const tb = bestBallByPlayer[b.user_id] ?? 9999
+        if (ta !== tb) return ta - tb  // lower team total wins
         return leaderboardSort(a, b)
       })
     : [...participants].sort(leaderboardSort)
