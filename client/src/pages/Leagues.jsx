@@ -476,6 +476,12 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
             {league.description}
           </div>
         )}
+        {/* 2026-05-02 audit Round 32 — League announcement banner
+            visible to ALL members (not just commissioner). The Comms
+            tab is gated to commissioner; without this, members never
+            saw posted announcements in-app, only via push. Per-id
+            dismiss persisted in localStorage. */}
+        <LeagueAnnouncementBanner league={league} />
       </div>
 
       {/* Tab bar — Rules + Comms tabs only render for the commissioner */}
@@ -825,6 +831,68 @@ function MembersView({ members, isCommissioner, commissionerId, leagueId, onRefr
 const hdr = {
   fontSize: 9, fontWeight: 800, color: 'rgba(13,31,18,0.55)',
   letterSpacing: '0.08em', textTransform: 'uppercase',
+}
+
+// ─── LeagueAnnouncementBanner — pinned latest, visible to ALL members ──
+function LeagueAnnouncementBanner({ league }) {
+  const list = Array.isArray(league?.config?.announcements) ? league.config.announcements : []
+  const latest = list[0]
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    setDismissed(false)
+    if (!latest?.id) return
+    try {
+      const seen = localStorage.getItem(`tm_league_announce_seen_${league.id}`)
+      if (seen === latest.id) setDismissed(true)
+    } catch { /* ignore */ }
+  }, [league?.id, latest?.id])
+  if (!latest || dismissed) return null
+
+  function whenStr(iso) {
+    if (!iso) return ''
+    const ms = Date.now() - new Date(iso).getTime()
+    const min = Math.floor(ms / 60000)
+    if (min < 1)  return 'just now'
+    if (min < 60) return `${min}m ago`
+    if (min < 1440) return `${Math.floor(min / 60)}h ago`
+    return `${Math.floor(min / 1440)}d ago`
+  }
+
+  return (
+    <div style={{
+      marginTop: 10, padding: '10px 12px', borderRadius: 12,
+      background: 'linear-gradient(135deg, rgba(245,215,138,0.18), rgba(201,160,64,0.10))',
+      border: '1px solid rgba(245,215,138,0.50)',
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+        background: 'rgba(201,160,64,0.20)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 14, marginTop: 1,
+      }}>📣</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: '#7A5800', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+            {latest.posted_by_name || 'Commissioner'}
+          </span>
+          <span style={{ fontSize: 9, color: 'rgba(13,31,18,0.45)' }}>· {whenStr(latest.posted_at)}</span>
+        </div>
+        <div style={{ fontSize: 12, color: '#0E3B23', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{latest.text}</div>
+      </div>
+      <button
+        onClick={() => {
+          try { localStorage.setItem(`tm_league_announce_seen_${league.id}`, latest.id) } catch { /* ignore */ }
+          setDismissed(true)
+        }}
+        aria-label="Dismiss"
+        style={{
+          background: 'transparent', border: 'none',
+          color: 'rgba(13,31,18,0.45)', fontSize: 16, cursor: 'pointer',
+          padding: '0 4px', lineHeight: 1, flexShrink: 0,
+        }}>✕</button>
+    </div>
+  )
 }
 
 // ─── LeagueAuditLog — paginated cross-event audit ────────────────────────

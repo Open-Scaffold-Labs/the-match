@@ -410,6 +410,24 @@ export default function PublicLeaderboard({ code }) {
             <> · {String(data.scoring_formats[0]).replace('_', ' ').toUpperCase()}</>
           )}
         </div>
+        {/* 2026-05-02 audit — Part-of-League pill on the public board.
+            GTM lever: spectators scanning the tee-box QR see this is
+            part of a season and the footer CTA flips to 'Run your own
+            league with Elite' instead of the generic 'Get the App'. */}
+        {data.league && (
+          <div style={{
+            marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '4px 10px', borderRadius: 999,
+            background: 'rgba(201,160,64,0.18)',
+            border: '1px solid rgba(201,160,64,0.55)',
+            color: AUGUSTA_GOLD, fontSize: 10, fontWeight: 800, letterSpacing: '0.10em',
+          }}>
+            <span>🏆</span>
+            <span style={{ textTransform: 'uppercase' }}>
+              Part of {data.league.name}{data.league.season ? ` · ${data.league.season}` : ''}
+            </span>
+          </div>
+        )}
         {/* Reconnecting badge — appears when polls have failed twice
             in a row but we have stale cached data to keep showing.
             (Round 4 audit.) */}
@@ -633,12 +651,17 @@ export default function PublicLeaderboard({ code }) {
         )}
       </div>
 
-      {/* Footer brand + install CTA */}
+      {/* Footer brand + install CTA. When the event is league-attached
+          the CTA flips to a tailored 'Run your own league' upsell
+          (Elite tier) — that's the whole point of the tee-box QR
+          flyer as an acquisition channel: convert spectators into
+          paying commissioners. (2026-05-02 audit — GTM lever.) */}
       <div style={{ marginTop: 32, padding: '20px', textAlign: 'center' }}>
         <div style={{
           display: 'inline-block',
           background: 'rgba(201,160,64,0.10)', border: `1px solid ${AUGUSTA_GOLD}`,
           borderRadius: 14, padding: '14px 22px',
+          maxWidth: 320,
         }}>
           <div style={{ fontSize: 10, color: AUGUSTA_GOLD, letterSpacing: '0.20em', fontWeight: 700, marginBottom: 6 }}>
             POWERED BY
@@ -649,12 +672,29 @@ export default function PublicLeaderboard({ code }) {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             marginBottom: 8,
           }}>The Match</div>
-          <a href="/" style={{
-            display: 'inline-block', padding: '8px 20px',
-            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
-            color: '#070C09', textDecoration: 'none',
-            borderRadius: 999, fontSize: 12, fontWeight: 800, letterSpacing: '0.04em',
-          }}>GET THE APP →</a>
+          {data.league ? (
+            <>
+              <div style={{ fontSize: 11, color: 'rgba(241,231,200,0.85)', lineHeight: 1.5, marginBottom: 10 }}>
+                Run your own league — standings, rosters, push notifications, season exports — for half what other apps charge.
+              </div>
+              <a href="/" style={{
+                display: 'inline-block', padding: '9px 20px',
+                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                color: '#070C09', textDecoration: 'none',
+                borderRadius: 999, fontSize: 12, fontWeight: 800, letterSpacing: '0.04em',
+              }}>START A LEAGUE →</a>
+              <div style={{ fontSize: 9, color: 'rgba(241,231,200,0.55)', marginTop: 8, letterSpacing: '0.10em' }}>
+                THE MATCH ELITE · $7.50/MO ANNUAL
+              </div>
+            </>
+          ) : (
+            <a href="/" style={{
+              display: 'inline-block', padding: '8px 20px',
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              color: '#070C09', textDecoration: 'none',
+              borderRadius: 999, fontSize: 12, fontWeight: 800, letterSpacing: '0.04em',
+            }}>GET THE APP →</a>
+          )}
         </div>
         <div style={{ marginTop: 16, fontSize: 9, color: 'rgba(241,231,200,0.40)', letterSpacing: '0.10em' }}>
           MATCH CODE · {data.code} · UPDATES LIVE

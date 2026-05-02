@@ -27,10 +27,24 @@ const db          = require('../db')
 router.get('/:code/public', async (req, res) => {
   try {
     const row = await db.one(
-      'SELECT id, code, name, course_name, course_par, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, state FROM tm_outings WHERE code = $1',
+      'SELECT id, code, name, course_name, course_par, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, league_id, state FROM tm_outings WHERE code = $1',
       [req.params.code.toUpperCase()]
     )
     if (!row) return res.status(404).json({ error: 'Outing not found' })
+
+    // 2026-05-02 audit — when the event is league-attached, surface the
+    // league name to the public board too. This is the GTM lever:
+    // every spectator scanning the tee-box QR sees 'Part of [League]'
+    // and a tailored 'Run your own league with The Match Elite' CTA.
+    let league = null
+    if (row.league_id) {
+      try {
+        league = await db.one(
+          'SELECT id, name, season FROM tm_leagues WHERE id = $1',
+          [row.league_id]
+        )
+      } catch { /* fall through */ }
+    }
 
     // Enrich participants with live scores from tm_outing_participants
     // (same pattern as the authed GET) but trim to public fields only.
@@ -86,6 +100,7 @@ router.get('/:code/public', async (req, res) => {
         hole_handicaps: row.hole_handicaps,
         expected_players: row.expected_players,
         team_breakdown: row.team_breakdown,
+        league,        // null when standalone; { id, name, season } when league-attached
         state: {
           holes: state.holes ?? 18,
           handicap_allowance: state.handicap_allowance ?? 100,
