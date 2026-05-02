@@ -130,6 +130,10 @@ function computeBestBallPub(participants, holePars, teams) {
   for (const [teamId, members] of teamMap) {
     const meta = teamMeta.get(teamId) || { id: teamId, name: `Team ${teamId}`, color: null }
     let total = 0
+    let parThrough = 0   // Sum of par for the EXACT holes the team scored,
+                         //   not the first N holes by index. Fixes a
+                         //   to-par bug when a team skips a hole. (Round 11
+                         //   double-check pass — caught during 6.3 review.)
     let holesPlayed = 0
     for (let h = 0; h < holePars.length; h++) {
       const memberScores = members
@@ -137,10 +141,9 @@ function computeBestBallPub(participants, holePars, teams) {
         .filter(s => s > 0)
       if (memberScores.length === 0) continue
       total += Math.min(...memberScores)
+      parThrough += (holePars[h] || 4)
       holesPlayed += 1
     }
-    // Course par played up to this point — used for "to par" display.
-    const parThrough = holePars.slice(0, holesPlayed).reduce((s, p) => s + (p || 4), 0)
     ranked.push({
       id: teamId,
       name: meta.name,

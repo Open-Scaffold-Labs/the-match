@@ -267,9 +267,19 @@ router.post('/', async (req, res) => {
     }
     return out
   }
-  const sanitizedCustom = stablefordPreset === 'custom'
-    ? sanitizeStablefordPointMap(customStablefordPoints)
-    : null
+  // 6.5 — when 'custom' is selected, reject the create if the map
+  // is malformed instead of silently falling through to 'standard'.
+  // Otherwise the host sees their custom values disappear without
+  // any signal as to why. (Round 11 double-check pass.)
+  let sanitizedCustom = null
+  if (stablefordPreset === 'custom' && Array.isArray(scoringFormats) && scoringFormats.includes('stableford')) {
+    sanitizedCustom = sanitizeStablefordPointMap(customStablefordPoints)
+    if (!sanitizedCustom) {
+      return res.status(400).json({
+        error: 'customStablefordPoints invalid — every bucket (double_eagle, eagle, birdie, par, bogey, double, worse) must be a number between -10 and 20',
+      })
+    }
+  }
   const stablefordPointMap = (Array.isArray(scoringFormats) && scoringFormats.includes('stableford'))
     ? (sanitizedCustom || STABLEFORD_PRESETS_S[stablefordPreset] || STABLEFORD_PRESETS_S.standard)
     : null
