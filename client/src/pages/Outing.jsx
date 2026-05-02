@@ -3808,7 +3808,7 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
                 borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
-              }}>Keep {conflictPrompt.existing}</button>
+              }}>Cancel</button>
               <button onClick={() => conflictPrompt.resolve(true)} style={{
                 flex: 1, padding: '11px',
                 background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
@@ -4429,20 +4429,24 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
     }
   }
 
-  // Save a single cell from the score-edit grid. Goes through the
-  // host endpoint with force:true so it bypasses the conflict guard
-  // (commissioner editing IS the conflict resolution). On success,
-  // mutates the parent's state.participants[].scores[] in place.
+  // Save a single cell from the score-edit grid. Routes through
+  // runWithQueue so commissioner edits at a course with poor signal
+  // queue up rather than failing outright. force:true so the
+  // conflict guard never fires (commissioner editing IS the conflict
+  // resolution). On success or queued, mutates local participant
+  // state immediately so the grid reflects the change.
   async function saveCell(userId, hole, newScore) {
     const n = Number(newScore)
     if (!Number.isFinite(n) || n < 1 || n > 20) return
     setScoreSaveBusy(true)
     try {
-      await put(`/api/outings/${code}/scores/host`, {
-        hole, score: n, user_id: userId, force: true,
+      await runWithQueue({
+        url: `/api/outings/${code}/scores/host`,
+        method: 'PUT',
+        body: { hole, score: n, user_id: userId, force: true },
       })
-      // Mutate the local participant state so the grid reflects the
-      // change immediately (the parent will re-fetch on poll anyway).
+      // Optimistic update — local grid reflects the change even when
+      // the call was queued instead of completing online.
       const next = all.map(p => {
         if (String(p.user_id) !== String(userId)) return p
         const scores = Array.isArray(p.scores) ? [...p.scores] : new Array(holeCount).fill(0)
