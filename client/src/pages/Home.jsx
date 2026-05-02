@@ -3389,7 +3389,18 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   return (
     <div style={{
       minHeight: '100dvh',
-      background: 'linear-gradient(180deg, rgba(255,253,248,0.0) 0%, rgba(255,253,248,0.6) 60%, rgba(241,231,200,0.35) 100%)',
+      // Page-level cream tint. Ramps in from clear at the top (so the
+      // status bar breathes) to a steady Augusta-cream wash from ~50%
+      // down. Previously the gradient fell BACK off after 60% (60% alpha
+      // → 35% alpha at 100%) which made the underlying page bg show
+      // through toward the bottom and read as "two backgrounds
+      // competing" on long-scroll surfaces. Now: single cream color,
+      // ramp once, hold to the bottom + a solid backgroundColor so
+      // iOS overscroll bounce can't reveal a different color either.
+      // (2026-05-02 — Matt: "make sure it doesn't cut off at the
+      // bottom when scrolling down")
+      backgroundColor: 'rgba(241,231,200,0.5)',
+      backgroundImage: 'linear-gradient(180deg, rgba(241,231,200,0.0) 0%, rgba(241,231,200,0.5) 50%, rgba(241,231,200,0.5) 100%)',
       paddingBottom: 100,
     }}>
       {/* Polished page-top: TODAY overline → wordmark + actions →
