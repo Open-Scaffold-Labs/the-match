@@ -1,34 +1,32 @@
 // Public-facing user handles (e.g. @mlav). Mirror of the SQL backfill
-// logic in migration 014, used at signup time so new users get a
+// logic in migration 015, used at signup time so new users get a
 // handle the same way existing users were backfilled.
 //
-// Algorithm:
+// Algorithm (updated 2026-05-01):
 //   1. Tokenize the user's name on whitespace.
-//   2. Take first token (lowercased, alphanumerics only) and append
-//      the first letter of the last token if there's more than one.
-//   3. Empty-name fallback: use the email's local part, alphanumerics
-//      only, capped at 12 chars.
+//   2. Take first letter of first token (lowercased, alphanumerics
+//      only) + first 3 letters of the last token. So 'Matt Lavin' →
+//      'mlav', 'Sean Mulligan' → 'smul', 'Dale Johnson' → 'djoh'.
+//   3. Single-name user (or unparseable): fall back to the email's
+//      local part, alphanumerics only, capped at 12 chars.
 //   4. Cap base at 16 chars (handle CHECK is 2-20).
 //   5. Try base, then base2, base3, ... until DB confirms it's free.
 //
-// This module exports a single async function that takes a name +
-// email + a `db` instance and returns a unique handle string.
-//
-// (2026-05-01 — Matt: handles for disambiguation + shareable
-// identifiers without onboarding friction.)
+// (2026-05-01 — Matt: 'first initial of first name followed by first
+// 3 initials in last name'.)
 
 function generateBase(name, email) {
   const tokens = String(name || '').trim().split(/\s+/).filter(Boolean)
   const stripAlnum = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
   let base = ''
-  if (tokens.length > 0) {
-    const first = stripAlnum(tokens[0])
-    const last  = tokens.length > 1 ? stripAlnum(tokens[tokens.length - 1]) : ''
-    base = first + (last ? last.slice(0, 1) : '')
+  if (tokens.length >= 2) {
+    const firstInit = stripAlnum(tokens[0]).slice(0, 1)
+    const lastThree = stripAlnum(tokens[tokens.length - 1]).slice(0, 3)
+    if (firstInit && lastThree) base = firstInit + lastThree
   }
 
-  // Empty-name fallback: email local part, capped at 12.
+  // Single-name fallback: email local part, capped at 12 chars.
   if (!base) {
     const local = String(email || '').split('@')[0]
     base = stripAlnum(local).slice(0, 12)
