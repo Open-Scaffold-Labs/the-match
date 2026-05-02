@@ -227,7 +227,13 @@ function BagCompleteOverlay({ clubs, totalSlots, onClose }) {
         <div style={{
           fontSize: 22, fontWeight: 900, color: '#fff',
           letterSpacing: '-0.01em', marginBottom: 8,
-        }}>You're set, Matt</div>
+        }}>You're set{(() => {
+          // Per-user greeting — was hardcoded to 'Matt'. Sean's signup
+          // 2026-05-01 surfaced the bug. Strip to first name; if name
+          // is missing entirely fall back to a clean 'You're set'.
+          const fn = (user?.name || '').trim().split(/\s+/)[0]
+          return fn ? `, ${fn}` : ''
+        })()}</div>
 
         <div style={{
           fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.5,
