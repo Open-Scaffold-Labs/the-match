@@ -3388,6 +3388,24 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
     display_name: namesMap[p.user_id] || p.name,
     name: namesMap[p.user_id] || p.name,
   }))
+  // Hole config has to come BEFORE the no-show policy block — the
+  // max_plus_2 synthesis reads holeCount + holePars when applying
+  // per-player score fills. Order-of-declaration matters because of
+  // the .map(applyNoShowPolicy) call below — in production builds
+  // a TDZ violation here showed up as "Cannot access 'ge' before
+  // initialization." (Hot-fix 2026-05-02.)
+  const teams        = outing.state?.teams ?? []
+  const markers      = outing.state?.markers ?? []  // [{ marker_id, member_ids[] }]
+  const holeCount    = outing.state?.holes ?? 18
+  const coursePar    = outing.course_par ?? 72
+  // Prefer real per-hole pars from the picked course; fall back to the
+  // synthetic distribution for legacy matches that have no course_id.
+  // (2026-04-30 — migration 006 added the column)
+  const realHolePars = Array.isArray(outing.hole_pars) ? outing.hole_pars : null
+  const holePars     = realHolePars && realHolePars.length >= holeCount
+    ? realHolePars.slice(0, holeCount)
+    : estimateHolePars(coursePar, holeCount)
+
   // Active leaderboard pool — withdrawn players are excluded from
   // ranking, scoring, and leaderboard rendering.
   //
@@ -3425,17 +3443,6 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   const noShowList = noShowPolicy === 'dns'
     ? allParticipants.filter(p => !p.withdrawn && p.no_show)
     : []
-  const teams        = outing.state?.teams ?? []
-  const markers      = outing.state?.markers ?? []  // [{ marker_id, member_ids[] }]
-  const holeCount    = outing.state?.holes ?? 18
-  const coursePar    = outing.course_par ?? 72
-  // Prefer real per-hole pars from the picked course; fall back to the
-  // synthetic distribution for legacy matches that have no course_id.
-  // (2026-04-30 — migration 006 added the column)
-  const realHolePars = Array.isArray(outing.hole_pars) ? outing.hole_pars : null
-  const holePars     = realHolePars && realHolePars.length >= holeCount
-    ? realHolePars.slice(0, holeCount)
-    : estimateHolePars(coursePar, holeCount)
   const isHost       = String(outing.host_id) === String(user?.id)
   const isTeamFormat = outing.team_format && outing.team_format !== 'individual'
 
