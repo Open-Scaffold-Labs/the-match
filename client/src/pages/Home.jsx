@@ -2744,6 +2744,193 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   )
 }
 
+// ─── UserSearchModal — global user search by name/email/handle ───────────────
+//
+// Triggered by the magnifying glass next to "My Profile" in the Home
+// top bar. Uses the existing /api/friends/search endpoint (which
+// already searches LOWER(name) + LOWER(email) and returns
+// friend_status). Tapping a result opens FriendProfile via the
+// onSelectUser callback so the user can browse anyone.
+// (2026-05-01 — Matt: magnifying glass next to profile.)
+function UserSearchModal({ onSelectUser, onClose }) {
+  const [query, setQuery]   = useState('')
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const debounceRef = useRef(null)
+  const inputRef = useRef(null)
+
+  // Auto-focus on mount so the keyboard pops on iOS without an extra tap.
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 220)
+    return () => clearTimeout(t)
+  }, [])
+
+  function handleQuery(val) {
+    setQuery(val)
+    clearTimeout(debounceRef.current)
+    if (val.trim().length < 2) { setResults([]); setSearching(false); return }
+    setSearching(true)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const r = await api(`/api/friends/search?q=${encodeURIComponent(val.trim())}`)
+        setResults(Array.isArray(r) ? r : [])
+      } catch { setResults([]) }
+      setSearching(false)
+    }, 300)
+  }
+
+  // Tiny status pill on the right of each row reflecting the friendship
+  // state with the searcher.
+  function statusPill(s) {
+    if (s === 'accepted') return { label: 'Friends',  bg: 'rgba(74,222,128,0.16)', color: '#5ED47A', border: 'rgba(74,222,128,0.40)' }
+    if (s === 'pending')  return { label: 'Pending',  bg: 'rgba(245,215,138,0.16)', color: '#F5D78A', border: 'rgba(245,215,138,0.40)' }
+    if (s === 'declined') return { label: 'Declined', bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: 'rgba(255,255,255,0.18)' }
+    return null
+  }
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'flex-end',
+        animation: 'tm-fade-in 180ms ease-out',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 430, margin: '0 auto',
+          background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
+          borderRadius: '24px 24px 0 0',
+          maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.6)',
+          animation: 'tm-slide-up 280ms cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
+        {/* Header + search input */}
+        <div style={{ padding: '4px 20px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontSize: 19, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+              Search Players
+            </div>
+            <button onClick={onClose} aria-label="Close" style={{
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+              borderRadius: 999, width: 32, height: 32, color: '#fff', fontSize: 18, cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}>✕</button>
+          </div>
+          <div style={{
+            position: 'relative',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            borderRadius: 12, padding: '10px 12px 10px 38px',
+            display: 'flex', alignItems: 'center',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(255,255,255,0.45)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)' }}>
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => handleQuery(e.target.value)}
+              placeholder="Name or email…"
+              style={{
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                color: '#fff', fontSize: 14, fontWeight: 500,
+              }}
+            />
+            {query && (
+              <button onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus() }} aria-label="Clear" style={{
+                background: 'rgba(255,255,255,0.10)', border: 'none',
+                borderRadius: 999, width: 20, height: 20, color: '#fff',
+                fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>✕</button>
+            )}
+          </div>
+        </div>
+
+        {/* Results */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 28px' }}>
+          {query.trim().length < 2 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.45)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Type to search</div>
+              <div style={{ fontSize: 11, marginTop: 4 }}>Find any golfer by name or email.</div>
+            </div>
+          ) : searching ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>
+              Searching…
+            </div>
+          ) : results.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.45)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>No players found</div>
+              <div style={{ fontSize: 11, marginTop: 4 }}>Try a different name or email.</div>
+            </div>
+          ) : (
+            results.map(u => {
+              const pill = statusPill(u.friend_status)
+              const hcp  = u.handicap == null ? null : Number(u.handicap)
+              const hcpStr = !Number.isFinite(hcp) ? null : hcp >= 0 ? `${hcp.toFixed(1)} hcp` : `+${Math.abs(hcp).toFixed(1)} hcp`
+              return (
+                <button
+                  key={u.id}
+                  onClick={() => onSelectUser?.(u)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                    padding: '12px 14px', borderRadius: 12, marginBottom: 8,
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{
+                    width: 40, height: 40, borderRadius: '50%',
+                    background: 'rgba(245,215,138,0.18)',
+                    border: '1px solid rgba(245,215,138,0.40)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#F5D78A', fontSize: 15, fontWeight: 800, flexShrink: 0,
+                  }}>{(u.name || '?').slice(0,1).toUpperCase()}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {u.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {[hcpStr, u.home_course].filter(Boolean).join(' · ') || u.email}
+                    </div>
+                  </div>
+                  {pill && (
+                    <span style={{
+                      background: pill.bg, color: pill.color, border: `1px solid ${pill.border}`,
+                      borderRadius: 999, padding: '3px 10px',
+                      fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+                      whiteSpace: 'nowrap',
+                    }}>{pill.label}</span>
+                  )}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="rgba(255,255,255,0.30)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ flexShrink: 0 }}>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              )
+            })
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── NotificationsModal — slide-up popup of all pending items ────────────────
 //
 // Triggered by the mailbox in the ProfileHeroCard. Aggregates three
@@ -3032,6 +3219,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   // ProfileHeroCard. Aggregates pending friend requests + match invites
   // + tee-time requests into one slide-up sheet. (2026-05-01)
   const [notifsOpen, setNotifsOpen] = useState(false)
+  // User search modal — magnifying glass next to "My Profile" in the
+  // top bar. Uses /api/friends/search to find any user by name/email
+  // (and later, handle). Tapping a result opens FriendProfile.
+  const [userSearchOpen, setUserSearchOpen] = useState(false)
   // Onboarding checklist inputs — driven by data the page already
   // fetches in loadAll(), populated alongside everything else.
   const [bagClubs, setBagClubs] = useState([])
@@ -3214,6 +3405,22 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
               </svg>
             </button>
           )}
+          {/* Magnifying glass — opens UserSearchModal. Reuses the
+              /api/friends/search endpoint that AddFriendModal already
+              uses, but the result here taps into FriendProfile so the
+              user can browse anyone, not just friend-targets.
+              (2026-05-01 — Matt: search users by name/handle.) */}
+          <button onClick={() => setUserSearchOpen(true)} aria-label="Search users" style={{
+            background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
+            borderRadius: 10, padding: '6px 8px', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: 32, width: 32,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
           <button onClick={() => setView('profile')} style={{
             background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
             borderRadius: 10, color: '#1B5E3B', fontSize: 12,
@@ -3222,6 +3429,21 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
         </div>
       </div>
       {adminOpen && <AdminUsersModal onClose={() => setAdminOpen(false)} />}
+
+      {/* User search — magnifying glass next to "My Profile" in the
+          top bar. Tapping a result opens FriendProfile via the
+          existing selectedFriend portal. */}
+      {userSearchOpen && (
+        <UserSearchModal
+          onSelectUser={(u) => {
+            setUserSearchOpen(false)
+            // FriendProfile expects { id, name, ... }; the search row
+            // already has name + handicap + home_course shape.
+            setSelectedFriend({ id: u.id, name: u.name, handicap: u.handicap, home_course: u.home_course })
+          }}
+          onClose={() => setUserSearchOpen(false)}
+        />
+      )}
 
       {/* Notifications inbox — opened by mailbox tap on the hero card.
           Sources read directly from already-loaded state; no new
