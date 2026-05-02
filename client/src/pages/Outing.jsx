@@ -5417,6 +5417,11 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
   const [busyIds, setBusyIds]       = useState({})
   const [auditEntries, setAudit]    = useState(null)
   const [auditLoading, setAuditLoading] = useState(false)
+  // 6.6 — paginated audit. Each fetch returns { entries, next_cursor }.
+  // Cursor is opaque on the client. null cursor = no more pages.
+  const [auditCursor, setAuditCursor]   = useState(null)
+  const [auditLoadingMore, setAuditLoadingMore] = useState(false)
+  const AUDIT_PAGE_SIZE = 50  // smaller than the server cap; loads fast on slow signal
   // Score-edit grid state — keyed by `${user_id}-${hole}` so cells
   // can be edited individually without clobbering each other. (B3
   // polish — host can bulk-correct without leaving the panel.)
@@ -5486,15 +5491,41 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
     }
   }
 
+  // 6.6 — Initial audit page. Resets cursor + entries; subsequent
+  // pages are pulled via loadMoreAudit().
   async function loadAudit() {
     setAuditLoading(true)
     try {
-      const data = await api(`/api/outings/${code}/audit`)
+      const data = await api(`/api/outings/${code}/audit?limit=${AUDIT_PAGE_SIZE}`)
       setAudit(data?.entries || [])
+      setAuditCursor(data?.next_cursor || null)
     } catch {
       setAudit([])
+      setAuditCursor(null)
     } finally {
       setAuditLoading(false)
+    }
+  }
+
+  // 6.6 — Append the next page using the cursor returned by the prior
+  // load. No-op when cursor is null (we're at the end). Failures keep
+  // the existing entries; the user can tap again to retry.
+  async function loadMoreAudit() {
+    if (!auditCursor || auditLoadingMore) return
+    setAuditLoadingMore(true)
+    try {
+      const data = await api(
+        `/api/outings/${code}/audit?limit=${AUDIT_PAGE_SIZE}&cursor=${encodeURIComponent(auditCursor)}`
+      )
+      const more = data?.entries || []
+      setAudit(prev => Array.isArray(prev) ? [...prev, ...more] : more)
+      setAuditCursor(data?.next_cursor || null)
+    } catch {
+      // Keep auditCursor non-null so the user can retry. Surface a
+      // small banner instead of swallowing the error silently.
+      alert('Could not load more history. Tap again to retry.')
+    } finally {
+      setAuditLoadingMore(false)
     }
   }
 
@@ -5934,6 +5965,24 @@ function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
                   </div>
                 </div>
               ))}
+              {/* 6.6 — Load more button (cursor-based pagination). Hidden
+                  on the last page; disabled while in flight. */}
+              {auditCursor && (
+                <button onClick={loadMoreAudit} disabled={auditLoadingMore} style={{
+                  width: '100%', padding: 10, borderRadius: 10, marginTop: 6,
+                  background: 'rgba(245,215,138,0.10)', border: '1px solid rgba(245,215,138,0.30)',
+                  color: '#F5D78A', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                  fontFamily: 'inherit', opacity: auditLoadingMore ? 0.6 : 1,
+                }}>
+                  {auditLoadingMore ? 'Loading…' : `Load more · ${AUDIT_PAGE_SIZE} older`}
+                </button>
+              )}
+              {!auditCursor && auditEntries && auditEntries.length > 0 && (
+                <div style={{
+                  fontSize: 10, color: 'rgba(255,255,255,0.40)', textAlign: 'center',
+                  padding: '12px 0',
+                }}>End of history · {auditEntries.length} change{auditEntries.length !== 1 ? 's' : ''}</div>
+              )}
             </>
           )}
         </div>

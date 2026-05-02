@@ -824,7 +824,16 @@ router.put('/:code/scores/host', async (req, res) => {
 // ─── GET /api/outings/:code/audit ────────────────────────────────────────────
 // Host-only readout of every score change in this outing, newest first.
 // Powers the commissioner correction panel's history view.
-// (2026-05-01 — league must-have B2.)
+//
+// Pagination (6.6):
+//   - ?limit=N (default 100, capped at 200) — page size
+//   - ?cursor=<created_at>|<id> — opaque cursor returned from the
+//     previous page's `next_cursor`. We page on (created_at, id) so
+//     ties on created_at don't drop rows.
+// Response: { entries, next_cursor } where next_cursor is null on the
+// final page. Cursor is a string the client treats as opaque.
+//
+// (2026-05-01 / 2026-05-02 — league must-have B2 → 6.6.)
 router.get('/:code/audit', async (req, res) => {
   try {
     const code = req.params.code.toUpperCase()
@@ -833,17 +842,54 @@ router.get('/:code/audit', async (req, res) => {
     if (String(outing.host_id) !== String(req.user.id))
       return res.status(403).json({ error: 'Host only' })
 
+    // Page size — capped so a malicious or careless client can't
+    // demand a 100k row dump in one shot.
+    const rawLimit = Number(req.query.limit)
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(200, Math.max(1, Math.round(rawLimit)))
+      : 100
+
+    // Decode cursor — format: "<iso_timestamp>|<id>". An invalid
+    // cursor is silently ignored (just returns the first page) so a
+    // stale link doesn't 500.
+    let cursorClause = ''
+    const params = [outing.id]
+    if (typeof req.query.cursor === 'string' && req.query.cursor.length > 0) {
+      const [ts, idRaw] = req.query.cursor.split('|')
+      const id = Number(idRaw)
+      const tsDate = new Date(ts)
+      if (Number.isFinite(id) && !Number.isNaN(tsDate.getTime())) {
+        params.push(tsDate.toISOString(), id)
+        // Keyset: rows strictly older than the cursor, OR same
+        // created_at but smaller id (so equal-timestamp rows don't
+        // get visited twice or skipped).
+        cursorClause = ` AND (a.created_at < $${params.length - 1}
+                              OR (a.created_at = $${params.length - 1} AND a.id < $${params.length}))`
+      }
+    }
+    params.push(limit + 1)  // fetch one extra row to detect "has next"
     const rows = await db.many(
       `SELECT a.id, a.user_id, a.hole, a.old_score, a.new_score, a.created_at,
               a.edited_by_id, u.name AS edited_by_name
        FROM tm_score_audit a
        LEFT JOIN tm_users u ON u.id = a.edited_by_id
-       WHERE a.outing_id = $1
-       ORDER BY a.created_at DESC
-       LIMIT 1000`,
-      [outing.id]
+       WHERE a.outing_id = $1${cursorClause}
+       ORDER BY a.created_at DESC, a.id DESC
+       LIMIT $${params.length}`,
+      params
     )
-    res.json({ entries: rows || [] })
+
+    const all = rows || []
+    let nextCursor = null
+    let entries = all
+    if (all.length > limit) {
+      // Trim the extra row and use the LAST returned row as the
+      // cursor for the next page.
+      entries = all.slice(0, limit)
+      const last = entries[entries.length - 1]
+      nextCursor = `${new Date(last.created_at).toISOString()}|${last.id}`
+    }
+    res.json({ entries, next_cursor: nextCursor })
   } catch (err) {
     console.error('[outings/audit]', err.message)
     res.status(500).json({ error: 'Failed' })
