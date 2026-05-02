@@ -185,7 +185,7 @@ export default function App() {
         // the bottom of any page. Photo behind (App outer wrapper)
         // still shows through at the same opacity. (2026-05-02 —
         // Matt: tint should extend down the entire page, not cut off)
-        background: 'rgba(241,231,200,0.35)',
+        background: 'rgba(241,231,200,0.25)',
         position: 'relative',
         overflow: 'hidden',
       }}>
