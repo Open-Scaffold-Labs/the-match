@@ -453,7 +453,8 @@ export default function PublicLeaderboard({ code }) {
         )}
       </div>
 
-      {/* Leaders banner */}
+      {/* Leaders banner — kept as the cream tournament-board strip
+          but now serves as the ribbon over the spotlight card. */}
       <div style={{
         background: `linear-gradient(180deg, ${AUGUSTA_CREAM} 0%, #DDD2A8 100%)`,
         textAlign: 'center', padding: '10px 0 8px',
@@ -466,6 +467,23 @@ export default function PublicLeaderboard({ code }) {
           textShadow: '0 1px 0 rgba(255,255,255,0.7)',
         }}>LEADERS</div>
       </div>
+
+      {/* 1st-PLACE SPOTLIGHT
+          GTM-critical surface: this is what spectators scanning the
+          tee-box QR see first. Was just a row in the table; now a
+          hero card with portrait, large headline, and big metric.
+          Only renders when at least one player (or team) has a
+          scored hole. (Visual polish #4.) */}
+      {(bestBallTeams ? (bestBallTeams[0]?.holesPlayed > 0) : sorted.some(hasPlayedAny)) && (
+        <LeaderSpotlight
+          team={bestBallTeams ? bestBallTeams[0] : null}
+          player={!bestBallTeams ? sorted[0] : null}
+          totColLabel={totColLabel}
+          totDisplay={!bestBallTeams ? totDisplayFor(sorted[0]) : null}
+          holes={data.state?.holes ?? 18}
+          holePars={holePars}
+        />
+      )}
 
       {/* Player rows — flat for stroke / skins / stableford, team-clustered
           for Best Ball when there are 2+ teams declared (6.3). */}
@@ -707,6 +725,130 @@ export default function PublicLeaderboard({ code }) {
         </div>
         <div style={{ marginTop: 16, fontSize: 9, color: 'rgba(241,231,200,0.40)', letterSpacing: '0.10em' }}>
           MATCH CODE · {data.code} · UPDATES LIVE
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── LeaderSpotlight ─────────────────────────────────────────────────
+// Hero card for the leader (player or team). Sits directly under the
+// LEADERS banner on the public board. The board is the GTM lever:
+// every spectator scanning the tee-box QR sees this surface first, so
+// the leader gets broadcast-style treatment instead of just being row 1.
+function LeaderSpotlight({ team, player, totColLabel, totDisplay, holes, holePars }) {
+  if (!team && !player) return null
+
+  // Compute leader's portrait initials + meta. For a team, we show the
+  // team name and member count + best-ball stp. For a player, we show
+  // name + handle + their format-specific headline metric.
+  const isTeam = !!team
+  const display = (() => {
+    if (isTeam) {
+      const stp = team.stp
+      return {
+        name: team.name,
+        sub:  `${team.members.length} player${team.members.length === 1 ? '' : 's'} · best ball`,
+        big:  stp == null ? '—' : stp === 0 ? 'E' : stp > 0 ? `+${stp}` : `${stp}`,
+        bigLabel: 'TO PAR',
+        thru: team.holesPlayed >= holes ? 'F' : `${team.holesPlayed}`,
+        portrait: team.name?.slice(0, 1).toUpperCase() || 'T',
+      }
+    }
+    const played = (player.scores || []).filter(s => s > 0).length
+    return {
+      name: player.name,
+      sub:  player.handle ? `@${player.handle}` : null,
+      big:  totDisplay,
+      bigLabel: totColLabel,
+      thru: played >= holes ? 'F' : `${played}`,
+      portrait: (player.name || '?').split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase(),
+    }
+  })()
+
+  return (
+    <div style={{
+      margin: '14px 16px 8px',
+      borderRadius: 18, overflow: 'hidden',
+      background: 'linear-gradient(135deg, #1A4A24 0%, #0E3B23 50%, #062014 100%)',
+      border: '2px solid #C9A040',
+      boxShadow: '0 8px 28px rgba(0,0,0,0.40), inset 0 1px 0 rgba(245,215,138,0.22)',
+      position: 'relative',
+    }}>
+      {/* Subtle radial gold shine pinned top-left */}
+      <div aria-hidden style={{
+        position: 'absolute', top: -40, left: -40, width: 220, height: 220,
+        background: 'radial-gradient(circle, rgba(232,192,90,0.22) 0%, transparent 65%)',
+        pointerEvents: 'none',
+      }} />
+      {/* Top stripe with LEADER overline */}
+      <div style={{
+        padding: '6px 14px',
+        background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45), transparent)',
+        borderBottom: '1px solid rgba(201,160,64,0.55)',
+        textAlign: 'center', position: 'relative',
+      }}>
+        <div style={{
+          fontSize: 9, fontWeight: 900, letterSpacing: '0.40em',
+          color: '#F5D78A', textTransform: 'uppercase',
+          fontFamily: '"Arial Black", Arial, sans-serif',
+        }}>{isTeam ? 'TEAM IN FRONT' : 'IN FRONT'}</div>
+      </div>
+      {/* Body */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '14px 16px 16px',
+        position: 'relative',
+      }}>
+        {/* Portrait — large gold-ringed initials medallion. If we ever
+            wire avatars, swap the inner contents to an <img>. */}
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+          background: 'linear-gradient(135deg, #2A7A38, #1A4A24)',
+          border: '2px solid #C9A040',
+          boxShadow: '0 0 0 4px rgba(201,160,64,0.18), 0 4px 12px rgba(0,0,0,0.40)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#F1E7C8', fontWeight: 900, fontSize: 22,
+          fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.04em',
+        }}>{display.portrait}</div>
+        {/* Identity */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 18, fontWeight: 900, color: '#F1E7C8',
+            fontFamily: '"Georgia", serif', letterSpacing: '-0.01em',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            textShadow: '0 1px 2px rgba(0,0,0,0.40)',
+          }}>{display.name}</div>
+          {display.sub && (
+            <div style={{
+              fontSize: 11, color: 'rgba(201,160,64,0.85)', marginTop: 2,
+              fontWeight: 700, letterSpacing: '0.04em',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{display.sub}</div>
+          )}
+          <div style={{
+            fontSize: 10, color: 'rgba(241,231,200,0.55)', marginTop: 4,
+            letterSpacing: '0.10em', fontWeight: 700,
+          }}>THRU {display.thru}</div>
+        </div>
+        {/* Big metric tile */}
+        <div style={{
+          flexShrink: 0, textAlign: 'center',
+          padding: '8px 14px', borderRadius: 12,
+          background: 'rgba(201,160,64,0.14)',
+          border: '1px solid rgba(201,160,64,0.45)',
+          minWidth: 76,
+        }}>
+          <div style={{
+            fontSize: 8, color: '#F5D78A', letterSpacing: '0.18em',
+            fontWeight: 800, marginBottom: 2,
+            fontFamily: '"Arial Black", Arial, sans-serif',
+          }}>{display.bigLabel}</div>
+          <div style={{
+            fontSize: 28, fontWeight: 900, color: '#F1E7C8', lineHeight: 1,
+            fontFamily: '"Georgia", serif', letterSpacing: '-0.02em',
+            textShadow: '0 1px 2px rgba(0,0,0,0.45)',
+          }}>{display.big}</div>
         </div>
       </div>
     </div>
