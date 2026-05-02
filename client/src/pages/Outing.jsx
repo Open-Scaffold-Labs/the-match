@@ -846,7 +846,9 @@ function EndMatchScreen({ summary, onDone }) {
       const sign = p.diff >= 0 ? `+${p.diff}` : `${p.diff}`
       lines.push(`${i + 1}. ${p.name}  ${p.total}  (${sign})`)
     })
+    if (highlights?.most_eagles)  lines.push(`${highlights.most_eagles.name} — ${highlights.most_eagles.count} eagle${highlights.most_eagles.count !== 1 ? 's' : ''}`)
     if (highlights?.most_birdies) lines.push(`Most birdies: ${highlights.most_birdies.name} (${highlights.most_birdies.count})`)
+    if (code) lines.push(`Live board: ${window.location.origin}/?live=${code}`)
     lines.push('Tracked on The Match')
     const text = lines.join('\n')
     if (navigator.share) {

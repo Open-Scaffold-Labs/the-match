@@ -11,7 +11,26 @@
     <link rel="icon" type="image/svg+xml" href="/flag.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <title>The Match</title>
+    <title>The Match — Golf, with the people you know</title>
+
+    <!-- Open Graph + Twitter card meta. When a commissioner pastes
+         the live URL in iMessage / WhatsApp / Slack / X / Facebook,
+         the recipient sees a branded card instead of a generic
+         "the-match.app" preview. Static for the SPA — dynamic per-
+         outing meta would require server-rendered HTML, deferred to
+         v2. (2026-05-01 — WOW polish round.) -->
+    <meta name="description" content="Live golf leaderboards, AI rangefinder, and the easiest way to organize matches with your buddies. Augusta-grade polish on every score." />
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="The Match" />
+    <meta property="og:title"       content="The Match — Live Golf Leaderboards" />
+    <meta property="og:description" content="Follow scores live. Skins, Stableford, Best Ball, Match Play — all formats, all polish, all on your phone." />
+    <meta property="og:image"       content="/apple-touch-icon.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="The Match — Live Golf Leaderboards" />
+    <meta name="twitter:description" content="Follow scores live. Skins, Stableford, Best Ball, Match Play — all formats, all polish, all on your phone." />
+    <meta name="twitter:image"       content="/apple-touch-icon.png" />
   </head>
   <body>
     <div id="root"></div>
