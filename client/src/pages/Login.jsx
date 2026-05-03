@@ -49,11 +49,8 @@ export default function Login({ onLogin }) {
       backgroundAttachment: 'fixed',
       padding: '40px 0 40px',
     }}>
-      {/* Cream tint over the fairway photo (same alpha as Home wrapper) */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'rgba(241,231,200,0.25)',
-      }} />
+      {/* Cream tint REMOVED — Matt wanted to see the raw fairway photo
+          showing through. (2026-05-03 — preview, may revert.) */}
 
       {/* Soft warm radial glow — same vocabulary as ProfileHeroCard's gold radial */}
       <div style={{
