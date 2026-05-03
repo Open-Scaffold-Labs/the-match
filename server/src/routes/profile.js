@@ -1,6 +1,7 @@
 const router     = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
+const { USER_PUBLIC_COLUMNS } = require('../lib/user')
 
 router.use(requireAuth)
 
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
     const start = seasonStart(year)
 
     const [user, seasonRows, roundRows, streakRows, seasonStarted] = await Promise.all([
-      db.one('SELECT id, name, email, handle, role, tier, home_course, bio, handicap, avatar, cutout, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [uid]),
+      db.one(`SELECT ${USER_PUBLIC_COLUMNS} FROM tm_users WHERE id = $1`, [uid]),
 
       // Season W / L / T from match history
       db.many(

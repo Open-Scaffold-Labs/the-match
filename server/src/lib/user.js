@@ -44,6 +44,7 @@ const USER_PUBLIC_COLUMNS = [
   'onboarding_steps',
   'coach_marks_seen',
   'avatar',
+  'cutout',          // PlayerCard background-removed photo (data URL)
   'handicap',
   'home_course',
   'bio',
