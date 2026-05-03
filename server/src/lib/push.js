@@ -17,17 +17,17 @@ const db      = require('../db')
 let configured = false
 function configureOnce() {
   if (configured) return true
-  // web-push wants URL-safe base64 with NO padding ('=' chars stripped).
-  // The standard base64 export from any keygen UI (including Resend's
-  // dashboard, the web-push CLI's --json output, and most online
-  // generators) leaves trailing '=' padding, which causes
-  // setVapidDetails to throw `Vapid public key must be a URL safe Base
-  // 64 (without "=")` on every send. Strip defensively so a fresh
-  // re-paste of a padded key doesn't reintroduce the bug.
-  // (2026-05-02 — caught via Vercel logs after every accept-friend
-  // PUT was logging the same error for the fire-and-forget push.)
-  const pub  = process.env.VAPID_PUBLIC_KEY?.replace(/=+$/, '')
-  const priv = process.env.VAPID_PRIVATE_KEY?.replace(/=+$/, '')
+  // web-push wants URL-safe base64 with NO padding ('=') AND no
+  // surrounding whitespace. The error it throws is misleadingly
+  // narrow — 'Vapid public key must be a URL safe Base 64 (without
+  // "=")' — but the underlying validator rejects ANY non-b64url char
+  // including a trailing '\n' (which is what was actually on prod;
+  // the key had no '=', it had a stray newline from a copy-paste).
+  // Trim THEN strip trailing '=' so both failure modes are covered.
+  // (2026-05-02 — first patch only stripped '=', didn't catch
+  // the newline; this is the second pass.)
+  const pub  = process.env.VAPID_PUBLIC_KEY?.trim().replace(/=+$/, '')
+  const priv = process.env.VAPID_PRIVATE_KEY?.trim().replace(/=+$/, '')
   const sub  = process.env.VAPID_SUBJECT
   if (!pub || !priv || !sub) {
     console.warn('[push] VAPID env vars missing; push notifications disabled')
