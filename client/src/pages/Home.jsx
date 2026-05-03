@@ -3213,6 +3213,16 @@ function NotificationsModal({
   onTeeRespond,
   onSelectFriend,
   onClose,
+  // followBackPrompts: Set<requestId> of incoming requests the user
+  // just accepted from EITHER this modal or the in-page REQUESTS box.
+  // When a row's id is in this set, render Follow back? / Not now
+  // instead of Accept / ✕. Mirrors the same UX from the REQUESTS box
+  // so the "row sat there with stale Accept/✕ buttons forever" bug
+  // doesn't reappear in the mailbox path. (2026-05-02 — `532e156`
+  // fixed the state side but missed THIS render path.)
+  followBackPrompts = new Set(),
+  onFollowBack,
+  onDismissFollowBackPrompt,
 }) {
   const total = friendRequests.length + gameInvites.length + teeRequests.length
 
@@ -3347,26 +3357,58 @@ function NotificationsModal({
           {friendRequests.length > 0 && (
             <div style={sectionStyle}>
               {sectionHeader('Friend Requests', friendRequests.length, '#F5D78A')}
-              {friendRequests.map(req => (
-                <div key={`fr-${req.id}`} style={rowStyle}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: '50%',
-                    background: 'rgba(245,215,138,0.18)', border: '1px solid rgba(245,215,138,0.4)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#F5D78A', fontSize: 14, fontWeight: 800, flexShrink: 0,
-                  }}>{(req.requester_name || '?').slice(0,1).toUpperCase()}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {req.requester_name}
+              {friendRequests.map(req => {
+                // Two states per row, mirrors the in-page REQUESTS box:
+                //   1. Default — Accept / ✕ buttons.
+                //   2. Just-accepted — Follow back? / Not now buttons.
+                // `followBackPrompts` is the same Set<requestId> the
+                // REQUESTS box uses, so accepting from either surface
+                // flips the row in both. (2026-05-02 — fix for the
+                // mailbox-path miss in `532e156`.)
+                const justAccepted = followBackPrompts.has(req.id)
+                if (justAccepted) {
+                  return (
+                    <div key={`fr-${req.id}`} style={rowStyle}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: 'rgba(245,215,138,0.28)', border: '1px solid rgba(245,215,138,0.55)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#F5D78A', fontSize: 14, fontWeight: 800, flexShrink: 0,
+                      }}>{(req.requester_name || '?').slice(0,1).toUpperCase()}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {req.requester_name} <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>now follows you</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#F5D78A', marginTop: 2, fontWeight: 600 }}>
+                          Follow back?
+                        </div>
+                      </div>
+                      <button onClick={() => onFollowBack?.(req.id, req.requester_id)} style={acceptBtn}>Follow back</button>
+                      <button onClick={() => onDismissFollowBackPrompt?.(req.id)} style={declineBtn}>×</button>
                     </div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
-                      Wants to be friends · {whenStr(req.created_at)}
+                  )
+                }
+                return (
+                  <div key={`fr-${req.id}`} style={rowStyle}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      background: 'rgba(245,215,138,0.18)', border: '1px solid rgba(245,215,138,0.4)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#F5D78A', fontSize: 14, fontWeight: 800, flexShrink: 0,
+                    }}>{(req.requester_name || '?').slice(0,1).toUpperCase()}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {req.requester_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>
+                        Wants to be friends · {whenStr(req.created_at)}
+                      </div>
                     </div>
+                    <button onClick={() => onFriendRespond?.(req.id, 'accepted')} style={acceptBtn}>Accept</button>
+                    <button onClick={() => onFriendRespond?.(req.id, 'declined')} style={declineBtn}>×</button>
                   </div>
-                  <button onClick={() => onFriendRespond?.(req.id, 'accepted')} style={acceptBtn}>Accept</button>
-                  <button onClick={() => onFriendRespond?.(req.id, 'declined')} style={declineBtn}>×</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -3817,6 +3859,9 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
           gameInvites={games?.incoming || []}
           teeRequests={teeRequests?.incoming || []}
           onFriendRespond={handleFriendRespond}
+          followBackPrompts={followBackPrompts}
+          onFollowBack={handleFollowBack}
+          onDismissFollowBackPrompt={dismissFollowBackPrompt}
           onGameRespond={handleGameRespond}
           onTeeRespond={async (id, status) => {
             try {
