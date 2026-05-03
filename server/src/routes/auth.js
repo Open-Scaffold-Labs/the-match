@@ -37,9 +37,12 @@ router.post('/signup', authLimiter, async (req, res) => {
     // Auto-generate a unique handle from name + email. Mirrors the
     // backfill in migration 014. (2026-05-01 — Matt)
     const handle = await generateUniqueHandle(name, email, db)
+    // RETURNING shape matches /api/auth/me (and the new /login). Missing
+    // tier here would block every new user from gated features the
+    // moment they signed up. (2026-05-03)
     const user = await db.one(
       `INSERT INTO tm_users (email, name, pin_hash, handle) VALUES ($1, $2, $3, $4)
-       RETURNING id, email, name, handle, role, onboarding_completed_at, onboarding_steps, coach_marks_seen`,
+       RETURNING id, email, name, handle, role, tier, onboarding_completed_at, onboarding_steps, coach_marks_seen`,
       [email.toLowerCase(), name.trim(), hash, handle]
     )
     res.status(201).json({ token: mintToken(user.id), user })
@@ -55,14 +58,14 @@ router.post('/login', authLimiter, async (req, res) => {
     const { email, pin } = req.body
     if (!email || !pin) return res.status(400).json({ error: 'email and pin required' })
 
-    // Must include onboarding_completed_at + onboarding_steps + coach_marks_seen
-    // so App.jsx can decide whether to show the OnboardingWizard. Was missing
-    // these three fields, which made every existing user re-see the wizard
-    // on every login (App.jsx fell back to undefined → falsy → wizard).
-    // (2026-05-03 — Matt: 'why is the set up wizard showing when i have
-    // already logged in before')
+    // Match /api/auth/me's SELECT exactly (plus pin_hash for compare).
+    // Missing fields here made existing users see:
+    //   - the OnboardingWizard on every login (no onboarding_completed_at)
+    //   - "Free tier — upgrade to access" walls (no tier)
+    // App.jsx uses tier + onboarding fields immediately after login, so
+    // the login response shape MUST mirror /me. (2026-05-03)
     const user = await db.one(
-      'SELECT id, email, name, handle, role, pin_hash, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE email = $1',
+      'SELECT id, email, name, handle, role, tier, pin_hash, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE email = $1',
       [email.toLowerCase()]
     )
     if (!user) return res.status(401).json({ error: 'Invalid email or PIN' })
