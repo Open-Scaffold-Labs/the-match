@@ -17,14 +17,31 @@ const db      = require('../db')
 let configured = false
 function configureOnce() {
   if (configured) return true
-  const pub  = process.env.VAPID_PUBLIC_KEY
-  const priv = process.env.VAPID_PRIVATE_KEY
+  // web-push wants URL-safe base64 with NO padding ('=' chars stripped).
+  // The standard base64 export from any keygen UI (including Resend's
+  // dashboard, the web-push CLI's --json output, and most online
+  // generators) leaves trailing '=' padding, which causes
+  // setVapidDetails to throw `Vapid public key must be a URL safe Base
+  // 64 (without "=")` on every send. Strip defensively so a fresh
+  // re-paste of a padded key doesn't reintroduce the bug.
+  // (2026-05-02 — caught via Vercel logs after every accept-friend
+  // PUT was logging the same error for the fire-and-forget push.)
+  const pub  = process.env.VAPID_PUBLIC_KEY?.replace(/=+$/, '')
+  const priv = process.env.VAPID_PRIVATE_KEY?.replace(/=+$/, '')
   const sub  = process.env.VAPID_SUBJECT
   if (!pub || !priv || !sub) {
     console.warn('[push] VAPID env vars missing; push notifications disabled')
     return false
   }
-  webpush.setVapidDetails(sub, pub, priv)
+  try {
+    webpush.setVapidDetails(sub, pub, priv)
+  } catch (err) {
+    // Don't crash boot on a malformed key — log + leave configured
+    // false so subsequent sends short-circuit cleanly via the
+    // !configureOnce() guard in sendPushToUser.
+    console.error('[push] setVapidDetails failed', err.message)
+    return false
+  }
   configured = true
   return true
 }
