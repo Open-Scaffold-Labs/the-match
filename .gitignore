@@ -19,3 +19,6 @@ build/
 .vscode/
 .idea/
 .DS_Store
+
+# WIP design scratch — kept local, not tracked
+icons-wip/
