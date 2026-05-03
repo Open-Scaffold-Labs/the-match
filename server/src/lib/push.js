@@ -28,7 +28,14 @@ function configureOnce() {
   // the newline; this is the second pass.)
   const pub  = process.env.VAPID_PUBLIC_KEY?.trim().replace(/=+$/, '')
   const priv = process.env.VAPID_PRIVATE_KEY?.trim().replace(/=+$/, '')
-  const sub  = process.env.VAPID_SUBJECT
+  // SUBJECT also gets trimmed — a trailing '\n' makes the JWT 'sub'
+  // claim "mailto:user@example.com\n", which Apple's gateway rejects
+  // with 403 BadJwtToken (the malformed mailto fails URL parsing).
+  // Real bug, real headache: caught by decoding the actual JWT and
+  // staring at it. (2026-05-02 — third pass on this fix; the first
+  // two were "= padding" and "key whitespace" — turns out the
+  // subject env var also had a trailing newline.)
+  const sub  = process.env.VAPID_SUBJECT?.trim()
   if (!pub || !priv || !sub) {
     console.warn('[push] VAPID env vars missing; push notifications disabled')
     return false

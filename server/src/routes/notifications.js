@@ -19,7 +19,12 @@ const db          = require('../db')
 // public by design and the client needs it before the user is even
 // signed in (unlikely but harmless).
 router.get('/vapid-key', (req, res) => {
-  const key = process.env.VAPID_PUBLIC_KEY
+  // Same trim+strip-padding as push.js's configureOnce() so the key
+  // the browser registers with Apple matches the key our JWTs are
+  // signed against. If these drift, Apple rejects every push with
+  // 403 BadJwtToken. (2026-05-02 — the env var was originally
+  // pasted with trailing whitespace.)
+  const key = process.env.VAPID_PUBLIC_KEY?.trim().replace(/=+$/, '')
   if (!key) return res.status(503).json({ error: 'Push not configured' })
   res.json({ publicKey: key })
 })
