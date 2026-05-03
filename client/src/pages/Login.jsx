@@ -137,8 +137,8 @@ export default function Login({ onLogin }) {
           // opaque than 0.10, no inset highlight that creates the
           // glassy edge. (2026-05-03 — Matt: 'transparent white,
           // that looks like glass' on the previous attempt.)
-          background: 'rgba(255,255,255,0.45)',
-          border: '1px solid rgba(255,255,255,0.65)',
+          background: 'rgba(255,255,255,0.70)',
+          border: '1px solid rgba(255,255,255,0.80)',
           borderRadius: 22,
           padding: '24px 20px 22px',
           boxShadow: '0 8px 24px rgba(122,88,0,0.12)',
