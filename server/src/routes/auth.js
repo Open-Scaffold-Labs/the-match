@@ -4,6 +4,11 @@ const bcrypt    = require('bcryptjs')
 const jwt       = require('jsonwebtoken')
 const db        = require('../db')
 const { generateUniqueHandle } = require('../lib/handle')
+const {
+  USER_PUBLIC_COLUMNS,
+  USER_PUBLIC_COLUMNS_WITH_PIN_HASH,
+  sanitizeUser,
+} = require('../lib/user')
 
 function mintToken(userId) {
   return jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '90d' })
@@ -37,12 +42,9 @@ router.post('/signup', authLimiter, async (req, res) => {
     // Auto-generate a unique handle from name + email. Mirrors the
     // backfill in migration 014. (2026-05-01 — Matt)
     const handle = await generateUniqueHandle(name, email, db)
-    // RETURNING shape matches /api/auth/me (and the new /login). Missing
-    // tier here would block every new user from gated features the
-    // moment they signed up. (2026-05-03)
     const user = await db.one(
       `INSERT INTO tm_users (email, name, pin_hash, handle) VALUES ($1, $2, $3, $4)
-       RETURNING id, email, name, handle, role, tier, onboarding_completed_at, onboarding_steps, coach_marks_seen`,
+       RETURNING ${USER_PUBLIC_COLUMNS}`,
       [email.toLowerCase(), name.trim(), hash, handle]
     )
     res.status(201).json({ token: mintToken(user.id), user })
@@ -58,14 +60,8 @@ router.post('/login', authLimiter, async (req, res) => {
     const { email, pin } = req.body
     if (!email || !pin) return res.status(400).json({ error: 'email and pin required' })
 
-    // Match /api/auth/me's SELECT exactly (plus pin_hash for compare).
-    // Missing fields here made existing users see:
-    //   - the OnboardingWizard on every login (no onboarding_completed_at)
-    //   - "Free tier — upgrade to access" walls (no tier)
-    // App.jsx uses tier + onboarding fields immediately after login, so
-    // the login response shape MUST mirror /me. (2026-05-03)
     const user = await db.one(
-      'SELECT id, email, name, handle, role, tier, pin_hash, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE email = $1',
+      `SELECT ${USER_PUBLIC_COLUMNS_WITH_PIN_HASH} FROM tm_users WHERE email = $1`,
       [email.toLowerCase()]
     )
     if (!user) return res.status(401).json({ error: 'Invalid email or PIN' })
@@ -73,8 +69,7 @@ router.post('/login', authLimiter, async (req, res) => {
     const ok = await bcrypt.compare(pin, user.pin_hash)
     if (!ok)  return res.status(401).json({ error: 'Invalid email or PIN' })
 
-    const { pin_hash: _, ...safeUser } = user
-    res.json({ token: mintToken(user.id), user: safeUser })
+    res.json({ token: mintToken(user.id), user: sanitizeUser(user) })
   } catch (err) {
     console.error('[login]', err.message)
     res.status(500).json({ error: 'Login failed. Please try again.' })
@@ -87,7 +82,10 @@ router.get('/me', async (req, res) => {
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' })
   try {
     const { sub } = jwt.verify(header.slice(7), process.env.JWT_SECRET)
-    const user = await db.one('SELECT id, email, name, handle, role, tier, onboarding_completed_at, onboarding_steps, coach_marks_seen FROM tm_users WHERE id = $1', [sub])
+    const user = await db.one(
+      `SELECT ${USER_PUBLIC_COLUMNS} FROM tm_users WHERE id = $1`,
+      [sub]
+    )
     if (!user) return res.status(401).json({ error: 'Not found' })
     res.json({ user })
   } catch {
