@@ -78,10 +78,18 @@ async function sendPushToUser(userId, payload) {
 
   await Promise.all(subs.map(async (s) => {
     try {
-      await webpush.sendNotification(
+      const result = await webpush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
         data
       )
+      // TEMPORARY diagnostic — prove the push gateway accepted us.
+      // 201 from Apple/Google/Mozilla = accepted for delivery; the
+      // gateway is then on the hook to forward to the device. If
+      // we see 201 here but the device doesn't ding, the issue is
+      // OS-level (notification permission revoked, Focus mode,
+      // tag-collapse). Remove this log once push delivery is
+      // proven stable. (2026-05-02)
+      console.log('[push] OK', s.id, result?.statusCode, 'host:', new URL(s.endpoint).host)
       sent += 1
     } catch (err) {
       // 404/410 → subscription gone (uninstalled, browser cleared
