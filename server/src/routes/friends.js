@@ -387,20 +387,19 @@ router.post('/request', async (req, res) => {
     // Fire-and-forget push to the recipient. Don't await it — the
     // request response shouldn't wait on push provider latency, and a
     // push failure shouldn't fail the friend-request creation.
-    // TEMP: await the push send so Vercel's Lambda doesn't terminate
-    // before webpush.sendNotification completes its HTTP call to the
-    // push gateway. Fire-and-forget Promises are unreliable in
-    // serverless — the lambda freezes after `res.json()`. Will move
-    // back to fire-and-forget once delivery is verified working.
-    // (2026-05-02 — diagnostic.)
+    // Awaited (not fire-and-forget) — Vercel lambdas freeze after
+    // the response is sent and may kill an in-flight push HTTP call
+    // to Apple/Google before it completes. ~150ms latency cost;
+    // worth it for reliable delivery. (2026-05-02 — verified by
+    // diagnostic logs showing the previous fire-and-forget version
+    // never reached its success log.)
     try {
-      const pr = await sendPushToUser(target.id, {
+      await sendPushToUser(target.id, {
         title: 'New friend request',
         body: `${req.user.name || 'Someone'} wants to be friends`,
         url: '/?notifs=open',
         tag: 'friend-request',
       })
-      console.log('[push] friend-request result', JSON.stringify(pr))
     } catch (err) {
       console.error('[push] friend-request', err.message)
     }
@@ -439,12 +438,21 @@ router.put('/:id/respond', async (req, res) => {
       )
 
       // Tell the original requester their request was accepted.
-      sendPushToUser(row.requester_id, {
-        title: 'Friend request accepted',
-        body: `${req.user.name || 'They'} accepted your friend request`,
-        url: '/',
-        tag: 'friend-accepted',
-      }).catch(err => console.error('[push] friend-accepted', err.message))
+      // Awaited (not fire-and-forget) — Vercel lambdas freeze after
+      // the response is sent and may kill an in-flight push HTTP
+      // call to Apple/Google before it completes. Mirror the pattern
+      // used in POST /api/friends/request. ~150ms latency cost; worth
+      // it for reliable delivery. (2026-05-02)
+      try {
+        await sendPushToUser(row.requester_id, {
+          title: 'Friend request accepted',
+          body: `${req.user.name || 'They'} accepted your friend request`,
+          url: '/',
+          tag: 'friend-accepted',
+        })
+      } catch (err) {
+        console.error('[push] friend-accepted', err.message)
+      }
     }
 
     res.json({ ok: true })
