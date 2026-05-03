@@ -387,12 +387,23 @@ router.post('/request', async (req, res) => {
     // Fire-and-forget push to the recipient. Don't await it — the
     // request response shouldn't wait on push provider latency, and a
     // push failure shouldn't fail the friend-request creation.
-    sendPushToUser(target.id, {
-      title: 'New friend request',
-      body: `${req.user.name || 'Someone'} wants to be friends`,
-      url: '/?notifs=open',
-      tag: 'friend-request',
-    }).catch(err => console.error('[push] friend-request', err.message))
+    // TEMP: await the push send so Vercel's Lambda doesn't terminate
+    // before webpush.sendNotification completes its HTTP call to the
+    // push gateway. Fire-and-forget Promises are unreliable in
+    // serverless — the lambda freezes after `res.json()`. Will move
+    // back to fire-and-forget once delivery is verified working.
+    // (2026-05-02 — diagnostic.)
+    try {
+      const pr = await sendPushToUser(target.id, {
+        title: 'New friend request',
+        body: `${req.user.name || 'Someone'} wants to be friends`,
+        url: '/?notifs=open',
+        tag: 'friend-request',
+      })
+      console.log('[push] friend-request result', JSON.stringify(pr))
+    } catch (err) {
+      console.error('[push] friend-request', err.message)
+    }
 
     res.status(201).json({ ok: true, name: target.name })
   } catch (err) {
