@@ -3515,7 +3515,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   // the Profile view header AND on the Home ProfileHeroCard. Refreshed
   // every time the user follows/unfollows from inside the FollowList
   // overlay (passed down as onCountsChange). (2026-05-01 — follow Phase 1)
-  const [followCounts, setFollowCounts] = useState({ following: 0, followers: 0, mutuals: 0 })
+  const [followCounts, setFollowCounts] = useState({ following: 0, followers: 0 })
   // Admin-only Users modal — gated on user.role === 'admin'. Surfaced
   // by the gear icon in the home top bar. (2026-05-01)
   const [adminOpen, setAdminOpen] = useState(false)
@@ -3536,7 +3536,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   const refreshFollowCounts = useCallback(async () => {
     try {
       const c = await api('/api/follows/counts')
-      setFollowCounts(c ?? { following: 0, followers: 0, mutuals: 0 })
+      setFollowCounts(c ?? { following: 0, followers: 0 })
     } catch (e) { /* ignore — leave stale counts */ }
   }, [])
 
@@ -3573,7 +3573,7 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
       setTeeRequests(tr ?? { incoming: [], outgoing: [] })
       setStats(s)
       setRounds(r?.rounds ?? [])
-      setFollowCounts(fc ?? { following: 0, followers: 0, mutuals: 0 })
+      setFollowCounts(fc ?? { following: 0, followers: 0 })
       setRivalries(riv?.rivalries ?? [])
       setBagClubs(bag?.clubs ?? [])
       setAvailabilityCount((av?.mine ?? []).length)

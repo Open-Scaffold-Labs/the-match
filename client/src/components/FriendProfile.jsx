@@ -723,13 +723,12 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                   fragment wrapper keeps the conditional valid JSX. */}
               {!isLimited && (<>
               <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8,
+                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8,
                 marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)',
               }}>
                 {[
                   { key: 'following', label: 'Following', value: data?.followCounts?.following ?? 0 },
                   { key: 'followers', label: 'Followers', value: data?.followCounts?.followers ?? 0 },
-                  { key: 'mutuals',   label: 'Mutuals',   value: data?.followCounts?.mutuals   ?? 0 },
                 ].map(p => (
                   <div key={p.key} style={{
                     background: 'rgba(255,255,255,0.04)',

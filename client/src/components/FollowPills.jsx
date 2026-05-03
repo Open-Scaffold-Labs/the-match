@@ -1,8 +1,10 @@
-// FollowPills — three live-count pills (Following / Followers / Mutuals)
-// shown in the Profile view header and on the Home dashboard's
-// ProfileHeroCard. Tapping a pill opens the FollowList overlay
-// for that bucket. Counts come from /api/follows/counts and are
-// passed in by the parent (so multiple consumers share one fetch).
+// FollowPills — two live-count pills (Following / Followers) shown in
+// the Profile view header and on the Home dashboard's ProfileHeroCard.
+// Tapping a pill opens the FollowList overlay for that bucket. Counts
+// come from /api/follows/counts and are passed in by the parent (so
+// multiple consumers share one fetch). Mutuals were removed
+// 2026-05-02 — Matt: "no reason for it." Mutual-status is still
+// rendered inline on the Followers list as a "Mutual ✓" badge per row.
 //
 // `size` controls scale:
 //   'sm' — used inline on the Home dashboard (compact)
@@ -22,7 +24,6 @@ export default function FollowPills({ counts, size = 'lg', theme = 'light', onCo
   const pills = [
     { key: 'following', label: 'Following', value: counts?.following ?? 0 },
     { key: 'followers', label: 'Followers', value: counts?.followers ?? 0 },
-    { key: 'mutuals',   label: 'Mutuals',   value: counts?.mutuals   ?? 0 },
   ]
 
   // Color tokens swap with theme. Light = the cream-on-glass variant
@@ -32,8 +33,9 @@ export default function FollowPills({ counts, size = 'lg', theme = 'light', onCo
     bg: 'rgba(255,255,255,0.04)',
     // Same gold border as the GolfNow card so every framed element
     // across Home + Profile reads as one family. (2026-05-02 — Matt:
-    // "make the following / followers / mutual boxes have that same
-    // border on both the home screen and my profile page")
+    // "make the following / followers boxes have that same border on
+    // both the home screen and my profile page" — originally three
+    // pills incl. mutuals, mutuals removed later same day.)
     border: '2px solid rgba(201,160,64,0.70)',
     valueColor: '#fff',
     labelColor: 'rgba(255,255,255,0.45)',
@@ -48,7 +50,7 @@ export default function FollowPills({ counts, size = 'lg', theme = 'light', onCo
     <>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateColumns: 'repeat(2, 1fr)',
         gap: isLg ? 8 : 6,
       }}>
         {pills.map(p => (

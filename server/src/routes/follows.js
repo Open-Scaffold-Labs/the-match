@@ -4,8 +4,12 @@
 // other party (the user being followed / unfollowed / queried) is
 // identified by :userId in the URL.
 //
-// Mutuals are derived: a row in tm_follows where both (A, B) and (B, A)
-// exist. Counted via INNER JOIN against the same table.
+// Mutuals (rows where both (A, B) and (B, A) exist) used to be a
+// separate count + list. Removed as a top-level surface 2026-05-02
+// (Matt: "no reason for it"). The schema still supports it; the
+// followers list still surfaces per-row mutual status via the
+// is_followed_by + is_following flags, which the UI renders as a
+// "Mutual ✓" badge.
 
 const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
@@ -61,26 +65,19 @@ router.delete('/:userId', async (req, res) => {
 })
 
 // ─── GET /api/follows/counts ──────────────────────────────────────────────────
-// Returns { following, followers, mutuals } for the authenticated user.
-// Mutuals = users where (me → them) AND (them → me) both exist.
+// Returns { following, followers } for the authenticated user.
 router.get('/counts', async (req, res) => {
   try {
     const me = req.user.id
     const row = await db.one(
       `SELECT
          (SELECT COUNT(*)::int FROM tm_follows WHERE follower_id  = $1) AS following,
-         (SELECT COUNT(*)::int FROM tm_follows WHERE following_id = $1) AS followers,
-         (SELECT COUNT(*)::int FROM tm_follows a
-          JOIN tm_follows b
-            ON a.follower_id  = b.following_id
-           AND a.following_id = b.follower_id
-          WHERE a.follower_id = $1) AS mutuals`,
+         (SELECT COUNT(*)::int FROM tm_follows WHERE following_id = $1) AS followers`,
       [me]
     )
     res.json({
       following: row?.following ?? 0,
       followers: row?.followers ?? 0,
-      mutuals:   row?.mutuals   ?? 0,
     })
   } catch (e) {
     console.error('[follows.counts]', e)
@@ -88,7 +85,7 @@ router.get('/counts', async (req, res) => {
   }
 })
 
-// ─── GET /api/follows/list?type=following|followers|mutuals ──────────────────
+// ─── GET /api/follows/list?type=following|followers ──────────────────────────
 // Returns the user list backing a given pill. Each row has the user's id,
 // name, handicap, home_course, avatar, plus relationship flags
 // (isFollowing / isFollowedBy) so the client can render the right
@@ -97,8 +94,8 @@ router.get('/list', async (req, res) => {
   try {
     const me   = req.user.id
     const type = req.query.type || 'following'
-    if (!['following', 'followers', 'mutuals'].includes(type)) {
-      return res.status(400).json({ error: 'type must be following, followers, or mutuals' })
+    if (!['following', 'followers'].includes(type)) {
+      return res.status(400).json({ error: 'type must be following or followers' })
     }
 
     let sql
@@ -112,10 +109,11 @@ router.get('/list', async (req, res) => {
         JOIN tm_users u ON u.id = f.following_id
         WHERE f.follower_id = $1
         ORDER BY u.name`
-    } else if (type === 'followers') {
-      // Users following me. has_pending_request = I've already sent
-      // them a follow-back request that's pending their acceptance.
-      // Drives the "Pending" chip on the followers list. (2026-05-02)
+    } else {
+      // followers — Users following me. has_pending_request = I've
+      // already sent them a follow-back request that's pending their
+      // acceptance. Drives the "Pending" chip on the followers list.
+      // (2026-05-02)
       sql = `
         SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
                EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $1 AND b.following_id = u.id) AS is_following,
@@ -127,19 +125,6 @@ router.get('/list', async (req, res) => {
         FROM tm_follows f
         JOIN tm_users u ON u.id = f.follower_id
         WHERE f.following_id = $1
-        ORDER BY u.name`
-    } else {
-      // Mutuals — both directions exist
-      sql = `
-        SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
-               TRUE AS is_following,
-               TRUE AS is_followed_by
-        FROM tm_follows a
-        JOIN tm_follows b
-          ON a.follower_id  = b.following_id
-         AND a.following_id = b.follower_id
-        JOIN tm_users u ON u.id = a.following_id
-        WHERE a.follower_id = $1
         ORDER BY u.name`
     }
 

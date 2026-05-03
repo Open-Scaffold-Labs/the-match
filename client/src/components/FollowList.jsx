@@ -1,14 +1,17 @@
 // FollowList — bottom-sheet overlay showing a list of users in one of
-// the three follow categories: 'following', 'followers', or 'mutuals'.
+// the two follow categories: 'following' or 'followers'.
 //
 // Each row shows avatar + name + handicap (when set) + a per-row action:
 //   following  → 'Unfollow' button (instantly drops the row + bumps counts)
 //   followers  → 'Follow back' button if not already following them, else
 //                'Mutual ✓' badge (read-only)
-//   mutuals    → 'Mutual ✓' badge (read-only)
 //
 // Counts in the parent surface (Profile / Home pills) re-fetch via
 // onCountsChange after any mutation so the headers stay live.
+//
+// Mutuals removed as a top-level category 2026-05-02 (Matt: "no reason
+// for it"). Mutual status is still surfaced on followers rows via the
+// inline 'Mutual ✓' badge.
 //
 // (2026-05-01 — follow Phase 1)
 
@@ -20,13 +23,11 @@ import FriendProfile from './FriendProfile.jsx'
 const TITLES = {
   following: 'Following',
   followers: 'Followers',
-  mutuals:   'Mutuals',
 }
 
 const EMPTY_COPY = {
   following: "You're not following anyone yet. Find someone on a leaderboard or in a match and tap their name to follow.",
   followers: "Nobody's followed you yet. Share your profile to start building a following.",
-  mutuals:   "No mutuals yet. Mutuals are people who follow you and you follow them — the warm circle of golfers you actually play with.",
 }
 
 export default function FollowList({ type, onClose, onCountsChange }) {
@@ -78,8 +79,9 @@ export default function FollowList({ type, onClose, onCountsChange }) {
     setBusyIds(prev => new Set(prev).add(userId))
     try {
       await del(`/api/follows/${userId}`)
-      // For the 'following' tab, drop the row entirely. For 'followers' /
-      // 'mutuals', flip is_following to false (still a row, just demoted).
+      // For the 'following' tab, drop the row entirely. For 'followers',
+      // flip is_following to false (still a row, just demoted from
+      // mutual back to one-way "they follow me").
       if (type === 'following') {
         setUsers(prev => prev.filter(u => u.id !== userId))
       } else {
@@ -95,9 +97,6 @@ export default function FollowList({ type, onClose, onCountsChange }) {
 
   function renderAction(u) {
     const busy = busyIds.has(u.id)
-    if (type === 'mutuals') {
-      return <MutualBadge />
-    }
     if (type === 'following') {
       return (
         <button onClick={() => handleUnfollow(u.id)} disabled={busy} style={ghostBtn}>

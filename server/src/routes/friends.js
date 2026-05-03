@@ -122,7 +122,7 @@ router.get('/:friendId/profile', async (req, res) => {
         rivalries: [],
         h2h: null,
         availability: [],
-        followCounts: { following: 0, followers: 0, mutuals: 0 },
+        followCounts: { following: 0, followers: 0 },
         clubs: {},
       })
     }
@@ -180,16 +180,14 @@ router.get('/:friendId/profile', async (req, res) => {
         [friendId]
       ),
 
-      // Friend's own follow counts (their following / followers / mutuals)
+      // Friend's own follow counts (following / followers). Mutuals
+      // dropped 2026-05-02 — Matt: "no reason for it." Mutual status
+      // for individual rows is still surfaced on the Followers list
+      // via is_following + is_followed_by flags.
       db.one(
         `SELECT
            (SELECT COUNT(*)::int FROM tm_follows WHERE follower_id  = $1) AS following,
-           (SELECT COUNT(*)::int FROM tm_follows WHERE following_id = $1) AS followers,
-           (SELECT COUNT(*)::int FROM tm_follows a
-            JOIN tm_follows b
-              ON a.follower_id  = b.following_id
-             AND a.following_id = b.follower_id
-            WHERE a.follower_id = $1) AS mutuals`,
+           (SELECT COUNT(*)::int FROM tm_follows WHERE following_id = $1) AS followers`,
         [friendId]
       ),
 
@@ -292,7 +290,7 @@ router.get('/:friendId/profile', async (req, res) => {
         topClubs,
         roundCount: allRoundRows.length,
       },
-      followCounts: followCounts ?? { following: 0, followers: 0, mutuals: 0 },
+      followCounts: followCounts ?? { following: 0, followers: 0 },
       rivalries:    rivalryRows ?? [],
       h2h:          h2hRow ?? { my_wins: 0, their_wins: 0, ties: 0 },
       availability,
