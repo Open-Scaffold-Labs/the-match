@@ -100,7 +100,7 @@ export default function Login({ onLogin }) {
             margin: 0,
             textShadow: '0 1px 1px rgba(255,253,248,0.4)',
           }}>
-            Your golf companion
+            Where Competition Lives
           </p>
         </div>
 
