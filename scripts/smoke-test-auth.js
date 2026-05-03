@@ -33,24 +33,38 @@
 const fs = require('fs')
 const path = require('path')
 
-// Lazy-load env from .env files at the project root + .env.prod (if pulled
-// from Vercel). Allows running this script standalone without docker-compose
-// or a separate env loader.
+// Lazy-load env. /tmp/.env.prod (pulled from Vercel) wins over local .env
+// because the smoke test hits PROD endpoints — must use prod JWT_SECRET so
+// our manually-minted token validates server-side.
+//
+// IMPORTANT: vercel env pull writes values with embedded newlines escaped
+// as `\n` (literal backslash-n), and quotes the value. We must:
+//   1. Strip surrounding quotes
+//   2. Decode \n / \r escape sequences back to real characters
+// Otherwise process.env.JWT_SECRET on the server (real newline) won't
+// match our local copy (literal `\n`), and signed tokens won't verify.
 function loadEnv() {
-  for (const f of [
-    path.join(__dirname, '..', '.env'),
-    '/tmp/.env.prod',
-  ]) {
+  const sources = [
+    { path: '/tmp/.env.prod', override: true },
+    { path: path.join(__dirname, '..', '.env'), override: false },
+  ]
+  for (const { path: f, override } of sources) {
     if (!fs.existsSync(f)) continue
     for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
       const m = line.match(/^([A-Z_]+)\s*=\s*(.+)$/)
-      if (m && !process.env[m[1]]) {
-        let v = m[2].trim()
-        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-          v = v.slice(1, -1)
-        }
-        process.env[m[1]] = v
+      if (!m) continue
+      const key = m[1]
+      if (!override && process.env[key]) continue
+      let v = m[2].trim()
+      // Quoted values: strip the surrounding quotes AND decode escapes
+      // (only inside quotes, per dotenv spec). Unquoted values are taken
+      // literally except for trailing whitespace.
+      if (v.startsWith('"') && v.endsWith('"')) {
+        v = v.slice(1, -1).replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\\\/g, '\\')
+      } else if (v.startsWith("'") && v.endsWith("'")) {
+        v = v.slice(1, -1)
       }
+      process.env[key] = v
     }
   }
 }

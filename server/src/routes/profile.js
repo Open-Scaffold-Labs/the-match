@@ -117,7 +117,7 @@ router.post('/update', async (req, res) => {
          handicap    = CASE WHEN $3::numeric IS NOT NULL THEN $3::numeric ELSE handicap END,
          updated_at  = NOW()
        WHERE id = $4
-       RETURNING id, name, email, role, home_course, bio, handicap`,
+       RETURNING ${USER_PUBLIC_COLUMNS}`,
       [home_course ?? null, bio ?? null, hcp, req.user.id, cleanName || null]
     )
     res.json({ user })
@@ -139,7 +139,7 @@ router.post('/avatar', async (req, res) => {
     }
     const user = await db.one(
       `UPDATE tm_users SET avatar = $1, cutout = $2, updated_at = NOW()
-       WHERE id = $3 RETURNING id, avatar, cutout`,
+       WHERE id = $3 RETURNING ${USER_PUBLIC_COLUMNS}`,
       [avatar, cutout ?? null, req.user.id]
     )
     res.json({ ok: true, user })
