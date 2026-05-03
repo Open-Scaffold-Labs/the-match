@@ -8,6 +8,38 @@ updated: YYYY-MM-DD
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-05-03] refactor | User-shape centralization + 10-round audit
+
+Two prod bugs shipped in one earlier session because `/login` and `/signup` had drifted from `/me`'s SELECT. Login was missing `onboarding_completed_at` (made every existing user re-see the wizard) and `tier` (blocked Matt — `elite` admin — from leagues with a "free tier upgrade" wall). DB had the right values; response shape was wrong.
+
+**Fix architecture (defense-in-depth):**
+
+- `server/src/lib/user.js` (NEW) — single `USER_PUBLIC_COLUMNS` constant. `USER_PUBLIC_COLUMNS_WITH_PIN_HASH` for the one place that needs it (login bcrypt). `sanitizeUser()` strips pin_hash before res.json. `REQUIRED_USER_FIELDS` lets tests assert the contract.
+- `server/src/routes/auth.js` — all three endpoints (`/signup`, `/login`, `/me`) now select via `USER_PUBLIC_COLUMNS`. `/login` passes through `sanitizeUser()` before responding.
+- `server/src/middleware/auth.js` — `req.user` hydrated with the FULL user shape, eliminating the silent-undefined footgun where a narrow SELECT misses a field.
+- `server/src/routes/profile.js` — `GET /` already used the constant; the `UPDATE` statements in `/profile/update` and `/profile/avatar` had narrow `RETURNING` projections (returned 7 / 3 columns instead of 13). Both now `RETURNING ${USER_PUBLIC_COLUMNS}`.
+- `server/src/middleware/requireElite.js` — re-fetches `tier` directly from DB on every gated request, so even future `req.user` drift doesn't break tier gating.
+- `server/test/user-shape.test.js` (NEW) — 13 Vitest unit tests pinning the contract; `npm test` runs in 3ms.
+- `scripts/smoke-test-auth.js` (NEW) — 50 HTTP-level checks against prod (signup → login → /me round trip + security boundaries). `npm run test:smoke`.
+
+**10-round audit results — all green:**
+1. Auth shape smoke test → 50/50 pass
+2. profile.js `RETURNING` projections → fixed (commit 236b1b4)
+3. OWASP sweep (SQLi, CORS, rate limits, stack leaks, pin_hash exposure) → clean
+4. Push notification stack (VAPID trim, test push) → HTTP 201
+5. Friends/follows endpoints, mutuals removal verification → clean
+6. Signup → login → /me round trip producing identical shapes → ✓
+7. Tier gates: elite passes, free gets clean 402 with structured payload → ✓ both directions
+8. Pending changes committed + post-deploy verified → ✓
+9. Smoke test re-run vs post-deploy prod → 50/50 pass
+10. Vitest unit tests + final state → 13/13 pass
+
+**Commits:** `7877440` (login onboarding fix), `590f87c` (login tier fix), `fc70cd5` (centralize), `2c075c7` (extend to middleware/profile), `038763f` (vitest), `236b1b4` (profile.js RETURNING).
+
+**Known follow-up (tracked in `wiki/HIGH-PRIORITY-TODO.md`):** prod `JWT_SECRET` is still the literal placeholder `"change-me-to-a-long-random-string"`. Rotation will log everyone out, so deferred until after tomorrow's round.
+
+The class of bug — "endpoints that return the same conceptual object hand-roll different SELECT lists" — is now both impossible to introduce by accident (constant) and caught immediately if introduced anyway (vitest + smoke test).
+
 ## [2026-04-30] refactor | Match page perfection — 4-phase rebuild
 
 After light-theme conversion, Match page still had information-design gaps. Critique surfaced 7 specific issues; this pass closes them all.
