@@ -14,15 +14,8 @@ module.exports = async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid or expired token' })
   }
 
-  const user = await db.one('SELECT id, email, name, role, email_verified_at FROM tm_users WHERE id = $1', [payload.sub])
+  const user = await db.one('SELECT id, email, name, role FROM tm_users WHERE id = $1', [payload.sub])
   if (!user) return res.status(401).json({ error: 'User not found' })
-
-  // Defensive — only verify-issued tokens should reach here, but
-  // an old (pre-migration) token or a manually-minted JWT for an
-  // unverified user would otherwise sail through. (2026-05-02)
-  if (!user.email_verified_at) {
-    return res.status(403).json({ error: 'unverified', message: 'Please verify your email.' })
-  }
 
   req.user = user
   next()
