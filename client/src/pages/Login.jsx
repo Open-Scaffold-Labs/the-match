@@ -1,7 +1,17 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { post } from '../lib/api.js'
 import { TMEmblem } from '../components/primitives/Icons.jsx'
 
+// Palette + typography matched to the home page (ProfileHeroCard / REQUESTS box):
+//   - Fairway grass photo bg with cream tint overlay (same as App.jsx wrapper)
+//   - Translucent cream glass-morphism card (rgba(255,255,255,0.22) + blur(12px))
+//   - Georgia serif for the wordmark and section labels
+//   - Gold-gradient text for "The Match"
+//   - Dark green / brown-gold text on cream for body, labels, hints
+//   - Gold accent line top of card (mirrors the gold pinstripe on hero card)
+//   (2026-05-03 — Matt: "redo the login page so it matches our cream and
+//   gold coloring, words with the georgia font and gold polish coloring,
+//   and the translucent boxes from our home screen.")
 export default function Login({ onLogin }) {
   const [mode, setMode]     = useState('login')
   const [email, setEmail]   = useState('')
@@ -25,37 +35,30 @@ export default function Login({ onLogin }) {
     }
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') submit()
-  }
+  const handleKeyDown = (e) => { if (e.key === 'Enter') submit() }
 
   return (
     <div style={{
-      position: 'fixed',
-      inset: 0,
-      overflowY: 'auto',
-      WebkitOverflowScrolling: 'touch',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#060E08',
+      position: 'fixed', inset: 0,
+      overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      // Fairway grass photo with cream tint — matches App.jsx home wrapper exactly
+      backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
+      backgroundSize: 'cover',
+      backgroundPosition: 'center 40%',
+      backgroundAttachment: 'fixed',
       padding: '40px 0 40px',
     }}>
-      {/* Ambient background layers */}
+      {/* Cream tint over the fairway photo (same alpha as Home wrapper) */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 80% 60% at 50% 20%, rgba(30,80,35,0.35) 0%, transparent 70%)',
+        background: 'rgba(241,231,200,0.25)',
       }} />
+
+      {/* Soft warm radial glow — same vocabulary as ProfileHeroCard's gold radial */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 60% 50% at 50% 90%, rgba(18,50,22,0.4) 0%, transparent 70%)',
-      }} />
-      {/* Subtle grid texture */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.025,
-        backgroundImage: 'linear-gradient(rgba(94,212,122,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(94,212,122,0.6) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
+        background: 'radial-gradient(ellipse 70% 60% at 50% 20%, rgba(232,192,90,0.15) 0%, transparent 70%)',
       }} />
 
       {/* Main content */}
@@ -67,72 +70,92 @@ export default function Login({ onLogin }) {
       }}>
 
         {/* Logo lockup */}
-        <div style={{ textAlign: 'center', marginBottom: 44 }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 80, height: 80, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(30,80,35,0.6) 0%, rgba(10,30,14,0.4) 100%)',
-            border: '1px solid rgba(94,212,122,0.2)',
-            boxShadow: '0 0 40px rgba(94,212,122,0.12), inset 0 1px 0 rgba(255,255,255,0.05)',
-            marginBottom: 20,
+            background: 'rgba(255,255,255,0.45)',
+            border: '1.5px solid rgba(201,160,64,0.55)',
+            boxShadow: '0 4px 24px rgba(201,160,64,0.20), inset 0 1px 0 rgba(255,255,255,0.6)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            marginBottom: 18,
           }}>
-            <TMEmblem size={48} />
+            <TMEmblem size={48} gold />
           </div>
           <h1 style={{
-            fontSize: 38, fontWeight: 800, letterSpacing: '-1.5px',
+            fontFamily: 'Georgia, "Times New Roman", serif',
+            fontSize: 44, fontWeight: 700, letterSpacing: '-1px',
             background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9971E 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            margin: '0 0 8px',
+            margin: '0 0 6px',
+            textShadow: '0 1px 2px rgba(122,88,0,0.10)',
           }}>
             The Match
           </h1>
           <p style={{
-            color: 'rgba(255,255,255,0.35)', fontSize: 13,
-            letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0,
+            fontFamily: 'Georgia, "Times New Roman", serif',
+            color: '#7A5800', fontSize: 11, fontStyle: 'italic',
+            letterSpacing: '0.18em', textTransform: 'uppercase',
+            margin: 0,
+            textShadow: '0 1px 1px rgba(255,253,248,0.4)',
           }}>
             Your golf companion
           </p>
         </div>
 
-        {/* Mode toggle pills */}
+        {/* Mode toggle pills — translucent cream pills with gold accent on the active one */}
         <div style={{
           display: 'flex', width: '100%',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: 12, padding: 3, gap: 3, marginBottom: 24,
+          background: 'rgba(255,255,255,0.45)',
+          border: '1px solid rgba(201,160,64,0.35)',
+          borderRadius: 12, padding: 3, gap: 3, marginBottom: 18,
+          backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
         }}>
           {['login', 'signup'].map(m => (
             <button key={m} onClick={() => { setMode(m); setError('') }} style={{
               flex: 1, padding: '10px 0', border: 'none', borderRadius: 9,
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              letterSpacing: '0.06em',
               transition: 'all 200ms ease',
               background: mode === m
-                ? 'linear-gradient(135deg, rgba(40,110,50,0.9), rgba(25,75,35,0.9))'
+                ? 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)'
                 : 'transparent',
-              color: mode === m ? '#5ED47A' : 'rgba(255,255,255,0.35)',
-              boxShadow: mode === m ? '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)' : 'none',
+              color: mode === m ? '#5A4810' : 'rgba(122,88,0,0.55)',
+              boxShadow: mode === m
+                ? '0 2px 8px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,253,248,0.55)'
+                : 'none',
             }}>
               {m === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           ))}
         </div>
 
-        {/* Form card */}
+        {/* Form card — translucent cream glass with gold pinstripe accent at top, matching home */}
         <div style={{
+          position: 'relative',
           width: '100%',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 18,
-          padding: '24px 20px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.22)',
+          border: '1px solid rgba(255,255,255,0.45)',
+          borderRadius: 22,
+          padding: '24px 20px 22px',
+          boxShadow: '0 8px 32px rgba(122,88,0,0.18), inset 0 1px 0 rgba(255,253,248,0.6)',
           backdropFilter: 'blur(12px)',
-          display: 'flex', flexDirection: 'column', gap: 16,
+          WebkitBackdropFilter: 'blur(12px)',
+          display: 'flex', flexDirection: 'column', gap: 14,
+          overflow: 'hidden',
         }}>
+          {/* Gold pinstripe at the top of the card — same flourish vocabulary as ProfileHeroCard */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 3, pointerEvents: 'none',
+            background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
+          }} />
+
           {mode === 'signup' && (
             <PremiumInput
               label="Your Name"
-              value={name}
-              onChange={setName}
+              value={name} onChange={setName}
               placeholder="Tiger Woods"
               focused={focusedField === 'name'}
               onFocus={() => setFocusedField('name')}
@@ -141,24 +164,18 @@ export default function Login({ onLogin }) {
             />
           )}
           <PremiumInput
-            label="Email"
-            value={email}
-            onChange={setEmail}
+            label="Email" type="email"
+            value={email} onChange={setEmail}
             placeholder="golfer@example.com"
-            type="email"
             focused={focusedField === 'email'}
             onFocus={() => setFocusedField('email')}
             onBlur={() => setFocusedField(null)}
             onKeyDown={handleKeyDown}
           />
           <PremiumInput
-            label="4-Digit PIN"
-            value={pin}
-            onChange={setPin}
-            placeholder="••••"
-            type="password"
-            maxLength={4}
-            inputMode="numeric"
+            label="4-Digit PIN" type="password"
+            value={pin} onChange={setPin}
+            placeholder="••••" maxLength={4} inputMode="numeric"
             focused={focusedField === 'pin'}
             onFocus={() => setFocusedField('pin')}
             onBlur={() => setFocusedField(null)}
@@ -167,33 +184,31 @@ export default function Login({ onLogin }) {
 
           {error && (
             <div style={{
-              background: 'rgba(220,50,50,0.1)', border: '1px solid rgba(220,50,50,0.25)',
+              background: 'rgba(178,34,34,0.10)', border: '1px solid rgba(178,34,34,0.30)',
               borderRadius: 8, padding: '10px 14px',
-              color: '#F87171', fontSize: 13, textAlign: 'center',
+              color: '#9B2020', fontSize: 13, textAlign: 'center',
+              fontFamily: 'Georgia, "Times New Roman", serif', fontStyle: 'italic',
             }}>
               {error}
             </div>
           )}
 
-          {/* Submit button */}
+          {/* Submit button — gold polish gradient (matches the ProfileHeroCard "Let's Go" button) */}
           <button
             onClick={submit}
             disabled={loading}
             style={{
-              width: '100%', padding: '16px',
-              border: 'none', borderRadius: 12,
-              fontSize: 15, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
-              background: mode === 'signup'
-                ? 'linear-gradient(135deg, #C9971E, #E8C05A, #C9971E)'
-                : 'linear-gradient(135deg, #1A6B28, #2E9E45, #1A6B28)',
+              width: '100%', padding: '15px',
+              border: '1px solid rgba(155,120,24,0.55)', borderRadius: 12,
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 15, fontWeight: 700, letterSpacing: '0.04em',
+              cursor: loading ? 'default' : 'pointer',
+              background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 45%, #C9971E 100%)',
               backgroundSize: '200% 100%',
-              color: mode === 'signup' ? '#1A0F00' : '#fff',
-              boxShadow: mode === 'signup'
-                ? '0 4px 20px rgba(232,192,90,0.3), inset 0 1px 0 rgba(255,255,255,0.25)'
-                : '0 4px 20px rgba(46,158,69,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
+              color: '#3A2A05',
+              boxShadow: '0 4px 18px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,253,248,0.55), inset 0 -1px 0 rgba(122,88,0,0.18)',
               opacity: loading ? 0.7 : 1,
               transition: 'opacity 200ms, transform 100ms',
-              letterSpacing: '0.02em',
             }}
             onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
             onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -204,8 +219,10 @@ export default function Login({ onLogin }) {
 
         {/* Footer note */}
         <p style={{
-          color: 'rgba(255,255,255,0.2)', fontSize: 12,
-          textAlign: 'center', marginTop: 24, lineHeight: 1.6,
+          fontFamily: 'Georgia, "Times New Roman", serif',
+          color: 'rgba(90,72,16,0.55)', fontSize: 11, fontStyle: 'italic',
+          textAlign: 'center', marginTop: 20, lineHeight: 1.6,
+          textShadow: '0 1px 1px rgba(255,253,248,0.4)',
         }}>
           By continuing you agree to The Match<br />Terms of Service &amp; Privacy Policy
         </p>
@@ -218,33 +235,32 @@ function PremiumInput({ label, value, onChange, placeholder, type = 'text', maxL
   return (
     <div>
       <label style={{
-        display: 'block', marginBottom: 8,
-        fontSize: 11, fontWeight: 600, letterSpacing: '0.1em',
+        display: 'block', marginBottom: 7,
+        fontFamily: 'Georgia, "Times New Roman", serif',
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.14em',
         textTransform: 'uppercase',
-        color: focused ? 'rgba(94,212,122,0.8)' : 'rgba(255,255,255,0.35)',
+        color: focused ? '#5A4810' : 'rgba(122,88,0,0.65)',
+        textShadow: '0 1px 1px rgba(255,253,248,0.4)',
         transition: 'color 200ms',
       }}>
         {label}
       </label>
       <input
-        type={type}
-        value={value}
+        type={type} value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        maxLength={maxLength}
-        inputMode={inputMode}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
+        maxLength={maxLength} inputMode={inputMode}
+        onFocus={onFocus} onBlur={onBlur} onKeyDown={onKeyDown}
         style={{
-          width: '100%', padding: '14px 16px', boxSizing: 'border-box',
-          background: focused ? 'rgba(94,212,122,0.05)' : 'rgba(255,255,255,0.04)',
-          border: `1px solid ${focused ? 'rgba(94,212,122,0.4)' : 'rgba(255,255,255,0.1)'}`,
+          width: '100%', padding: '13px 15px', boxSizing: 'border-box',
+          background: focused ? 'rgba(255,253,248,0.85)' : 'rgba(255,253,248,0.65)',
+          border: `1px solid ${focused ? 'rgba(201,160,64,0.60)' : 'rgba(201,160,64,0.30)'}`,
           borderRadius: 10,
-          color: '#fff', fontSize: 16, outline: 'none',
-          boxShadow: focused ? '0 0 0 3px rgba(94,212,122,0.08)' : 'none',
+          color: '#1B5E3B', fontSize: 16, outline: 'none',
+          fontFamily: 'Georgia, "Times New Roman", serif',
+          boxShadow: focused ? '0 0 0 3px rgba(232,192,90,0.18), inset 0 1px 2px rgba(122,88,0,0.06)' : 'inset 0 1px 2px rgba(122,88,0,0.04)',
           transition: 'all 200ms ease',
-          caretColor: '#5ED47A',
+          caretColor: '#C9A040',
         }}
       />
     </div>
