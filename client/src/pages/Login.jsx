@@ -81,16 +81,12 @@ export default function Login({ onLogin }) {
             <TMEmblem size={48} gold />
           </div>
           <h1 style={{
-            fontFamily: '"Georgia", serif',
-            fontSize: 44, fontWeight: 900, letterSpacing: '-0.03em',
-            // Symmetric 5-stop vertical gradient — highlight CENTERED
-            // at 50% (vs the home page's 32% which sits in the top
-            // third). Dark amber ramps up to bright center, then back
-            // down to dark amber — reads as light hitting the middle
-            // of each letterform.
-            background: 'linear-gradient(180deg, #8A6B28 0%, #E8C05A 28%, #F8DE91 50%, #E8C05A 72%, #8A6B28 100%)',
+            fontFamily: 'Georgia, "Times New Roman", serif',
+            fontSize: 44, fontWeight: 700, letterSpacing: '-1px',
+            background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9971E 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             margin: '0 0 6px',
+            textShadow: '0 1px 2px rgba(122,88,0,0.10)',
           }}>
             The Match
           </h1>
