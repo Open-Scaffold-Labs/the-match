@@ -55,7 +55,7 @@ export default function Login({ onLogin }) {
       {/* Soft warm radial glow — same vocabulary as ProfileHeroCard's gold radial */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 70% 60% at 50% 20%, rgba(232,192,90,0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse 70% 60% at 50% 20%, rgba(232,192,90,0.08) 0%, transparent 70%)',
       }} />
 
       {/* Main content */}
