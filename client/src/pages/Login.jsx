@@ -133,17 +133,13 @@ export default function Login({ onLogin }) {
         <div style={{
           position: 'relative',
           width: '100%',
-          // Transparent WHITE (not glass) — clearly white-tinted, more
-          // opaque than 0.10, no inset highlight that creates the
-          // glassy edge. (2026-05-03 — Matt: 'transparent white,
-          // that looks like glass' on the previous attempt.)
-          background: 'rgba(255,255,255,0.70)',
-          border: '1px solid rgba(255,255,255,0.80)',
+          background: 'rgba(255,255,255,0.22)',
+          border: '1px solid rgba(255,255,255,0.45)',
           borderRadius: 22,
           padding: '24px 20px 22px',
-          boxShadow: '0 8px 24px rgba(122,88,0,0.12)',
-          backdropFilter: 'none',
-          WebkitBackdropFilter: 'none',
+          boxShadow: '0 8px 32px rgba(122,88,0,0.18), inset 0 1px 0 rgba(255,253,248,0.6)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           display: 'flex', flexDirection: 'column', gap: 14,
           overflow: 'hidden',
         }}>
