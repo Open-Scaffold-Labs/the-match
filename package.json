@@ -2,11 +2,16 @@
   "name": "the-match",
   "version": "1.0.0",
   "private": true,
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
     "build": "npm run build --workspace=client",
-    "lint": "npm run lint --workspace=client"
+    "lint": "npm run lint --workspace=client",
+    "test": "npm run test --workspace=server",
+    "test:smoke": "node scripts/smoke-test-auth.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
