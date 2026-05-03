@@ -3613,6 +3613,13 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
       if (status !== 'accepted') {
         const f = await api('/api/friends')
         setFriends(f)
+      } else {
+        // Accept inserts (requester → me) into tm_follows server-side,
+        // so the user's Followers count goes up by 1 immediately.
+        // Refresh the pills so the hero card reflects it without a
+        // full reload. (2026-05-02 — Matt: counts have to update on
+        // accept, not on the next page load.)
+        refreshFollowCounts()
       }
     } catch {
       // On failure, undo the optimistic prompt so the row returns to
@@ -3628,12 +3635,17 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
     setFollowBackPrompts(prev => { const n = new Set(prev); n.delete(reqId); return n })
     const f = await api('/api/friends')
     setFriends(f)
+    // Following count won't change here (the request is pending until
+    // they accept), but refresh anyway so any race-cleared state
+    // recovers. Cheap call.
+    refreshFollowCounts()
   }
 
   async function dismissFollowBackPrompt(reqId) {
     setFollowBackPrompts(prev => { const n = new Set(prev); n.delete(reqId); return n })
     const f = await api('/api/friends')
     setFriends(f)
+    refreshFollowCounts()
   }
 
   async function handleGameRespond(id, status) {
