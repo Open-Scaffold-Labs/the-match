@@ -1,0 +1,99 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F4E5B0"/>
+      <stop offset="55%" stop-color="#E8D49A"/>
+      <stop offset="100%" stop-color="#D4BC78"/>
+    </linearGradient>
+    <radialGradient id="warm" cx="0.5" cy="0.55" r="0.65">
+      <stop offset="0%" stop-color="#FFE9A8" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#D4BC78" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#F4D582"/>
+      <stop offset="28%"  stop-color="#E5BA52"/>
+      <stop offset="55%"  stop-color="#C99828"/>
+      <stop offset="80%"  stop-color="#9A7212"/>
+      <stop offset="100%" stop-color="#5C4108"/>
+    </linearGradient>
+    <linearGradient id="goldHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#F4D582"/>
+      <stop offset="50%"  stop-color="#C99828"/>
+      <stop offset="100%" stop-color="#5C4108"/>
+    </linearGradient>
+    <linearGradient id="mShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#F8DC8E"/>
+      <stop offset="35%"  stop-color="#E0B040"/>
+      <stop offset="65%"  stop-color="#A87822"/>
+      <stop offset="100%" stop-color="#5C4108"/>
+    </linearGradient>
+    <linearGradient id="grip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3A2A05"/>
+      <stop offset="100%" stop-color="#1F1602"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#paper)"/>
+  <rect width="1024" height="1024" fill="url(#warm)"/>
+
+  <!-- TOP CLUB — shaft at y=142, head on LEFT pointing DOWN, longer/elongated head 115px wide -->
+  <g>
+    <!-- Iron face — viewed face-on, slight trapezoidal taper (sole wider than topline),
+         curved sole, with horizontal scoring grooves on the face -->
+    <path d="M 200 142
+             L 200 178
+             Q 170 195 138 182
+             L 145 148
+             Q 175 138 200 142 Z"
+          fill="url(#goldHead)" stroke="#3A2A05" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Scoring grooves (3 horizontal lines on the face) -->
+    <line x1="152" y1="156" x2="195" y2="156" stroke="#3A2A05" stroke-width="1.4" opacity="0.65"/>
+    <line x1="148" y1="164" x2="197" y2="164" stroke="#3A2A05" stroke-width="1.4" opacity="0.65"/>
+    <line x1="146" y1="172" x2="198" y2="172" stroke="#3A2A05" stroke-width="1.4" opacity="0.65"/>
+    <path d="M 215 138 L 232 134 L 236 150 L 215 154 Z" fill="url(#gold)" stroke="#3A2A05" stroke-width="1"/>
+    <path d="M 232 140 L 790 144 L 790 150 L 232 150 Z" fill="url(#gold)"/>
+    <line x1="240" y1="141.5" x2="788" y2="145" stroke="#FFEBB8" stroke-width="1" opacity="0.55"/>
+    <rect x="790" y="133" width="100" height="22" rx="5" fill="url(#grip)"/>
+    <line x1="800" y1="138" x2="880" y2="138" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <line x1="800" y1="143" x2="880" y2="143" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <line x1="800" y1="148" x2="880" y2="148" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <line x1="800" y1="153" x2="880" y2="153" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <circle cx="890" cy="144" r="6" fill="#3A2A05"/>
+  </g>
+
+  <!-- BOTTOM CLUB — 180° rotation about canvas center (512,512). Head on RIGHT, pointing UP -->
+  <g transform="rotate(180 512 512)">
+    <!-- Iron face — viewed face-on, slight trapezoidal taper (sole wider than topline),
+         curved sole, with horizontal scoring grooves on the face -->
+    <path d="M 200 142
+             L 200 178
+             Q 170 195 138 182
+             L 145 148
+             Q 175 138 200 142 Z"
+          fill="url(#goldHead)" stroke="#3A2A05" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Scoring grooves (3 horizontal lines on the face) -->
+    <line x1="152" y1="156" x2="195" y2="156" stroke="#3A2A05" stroke-width="1.4" opacity="0.65"/>
+    <line x1="148" y1="164" x2="197" y2="164" stroke="#3A2A05" stroke-width="1.4" opacity="0.65"/>
+    <line x1="146" y1="172" x2="198" y2="172" stroke="#3A2A05" stroke-width="1.4" opacity="0.65"/>
+    <path d="M 215 138 L 232 134 L 236 150 L 215 154 Z" fill="url(#gold)" stroke="#3A2A05" stroke-width="1"/>
+    <path d="M 232 140 L 790 144 L 790 150 L 232 150 Z" fill="url(#gold)"/>
+    <line x1="240" y1="141.5" x2="788" y2="145" stroke="#FFEBB8" stroke-width="1" opacity="0.55"/>
+    <rect x="790" y="133" width="100" height="22" rx="5" fill="url(#grip)"/>
+    <line x1="800" y1="138" x2="880" y2="138" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <line x1="800" y1="143" x2="880" y2="143" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <line x1="800" y1="148" x2="880" y2="148" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <line x1="800" y1="153" x2="880" y2="153" stroke="#5C4108" stroke-width="0.7" opacity="0.45"/>
+    <circle cx="890" cy="144" r="6" fill="#3A2A05"/>
+  </g>
+
+  <!-- EST · 2026 — slightly smaller (50) per Matt -->
+  <text x="512" y="276" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="500" font-style="italic" font-size="50" fill="#5C4108" style="letter-spacing: 14px;">EST · 2026</text>
+
+  <!-- THE MATCH — same 58px gap below M -->
+  <text x="512" y="780" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-style="italic" font-size="58" fill="#5C4108" style="letter-spacing: 12px;">THE MATCH</text>
+
+  <!-- M — slightly smaller (480) to fit cleanly with equal vertical spacing -->
+  <text x="512" y="685" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="480" fill="#3A2A05" opacity="0.40" style="letter-spacing: -20px;">M</text>
+  <text x="512" y="680" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="480" fill="url(#mShine)" style="letter-spacing: -20px;">M</text>
+  <text x="512" y="680" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="480" fill="none" stroke="#3A2A05" stroke-width="2" opacity="0.55" style="letter-spacing: -20px;">M</text>
+</svg>

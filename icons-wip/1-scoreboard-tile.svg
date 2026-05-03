@@ -1,0 +1,20 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5a3a16"/>
+      <stop offset="100%" stop-color="#3a2210"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F5D78A"/>
+      <stop offset="50%" stop-color="#E8C05A"/>
+      <stop offset="100%" stop-color="#C9971E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#wood)"/>
+  <rect x="72" y="72" width="880" height="880" fill="#0F3D1E"/>
+  <rect x="72" y="72" width="880" height="880" fill="none" stroke="#C9A040" stroke-width="8"/>
+  <rect x="195" y="256" width="634" height="512" fill="#F2EBD3" stroke="#0F0F0F" stroke-width="15"/>
+  <text x="512" y="691" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="512" fill="url(#gold)" style="letter-spacing: -10px;">M</text>
+  <text x="512" y="195" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-size="66" fill="#E8C05A" style="letter-spacing: 20px;">LEADERS</text>
+  <text x="512" y="880" text-anchor="middle" font-family="Georgia, serif" font-weight="700" font-style="italic" font-size="46" fill="#E8C05A" style="letter-spacing: 8px;">THE MATCH</text>
+</svg>

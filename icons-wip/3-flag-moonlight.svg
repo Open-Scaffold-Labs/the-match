@@ -1,0 +1,25 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F5EBC8"/>
+      <stop offset="55%" stop-color="#E8D5A0"/>
+      <stop offset="100%" stop-color="#1A5230"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.78" cy="0.20" r="0.30">
+      <stop offset="0%" stop-color="#FFFBE8" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#F5D78A" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#E8D5A0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F5D78A"/>
+      <stop offset="50%" stop-color="#E8C05A"/>
+      <stop offset="100%" stop-color="#C9971E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#sun)"/>
+  <line x1="512" y1="870" x2="512" y2="246" stroke="url(#gold)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M 512 246 L 778 312 L 512 415 Z" fill="url(#gold)" stroke="#9B7818" stroke-width="3"/>
+  <ellipse cx="512" cy="881" rx="113" ry="14" fill="#0F3D1E" opacity="0.30"/>
+  <circle cx="512" cy="870" r="16" fill="url(#gold)" stroke="#9B7818" stroke-width="3"/>
+</svg>
