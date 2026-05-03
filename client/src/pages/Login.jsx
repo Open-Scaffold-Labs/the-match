@@ -83,10 +83,12 @@ export default function Login({ onLogin }) {
           <h1 style={{
             fontFamily: '"Georgia", serif',
             fontSize: 44, fontWeight: 900, letterSpacing: '-0.03em',
-            // Same 4-stop vertical gradient as the home page header —
-            // dark amber → bright highlight at 32% → mid gold → deep
-            // amber. Reads as polished metal, not flat gold.
-            background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
+            // Symmetric 5-stop vertical gradient — highlight CENTERED
+            // at 50% (vs the home page's 32% which sits in the top
+            // third). Dark amber ramps up to bright center, then back
+            // down to dark amber — reads as light hitting the middle
+            // of each letterform.
+            background: 'linear-gradient(180deg, #8A6B28 0%, #E8C05A 28%, #F8DE91 50%, #E8C05A 72%, #8A6B28 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             margin: '0 0 6px',
           }}>
