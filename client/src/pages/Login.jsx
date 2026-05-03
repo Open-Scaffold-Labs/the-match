@@ -133,13 +133,15 @@ export default function Login({ onLogin }) {
         <div style={{
           position: 'relative',
           width: '100%',
-          // See-through transparent white per Matt — fairway grass shows
-          // strongly through the card. (2026-05-03)
-          background: 'rgba(255,255,255,0.10)',
-          border: '1px solid rgba(255,255,255,0.55)',
+          // Transparent WHITE (not glass) — clearly white-tinted, more
+          // opaque than 0.10, no inset highlight that creates the
+          // glassy edge. (2026-05-03 — Matt: 'transparent white,
+          // that looks like glass' on the previous attempt.)
+          background: 'rgba(255,255,255,0.45)',
+          border: '1px solid rgba(255,255,255,0.65)',
           borderRadius: 22,
           padding: '24px 20px 22px',
-          boxShadow: '0 8px 32px rgba(122,88,0,0.15), inset 0 1px 0 rgba(255,255,255,0.45)',
+          boxShadow: '0 8px 24px rgba(122,88,0,0.12)',
           backdropFilter: 'none',
           WebkitBackdropFilter: 'none',
           display: 'flex', flexDirection: 'column', gap: 14,
