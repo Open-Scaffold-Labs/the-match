@@ -192,6 +192,14 @@
         0 0 10px 2px rgba(232,192,90,0.55);
     }
   }
+
+  /* Pull-to-refresh spinner — used by the indicator chip in App.jsx
+     while the reload is in flight. Plain rotation; the chip itself
+     handles the visual styling. (2026-05-04 — Matt: pull-to-refresh) */
+  @keyframes tm-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
 }
 
 /* ═══════════════════════════════════════════

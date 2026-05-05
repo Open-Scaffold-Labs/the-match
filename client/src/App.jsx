@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import BottomNav from './components/shell/BottomNav.jsx'
 import { TABS } from './constants.js'
 import Home from './pages/Home.jsx'
@@ -266,16 +266,139 @@ export default function App() {
 // before, but each tab gets its own panel so they don't fight over a single
 // scrollTop. Hidden tabs use display:none — React keeps the subtree
 // mounted, useState/useEffect/intervals all keep running.
+//
+// 2026-05-04 — pull-to-refresh wrapper added. Native iOS pull-to-refresh
+// is killed by `overscroll-behavior: none` in tokens.css (keeps rubber-band
+// from leaking the photo background past the page end). We re-add the
+// gesture manually here: when the user touches at scrollTop=0 and drags
+// down past a threshold, reload the page. Augusta-themed indicator slides
+// in from the top edge with a damped pull. Available on every tab.
 function TabPanel({ active, children }) {
+  const containerRef = useRef(null)
+  const [pullDistance, setPullDistance] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const startY = useRef(null)
+
+  const TRIGGER = 70   // pixels of pull required to trigger refresh
+  const MAX     = 110  // visual cap on pull distance
+
+  function onTouchStart(e) {
+    if (refreshing) return
+    const el = containerRef.current
+    // Only arm the pull when we're at the very top of the scroll area.
+    // A 2px slop avoids tiny scroll wobbles disabling the gesture.
+    if (!el || el.scrollTop > 2) {
+      startY.current = null
+      return
+    }
+    startY.current = e.touches[0].clientY
+  }
+
+  function onTouchMove(e) {
+    if (refreshing || startY.current == null) return
+    const raw = e.touches[0].clientY - startY.current
+    if (raw <= 0) {
+      // User reversed direction — cancel the pull state. The container
+      // can resume normal scrolling on the next touch.
+      setPullDistance(0)
+      return
+    }
+    // Damp the visible pull so it feels rubber-bandy and so the user
+    // has to commit (~140px raw to hit 70px trigger).
+    const damped = Math.min(raw * 0.5, MAX)
+    setPullDistance(damped)
+  }
+
+  function onTouchEnd() {
+    if (startY.current == null) return
+    startY.current = null
+    if (pullDistance >= TRIGGER) {
+      // Lock the indicator at its visible height while we reload.
+      setRefreshing(true)
+      setPullDistance(60)
+      // Tiny delay so the user actually sees the spinner fire before
+      // the white-flash of reload — feels more like a confirmed action.
+      setTimeout(() => window.location.reload(), 150)
+    } else {
+      setPullDistance(0)
+    }
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: '56px',
+        overflowY: 'auto', overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch',
+        display: active ? 'block' : 'none',
+      }}>
+      <PullIndicator distance={pullDistance} triggerAt={TRIGGER} refreshing={refreshing} />
+      <div style={{
+        transform: `translateY(${pullDistance}px)`,
+        // Animate back to 0 only when the user releases (pullDistance
+        // becomes 0 in onTouchEnd). During an active drag we want
+        // the translate to track the finger 1:1 (no transition).
+        transition: pullDistance === 0 || refreshing ? 'transform 220ms ease-out' : 'none',
+        willChange: 'transform',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// Pull-to-refresh visual indicator. Sits absolutely positioned at the
+// top of the scroll container, slides into view as the user pulls. The
+// chevron rotates 0→180° as the pull progresses; once the trigger
+// threshold is hit, the chip flips to the "release to refresh" gold
+// state and the icon fully inverts. While refreshing, the chip spins.
+function PullIndicator({ distance, triggerAt, refreshing }) {
+  if (distance < 4 && !refreshing) return null
+  const ready    = distance >= triggerAt || refreshing
+  const progress = Math.min(distance / triggerAt, 1)
   return (
     <div style={{
       position: 'absolute',
-      top: 0, left: 0, right: 0, bottom: '56px',
-      overflowY: 'auto', overflowX: 'hidden',
-      WebkitOverflowScrolling: 'touch',
-      display: active ? 'block' : 'none',
+      top: 0, left: 0, right: 0,
+      height: 60,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      pointerEvents: 'none',
+      zIndex: 5,
+      // Match the children's translate so the indicator rides above
+      // the content as the user pulls.
+      transform: `translateY(${Math.max(distance - 60, -60)}px)`,
+      transition: refreshing ? 'transform 220ms ease-out' : 'none',
     }}>
-      {children}
+      <div style={{
+        width: 36, height: 36, borderRadius: '50%',
+        background: ready
+          ? 'linear-gradient(145deg, #35A046 0%, #2A7A38 60%, #1A4A24 100%)'
+          : 'rgba(255,253,248,0.92)',
+        border: ready ? '1px solid rgba(53,160,70,0.55)' : '1px solid rgba(46,158,69,0.30)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: ready
+          ? '0 4px 14px rgba(42,122,56,0.40)'
+          : '0 2px 8px rgba(0,0,0,0.10)',
+        transition: 'background 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
+      }}>
+        <svg
+          width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke={ready ? '#fff' : '#1B5E3B'}
+          strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+          style={{
+            transform: refreshing ? 'none' : `rotate(${progress * 180}deg)`,
+            transition: refreshing ? 'none' : 'transform 100ms ease',
+            animation: refreshing ? 'tm-spin 700ms linear infinite' : 'none',
+          }}>
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15A9 9 0 1 1 20 9"/>
+        </svg>
+      </div>
     </div>
   )
 }
