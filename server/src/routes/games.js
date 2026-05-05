@@ -42,14 +42,19 @@ router.post('/', async (req, res) => {
          ON CONFLICT (game_id, user_id) DO NOTHING`,
         [gameId, invId]
       )
-      // Push the invitee. Don't await — fire-and-forget.
+    }
+    // 2026-05-05 — Push to every invitee. Fire-and-forget was killed
+    // by Vercel lambda freeze after res.json. Promise.all so the loop
+    // total time is max(individual), not sum — important when inviting
+    // multiple friends at once.
+    await Promise.all(invitee_ids.map(invId =>
       sendPushToUser(invId, {
         title: 'Match invite',
         body: `${req.user.name || 'Someone'} invited you to play${course_name ? ` at ${course_name}` : ''}`,
         url: '/?notifs=open',
         tag: `game-invite-${gameId}`,
-      }).catch(err => console.error('[push] game-invite', err.message))
-    }
+      }).catch(err => console.error('[push] game-invite', invId, err.message))
+    ))
 
     res.json({ id: gameId })
   } catch (err) {

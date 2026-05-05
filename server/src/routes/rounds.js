@@ -55,9 +55,14 @@ router.post('/', async (req, res) => {
      gameType ?? 'stroke', JSON.stringify(scores ?? []), JSON.stringify(shots ?? []), total]
   )
 
-  // Fire-and-forget: recompute and persist handicap. Don't block the
-  // response on it — failures are logged in the helper.
-  maybeUpdateUserHandicap(req.user.id)
+  // 2026-05-05 — AWAITED. Was fire-and-forget which silently failed
+  // on Vercel (lambda freezes after res.json, killing the in-flight
+  // SELECT/UPDATE in the handicap helper). User's handicap index
+  // wouldn't update after a solo round. ~100-300ms latency cost on
+  // round save; worth it for stats accuracy.
+  await maybeUpdateUserHandicap(req.user.id).catch(err => {
+    console.warn('[rounds] handicap recompute failed', err.message)
+  })
 
   res.status(201).json({ id: row.id })
 })

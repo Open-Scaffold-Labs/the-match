@@ -157,12 +157,17 @@ router.post('/tee-request', async (req, res) => {
       try { return new Date(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) }
       catch { return date }
     })()
-    sendPushToUser(to_user_id, {
-      title: 'Tee time request',
-      body: `${req.user.name || 'Someone'} wants to play${course_name ? ` at ${course_name}` : ''} · ${dateLabel}`,
-      url: '/?notifs=open',
-      tag: 'tee-request',
-    }).catch(err => console.error('[push] tee-request', err.message))
+    // 2026-05-05 — AWAITED. Vercel kills the lambda after res.status().
+    // Mirror the pattern in friends.js (see commit comment there). ~150ms
+    // latency cost for reliable APN/FCM delivery.
+    try {
+      await sendPushToUser(to_user_id, {
+        title: 'Tee time request',
+        body: `${req.user.name || 'Someone'} wants to play${course_name ? ` at ${course_name}` : ''} · ${dateLabel}`,
+        url: '/?notifs=open',
+        tag: 'tee-request',
+      })
+    } catch (err) { console.error('[push] tee-request', err.message) }
 
     res.status(201).json({ ok: true })
   } catch (err) {

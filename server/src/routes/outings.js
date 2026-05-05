@@ -864,8 +864,13 @@ router.put('/:code/scores', async (req, res) => {
 
   // Audit — only when the value actually changed (don't log no-ops
   // from network retries or repeated taps on the same number).
+  // 2026-05-05 — AWAITED. Fire-and-forget caused tm_score_audit to be
+  // empty for every user lifetime (Vercel freezes the lambda after
+  // res.json, killing the in-flight INSERT before it completes). Same
+  // pattern Matt's friends.js fix from 2026-05-02 corrected for push
+  // notifications. ~50ms latency cost; worth it for working audit.
   if (Number(oldScore || 0) !== Number(score)) {
-    writeScoreAudit({
+    await writeScoreAudit({
       outing_id: outing.id, user_id: req.user.id, hole,
       old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
     })
@@ -973,7 +978,7 @@ router.put('/:code/scores/host', async (req, res) => {
       state.participants[pi].holes_played = holesPlayed
       await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
       if (Number(oldScore || 0) !== Number(score)) {
-        writeScoreAudit({
+        await writeScoreAudit({
           outing_id: outing.id, user_id, hole,
           old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
         })
@@ -1038,7 +1043,7 @@ router.put('/:code/scores/host', async (req, res) => {
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
 
     if (Number(oldScore || 0) !== Number(score)) {
-      writeScoreAudit({
+      await writeScoreAudit({
         outing_id: outing.id, user_id, hole,
         old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
       })
@@ -1373,19 +1378,24 @@ router.post('/:code/announcement', async (req, res) => {
 
     // Push fan-out to every non-host participant. Best-effort — we
     // don't fail the request if push fails for any individual sub.
+    // 2026-05-05 — AWAITED via Promise.all. Fire-and-forget was killed
+    // by Vercel lambda freeze; every commissioner announcement push
+    // silently dropped. Promise.all keeps total time = max(individual).
     try {
       const { sendPushToUser } = require('../lib/push')
-      for (const p of (state.participants || [])) {
-        if (p.is_guest) continue
-        if (String(p.user_id) === String(req.user.id)) continue
-        if (p.withdrawn) continue
+      const targets = (state.participants || []).filter(p =>
+        !p.is_guest &&
+        String(p.user_id) !== String(req.user.id) &&
+        !p.withdrawn
+      )
+      await Promise.all(targets.map(p =>
         sendPushToUser(p.user_id, {
           title: `${outing.name} · Commissioner`,
           body: announcement.text.slice(0, 180),
           url: `/?match=${outing.code}`,
           tag: `announcement-${outing.code}`,
-        })
-      }
+        }).catch(err => console.error('[push] outing-announcement', p.user_id, err.message))
+      ))
     } catch (err) {
       console.error('[outings/announcement] push fan-out failed', err.message)
     }
@@ -1420,22 +1430,25 @@ router.post('/:code/cancel', async (req, res) => {
 
     await db.query("UPDATE tm_outings SET status='cancelled' WHERE id=$1", [outing.id])
 
-    // Push fan-out
+    // 2026-05-05 — AWAITED via Promise.all. Fire-and-forget was killed
+    // by Vercel lambda freeze; every cancellation push silently dropped.
     try {
       const { sendPushToUser } = require('../lib/push')
       const reasonLine = (typeof reason === 'string' && reason.trim()) ? ` — ${reason.trim()}` : ''
       const state = outing.state || {}
-      for (const p of (state.participants || [])) {
-        if (p.is_guest) continue
-        if (String(p.user_id) === String(req.user.id)) continue
-        if (p.withdrawn) continue
+      const targets = (state.participants || []).filter(p =>
+        !p.is_guest &&
+        String(p.user_id) !== String(req.user.id) &&
+        !p.withdrawn
+      )
+      await Promise.all(targets.map(p =>
         sendPushToUser(p.user_id, {
           title: `${outing.name} cancelled`,
           body: `The commissioner cancelled this match${reasonLine}.`,
           url: `/?match=${outing.code}`,
           tag: `cancel-${outing.code}`,
-        })
-      }
+        }).catch(err => console.error('[push] outing-cancel', p.user_id, err.message))
+      ))
     } catch (err) {
       console.error('[outings/cancel] push fan-out failed', err.message)
     }
@@ -1769,8 +1782,15 @@ router.post('/:code/end', async (req, res) => {
             total,
           ]
         )
-        // Fire-and-forget per-user handicap recompute. Errors logged in helper.
-        maybeUpdateUserHandicap(p.user_id)
+        // 2026-05-05 — AWAITED. Was fire-and-forget which Vercel killed
+        // after res.json sent. Each participant's handicap silently
+        // didn't update after a match ended. Loop awaits sequentially
+        // (small N, typically 2-4 players); for large outings (group
+        // play, 20+ players) consider Promise.all if latency becomes
+        // a problem.
+        await maybeUpdateUserHandicap(p.user_id).catch(err => {
+          console.warn('[outings/end] handicap recompute failed for user', p.user_id, err.message)
+        })
       }
     } catch (e) {
       console.error('[outings/end] round-emit failed:', e.message)

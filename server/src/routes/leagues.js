@@ -517,14 +517,19 @@ router.post('/:id/announcement', requireElite, async (req, res) => {
          WHERE league_id = $1 AND removed_at IS NULL AND user_id <> $2`,
         [league.id, req.user.id]
       )
-      for (const m of (members || [])) {
+      // 2026-05-05 — AWAITED via Promise.all. Fire-and-forget was
+      // killed by Vercel lambda freeze after res.json — every league
+      // announcement push silently dropped. Promise.all so the loop
+      // total = max(individual), not sum — critical when fanning out
+      // to many league members.
+      await Promise.all((members || []).map(m =>
         sendPushToUser(m.user_id, {
           title: `${league.name} · Commissioner`,
           body: announcement.text.slice(0, 180),
           url: `/?league=${league.id}`,
           tag: `league-announcement-${league.id}`,
-        })
-      }
+        }).catch(err => console.error('[push] league-announcement', m.user_id, err.message))
+      ))
     } catch (err) {
       console.error('[leagues/announcement] push fan-out failed', err.message)
     }
