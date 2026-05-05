@@ -332,21 +332,6 @@ router.post('/', async (req, res) => {
   const legalNoShow = ['dns', 'max_plus_2', 'manual']
   const noShowVal = legalNoShow.includes(noShowPolicy) ? noShowPolicy : 'dns'
 
-  const state  = {
-    holes,
-    participants: [],
-    handicap_allowance: allowanceVal,
-    no_show_policy: noShowVal,
-    // Round 24 audit fix — when this event is created under a
-    // league, copy the league's season tag onto state.season so the
-    // public board renders 'SEASON · 2026' under the title without
-    // the host having to re-enter it per event.
-    ...(leagueSeason ? { season: String(leagueSeason).slice(0, 64) } : {}),
-    ...(stablefordPointMap ? { stableford_points: stablefordPointMap } : {}),
-    ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
-    ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
-  }
-
   // 2026-05-02 — Validate league attachment. Only the league
   // commissioner OR an active member can create an event under a
   // league. Anything else nulls out so a malicious client can't
@@ -355,6 +340,11 @@ router.post('/', async (req, res) => {
   // event's state.season so spectators on the public board see the
   // season context without the host having to set the per-event tag
   // separately.
+  // 2026-05-04 hotfix — this block must run BEFORE `const state = {...}`
+  // because state references `leagueSeason`. With `let`, reading it
+  // before its initialization throws ReferenceError (temporal dead
+  // zone) and crashes 100% of POST /api/outings — not just
+  // league-attached creates. Hoisted to fix.
   let validLeagueId = null
   let leagueSeason = null
   if (leagueId != null) {
@@ -380,6 +370,21 @@ router.post('/', async (req, res) => {
     } catch (err) {
       console.warn('[outings/create] league validation failed', err.message)
     }
+  }
+
+  const state  = {
+    holes,
+    participants: [],
+    handicap_allowance: allowanceVal,
+    no_show_policy: noShowVal,
+    // Round 24 audit fix — when this event is created under a
+    // league, copy the league's season tag onto state.season so the
+    // public board renders 'SEASON · 2026' under the title without
+    // the host having to re-enter it per event.
+    ...(leagueSeason ? { season: String(leagueSeason).slice(0, 64) } : {}),
+    ...(stablefordPointMap ? { stableford_points: stablefordPointMap } : {}),
+    ...(groupsSkeleton.length > 0 ? { groups: groupsSkeleton } : {}),
+    ...(teamBreakdownVal ? { team_breakdown: teamBreakdownVal } : {}),
   }
 
   const row = await db.one(
