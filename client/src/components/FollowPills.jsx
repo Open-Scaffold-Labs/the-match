@@ -1,10 +1,13 @@
 // FollowPills — two live-count pills (Following / Followers) shown in
-// the Profile view header and on the Home dashboard's ProfileHeroCard.
-// Tapping a pill opens the FollowList overlay for that bucket. Counts
-// come from /api/follows/counts and are passed in by the parent (so
-// multiple consumers share one fetch). Mutuals were removed
-// 2026-05-02 — Matt: "no reason for it." Mutual-status is still
-// rendered inline on the Followers list as a "Mutual ✓" badge per row.
+// the Profile view header, Home dashboard's ProfileHeroCard, and on a
+// friend's profile (with userId targeting). Tapping a pill opens the
+// FollowList overlay for that bucket. Counts come from
+// /api/follows/counts and are passed in by the parent (so multiple
+// consumers share one fetch).
+//
+// Mutuals were removed 2026-05-02 — Matt: "no reason for it" — and
+// the per-row 'Mutual ✓' badge was retired 2026-05-05 (replaced with
+// a plain 'Following' indicator inside FollowList).
 //
 // `size` controls scale:
 //   'sm' — used inline on the Home dashboard (compact)

@@ -1,17 +1,22 @@
 // FollowList — bottom-sheet overlay showing a list of users in one of
 // the two follow categories: 'following' or 'followers'.
 //
-// Each row shows avatar + name + handicap (when set) + a per-row action:
-//   following  → 'Unfollow' button (instantly drops the row + bumps counts)
-//   followers  → 'Follow back' button if not already following them, else
-//                'Mutual ✓' badge (read-only)
+// Per-row action rules (2026-05-05 simplification):
+//   - 'You'        → row is the viewer (server's is_self flag). No action.
+//   - 'Unfollow'   → ONLY on the viewer's own Following list.
+//   - 'Following'  → viewer already follows that user.
+//   - 'Pending'    → viewer has an outstanding follow request to that user.
+//   - 'Follow'     → otherwise.
+//
+// Earlier the followers branch had a 'Mutual ✓' badge for users I
+// already followed back. Matt's call (2026-05-05): "we got rid of
+// mutual it made no sense" — replaced with a plain 'Following'
+// indicator. The earlier 'Follow back' label was also collapsed into
+// just 'Follow' so the same affordance reads the same way wherever
+// it appears.
 //
 // Counts in the parent surface (Profile / Home pills) re-fetch via
 // onCountsChange after any mutation so the headers stay live.
-//
-// Mutuals removed as a top-level category 2026-05-02 (Matt: "no reason
-// for it"). Mutual status is still surfaced on followers rows via the
-// inline 'Mutual ✓' badge.
 //
 // (2026-05-01 — follow Phase 1)
 
@@ -101,33 +106,32 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
     }
   }
 
+  // 2026-05-05 — viewing my OWN list vs someone else's list changes
+  // what actions make sense per row. userId prop set => someone else's.
+  const isOwnList = !userId
+
   function renderAction(u) {
     const busy = busyIds.has(u.id)
-    // 2026-05-05 — when the row IS the viewer (you appear in someone
-    // else's followers/following list because you follow them or they
-    // follow you), every action is nonsensical: you can't unfollow
-    // yourself, you can't follow back yourself. Server flags is_self;
-    // we render a quiet "You" badge instead of any button.
+    // The row IS the viewer — no action makes sense.
     if (u.is_self) return <SelfBadge />
-    if (type === 'following') {
+
+    // The only place Unfollow makes sense is MY OWN Following list.
+    // On someone else's lists (or even on my own Followers list), the
+    // primary affordance is just Follow / Following / Pending — judged
+    // against my relationship to that user, regardless of whose list
+    // we're standing in.
+    if (isOwnList && type === 'following') {
       return (
         <button onClick={() => handleUnfollow(u.id)} disabled={busy} style={ghostBtn}>
           {busy ? '…' : 'Unfollow'}
         </button>
       )
     }
-    // followers
-    if (u.is_following) {
-      // I follow them and they follow me — mutual
-      return <MutualBadge />
-    }
-    if (u.has_pending_request) {
-      // I've already sent a follow-back request, waiting for them to accept
-      return <PendingBadge />
-    }
+    if (u.is_following) return <FollowingBadge />
+    if (u.has_pending_request) return <PendingBadge />
     return (
       <button onClick={() => handleFollow(u.id)} disabled={busy} style={primaryBtn}>
-        {busy ? '…' : 'Follow back'}
+        {busy ? '…' : 'Follow'}
       </button>
     )
   }
@@ -257,13 +261,16 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
   )
 }
 
-function MutualBadge() {
+// 2026-05-05 — replaces MutualBadge. Mutual was a confusing concept
+// (Matt: "we got rid of mutual it made no sense") — we just say
+// "Following" when the viewer already follows that user.
+function FollowingBadge() {
   return (
     <span style={{
       fontSize: 11, fontWeight: 700, color: '#1B5E3B',
       background: 'rgba(42,122,56,0.10)', border: '1px solid rgba(42,122,56,0.22)',
       borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
-    }}>Mutual ✓</span>
+    }}>Following</span>
   )
 }
 
