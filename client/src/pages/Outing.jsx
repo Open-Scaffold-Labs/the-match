@@ -250,7 +250,12 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
+      {/* 2026-05-04 — header padding-top accounts for the iOS notch /
+          Android status bar via --safe-top. Without it, the "Matches"
+          title sits ~20px from viewport top and on a notched phone is
+          mostly hidden behind the dynamic island / status area. Mirrors
+          the same pattern used in Leagues.jsx and EagleEye.jsx. */}
+      <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', flexShrink: 0 }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
           background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
