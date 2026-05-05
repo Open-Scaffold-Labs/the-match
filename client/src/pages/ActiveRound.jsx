@@ -330,6 +330,14 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 }
 
 // ─── Main ActiveRound Component ───────────────────────────────────────────────
+// 2026-05-05 — localStorage key for resuming an in-progress solo round
+// after a page reload (network drop, accidental refresh, pull-to-refresh,
+// background-tab eviction). The bug this fixes was discovered when a
+// real user (Sean) lost an in-progress round to a reload. Before this,
+// all round state lived in React only and was wiped on any page reload.
+// Scoped per-user so two accounts on the same device don't collide.
+const SOLO_ROUND_STORAGE_KEY = uid => `tm-active-round-v1-${uid || 'anon'}`
+
 export default function ActiveRound({ user, onBack }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'
   const [config, setConfig] = useState(null)  // { courseName, pars[] }
@@ -339,6 +347,44 @@ export default function ActiveRound({ user, onBack }) {
   const [gps, setGps]       = useState(null)
   const [saving, setSaving] = useState(false)
   const watchRef = useRef(null)
+  const restoredRef = useRef(false)
+  const STORAGE_KEY = SOLO_ROUND_STORAGE_KEY(user?.id)
+
+  // 2026-05-05 — restore in-progress round from localStorage on mount.
+  // Only restores 'scoring' phase — setup/summary are short-lived and
+  // don't need resume semantics. Wraps in try/catch because corrupted
+  // JSON or a disabled storage backend should never crash the screen.
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      if (saved && saved.phase === 'scoring' && saved.config && Array.isArray(saved.config.pars)) {
+        setPhase('scoring')
+        setConfig(saved.config)
+        setHole(Number.isFinite(saved.hole) ? saved.hole : 0)
+        setScores(Array.isArray(saved.scores) ? saved.scores : new Array(saved.config.pars.length).fill(0))
+        setShots(Array.isArray(saved.shots) ? saved.shots : new Array(saved.config.pars.length).fill(null).map(() => []))
+      }
+    } catch { /* corrupt or disabled — ignore, user starts fresh */ }
+  }, [STORAGE_KEY])
+
+  // Persist on every meaningful state change while scoring. Setup and
+  // summary phases don't need autosave — only mid-round resume matters.
+  useEffect(() => {
+    if (phase !== 'scoring' || !config) return
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        phase, config, hole, scores, shots,
+      }))
+    } catch { /* quota / disabled — best-effort, don't crash */ }
+  }, [STORAGE_KEY, phase, config, hole, scores, shots])
+
+  function clearSavedRound() {
+    try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+  }
 
   // GPS watch
   useEffect(() => {
@@ -388,6 +434,9 @@ export default function ActiveRound({ user, onBack }) {
         scores:       scores,
         shots:        shots,
       })
+      // Round persisted to server — clear the localStorage backup so a
+      // fresh navigation back to Solo Round starts with a clean slate.
+      clearSavedRound()
       // Reset and return to hub if launched from Outing tab
       setPhase('setup')
       setConfig(null)
@@ -397,36 +446,61 @@ export default function ActiveRound({ user, onBack }) {
       onBack?.()
     } catch (e) {
       console.error(e)
+      // Don't clearSavedRound on error — the user's data is still in
+      // localStorage so they can retry the save without re-entering.
     } finally {
       setSaving(false)
     }
   }
 
-  if (phase === 'setup') return <SetupSheet onStart={handleStart} onBack={onBack} />
+  // 2026-05-05 — wrap everything Solo-Round renders in a div with
+  // data-no-pull-refresh="true". The TabPanel's pull-to-refresh handler
+  // checks for this attribute via closest() on the touch target and
+  // bails before arming the gesture, so a downward finger drift while
+  // entering scores won't trigger a page reload (which would otherwise
+  // wipe in-progress state — even though we now restore from
+  // localStorage, the reload itself is jarring and unnecessary here).
+  function NoPullWrap({ children }) {
+    return (
+      <div data-no-pull-refresh="true" style={{ height: '100%' }}>
+        {children}
+      </div>
+    )
+  }
+
+  if (phase === 'setup') return (
+    <NoPullWrap>
+      <SetupSheet onStart={handleStart} onBack={onBack} />
+    </NoPullWrap>
+  )
 
   if (phase === 'summary') return (
-    <ScorecardSummary
-      pars={config.pars}
-      scores={scores}
-      courseName={config.courseName}
-      onSave={saveRound}
-      saving={saving}
-    />
+    <NoPullWrap>
+      <ScorecardSummary
+        pars={config.pars}
+        scores={scores}
+        courseName={config.courseName}
+        onSave={saveRound}
+        saving={saving}
+      />
+    </NoPullWrap>
   )
 
   return (
-    <HoleScorer
-      hole={hole + 1}
-      par={config.pars[hole]}
-      strokes={scores[hole]}
-      shots={shots[hole] || []}
-      gps={gps}
-      holeCount={config.pars.length}
-      isLast={hole === config.pars.length - 1}
-      onScore={val => setScore(hole, val)}
-      onAddShot={shot => addShot(hole, shot)}
-      onNext={nextHole}
-      onPrev={() => setHole(h => Math.max(0, h - 1))}
-    />
+    <NoPullWrap>
+      <HoleScorer
+        hole={hole + 1}
+        par={config.pars[hole]}
+        strokes={scores[hole]}
+        shots={shots[hole] || []}
+        gps={gps}
+        holeCount={config.pars.length}
+        isLast={hole === config.pars.length - 1}
+        onScore={val => setScore(hole, val)}
+        onAddShot={shot => addShot(hole, shot)}
+        onNext={nextHole}
+        onPrev={() => setHole(h => Math.max(0, h - 1))}
+      />
+    </NoPullWrap>
   )
 }

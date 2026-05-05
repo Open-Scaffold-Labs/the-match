@@ -302,6 +302,16 @@ function TabPanel({ active, children }) {
       startY.current = null
       return
     }
+    // 2026-05-05 hotfix — opt-out for screens where a page reload
+    // would actively destroy user work. Solo Round (ActiveRound.jsx)
+    // wraps its render in <div data-no-pull-refresh="true">; same can
+    // be added to any other no-reload-zone (mid-scoring scorecards,
+    // etc.). closest() walks up the DOM tree from the touch target so
+    // any descendant of the no-pull region disarms the gesture.
+    if (e.target?.closest && e.target.closest('[data-no-pull-refresh="true"]')) {
+      startY.current = null
+      return
+    }
     startY.current = e.touches[0].clientY
   }
 
@@ -312,6 +322,11 @@ function TabPanel({ active, children }) {
     // portal (or vice versa), we don't want to mis-track it.
     const el = containerRef.current
     if (!el || !el.contains(e.target)) {
+      setPullDistance(0)
+      return
+    }
+    // Same no-pull-refresh opt-out check as onTouchStart.
+    if (e.target?.closest && e.target.closest('[data-no-pull-refresh="true"]')) {
       setPullDistance(0)
       return
     }
