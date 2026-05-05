@@ -15,7 +15,7 @@
 import { useState } from 'react'
 import FollowList from './FollowList.jsx'
 
-export default function FollowPills({ counts, size = 'lg', theme = 'light', onCountsChange }) {
+export default function FollowPills({ counts, size = 'lg', theme = 'light', onCountsChange, userId = null }) {
   // Which list overlay is open (if any). null = closed.
   const [openType, setOpenType] = useState(null)
 
@@ -95,9 +95,12 @@ export default function FollowPills({ counts, size = 'lg', theme = 'light', onCo
       {openType && (
         <FollowList
           type={openType}
+          userId={userId}
           onClose={() => setOpenType(null)}
           // Bubble count changes back up so headers stay live when the
-          // user follows / unfollows from inside the list.
+          // user follows / unfollows from inside the list. Only relevant
+          // when viewing your own list (the parent's counts aren't your
+          // counts when userId is set), so the parent decides what to do.
           onCountsChange={onCountsChange}
         />
       )}

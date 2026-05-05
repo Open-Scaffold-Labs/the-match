@@ -95,7 +95,20 @@ router.get('/counts', async (req, res) => {
 // follow / unfollow / following-back affordance per row.
 router.get('/list', async (req, res) => {
   try {
-    const me   = req.user.id
+    // 2026-05-04 — add ?userId to view ANOTHER user's list (e.g. tapping
+    // Followers on a friend's profile). When omitted, defaults to the
+    // authed user's own list (existing behavior, no breakage).
+    //
+    // Two distinct user_ids are now in play:
+    //   subject = whose list is being viewed (defaults to me)
+    //   me      = the viewer; the relationship flags (is_following,
+    //             is_followed_by, has_pending_request) are always from
+    //             the VIEWER's perspective so the buttons render right.
+    const me      = req.user.id
+    const subject = req.query.userId ? parseInt(req.query.userId, 10) : me
+    if (req.query.userId && !Number.isFinite(subject)) {
+      return res.status(400).json({ error: 'Bad userId' })
+    }
     const type = req.query.type || 'following'
     if (!['following', 'followers'].includes(type)) {
       return res.status(400).json({ error: 'type must be following or followers' })
@@ -103,27 +116,29 @@ router.get('/list', async (req, res) => {
 
     let sql
     if (type === 'following') {
-      // Users I follow
+      // Users that 'subject' follows. is_following / is_followed_by are
+      // computed from the VIEWER's POV (me), not subject's, so the per-row
+      // affordance (Mutual badge / Follow back / Pending) renders right
+      // when viewing someone else's list.
       sql = `
         SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
-               TRUE AS is_following,
-               EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = u.id AND b.following_id = $1) AS is_followed_by
+               EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $2 AND b.following_id = u.id) AS is_following,
+               EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = u.id AND b.following_id = $2) AS is_followed_by
         FROM tm_follows f
         JOIN tm_users u ON u.id = f.following_id
         WHERE f.follower_id = $1
         ORDER BY u.name`
     } else {
-      // followers — Users following me. has_pending_request = I've
-      // already sent them a follow-back request that's pending their
-      // acceptance. Drives the "Pending" chip on the followers list.
-      // (2026-05-02)
+      // followers — Users following 'subject'. has_pending_request is
+      // viewer-vs-u (the "Pending" chip is about whether *I* have a
+      // pending follow-back to that user, regardless of whose list this is).
       sql = `
         SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
-               EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $1 AND b.following_id = u.id) AS is_following,
-               TRUE AS is_followed_by,
+               EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $2 AND b.following_id = u.id) AS is_following,
+               EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = u.id AND b.following_id = $2) AS is_followed_by,
                EXISTS(
                  SELECT 1 FROM tm_friends fr
-                 WHERE fr.requester_id = $1 AND fr.requestee_id = u.id AND fr.status = 'pending'
+                 WHERE fr.requester_id = $2 AND fr.requestee_id = u.id AND fr.status = 'pending'
                ) AS has_pending_request
         FROM tm_follows f
         JOIN tm_users u ON u.id = f.follower_id
@@ -131,7 +146,7 @@ router.get('/list', async (req, res) => {
         ORDER BY u.name`
     }
 
-    const rows = await db.many(sql, [me])
+    const rows = await db.many(sql, [subject, me])
     res.json({ users: rows })
   } catch (e) {
     console.error('[follows.list]', e)

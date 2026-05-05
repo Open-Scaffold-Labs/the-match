@@ -30,7 +30,7 @@ const EMPTY_COPY = {
   followers: "Nobody's followed you yet. Share your profile to start building a following.",
 }
 
-export default function FollowList({ type, onClose, onCountsChange }) {
+export default function FollowList({ type, userId = null, onClose, onCountsChange }) {
   const [users, setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
   const [busyIds, setBusyIds] = useState(() => new Set())
@@ -40,10 +40,16 @@ export default function FollowList({ type, onClose, onCountsChange }) {
   // launched it. Modal stacking via separate document.body portals.
   const [selectedFriend, setSelectedFriend] = useState(null)
 
+  // 2026-05-04 — when `userId` is provided, fetch THAT user's list (e.g.
+  // tapping Followers on a friend's profile). When omitted, defaults to
+  // the viewer's own list (existing behavior).
   async function loadList() {
     setLoading(true)
     try {
-      const res = await api(`/api/follows/list?type=${type}`)
+      const url = userId
+        ? `/api/follows/list?type=${type}&userId=${encodeURIComponent(userId)}`
+        : `/api/follows/list?type=${type}`
+      const res = await api(url)
       setUsers(res?.users ?? [])
     } catch (e) {
       console.error('[FollowList.load]', e)
@@ -52,7 +58,7 @@ export default function FollowList({ type, onClose, onCountsChange }) {
     setLoading(false)
   }
 
-  useEffect(() => { loadList() }, [type])
+  useEffect(() => { loadList() }, [type, userId])
 
   async function handleFollow(userId) {
     if (busyIds.has(userId)) return
