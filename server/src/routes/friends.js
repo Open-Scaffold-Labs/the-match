@@ -316,16 +316,37 @@ router.get('/search', async (req, res) => {
 
     // Handles are already stored lowercase per the CHECK constraint,
     // so the lowercased LIKE term works directly against u.handle.
+    //
+    // 2026-05-04 hotfix — the LEFT JOIN against tm_friends with the
+    // OR-on-both-directions condition multiplied result rows: a user
+    // with both an (A→B) row and a (B→A) row (legitimate per Matt's
+    // asymmetric friend model) showed up TWICE in search; add a
+    // declined-then-re-requested cycle and you'd see them THREE times.
+    // Wrap in DISTINCT ON (u.id) and prefer the richest friend_status
+    // (accepted > pending > declined > no-row) so each user appears
+    // exactly once with their best link. Outer query restores the
+    // alphabetical name sort and LIMIT 10.
     const results = await db.many(
-      `SELECT u.id, u.name, u.email, u.handle, u.handicap, u.home_course,
-              f.status AS friend_status
-       FROM tm_users u
-       LEFT JOIN tm_friends f
-         ON (f.requester_id = u.id AND f.requestee_id = $1)
-         OR (f.requestee_id = u.id AND f.requester_id = $1)
-       WHERE u.id != $1
-         AND (LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2 OR u.handle LIKE $2)
-       ORDER BY u.name
+      `SELECT * FROM (
+         SELECT DISTINCT ON (u.id)
+                u.id, u.name, u.email, u.handle, u.handicap, u.home_course,
+                f.status AS friend_status
+         FROM tm_users u
+         LEFT JOIN tm_friends f
+           ON (f.requester_id = u.id AND f.requestee_id = $1)
+           OR (f.requestee_id = u.id AND f.requester_id = $1)
+         WHERE u.id != $1
+           AND (LOWER(u.name) LIKE $2 OR LOWER(u.email) LIKE $2 OR u.handle LIKE $2)
+         ORDER BY u.id,
+                  CASE f.status
+                    WHEN 'accepted' THEN 0
+                    WHEN 'pending'  THEN 1
+                    WHEN 'declined' THEN 2
+                    ELSE 3
+                  END,
+                  f.updated_at DESC NULLS LAST
+       ) deduped
+       ORDER BY name
        LIMIT 10`,
       [uid, term]
     )
