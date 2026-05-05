@@ -721,19 +721,33 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
               {/* Friend's own follow counts + Season W-L-T-AVG3 —
                   friendship-gated. Hidden together in limited preview;
                   fragment wrapper keeps the conditional valid JSX.
-                  2026-05-04 — Replaced two non-tappable display tiles
-                  with FollowPills (userId-targeted). Tapping now opens
-                  the friend's followers/following list, where each
-                  row's per-row affordance still shows the VIEWER's
-                  relationship (Mutual ✓ / Follow back / Pending). */}
+
+                  2026-05-05 — REVERTED to non-tappable display tiles.
+                  The FollowPills version (commit 2462ff3) caused
+                  "tap kicks me back to home screen" behavior in prod
+                  that I haven't been able to reproduce or root-cause
+                  yet. Reverting to the original display-only tiles so
+                  the page is stable. Re-wire to a real list once the
+                  underlying portal/touch issue is understood. */}
               {!isLimited && (<>
-              <div style={{ marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                <FollowPills
-                  counts={data?.followCounts}
-                  userId={friend?.id}
-                  size="lg"
-                  theme="dark"
-                />
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8,
+                marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)',
+              }}>
+                {[
+                  { key: 'following', label: 'Following', value: data?.followCounts?.following ?? 0 },
+                  { key: 'followers', label: 'Followers', value: data?.followCounts?.followers ?? 0 },
+                ].map(p => (
+                  <div key={p.key} style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    borderRadius: 12, padding: '10px 8px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  }}>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em' }}>{p.value}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase' }}>{p.label}</div>
+                  </div>
+                ))}
               </div>
 
               {/* Season W-L-T-AVG3 — same friendship gate as follow counts above */}
