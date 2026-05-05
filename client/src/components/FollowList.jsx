@@ -103,6 +103,12 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
 
   function renderAction(u) {
     const busy = busyIds.has(u.id)
+    // 2026-05-05 — when the row IS the viewer (you appear in someone
+    // else's followers/following list because you follow them or they
+    // follow you), every action is nonsensical: you can't unfollow
+    // yourself, you can't follow back yourself. Server flags is_self;
+    // we render a quiet "You" badge instead of any button.
+    if (u.is_self) return <SelfBadge />
     if (type === 'following') {
       return (
         <button onClick={() => handleUnfollow(u.id)} disabled={busy} style={ghostBtn}>
@@ -258,6 +264,16 @@ function MutualBadge() {
       background: 'rgba(42,122,56,0.10)', border: '1px solid rgba(42,122,56,0.22)',
       borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
     }}>Mutual ✓</span>
+  )
+}
+
+function SelfBadge() {
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, color: 'rgba(13,31,18,0.55)',
+      background: 'rgba(13,31,18,0.06)', border: '1px solid rgba(13,31,18,0.10)',
+      borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
+    }}>You</span>
   )
 }
 

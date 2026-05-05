@@ -119,9 +119,12 @@ router.get('/list', async (req, res) => {
       // Users that 'subject' follows. is_following / is_followed_by are
       // computed from the VIEWER's POV (me), not subject's, so the per-row
       // affordance (Mutual badge / Follow back / Pending) renders right
-      // when viewing someone else's list.
+      // when viewing someone else's list. is_self flags the row that IS
+      // the viewer — client renders a "You" badge there instead of any
+      // action button (you can't unfollow yourself, follow yourself, etc).
       sql = `
         SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
+               (u.id = $2) AS is_self,
                EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $2 AND b.following_id = u.id) AS is_following,
                EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = u.id AND b.following_id = $2) AS is_followed_by
         FROM tm_follows f
@@ -132,8 +135,10 @@ router.get('/list', async (req, res) => {
       // followers — Users following 'subject'. has_pending_request is
       // viewer-vs-u (the "Pending" chip is about whether *I* have a
       // pending follow-back to that user, regardless of whose list this is).
+      // is_self: same purpose as in the following branch.
       sql = `
         SELECT u.id, u.name, u.handicap, u.home_course, u.avatar,
+               (u.id = $2) AS is_self,
                EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = $2 AND b.following_id = u.id) AS is_following,
                EXISTS(SELECT 1 FROM tm_follows b WHERE b.follower_id = u.id AND b.following_id = $2) AS is_followed_by,
                EXISTS(
