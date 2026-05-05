@@ -3603,17 +3603,33 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   const [followBackPrompts, setFollowBackPrompts] = useState(() => new Set())
 
   async function handleFriendRespond(id, status) {
-    if (status === 'accepted') {
+    // 2026-05-04 hotfix — when the user accepts a request from someone
+    // they ALREADY follow (mutual handshake completing — they followed
+    // first, the other person sent a request back), the "Follow back?"
+    // prompt would show even though they already follow that person.
+    // Look up the requester in friends.friends (the accepted-friends
+    // list, deduped per friend_id by the server query); if found, skip
+    // the prompt and just refresh.
+    const reqRow = friends?.incoming?.find(r => String(r.id) === String(id))
+    const alreadyFollowing = !!(
+      reqRow && (friends?.friends || []).some(f => String(f.friend_id) === String(reqRow.requester_id))
+    )
+
+    if (status === 'accepted' && !alreadyFollowing) {
       // Keep the row visible with the Follow back? prompt; defer refetch
       // until the user dismisses or follows back.
       setFollowBackPrompts(prev => { const n = new Set(prev); n.add(id); return n })
     }
     try {
       await put(`/api/friends/${id}/respond`, { status })
-      if (status !== 'accepted') {
+      if (status !== 'accepted' || alreadyFollowing) {
+        // Decline path OR already-following accept (mutual completed,
+        // no prompt needed) → refresh the friends payload so the row
+        // disappears from incoming.
         const f = await api('/api/friends')
         setFriends(f)
-      } else {
+      }
+      if (status === 'accepted') {
         // Accept inserts (requester → me) into tm_follows server-side,
         // so the user's Followers count goes up by 1 immediately.
         // Refresh the pills so the hero card reflects it without a
