@@ -117,6 +117,23 @@ export function IconBag({ size = 24, color = 'currentColor', strokeWidth = 1.6 }
   )
 }
 
+// Scorecard icon — clipboard with a score-row grid below the header.
+// Used by the Scorecard bottom-nav tab (was 'Match'). (2026-05-04)
+export function IconScorecard({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      {/* Clip at the top — the visual signal that this is a scorecard. */}
+      <rect x="9" y="2" width="6" height="3" rx="0.8" />
+      {/* Card body — wraps around the clip. */}
+      <path d="M9 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3" />
+      {/* Three horizontal score rows — read as a hole/par/score grid. */}
+      <line x1="8" y1="10" x2="16" y2="10" />
+      <line x1="8" y1="14" x2="16" y2="14" />
+      <line x1="8" y1="18" x2="16" y2="18" />
+    </svg>
+  )
+}
+
 // League icon — trophy on a pedestal with two flag stems flanking it.
 // Used by the Leagues bottom-nav tab. (2026-05-02)
 export function IconLeague({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {

@@ -1,16 +1,22 @@
 import { TABS } from '../../constants.js'
-import { IconHome, IconTrophy, IconTarget, IconLeague, IconTour } from '../primitives/Icons.jsx'
+import { IconHome, IconTrophy, IconTarget, IconScorecard, IconTour } from '../primitives/Icons.jsx'
 
 // 2026-05-02 — BAG slot replaced with LEAGUES (paid-tier league surface).
 // My Bag content moved to a card on Home. Tour content stays in its slot;
 // when we ship the next nav rev (whitepaper P3 plan), Tour may move to a
 // Home card too and the slot opens for a future surface.
+//
+// 2026-05-04 — OUTING tab renamed 'Match' → 'Scorecard' with a new
+// scorecard-clipboard icon. The trophy icon previously used here moved
+// to the LEAGUES slot (leagues = trophy semantics). IconLeague is no
+// longer imported but still exported from Icons.jsx if anything else
+// imports it.
 const NAV_ITEMS = [
-  { tab: TABS.HOME,    Icon: IconHome,      label: 'Home'      },
-  { tab: TABS.OUTING,  Icon: IconTrophy,    label: 'Match'     },
-  { tab: TABS.EYE,     Icon: IconTarget,    label: 'Eagle Eye', center: true },
-  { tab: TABS.LEAGUES, Icon: IconLeague,    label: 'Leagues'   },
-  { tab: TABS.TOUR,    Icon: IconTour,      label: 'Tour'      },
+  { tab: TABS.HOME,    Icon: IconHome,       label: 'Home'      },
+  { tab: TABS.OUTING,  Icon: IconScorecard,  label: 'Scorecard' },
+  { tab: TABS.EYE,     Icon: IconTarget,     label: 'Eagle Eye', center: true },
+  { tab: TABS.LEAGUES, Icon: IconTrophy,     label: 'Leagues'   },
+  { tab: TABS.TOUR,    Icon: IconTour,       label: 'Tour'      },
 ]
 
 export default function BottomNav({ active, onChange }) {
