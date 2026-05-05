@@ -466,6 +466,103 @@ router.get('/recent', async (req, res) => {
   })
 })
 
+// ─── GET /api/outings/friends-live ──────────────────────────────────────────
+// Returns active outings where any of my accepted friends is a participant,
+// EXCLUDING outings I'm already in (those show in my own Live Now strip).
+// Powers the "Friends playing now" section on the Match tab.
+//
+// Light payload per row: code, name, course_name, host_name, host_avatar,
+// players_count, current_hole, leader_name, leader_diff, started_at.
+// Tapping a card opens the existing PublicLeaderboard for the full
+// scorecard view.
+//
+// MUST be declared before the '/:code' wildcard at line ~578 — otherwise
+// Express interprets "friends-live" as a 4-char outing code and 404s.
+// (2026-05-04 — Matt: live-scores feed for friends.)
+router.get('/friends-live', async (req, res) => {
+  try {
+    const uid = req.user.id
+    const rows = await db.many(
+      `WITH friend_ids AS (
+         SELECT CASE WHEN requester_id = $1 THEN requestee_id ELSE requester_id END AS uid
+         FROM tm_friends
+         WHERE (requester_id = $1 OR requestee_id = $1) AND status = 'accepted'
+       )
+       SELECT DISTINCT o.id, o.code, o.name, o.course_name, o.course_par,
+              o.hole_pars, o.host_id, o.expected_players, o.state,
+              o.created_at, o.updated_at,
+              host.name AS host_name, host.avatar AS host_avatar,
+              (SELECT COUNT(*) FROM tm_outing_participants WHERE outing_id = o.id) AS players_count
+       FROM tm_outings o
+       JOIN tm_outing_participants op
+         ON op.outing_id = o.id
+        AND op.user_id IN (SELECT uid FROM friend_ids)
+       LEFT JOIN tm_users host ON host.id = o.host_id
+       WHERE o.status = 'active'
+         AND o.id NOT IN (SELECT outing_id FROM tm_outing_participants WHERE user_id = $1)
+       ORDER BY o.updated_at DESC
+       LIMIT 20`,
+      [uid]
+    )
+
+    // Compute current_hole, leader_name, leader_diff from state.participants.
+    // Cheap because state is already in-memory from the JSONB column.
+    const enriched = rows.map(r => {
+      const state = r.state || {}
+      const participants = (state.participants || []).filter(p => !p.withdrawn)
+      const holePars = Array.isArray(r.hole_pars) ? r.hole_pars : []
+      const fallbackPar = Math.round((r.course_par || 72) / 18) || 4
+
+      // Current hole = max holes_played across non-withdrawn participants,
+      // capped at total holes. 0 plays → "starting" state on the client.
+      const currentHole = participants.reduce((max, p) => {
+        const hp = Number.isFinite(p.holes_played) ? p.holes_played : 0
+        return hp > max ? hp : max
+      }, 0)
+
+      // Leader = lowest score-to-par. Score-to-par per player =
+      // total - sum(hole_pars[0..holes_played-1]). If hole_pars is
+      // missing, fall back to course_par/18 per hole.
+      let leaderName = null
+      let leaderDiff = null
+      for (const p of participants) {
+        const hp = Number.isFinite(p.holes_played) ? p.holes_played : 0
+        if (hp === 0) continue
+        const total = Number.isFinite(p.total) ? p.total : 0
+        let parPlayed = 0
+        for (let i = 0; i < hp; i++) {
+          parPlayed += Number.isFinite(holePars[i]) ? holePars[i] : fallbackPar
+        }
+        const diff = total - parPlayed
+        if (leaderDiff === null || diff < leaderDiff) {
+          leaderDiff = diff
+          leaderName = p.name || 'Player'
+        }
+      }
+
+      return {
+        code:           r.code,
+        name:           r.name,
+        course_name:    r.course_name,
+        host_name:      r.host_name,
+        host_avatar:    r.host_avatar,
+        players_count:  parseInt(r.players_count) || 0,
+        current_hole:   currentHole,
+        total_holes:    state.holes ?? 18,
+        leader_name:    leaderName,
+        leader_diff:    leaderDiff,         // null if nobody has scored yet
+        started_at:     r.created_at,
+        updated_at:     r.updated_at,
+      }
+    })
+
+    res.json({ outings: enriched })
+  } catch (err) {
+    console.error('[outings/friends-live]', err.message)
+    res.status(500).json({ error: 'Failed to load friends live' })
+  }
+})
+
 // DELETE /api/outings/:code — only the host can delete, and only while
 // the match is still active (you can't delete a finished match —
 // rivalry stats already point at it). Cascades through participants

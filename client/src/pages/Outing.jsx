@@ -9,6 +9,7 @@ import { warn } from '../lib/logger.js'
 // takes a score-to-par integer (e.g. -2, 0, +1) and returns gold/green/red.
 import { scoreColor as scoreToParColor } from '../lib/scoreColors.js'
 import ActiveRound from './ActiveRound.jsx'
+import PublicLeaderboard from './PublicLeaderboard.jsx'
 // Standalone AugustaBoard route was removed 2026-04-30 (Path A) — every
 // match now renders the Augusta scorecard directly via LiveOuting.
 
@@ -162,22 +163,64 @@ async function copyCode(code) {
 //   3. Secondary icons  (Solo Round + Leaderboard, demoted to thin row)
 //   4. Rivalries        (with search bar at ≥5; 1-line nudge when empty)
 //   5. Recent Matches   (only finished matches — LIVE ones promoted to strip)
-function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound }) {
+function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound, onSpectate }) {
   const [rivalries, setRivalries] = useState([])
   const [recentOutings, setRecentOutings] = useState([])
   const [loading, setLoading] = useState(true)
   const [rivalrySearch, setRivalrySearch] = useState('')
   const [copiedCode, setCopiedCode] = useState(null)
+  // 2026-05-04 — Friends playing now: light-payload feed of friends'
+  // active matches. Polled every 30s, visibility-aware (pauses when tab
+  // is hidden, refetches immediately on focus). Tap a card → onSpectate.
+  const [friendsLive, setFriendsLive] = useState([])
 
   useEffect(() => {
     Promise.all([
       api('/api/outings/my-rivalries').catch(() => ({ rivalries: [] })),
       api('/api/outings/recent').catch(() => ({ outings: [] })),
-    ]).then(([rv, ro]) => {
+      api('/api/outings/friends-live').catch(() => ({ outings: [] })),
+    ]).then(([rv, ro, fl]) => {
       setRivalries(rv.rivalries || [])
       setRecentOutings(ro.outings || [])
+      setFriendsLive(fl.outings || [])
       setLoading(false)
     })
+  }, [])
+
+  // Visibility-aware 30s polling for friends-live. Same cadence pattern
+  // used elsewhere (Today's MyDay card on the Hub). Stops when the tab
+  // is hidden so we don't burn requests for friends scrolling Slack.
+  useEffect(() => {
+    let cancelled = false
+    let interval = null
+    async function refresh() {
+      try {
+        const fl = await api('/api/outings/friends-live')
+        if (!cancelled) setFriendsLive(fl.outings || [])
+      } catch { /* swallow — next tick will retry */ }
+    }
+    function start() {
+      if (interval) return
+      interval = setInterval(refresh, 30000)
+    }
+    function stop() {
+      if (interval) { clearInterval(interval); interval = null }
+    }
+    function onVis() {
+      if (document.visibilityState === 'visible') {
+        refresh()
+        start()
+      } else {
+        stop()
+      }
+    }
+    if (document.visibilityState === 'visible') start()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      cancelled = true
+      stop()
+      document.removeEventListener('visibilitychange', onVis)
+    }
   }, [])
 
   // Split LIVE matches out of Recent — they get promoted to the Live Now strip
@@ -285,6 +328,35 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
           </div>
         )}
 
+        {/* ─── Friends playing now ──────────────────────────────────────
+            2026-05-04 — friends-only (graph), always-show. Tap a card
+            to open the spectator view. Hidden when empty so the section
+            doesn't add dead vertical space on the most common case
+            (no friends in active rounds). */}
+        {friendsLive.length > 0 && (
+          <div>
+            <div style={{
+              fontSize: 12, fontWeight: 800, color: '#1A6B28',
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
+              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              textShadow: '0 1px 1px rgba(255,255,255,0.4)',
+            }}>
+              <span className="tm-live-pulse" style={{
+                width: 8, height: 8, borderRadius: '50%', background: '#2E9E45',
+              }} />
+              Friends playing now
+            </div>
+            {friendsLive.map(o => (
+              <FriendsLiveCard
+                key={o.code}
+                o={o}
+                onTap={() => onSpectate?.(o.code)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* ─── Primary CTAs ──────────────────────────────────────────── */}
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={onCreate}
@@ -334,6 +406,131 @@ function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSolo
             same fetch covers Live Matches above. */}
       </div>
     </div>
+  )
+}
+
+// ─── Spectate View (in-app wrapper around PublicLeaderboard) ──────────────
+// Renders the same spectator board as the public ?live=CODE URL, but
+// inside the Match tab's nav shell with a back chevron. Reused by the
+// Friends-playing-now feed so signed-in users stay in the app instead
+// of being kicked to the public-URL surface.
+// (2026-05-04 — Matt: live-scores feed for friends.)
+function SpectateView({ code, onBack }) {
+  return (
+    <div style={{ position: 'relative', height: '100%' }}>
+      <button
+        onClick={onBack}
+        aria-label="Back"
+        style={{
+          position: 'absolute', top: 12, left: 12, zIndex: 10,
+          width: 36, height: 36, borderRadius: 18,
+          background: 'rgba(255,253,248,0.92)',
+          border: '1px solid rgba(46,158,69,0.30)',
+          boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+          WebkitTapHighlightColor: 'transparent',
+        }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="#1A6B28" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <PublicLeaderboard code={code} />
+    </div>
+  )
+}
+
+// ─── Friends Live Card (read-only spectator entry) ─────────────────────────
+// Compact card for a friend's in-progress match. Light payload from
+// /api/outings/friends-live. Tapping opens the full spectator view.
+// Visual treatment is similar to LiveMatchCard but without the swipe/copy
+// affordances — you can't act on a friend's match, only watch.
+// (2026-05-04 — Matt: live-scores feed for friends.)
+function FriendsLiveCard({ o, onTap }) {
+  // Format leader-diff as the standard golf shorthand. null = nobody has
+  // entered a score yet ("Starting" state).
+  function fmtDiff(d) {
+    if (d == null) return null
+    if (d === 0) return 'E'
+    if (d > 0)   return `+${d}`
+    return String(d)
+  }
+  const diffStr = fmtDiff(o.leader_diff)
+  // "Hole 7 of 18" once any score has been entered; "Starting" otherwise.
+  const holeLabel = o.current_hole > 0
+    ? `Hole ${o.current_hole}${o.total_holes ? ` of ${o.total_holes}` : ''}`
+    : 'Starting'
+  // Score color: under-par = red (Augusta convention), over = ink, even = par green.
+  const diffColor = o.leader_diff == null ? '#1A6B28'
+                  : o.leader_diff < 0 ? '#B22222'
+                  : o.leader_diff > 0 ? '#1A1A1A'
+                  : '#1A6B28'
+
+  return (
+    <button
+      onClick={onTap}
+      style={{
+        width: '100%',
+        marginBottom: 8,
+        padding: '12px 14px',
+        borderRadius: 12,
+        background: 'rgba(255,253,248,0.85)',
+        border: '1px solid rgba(46,158,69,0.30)',
+        boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        cursor: 'pointer',
+        textAlign: 'left',
+        WebkitTapHighlightColor: 'transparent',
+      }}>
+      {/* Host avatar (or initials) */}
+      <PlayerAvatar
+        name={o.host_name || 'Player'}
+        avatar={o.host_avatar}
+        size={36}
+        ringColor="rgba(46,158,69,0.40)"
+      />
+      {/* Center: title + course/hole */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 14, fontWeight: 800, color: '#0D1F12',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {o.host_name || 'Player'}{o.players_count > 1 ? ` + ${o.players_count - 1}` : ''}
+        </div>
+        <div style={{
+          fontSize: 12, color: 'rgba(13,31,18,0.62)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {(o.course_name || 'TBD')} · {holeLabel}
+        </div>
+      </div>
+      {/* Right: leader score-to-par + chevron. Hidden when nobody has scored. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        {diffStr && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.1,
+          }}>
+            <div style={{
+              fontSize: 16, fontWeight: 900, color: diffColor,
+              fontFamily: '"Arial Black", Arial, sans-serif',
+            }}>{diffStr}</div>
+            <div style={{
+              fontSize: 9, color: 'rgba(13,31,18,0.50)',
+              textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700,
+            }}>
+              {(o.leader_name || '').slice(0, 12)}
+            </div>
+          </div>
+        )}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+             stroke="rgba(13,31,18,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
+    </button>
   )
 }
 
@@ -7156,13 +7353,17 @@ function CodeShare({ outing, onEnter }) {
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
 export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
-  const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo'
+  const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo' | 'spectate'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [activeCode, setActiveCode] = useState(null)
   const [freshOuting, setFreshOuting] = useState(null)
   const [endSummary, setEndSummary]   = useState(null)
   const [activeRivalry, setActiveRivalry] = useState(null)
+  // 2026-05-04 — read-only spectator view for a friend's live match.
+  // Reuses PublicLeaderboard; wrapped with a back chevron so the user
+  // returns to OutingHub instead of being trapped on the public board.
+  const [spectateCode, setSpectateCode] = useState(null)
 
   // Auto-open CreateWizard when navigated here with pre-filled players.
   // Depends on pendingPlayers so it fires both on mount AND when the
@@ -7213,6 +7414,13 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
     />
   )
 
+  if (view === 'spectate' && spectateCode) return (
+    <SpectateView
+      code={spectateCode}
+      onBack={() => { setSpectateCode(null); setView('hub') }}
+    />
+  )
+
   return (
     <>
       <OutingHub
@@ -7222,6 +7430,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
         onOpenOuting={code => { setActiveCode(code); setView('live') }}
         onOpenRivalry={r => { setActiveRivalry(r); setView('rivalry') }}
         onSoloRound={() => setView('solo')}
+        onSpectate={code => { setSpectateCode(code); setView('spectate') }}
       />
       <CoachMark
         id="match"
