@@ -1023,7 +1023,7 @@ function EndMatchScreen({ summary, onDone }) {
   const podiumColors = ['#E8C05A', 'rgba(255,255,255,0.5)', '#CD7F32']
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent', overflowY: 'auto' }}>
+    <div data-no-pull-refresh="true" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent', overflowY: 'auto' }}>
       {/* Trophy hero */}
       <div style={{ padding: '32px 24px 24px', textAlign: 'center', background: 'radial-gradient(ellipse at top, rgba(197,160,64,0.12) 0%, transparent 70%)' }}>
         <div style={{ fontSize: 64, marginBottom: 12, lineHeight: 1 }}>
@@ -4054,12 +4054,22 @@ function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCour
   const fillerRows = Math.max(0, MIN_ROWS - participants.length)
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%',
-      // Translucent panels over the page-level fairway grass image —
-      // matches the rest of the app's glass cards. (2026-04-30 PM round 13)
-      background: 'transparent',
-    }}>
+    <div
+      data-no-pull-refresh="true"
+      style={{
+        display: 'flex', flexDirection: 'column', height: '100%',
+        // Translucent panels over the page-level fairway grass image —
+        // matches the rest of the app's glass cards. (2026-04-30 PM round 13)
+        background: 'transparent',
+      }}>
+      {/* 2026-05-05 — data-no-pull-refresh disarms the TabPanel's
+          pull-to-refresh gesture for the entire LiveOuting screen.
+          Reasoning matches the Solo Round fix: a downward finger
+          drift while entering scores must NOT trigger a page reload,
+          regardless of whether the latest score has hit the offline
+          queue yet. Score writes go through runWithQueue + offline
+          queue (durable across reload), but the reload itself is
+          jarring mid-round. */}
       {/* Header — dark green strip with white title, gold code chip.
           calc(safe-top + 14px) clears the iOS notch / Android status bar
           on phones; on desktop / non-notch devices --safe-top = 0px so the
@@ -7309,7 +7319,7 @@ function ShareCodeButton({ code, name }) {
 // ─── Code Share ───────────────────────────────────────────────────────────────
 function CodeShare({ outing, onEnter }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20 }}>
+    <div data-no-pull-refresh="true" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20 }}>
       <div style={{
         width: 72, height: 72, borderRadius: '50%',
         background: 'radial-gradient(circle, rgba(30,80,35,0.5) 0%, rgba(10,30,14,0.3) 100%)',
