@@ -24,7 +24,10 @@ router.post('/:userId', async (req, res) => {
     const me     = req.user.id
     const target = parseInt(req.params.userId, 10)
     if (!Number.isFinite(target)) return res.status(400).json({ error: 'Bad user id' })
-    if (target === me)            return res.status(400).json({ error: "Can't follow yourself" })
+    // 2026-05-04 hotfix — req.user.id is a STRING (pg returns BIGINT as
+    // string); target is a NUMBER from parseInt. The previous strict-eq
+    // check NEVER fired, letting users self-follow. Compare as strings.
+    if (String(target) === String(me)) return res.status(400).json({ error: "Can't follow yourself" })
 
     // Verify target exists
     const exists = await db.one(`SELECT id FROM tm_users WHERE id = $1`, [target])

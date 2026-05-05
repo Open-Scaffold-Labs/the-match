@@ -732,7 +732,10 @@ router.post('/:code/join', async (req, res) => {
 
   // Update participants in state JSONB
   const state = outing.state || { holes: 18, participants: [] }
-  const exists = state.participants?.find(p => p.user_id === req.user.id)
+  // String() both sides — req.user.id is BIGINT-as-string from pg, but
+  // state.participants user_ids could in principle be number-typed via
+  // a stale code path. Mirror the same defense used in /scores/host.
+  const exists = state.participants?.find(p => String(p.user_id) === String(req.user.id))
   if (!exists) {
     const entry = { user_id: req.user.id, name: req.user.name, total: 0, holes_played: 0 }
     // Slot into next available foursome (large outings only). Mutates
@@ -848,7 +851,11 @@ router.put('/:code/scores', async (req, res) => {
 
   // Sync to state JSONB so leaderboard reads are fast
   const state = outing.state || { participants: [] }
-  const pi = state.participants?.findIndex(p => p.user_id === req.user.id)
+  // String() both sides — see /:code/join. If pi resolves to -1 because
+  // of a string/number mismatch, the score still writes to the DB row
+  // (line 845), but the JSONB state stays stale and the leaderboard
+  // reads wrong totals until the next refresh from the row.
+  const pi = state.participants?.findIndex(p => String(p.user_id) === String(req.user.id))
   if (pi >= 0) {
     state.participants[pi].total = total
     state.participants[pi].holes_played = holesPlayed
