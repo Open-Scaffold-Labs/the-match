@@ -499,14 +499,30 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
   )
 
   return createPortal(
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      // Page-level wrapper. Top bar stays in the page's light theme
-      // (matching ProfileView), body adopts the dark friend-card palette.
-      background: '#0E1F13',  // dark fallback during initial paint
-      display: 'flex', justifyContent: 'center',
-      overflow: 'hidden',
-    }}>
+    <div
+      // 2026-05-05 hotfix — root-cause of "tap on Sean's profile kicks
+      // me back to Home". When FriendProfile is opened from inside
+      // FollowList (Home → my Followers pill → tap a row → FriendProfile
+      // renders as a JSX child of FollowList's portal), React synthetic
+      // click events bubble up the COMPONENT tree (not the DOM tree).
+      // FollowList's outer backdrop has onClick={onClose}, so a click
+      // ANYWHERE inside FriendProfile bubbles through React back up to
+      // FollowList's backdrop → closes FollowList → FriendProfile
+      // unmounts (since it's a JSX child of FollowList) → user lands
+      // on Home. stopPropagation on FriendProfile's outermost wrapper
+      // prevents the bubble from ever reaching FollowList. The back
+      // button inside FriendProfile still works because it sets its
+      // OWN onClick first; stopPropagation only blocks UPWARD bubbling
+      // past this wrapper.
+      onClick={e => e.stopPropagation()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        // Page-level wrapper. Top bar stays in the page's light theme
+        // (matching ProfileView), body adopts the dark friend-card palette.
+        background: '#0E1F13',  // dark fallback during initial paint
+        display: 'flex', justifyContent: 'center',
+        overflow: 'hidden',
+      }}>
       <div style={{
         width: '100%', maxWidth: 430, height: '100%',
         background: 'transparent',
