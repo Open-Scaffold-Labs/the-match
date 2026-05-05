@@ -291,11 +291,30 @@ function TabPanel({ active, children }) {
       startY.current = null
       return
     }
+    // 2026-05-04 hotfix — React portals (FriendProfile, FollowList,
+    // GuestModal, etc.) render to document.body in the DOM, but
+    // SYNTHETIC events still bubble up through the React component
+    // tree to this TabPanel. Without this check, a downward swipe
+    // inside ANY modal would trigger pull-to-refresh on the underlying
+    // tab and reload the page — wiping modal state. el.contains() uses
+    // the native DOM tree, so portal children correctly return false.
+    if (!el.contains(e.target)) {
+      startY.current = null
+      return
+    }
     startY.current = e.touches[0].clientY
   }
 
   function onTouchMove(e) {
     if (refreshing || startY.current == null) return
+    // Same portal-isolation check as onTouchStart. Belt-and-suspenders:
+    // if a touch starts on the TabPanel and ends up dragging into a
+    // portal (or vice versa), we don't want to mis-track it.
+    const el = containerRef.current
+    if (!el || !el.contains(e.target)) {
+      setPullDistance(0)
+      return
+    }
     const raw = e.touches[0].clientY - startY.current
     if (raw <= 0) {
       // User reversed direction — cancel the pull state. The container
