@@ -403,3 +403,58 @@ Started the session intending to work the audit fix queue from `wiki/synthesis/a
 - Wizard now asks for # of golfers (`expected_players`).
 
 **Open issue**: satellite tiles in Eagle Eye show visible grid lines after 5 CSS attempts (container bg, transparent outline, scale 1.01, GPU compositing, will-change). Likely root cause = leaflet-rotate plugin sub-pixel transforms. Full triage + ranked next steps in `wiki/synthesis/eagle-eye-tile-grid-handoff-2026-05-01.md`. Don't re-attempt the fixes already in `EagleEye.jsx`.
+
+
+
+
+## [2026-05-04] refactor | Live-fire bug-bash session (friends on the course)
+
+Matt's friends were testing the app on the course. Eight fixes shipped end-to-end + two new features. Every fix verified against prod logs / DB before declaring done.
+
+**Fixes:**
+
+1. **POST /api/outings TDZ crash** (`d046753`) — `state` literal referenced `leagueSeason` before its `let` declaration, ReferenceError on every match-create attempt regardless of league attachment. 100% of POST /api/outings was 504-ing for ~2 days. Hoisted the league-validation block above the state literal.
+
+2. **/api/friends/search returning duplicate users** (`9e22ce0`) — LEFT JOIN against `tm_friends` with OR-on-both-directions multiplied result rows. With Matt's asymmetric friend model (A→B and B→A as separate accepted rows), every mutual friend appeared 2-3x in the add-guest search. Wrapped in `DISTINCT ON (u.id)` with status priority (accepted > pending > declined). Verified against prod DB: Daniel went from 2 result rows to 1.
+
+3. **/api/friends list + /:friendId/profile same-shape bugs** (`03d4e2b`) — same multi-row pattern as /search. Friends list duplicated mutual friends; profile lookup picked an arbitrary row when multiple existed (could surface 'declined' over 'accepted'). Both fixed with `DISTINCT ON` + status priority.
+
+4. **"Follow back?" prompt shown when already following** (`9631616`) — `handleFriendRespond` in Home.jsx unconditionally flipped into the prompt on every accept. When the user accepted a request from someone they already followed (mutual handshake completing), the prompt was wrong. Now checks `friends.friends` for the requester before adding to `followBackPrompts`.
+
+5. **Latent string/number coercion bugs** (`b5997bf`) — three places where strict equality was comparing values that could be string vs number under different code paths:
+   - `outings.js` POST `/:code/join` participant existence check
+   - `outings.js` PUT `/:code/scores` state-sync findIndex
+   - `follows.js` POST `/:userId` self-follow check (which never fired — users could self-follow). Verified 0 self-follows in prod, so latent only.
+
+6. **Match tab safe-area inset** (`fb9a641`) — the "Matches" header had plain 20px top padding, sitting behind the iPhone notch / Dynamic Island. Changed to `calc(var(--safe-top) + 20px)` matching the convention already used in Leagues.jsx, EagleEye.jsx, and LiveOuting.
+
+**Features:**
+
+7. **Friends-playing-now feed** (`bcebb45`) — new section on the Match tab between Live Now and the Create CTAs. Shows any active outing where one of my accepted friends is a participant (and I'm not). Light-payload card per match (host, course, current hole, leader's score-to-par). Tap → in-app spectator view (`PublicLeaderboard` wrapped with a back chevron). 30s visibility-aware polling. Backend: `GET /api/outings/friends-live` declared before the `/:code` wildcard. Solo rounds (`tm_rounds`) deferred to v1.1 per Matt.
+
+8. **Pull-to-refresh on every tab** (`d65ddd5`) — `overscroll-behavior: none` in tokens.css killed native iOS pull-to-refresh; re-added manually at the TabPanel level. Touch at scrollTop=0, drag down past 70px (damped 2x), release → `window.location.reload()`. Augusta-themed indicator chip slides in from top, chevron rotates 0→180° as the pull progresses, flips to gold "release-to-refresh" state at threshold, spins while reloading. `tm-spin` keyframe added to tokens.css. Available on every tab.
+
+**Cosmetic:**
+
+9. **Bottom nav: Match → Scorecard** (`70b5e6e`) — renamed the Match tab to "Scorecard" with a new clipboard-grid icon (`IconScorecard`). Trophy icon previously used by Match moved to the Leagues slot (better semantic match for leagues). `IconLeague` retained as an export but no longer used by BottomNav. Page header inside the tab still reads "Matches" per Matt — only the nav label changed.
+
+**Audit pass — checked clean (no fix needed):**
+- auth.js (signup/login/me — rate-limited, JWT round-trip clean)
+- onboarding.js (atomic JSONB merge, whitelisted steps)
+- rounds.js (solo round flow)
+- profile.js (uses String()===String() correctly)
+- notifications.js (push subscribe upsert)
+- stats.js (minor edge case on empty club data, low priority)
+- outings.js end/withdraw/cancel
+- availability.js / games.js (multi-row pattern but neutralized by IN-clause set semantics or ON CONFLICT DO NOTHING)
+
+**Data integrity probe (prod DB):**
+- 0 duplicate emails
+- 0 mismatched bidirectional friend statuses
+- 0 stale active outings (>7d)
+- 0 orphan participants
+- 0 active outings missing host participant
+- All participant user_ids in JSONB are strings (consistent)
+- 1 orphan tm_follows row (Demo Player Three → Matt) — leftover demo data, cosmetic only, not deleted
+
+**Verdict:** asymmetric friend model is intentional; the "duplicate Daniel" UI bugs were all in JOIN queries multiplying rows, not in the underlying data. No DELETE FROM statements run.
