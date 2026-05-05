@@ -19,17 +19,28 @@ router.get('/', async (req, res) => {
     const uid = req.user.id
 
     const [friends, incoming, outgoing, activity] = await Promise.all([
+      // 2026-05-04 hotfix — same multi-row bug as /search. With Matt's
+      // asymmetric model (A→B and B→A as separate rows), a mutual
+      // friendship matched both rows and showed each friend TWICE in
+      // the friends list. Wrap in DISTINCT ON (friend_id) and let the
+      // outer query restore alphabetical order. All rows here are
+      // status='accepted' (filtered in the WHERE), so the inner sort
+      // just picks the most recently updated row deterministically.
       db.many(
-        `SELECT f.id, f.created_at,
-                CASE WHEN f.requester_id = $1 THEN u2.id ELSE u1.id END AS friend_id,
-                CASE WHEN f.requester_id = $1 THEN u2.name ELSE u1.name END AS friend_name,
-                CASE WHEN f.requester_id = $1 THEN u2.handle ELSE u1.handle END AS friend_handle,
-                CASE WHEN f.requester_id = $1 THEN u2.home_course ELSE u1.home_course END AS friend_home_course,
-                CASE WHEN f.requester_id = $1 THEN u2.handicap ELSE u1.handicap END AS friend_handicap
-         FROM tm_friends f
-         JOIN tm_users u1 ON u1.id = f.requester_id
-         JOIN tm_users u2 ON u2.id = f.requestee_id
-         WHERE (f.requester_id = $1 OR f.requestee_id = $1) AND f.status = 'accepted'
+        `SELECT * FROM (
+           SELECT DISTINCT ON (friend_id)
+                  f.id, f.created_at,
+                  CASE WHEN f.requester_id = $1 THEN u2.id ELSE u1.id END AS friend_id,
+                  CASE WHEN f.requester_id = $1 THEN u2.name ELSE u1.name END AS friend_name,
+                  CASE WHEN f.requester_id = $1 THEN u2.handle ELSE u1.handle END AS friend_handle,
+                  CASE WHEN f.requester_id = $1 THEN u2.home_course ELSE u1.home_course END AS friend_home_course,
+                  CASE WHEN f.requester_id = $1 THEN u2.handicap ELSE u1.handicap END AS friend_handicap
+           FROM tm_friends f
+           JOIN tm_users u1 ON u1.id = f.requester_id
+           JOIN tm_users u2 ON u2.id = f.requestee_id
+           WHERE (f.requester_id = $1 OR f.requestee_id = $1) AND f.status = 'accepted'
+           ORDER BY friend_id, f.updated_at DESC NULLS LAST
+         ) deduped
          ORDER BY friend_name`,
         [uid]
       ),
@@ -87,9 +98,21 @@ router.get('/:friendId/profile', async (req, res) => {
     // shape so search-and-tap from UserSearchModal can preview a
     // stranger's basic info instead of a hard 403.
     // (2026-05-01 — Matt: tap-to-view from search shouldn't dead-end.)
+    // 2026-05-04 hotfix — when both directions exist (mutual under
+    // the asymmetric model), this previously picked an arbitrary row
+    // because there was no ORDER BY. Could surface a 'declined' row
+    // when an 'accepted' row also existed. Order by status priority.
     const link = await db.one(
       `SELECT id, status, requester_id, requestee_id FROM tm_friends
-       WHERE ((requester_id = $1 AND requestee_id = $2) OR (requester_id = $2 AND requestee_id = $1))`,
+       WHERE ((requester_id = $1 AND requestee_id = $2) OR (requester_id = $2 AND requestee_id = $1))
+       ORDER BY CASE status
+                  WHEN 'accepted' THEN 0
+                  WHEN 'pending'  THEN 1
+                  WHEN 'declined' THEN 2
+                  ELSE 3
+                END,
+                updated_at DESC NULLS LAST
+       LIMIT 1`,
       [uid, friendId]
     )
     const isAccepted = link && link.status === 'accepted'
