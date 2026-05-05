@@ -738,32 +738,23 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                   friendship-gated. Hidden together in limited preview;
                   fragment wrapper keeps the conditional valid JSX.
 
-                  2026-05-05 — REVERTED to non-tappable display tiles.
-                  The FollowPills version (commit 2462ff3) caused
-                  "tap kicks me back to home screen" behavior in prod
-                  that I haven't been able to reproduce or root-cause
-                  yet. Reverting to the original display-only tiles so
-                  the page is stable. Re-wire to a real list once the
-                  underlying portal/touch issue is understood. */}
+                  2026-05-05 — Re-enabled tappable FollowPills now that
+                  FriendProfile's outer wrapper has stopPropagation.
+                  The click-bubble bug (tap on FriendProfile would
+                  bubble to parent FollowList's backdrop and unmount
+                  the whole stack) is fixed at the FriendProfile root,
+                  so this is safe to ship again. Tapping Following or
+                  Followers opens a FollowList scoped to the FRIEND's
+                  userId; per-row affordances inside that list still
+                  reflect the VIEWER's relationship. */}
               {!isLimited && (<>
-              <div style={{
-                display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8,
-                marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)',
-              }}>
-                {[
-                  { key: 'following', label: 'Following', value: data?.followCounts?.following ?? 0 },
-                  { key: 'followers', label: 'Followers', value: data?.followCounts?.followers ?? 0 },
-                ].map(p => (
-                  <div key={p.key} style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                    borderRadius: 12, padding: '10px 8px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                  }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em' }}>{p.value}</div>
-                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase' }}>{p.label}</div>
-                  </div>
-                ))}
+              <div style={{ marginBottom: 12, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <FollowPills
+                  counts={data?.followCounts}
+                  userId={friend?.id}
+                  size="lg"
+                  theme="dark"
+                />
               </div>
 
               {/* Season W-L-T-AVG3 — same friendship gate as follow counts above */}
