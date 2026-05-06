@@ -7319,7 +7319,18 @@ function ShareCodeButton({ code, name }) {
 // ─── Code Share ───────────────────────────────────────────────────────────────
 function CodeShare({ outing, onEnter }) {
   return (
-    <div data-no-pull-refresh="true" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 32px', gap: 20 }}>
+    // 2026-05-05 — added dark gradient background. This screen was
+    // designed dark (white outing name, gold join-code, low-opacity
+    // white instructional copy) but had no background set, so when
+    // the page-level cream tint shipped on 2026-05-02 every text
+    // element became near-invisible on the cream surface. The dark
+    // backdrop matches EndMatchScreen's treatment and makes the gold
+    // join-code pop the way it was meant to.
+    <div data-no-pull-refresh="true" style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      height: '100%', padding: '0 32px', gap: 20,
+      background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+    }}>
       <div style={{
         width: 72, height: 72, borderRadius: '50%',
         background: 'radial-gradient(circle, rgba(30,80,35,0.5) 0%, rgba(10,30,14,0.3) 100%)',
