@@ -11,6 +11,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import RoundScorecard from './RoundScorecard.jsx'
+import EmptyState from './primitives/EmptyState.jsx'
 
 export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onClose }) {
   const [selectedRoundId, setSelectedRoundId] = useState(null)
@@ -64,9 +65,12 @@ export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onC
         {/* Body — scrollable list */}
         <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
           {rounds.length === 0 && (
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
-              No rounds logged yet.
-            </div>
+            <EmptyState
+              icon="scorecard"
+              tone="dark"
+              title="Your scorecard's blank."
+              subtitle="Tee it up — log a solo round or join a match and your history starts here."
+            />
           )}
           {rounds.map((r, i) => {
             const sc  = Number(r.score ?? r.total)

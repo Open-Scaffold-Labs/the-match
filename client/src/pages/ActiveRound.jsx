@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+import { tmHaptic } from './Outing/shared.jsx'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
@@ -185,7 +186,10 @@ function HoleScorer({ hole, par, strokes, shots, onScore, onAddShot, gps, onNext
           {/* Quick-tap par presets */}
           <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
             {[par-1, par, par+1, par+2].map(s => (
-              <button key={s} onClick={() => s > 0 && onScore(s)}
+              // Quick-pick is a commit-style action — light haptic on tap.
+              // The +/- steppers stay silent so iterating doesn't buzz on
+              // every press. (2026-05-06 — polish task #1)
+              <button key={s} onClick={() => { if (s > 0) { tmHaptic(12); onScore(s) } }}
                 style={{ flex: 1, maxWidth: 60, padding: '8px 0', borderRadius: 'var(--tm-radius-sm)', border: '1px solid', borderColor: strokes === s ? scoreColor(s, par) : 'var(--tm-border)', background: strokes === s ? 'var(--tm-surface-3)' : 'var(--tm-surface-2)', color: scoreColor(s, par), fontWeight: 700, fontSize: 14 }}>
                 {s > 0 ? s : '—'}
               </button>
@@ -320,7 +324,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
       </div>
 
       <div style={{ padding: '16px 20px', flexShrink: 0 }}>
-        <button onClick={onSave} disabled={saving}
+        <button onClick={() => { tmHaptic(15); onSave() }} disabled={saving}
           style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: saving ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: saving ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 17, border: 'none' }}>
           {saving ? 'Saving…' : '💾 Save Round'}
         </button>
@@ -425,7 +429,7 @@ export default function ActiveRound({ user, onBack }) {
     setSaving(true)
     try {
       const totalPar = config.pars.reduce((s, p) => s + p, 0)
-      await post('/api/rounds', {
+      const res = await post('/api/rounds', {
         courseName:   config.courseName,
         coursePar:    totalPar,
         courseRating: null,
@@ -434,6 +438,15 @@ export default function ActiveRound({ user, onBack }) {
         scores:       scores,
         shots:        shots,
       })
+      // 2026-05-06 (polish task #5) — fire the global achievement event
+      // so the toast (mounted at App level) can pop after we navigate
+      // away. Component-local state would unmount with us before the
+      // toast got a chance to play.
+      if (Array.isArray(res?.achievements) && res.achievements.length) {
+        window.dispatchEvent(new CustomEvent('tm:achievement-earned', {
+          detail: { achievements: res.achievements },
+        }))
+      }
       // Round persisted to server — clear the localStorage backup so a
       // fresh navigation back to Solo Round starts with a clean slate.
       clearSavedRound()

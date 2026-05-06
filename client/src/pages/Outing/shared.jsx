@@ -133,6 +133,22 @@ export function fmtOpponents(names) {
   return `${first} +${n.length - 1}`
 }
 
+// Tactile feedback at the moment a score is committed (or any other
+// commit-style action). Short single-pulse vibrations only — long
+// vibrations feel like errors. iOS Safari ignores navigator.vibrate
+// entirely so this is a no-op on iPhone PWAs (the SavedChip flash is
+// the visual fallback there); Android Chrome + most desktop browsers
+// honor it. Guarded so it never throws on stricter contexts (e.g. when
+// the page isn't user-activated). (2026-05-06 — Matt: haptic feedback
+// on score entry, polish task #1)
+export function tmHaptic(ms = 15) {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(ms)
+    }
+  } catch { /* never let haptics break a save */ }
+}
+
 // Tap-to-copy a join code, with brief visual confirmation handled by the caller
 export async function copyCode(code) {
   if (!code) return false

@@ -106,6 +106,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
   if (view === 'end' && endSummary) return (
     <EndMatchScreen
       summary={endSummary}
+      user={user}
       onDone={() => { setEndSummary(null); setView('hub') }}
     />
   )

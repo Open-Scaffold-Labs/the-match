@@ -98,6 +98,22 @@ router.get('/', async (req, res) => {
   }
 })
 
+// GET /api/profile/achievements — list the viewer's earned achievements
+// (most-recent first). Used by the Profile badge row + the achievements
+// drawer. Public-but-self for v1 — no per-user lookup; future patch can
+// expose `/api/users/:id/achievements` if friend profiles want them.
+// (2026-05-06 — polish task #5)
+router.get('/achievements', async (req, res) => {
+  try {
+    const { getUserAchievements } = require('../lib/achievements')
+    const list = await getUserAchievements(req.user.id)
+    res.json({ achievements: list })
+  } catch (err) {
+    console.error('[profile/achievements]', err.message)
+    res.status(500).json({ error: 'Failed to load achievements' })
+  }
+})
+
 // POST /api/profile/update — edit home course / bio / handicap
 router.post('/update', async (req, res) => {
   try {

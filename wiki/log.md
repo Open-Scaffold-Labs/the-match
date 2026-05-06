@@ -8,6 +8,36 @@ updated: YYYY-MM-DD
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-05-06] refactor | Polish-pass batch — tasks 1-8 + 10 (App-Store prep)
+
+Shipped a 9-feature polish pass on the live app in one session. Order: 1-4 → self-review → 5-7 → self-review → 8 + 10 → self-review.
+
+**Task 1 — Haptic feedback on score entry.** New `tmHaptic(ms)` helper in `Outing/shared.jsx` (guarded `navigator.vibrate`, no-ops on iOS). Wired into all five score-commit sites: ScoreModal save + Save&EagleEye, BulkScoreModal handleSave, ActiveRound quick-pick par chips + Save Round button.
+
+**Task 2 — Pull-to-refresh Augusta pin-flag.** Replaced the chevron in App.jsx PullIndicator with a hand-drawn pin-flag SVG. Flag triangle scales out (scaleX 0.05 → 1.0) as the user pulls — "raising the flag" metaphor. Pole color flips white-on-green when ready; spins via tm-spin while refreshing. Forced flagScale=1 once `ready` so the spinning state doesn't show a sliver flag.
+
+**Task 3 — Better empty states.** New `components/primitives/EmptyState.jsx` with three Augusta-tinted SVG icons (pin-flag, scorecard, trophy), tone-aware (light vs dark modal). Wired into FollowList (Following/Followers), RoundHistory ("Your scorecard's blank"), RivalryHistory ("No rivals yet").
+
+**Task 4 — Match-end share image.** New `Outing/MatchEndShare.jsx` — 1080×1080 Canvas card with trophy icon, winner name + score, top-3 podium, optional highlights line, date footer. Reuses HighlightShare's pipeline. Triggered from EndMatchScreen via a "Save share image" button alongside the existing text + live-link share buttons.
+
+**Task 5 — Achievements / badges.** New migration `020_tm_achievements.sql` (table + UNIQUE (user_id, type) + earned-DESC index). New server lib `lib/achievements.js` — three v1 types: `first_eagle`, `sub_80`, `streak_week` (≥3 rounds in last 7 days, counts both tm_rounds and tm_outing_participants). Hooked into all three score-write paths: PUT /:code/scores, PUT /:code/scores/host (credits the player not the writer), POST /api/rounds. New endpoint `GET /api/profile/achievements`. Client: `components/AchievementToast.jsx` (mounted at App level, listens to `tm:achievement-earned` window event so it survives ActiveRound's post-save unmount), `components/AchievementsRow.jsx` (Profile badge row, refreshes on event).
+
+**Task 6 — Handicap-trend milestone copy.** New `computeHandicapMilestone(rounds)` in Stats.jsx — five priority signals (personal best / first sub-80 / improving vs prior 5 / declining vs prior 5 / steady). Renders as a single gold-bordered line above the Score Trend chart inside HcpBadge, hidden when no notable signal.
+
+**Task 7 — Side bets MVP (Nassau, presses, skins).** New migration `021_tm_side_bets.sql`. New compute lib `client/src/lib/side-bets.js` — pure functions for Nassau (front 9 / back 9 / total 18 with manual presses) and Skins (carryovers, multi-player). Server endpoints (host-only declare/press/delete) appended to outings.js. New `Outing/SideBets.jsx` — declare wizard + standings card (Nassau segment chips, Skins ranked list with carryover banner). Side Bets button on LiveOuting header for both host AND non-host.
+
+**Task 8 — Live group chat per outing.** New migration `022_tm_outing_messages.sql`. Server endpoints `GET /api/outings/:code/messages?since=ID` (cursor pagination) and `POST` (500-char cap). Membership-gated — must be a participant or host. New `Outing/OutingChat.jsx` — bottom-sheet with avatar+name+relative-date bubbles, polling every 5s while open, optimistic-ish append on send, Enter-to-send / shift+Enter for newlines, autoscroll, empty state with personality.
+
+**Task 10 — Year-end recap card.** New `Outing/YearRecap.jsx` — pulls from `/api/rounds?limit=400`, aggregates client-side (rounds played, best round + diff, sub-80 count, eagles, birdies, top course), renders 1080×1080 Canvas card with stats grid + share/download. Profile entry button "Your year in golf — YYYY".
+
+**Self-review notes:** All three batches built clean (final bundle 911 kB / 233 kB gzip). Server-side achievement detection awaited (Vercel lambda freeze pattern). All animations use existing keyframes (`tm-celebrate-pop`, `tm-spin`, `tm-saved-flash`). Ten new files; one canonical migrations sequence (020/021/022) applied to Supabase via psql.
+
+**Deferred to future sessions (also tracked in mlav1114.md):**
+- **9. Eagle Eye automatic shot tracking** — ~half-day; needs design conversation about GPS pinging cadence + battery cost.
+- **11. Privacy policy + delete-my-account flow** — App Store submission prereq. Need policy text + a `DELETE /api/me` endpoint that cascades the user's data.
+- **12. Sentry / error telemetry** — wire `@sentry/react` + `@sentry/node`, scrub PII, instrument the score-write + auth paths.
+- **13. Anthropic spend cap** — Matt to set a budget alert on console.anthropic.com (no code change).
+
 ## [2026-05-03] refactor | User-shape centralization + 10-round audit
 
 Two prod bugs shipped in one earlier session because `/login` and `/signup` had drifted from `/me`'s SELECT. Login was missing `onboarding_completed_at` (made every existing user re-see the wizard) and `tier` (blocked Matt — `elite` admin — from leagues with a "free tier upgrade" wall). DB had the right values; response shape was wrong.

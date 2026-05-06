@@ -13,11 +13,13 @@ import { CommissionerPanel, GroupSetup, TeamSetup } from './Commissioner.jsx'
 // from saveScore on every successful sub-par write where the writer is
 // the user themselves (don't celebrate someone else's score).
 import HighlightShareModal, { shouldCelebrate } from './HighlightShare.jsx'
+import SideBetsCard from './SideBets.jsx'
+import OutingChat, { useChatUnreadCount } from './OutingChat.jsx'
 import {
   AUGUSTA_GREEN, AUGUSTA_GREEN_DEEP, AUGUSTA_PANEL, AUGUSTA_PANEL_HI,
   AUGUSTA_PANEL_HOVER, AUGUSTA_TEXT, AUGUSTA_GOLD, AUGUSTA_GOLD_DIM,
   AUGUSTA_CREAM, AUGUSTA_TILE, AUGUSTA_RED, AUGUSTA_INK, AUGUSTA_WOOD,
-  PlayerAvatar, initials, avatarBg, scoreLabel,
+  PlayerAvatar, initials, avatarBg, scoreLabel, tmHaptic,
 } from './shared.jsx'
 
 // ─── Outing/LiveOuting.jsx ────────────────────────────────────────────────
@@ -395,6 +397,10 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
             )
             if (!ok) return
           }
+          // Tactile confirmation that the score is committed. Fires AFTER
+          // the unusual-score confirm so a mis-tap that gets cancelled
+          // doesn't lie to the user. (2026-05-06 — polish task #1)
+          tmHaptic(15)
           onSave(val)
         }} style={{
           width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
@@ -408,7 +414,7 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
             renders when parent supplied the callback (user scoring own
             hole + next hole exists). (2026-05-01) */}
         {onSaveAndEagleEye && (
-          <button onClick={() => onSaveAndEagleEye(val)} style={{
+          <button onClick={() => { tmHaptic(15); onSaveAndEagleEye(val) }} style={{
             width: '100%', padding: 14, marginTop: 10, borderRadius: 'var(--tm-radius-lg)',
             // Solid green gradient + white text — matches the primary green
             // button pattern used elsewhere in the app (CreateWizard "Next →",
@@ -521,6 +527,10 @@ function BulkScoreModal({ hole, par, participants, getScores, holeCount, onClose
       )
       if (!ok) return
     }
+    // Tactile confirmation on the bulk-save commit. One pulse for the
+    // batch, not one per row — matches per-player save UX.
+    // (2026-05-06 — polish task #1)
+    tmHaptic(15)
     setSaving(true)
     try {
       await onSaveAll(changedEntries)
@@ -1432,6 +1442,15 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // Commissioner correction panel — host-only modal with withdraw
   // toggles + audit log readout. (B3, 2026-05-01)
   const [showManage, setShowManage] = useState(false)
+  // 2026-05-06 (polish task #7) — host-triggered side-bet sheet.
+  const [showSideBets, setShowSideBets] = useState(false)
+  // 2026-05-06 (polish task #8) — outing chat sheet.
+  const [showChat, setShowChat] = useState(false)
+  // 2026-05-06 hardening — unread-message count for the Chat button
+  // badge. Stops polling while the chat sheet is open since reads
+  // happen there. Persists "seen" via localStorage so the badge
+  // doesn't re-show on refresh.
+  const chatUnread = useChatUnreadCount(code, { enabled: !showChat })
   // Score-conflict dialog — when /scores/host returns 409 with a
   // different existing score, surface a styled prompt rather than
   // window.confirm. resolveConflict carries the resolver fn so the
@@ -1636,8 +1655,9 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         ? { hole, score }
         : { hole, score, user_id: targetUserId }
 
+      let writeResult = null
       try {
-        await runWithQueue({ url: targetUrl, method: 'PUT', body: baseBody })
+        writeResult = await runWithQueue({ url: targetUrl, method: 'PUT', body: baseBody })
       } catch (err) {
         // Score-conflict handshake (B2). Server returns 409 with the
         // existing different score; surface a styled prompt rather
@@ -1649,7 +1669,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           })
           setConflictPrompt(null)
           if (!ok) { setSaving(false); return false }   // user said "keep existing" — bulk should stop
-          await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true } })
+          writeResult = await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true } })
         } else {
           throw err
         }
@@ -1689,6 +1709,15 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           holeNumber: Number(hole) + 1,
           courseName: outing?.course_name || '',
         })
+      }
+      // 2026-05-06 (polish task #5) — surface freshly-earned
+      // achievements via the global toast event. Gated on isSelfEdit
+      // so a host writing on behalf of someone else doesn't see
+      // someone else's first-eagle pop on their own screen.
+      if (isSelfEdit && Array.isArray(writeResult?.achievements) && writeResult.achievements.length) {
+        window.dispatchEvent(new CustomEvent('tm:achievement-earned', {
+          detail: { achievements: writeResult.achievements },
+        }))
       }
       await loadOuting()
       return true
@@ -2155,6 +2184,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           onClose={() => setHighlight(null)}
         />
       )}
+
       {/* 2026-05-05 — data-no-pull-refresh disarms the TabPanel's
           pull-to-refresh gesture for the entire LiveOuting screen.
           Reasoning matches the Solo Round fix: a downward finger
@@ -2343,6 +2373,28 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             }} title="QR code, link, and printable tee-box flyer">
               📡 Share live
             </button>
+            <button onClick={() => setShowSideBets(true)} style={{
+              background: 'rgba(232,192,90,0.12)', border: '1px solid rgba(232,192,90,0.40)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#E8C05A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>$ Side Bets</button>
+            <button onClick={() => setShowChat(true)} style={{
+              background: 'rgba(147,197,253,0.10)', border: '1px solid rgba(147,197,253,0.40)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#93C5FD', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              position: 'relative',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              💬 Chat
+              {chatUnread > 0 && (
+                <span style={{
+                  background: '#F87171', color: '#0D1F12',
+                  fontSize: 10, fontWeight: 900,
+                  borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
+                  marginLeft: 2,
+                }}>{chatUnread > 99 ? '99+' : chatUnread}</span>
+              )}
+            </button>
             <button onClick={() => setShowManage(true)} style={{
               background: 'rgba(245,215,138,0.12)', border: '1px solid rgba(245,215,138,0.35)',
               borderRadius: 20, padding: '3px 10px',
@@ -2359,6 +2411,36 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         {!isHost && isMarker && (
           <div style={{ marginTop: 8, fontSize: 11, color: '#93C5FD', fontWeight: 600 }}>
             ✎ You're a marker — tap any cell in your group to enter scores
+          </div>
+        )}
+        {/* 2026-05-06 (polish task #7+8) — non-host quick-actions row.
+            Side bets viewing + chat are useful to all participants, not
+            just the host. The host already has the same buttons in their
+            controls row above; this gives non-hosts the same entry. */}
+        {!isHost && (
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={() => setShowSideBets(true)} style={{
+              background: 'rgba(232,192,90,0.12)', border: '1px solid rgba(232,192,90,0.40)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#E8C05A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>$ Side Bets</button>
+            <button onClick={() => setShowChat(true)} style={{
+              background: 'rgba(147,197,253,0.10)', border: '1px solid rgba(147,197,253,0.40)',
+              borderRadius: 20, padding: '3px 10px',
+              color: '#93C5FD', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              position: 'relative',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}>
+              💬 Chat
+              {chatUnread > 0 && (
+                <span style={{
+                  background: '#F87171', color: '#0D1F12',
+                  fontSize: 10, fontWeight: 900,
+                  borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
+                  marginLeft: 2,
+                }}>{chatUnread > 99 ? '99+' : chatUnread}</span>
+              )}
+            </button>
           </div>
         )}
 
@@ -2948,6 +3030,28 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         <LiveShareModal
           outing={outing}
           onClose={() => setShowLiveShare(false)}
+        />
+      )}
+
+      {/* 2026-05-06 (polish task #7) — Side bets sheet. Available to
+          host AND every participant — declares are host-only at the
+          server, but reading standings is open to anyone in the match. */}
+      {showSideBets && outing && (
+        <SideBetsCard
+          outing={outing}
+          userId={user?.id}
+          onClose={() => setShowSideBets(false)}
+        />
+      )}
+
+      {/* 2026-05-06 (polish task #8) — Outing chat. Polling-based group
+          chat scoped to this match's participants. Mount lives at the
+          LiveOuting level so it survives sub-component re-renders. */}
+      {showChat && outing && (
+        <OutingChat
+          outing={outing}
+          userId={user?.id}
+          onClose={() => setShowChat(false)}
         />
       )}
 

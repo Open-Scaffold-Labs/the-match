@@ -48,7 +48,19 @@ self.addEventListener('push', (event) => {
     vibrate: [80, 40, 80],
   }
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  // 2026-05-06 hardening — also broadcast to all foregrounded clients
+  // so achievement toasts (and other in-app surfaces) can pop without
+  // the user needing to open the system notification. The system
+  // banner still shows; this just adds an in-app channel for tabs
+  // that are currently focused.
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(title, options),
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      clients.forEach(c => {
+        try { c.postMessage({ kind: 'push', payload: data }) } catch { /* ignore */ }
+      })
+    }),
+  ]))
 })
 
 // ─── Notification click — open or focus the app ──────────────────────

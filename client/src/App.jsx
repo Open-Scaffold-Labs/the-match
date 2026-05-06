@@ -11,6 +11,7 @@ import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
 import PermissionsPrompt from './components/PermissionsPrompt.jsx'
+import AchievementToast from './components/AchievementToast.jsx'
 import PublicLeaderboard from './pages/PublicLeaderboard.jsx'
 import PrintResults from './pages/PrintResults.jsx'
 import { getToken } from './lib/api.js'
@@ -163,6 +164,44 @@ export default function App() {
     }
   }, [user?.id, user?.onboarding_completed_at])
 
+  // 2026-05-06 hardening — listen for SW push messages and route the
+  // achievement-tagged ones into the in-app toast event. This closes
+  // the gap where a host wrote a player's eagle: the player's phone
+  // gets the system notification, AND if the page is foregrounded the
+  // SW also postMessages here, which we translate into the local
+  // `tm:achievement-earned` event so AchievementToast pops in-app.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
+    function onMessage(e) {
+      const d = e?.data
+      if (!d || d.kind !== 'push') return
+      const tag = d?.payload?.tag || ''
+      if (!tag.startsWith('achievement-')) return
+      const type = tag.replace(/^achievement-/, '')
+      // Re-fetch the user's achievements list to get the canonical row
+      // (including id + earned_at), then dispatch the event with just
+      // the new ones. This keeps a single source of truth — no risk
+      // of the toast and the badge row showing different data.
+      ;(async () => {
+        try {
+          const r = await fetch('/api/profile/achievements', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('tm_token') || ''}` },
+          })
+          if (!r.ok) return
+          const j = await r.json()
+          const match = (j?.achievements || []).find(a => a.type === type)
+          if (match) {
+            window.dispatchEvent(new CustomEvent('tm:achievement-earned', {
+              detail: { achievements: [match] },
+            }))
+          }
+        } catch { /* ignore — the system notification still landed */ }
+      })()
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [])
+
   // Public live leaderboard short-circuit. ?live=ABCD on the URL
   // bypasses auth + onboarding entirely so a tee-box QR code or a
   // shared link in a group chat just works for spectators who don't
@@ -305,6 +344,14 @@ export default function App() {
           onClose={() => setShowPermsPrompt(false)}
         />
       )}
+
+      {/* 2026-05-06 (polish task #5) — global achievement-unlock toast.
+          Mounted at App level so it survives any inner-page navigation
+          (especially ActiveRound's post-save onBack which would unmount
+          a component-local queue). Listens for the
+          `tm:achievement-earned` CustomEvent and pops one card per
+          achievement. */}
+      <AchievementToast />
     </div>
   )
 }
@@ -434,14 +481,31 @@ function TabPanel({ active, children }) {
 }
 
 // Pull-to-refresh visual indicator. Sits absolutely positioned at the
-// top of the scroll container, slides into view as the user pulls. The
-// chevron rotates 0→180° as the pull progresses; once the trigger
-// threshold is hit, the chip flips to the "release to refresh" gold
-// state and the icon fully inverts. While refreshing, the chip spins.
+// top of the scroll container, slides into view as the user pulls.
+//
+// 2026-05-06 — Augusta pin-flag instead of the generic refresh chevron
+// (polish task #2). The pole + cup are drawn with stroke; the flag
+// triangle's horizontal scale ramps from 0→1 with pull progress so it
+// looks like the flag is unfurling on the pin as you pull. Once the
+// trigger threshold is crossed, the chip flips to the green "ready to
+// release" state and the flag goes solid gold. While refreshing, the
+// whole SVG spins via tm-spin, same cadence as the old chevron.
 function PullIndicator({ distance, triggerAt, refreshing }) {
   if (distance < 4 && !refreshing) return null
   const ready    = distance >= triggerAt || refreshing
   const progress = Math.min(distance / triggerAt, 1)
+  // Pole stroke + flag fill. When ready, the pole goes white-on-green
+  // (matches the existing chip's color flip); the flag is always gold
+  // but ramps from dim → bright between not-ready and ready so the
+  // hand-off reads cleanly.
+  const poleStroke = ready ? '#FFFDF8' : '#1B5E3B'
+  const flagFill   = ready ? '#F5D78A' : '#C9A040'
+  // Flag unfurl — scaleX from 0.05 → 1 as progress hits 1. We don't
+  // start at 0 because a fully-collapsed triangle disappears entirely
+  // and the pole looks broken. Force 1 once ready/refreshing so the
+  // spinning chip shows a full flag, not a sliver, even when the
+  // user has released and `distance` has returned to 0.
+  const flagScale  = ready ? 1 : 0.05 + 0.95 * progress
   return (
     <div style={{
       position: 'absolute',
@@ -468,16 +532,34 @@ function PullIndicator({ distance, triggerAt, refreshing }) {
         transition: 'background 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
       }}>
         <svg
-          width="18" height="18" viewBox="0 0 24 24" fill="none"
-          stroke={ready ? '#fff' : '#1B5E3B'}
-          strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+          width="20" height="20" viewBox="0 0 24 24" fill="none"
           style={{
-            transform: refreshing ? 'none' : `rotate(${progress * 180}deg)`,
-            transition: refreshing ? 'none' : 'transform 100ms ease',
             animation: refreshing ? 'tm-spin 700ms linear infinite' : 'none',
+            transition: refreshing ? 'none' : 'transform 100ms ease',
           }}>
-          <polyline points="23 4 23 10 17 10"/>
-          <path d="M20.49 15A9 9 0 1 1 20 9"/>
+          {/* Pin pole — vertical line. */}
+          <line x1="8" y1="4" x2="8" y2="21"
+            stroke={poleStroke} strokeWidth="2"
+            strokeLinecap="round" />
+          {/* Cup at the bottom — short horizontal tick. */}
+          <line x1="4" y1="21" x2="12" y2="21"
+            stroke={poleStroke} strokeWidth="2"
+            strokeLinecap="round" />
+          {/* Flag triangle — scales out from the pole as pull progresses.
+              CSS transform-origin on SVG paths works in iOS Safari 15+
+              (our practical floor), and only the CSS path animates
+              smoothly via `transition` — switching to the SVG transform
+              attribute would have made it jump. */}
+          <path d="M8 4 L18 7 L8 10 Z"
+            fill={flagFill}
+            stroke={flagFill}
+            strokeWidth="0.6"
+            strokeLinejoin="round"
+            style={{
+              transform: `scaleX(${flagScale})`,
+              transformOrigin: '8px 7px',
+              transition: refreshing ? 'none' : 'transform 100ms ease, fill 180ms ease',
+            }} />
         </svg>
       </div>
     </div>

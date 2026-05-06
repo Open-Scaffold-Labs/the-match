@@ -228,6 +228,12 @@ function HandicapTrendLine({ rounds }) {
   )
 }
 
+// computeHandicapMilestone moved to lib/handicap-milestone.js for
+// node-runnable testing. Re-exported here so existing import sites
+// that path to Stats.jsx keep working unchanged.
+export { computeHandicapMilestone } from '../lib/handicap-milestone.js'
+import { computeHandicapMilestone } from '../lib/handicap-milestone.js'
+
 export function HcpBadge({ hcp, roundCount, rounds }) {
   // Coerce — handicap can arrive as a string from Postgres NUMERIC
   // columns via the pg driver. Number() turns "17.0" into 17.0 and
@@ -297,30 +303,46 @@ export function HcpBadge({ hcp, roundCount, rounds }) {
           {/* Embedded score-trend line chart — last 10 rounds, score-to-par.
               Only renders when 2+ rounds exist; quietly disappears below
               that threshold. (2026-05-01 — Matt request) */}
-          {trendCount >= 2 && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: 6,
-              }}>
-                <span style={{
-                  fontSize: 9, color: 'rgba(232,192,90,0.65)',
-                  fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                }}>Score Trend</span>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', fontWeight: 500 }}>
-                  Last {trendCount} round{trendCount === 1 ? '' : 's'}
-                </span>
+          {trendCount >= 2 && (() => {
+            // 2026-05-06 (polish task #6) — short narrative milestone
+            // line above the chart. Returns null when nothing notable
+            // to say so we don't show a dead slot.
+            const milestone = computeHandicapMilestone(rounds)
+            return (
+              <div style={{ marginBottom: 14 }}>
+                {milestone && (
+                  <div style={{
+                    fontSize: 12, color: '#F5D78A',
+                    fontWeight: 600, letterSpacing: '0.01em',
+                    marginBottom: 8,
+                    paddingLeft: 8,
+                    borderLeft: '2px solid rgba(232,192,90,0.55)',
+                    lineHeight: 1.35,
+                  }}>{milestone}</div>
+                )}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  marginBottom: 6,
+                }}>
+                  <span style={{
+                    fontSize: 9, color: 'rgba(232,192,90,0.65)',
+                    fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                  }}>Score Trend</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', fontWeight: 500 }}>
+                    Last {trendCount} round{trendCount === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <HandicapTrendLine rounds={rounds} />
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', marginTop: 4,
+                  fontSize: 9, color: 'rgba(255,255,255,0.30)', letterSpacing: '0.06em',
+                }}>
+                  <span>Older</span>
+                  <span>Newer</span>
+                </div>
               </div>
-              <HandicapTrendLine rounds={rounds} />
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', marginTop: 4,
-                fontSize: 9, color: 'rgba(255,255,255,0.30)', letterSpacing: '0.06em',
-              }}>
-                <span>Older</span>
-                <span>Newer</span>
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           <div style={{
             display: 'flex', gap: 8,

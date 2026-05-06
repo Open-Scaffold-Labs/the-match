@@ -876,7 +876,29 @@ router.put('/:code/scores', async (req, res) => {
     })
   }
 
-  res.json({ ok: true, total, holesPlayed })
+  // Achievement detection (2026-05-06 — polish task #5). AWAITED for
+  // the same Vercel-freeze reason as writeScoreAudit. Newly-awarded
+  // achievements come back in the response so the client can pop the
+  // unlock card without an extra fetch. Failures here log and return
+  // empty — never block the score write.
+  let newly = []
+  try {
+    const { checkAfterHoleScore } = require('../lib/achievements')
+    const par = Array.isArray(outing.hole_pars) ? Number(outing.hole_pars[hole]) : null
+    newly = await checkAfterHoleScore({
+      user_id:    req.user.id,
+      outing_id:  outing.id,
+      hole,
+      par,
+      score:      Number(score),
+      scores,
+      course_par: Number(outing.course_par) || null,
+    })
+  } catch (e) {
+    console.warn('[achievements] check after hole score failed', e.message)
+  }
+
+  res.json({ ok: true, total, holesPlayed, achievements: newly })
 })
 
 // ─── POST /api/outings/:code/guests ──────────────────────────────────────────
@@ -1049,7 +1071,32 @@ router.put('/:code/scores/host', async (req, res) => {
       })
     }
 
-    res.json({ ok: true, total, holesPlayed })
+    // Achievement detection (2026-05-06 — polish task #5). Credits the
+    // PLAYER (user_id), not the writer (req.user.id). Skipped for
+    // guests (the lib also checks but we short-circuit here for
+    // clarity). Newly-awarded achievements come back in the response;
+    // the client only renders the toast when the writer === player so
+    // a host writing on behalf doesn't see someone else's badge pop.
+    let newly = []
+    if (!isGuest) {
+      try {
+        const { checkAfterHoleScore } = require('../lib/achievements')
+        const par = Array.isArray(outing.hole_pars) ? Number(outing.hole_pars[hole]) : null
+        newly = await checkAfterHoleScore({
+          user_id,
+          outing_id:  outing.id,
+          hole,
+          par,
+          score:      Number(score),
+          scores,
+          course_par: Number(outing.course_par) || null,
+        })
+      } catch (e) {
+        console.warn('[achievements] check after host-on-behalf score failed', e.message)
+      }
+    }
+
+    res.json({ ok: true, total, holesPlayed, achievements: newly })
   } catch (err) {
     console.error('[outings/scores/host]', err)
     res.status(500).json({ error: 'Failed' })
@@ -1972,6 +2019,213 @@ router.put('/:code/teams', async (req, res) => {
     res.json({ ok: true, teams })
   } catch (err) {
     console.error('[outings/teams]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── Side bets ──────────────────────────────────────────────────────────────
+// Per-outing side-bet declarations. Math is computed client-side from the
+// outing's existing per-hole scores (lib/side-bets.js); these endpoints
+// only own the declarations + presses. (2026-05-06 — polish task #7)
+
+// GET /api/outings/:code/side-bets — list all bets on this outing.
+// Any participant can read. (Stakes are visible to everyone in the
+// match anyway via the standings card.)
+router.get('/:code/side-bets', async (req, res) => {
+  try {
+    const code   = req.params.code.toUpperCase()
+    const outing = await db.one('SELECT id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    const r = await db.query(
+      `SELECT id, type, config, created_by, created_at
+         FROM tm_outing_side_bets
+         WHERE outing_id = $1
+         ORDER BY created_at ASC`,
+      [outing.id]
+    )
+    res.json({ bets: r.rows || [] })
+  } catch (err) {
+    console.error('[outings/side-bets/list]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// POST /api/outings/:code/side-bets — declare a new bet.
+// Host-only — keeps the declarations clean (no bidding wars from
+// participants). Body: { type, config }. type ∈ {'nassau','skins'}.
+router.post('/:code/side-bets', async (req, res) => {
+  try {
+    const code   = req.params.code.toUpperCase()
+    const { type, config } = req.body || {}
+    if (!['nassau', 'skins'].includes(type))
+      return res.status(400).json({ error: 'invalid_type' })
+    const outing = await db.one('SELECT id, host_id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    // Minimal config validation — participant_ids must be an array of
+    // 2 (nassau) or ≥2 (skins). Stakes must be a non-negative number.
+    const ids = Array.isArray(config?.participant_ids) ? config.participant_ids.map(Number).filter(Number.isFinite) : []
+    if (type === 'nassau' && ids.length !== 2)
+      return res.status(400).json({ error: 'nassau_needs_two_participants' })
+    if (type === 'skins' && ids.length < 2)
+      return res.status(400).json({ error: 'skins_needs_two_or_more' })
+    const stakes = Number(config?.stakes)
+    if (!Number.isFinite(stakes) || stakes < 0)
+      return res.status(400).json({ error: 'invalid_stakes' })
+    const cleanConfig = {
+      stakes,
+      participant_ids: ids,
+      ...(type === 'nassau' ? { presses: [] } : {}),
+    }
+    const r = await db.one(
+      `INSERT INTO tm_outing_side_bets (outing_id, type, config, created_by)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, type, config, created_by, created_at`,
+      [outing.id, type, JSON.stringify(cleanConfig), req.user.id]
+    )
+    res.status(201).json({ bet: r })
+  } catch (err) {
+    console.error('[outings/side-bets/create]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// POST /api/outings/:code/side-bets/:id/press — append a press to a
+// nassau bet. Body: { start_hole }. Host-only for MVP.
+router.post('/:code/side-bets/:id/press', async (req, res) => {
+  try {
+    const code   = req.params.code.toUpperCase()
+    const betId  = Number(req.params.id)
+    const startHole = Number(req.body?.start_hole)
+    if (!Number.isFinite(startHole) || startHole < 0)
+      return res.status(400).json({ error: 'invalid_start_hole' })
+    const outing = await db.one('SELECT id, host_id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    const bet = await db.one(
+      'SELECT id, type, config FROM tm_outing_side_bets WHERE id = $1 AND outing_id = $2',
+      [betId, outing.id]
+    )
+    if (!bet || bet.type !== 'nassau')
+      return res.status(400).json({ error: 'press_only_supported_on_nassau' })
+    const cfg = bet.config || {}
+    const presses = Array.isArray(cfg.presses) ? cfg.presses : []
+    presses.push({ start_hole: startHole, between_ids: cfg.participant_ids || [] })
+    cfg.presses = presses
+    const r = await db.one(
+      `UPDATE tm_outing_side_bets SET config = $1 WHERE id = $2
+       RETURNING id, type, config, created_by, created_at`,
+      [JSON.stringify(cfg), betId]
+    )
+    res.json({ bet: r })
+  } catch (err) {
+    console.error('[outings/side-bets/press]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── Outing chat ────────────────────────────────────────────────────────────
+// Per-outing group chat — polling-based. Anyone in the outing can read
+// and post. Body is capped at 500 chars; the client renders body as
+// plain text so no sanitization is necessary on this side.
+//
+// (2026-05-06 — polish task #8)
+
+// GET /api/outings/:code/messages?since=<id>&limit=N
+// Returns the most-recent messages, optionally filtered to those after
+// the cursor `since`. Default limit 100, capped at 200.
+router.get('/:code/messages', async (req, res) => {
+  try {
+    const code  = req.params.code.toUpperCase()
+    const since = Number(req.query.since) || 0
+    const limit = Math.min(Number(req.query.limit) || 100, 200)
+    const outing = await db.one('SELECT id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    // Membership check — must be a participant.
+    const member = await db.query(
+      `SELECT 1 FROM tm_outing_participants
+       WHERE outing_id = $1 AND user_id = $2 LIMIT 1`,
+      [outing.id, req.user.id]
+    )
+    const hostRow = await db.query(
+      'SELECT 1 FROM tm_outings WHERE id = $1 AND host_id = $2 LIMIT 1',
+      [outing.id, req.user.id]
+    )
+    if (!member.rows.length && !hostRow.rows.length) {
+      return res.status(403).json({ error: 'Not a participant' })
+    }
+    const r = await db.query(
+      `SELECT m.id, m.user_id, u.name AS user_name, u.avatar AS user_avatar,
+              m.body, m.created_at
+         FROM tm_outing_messages m
+         LEFT JOIN tm_users u ON u.id = m.user_id
+         WHERE m.outing_id = $1
+           AND ($2::bigint = 0 OR m.id > $2)
+         ORDER BY m.id DESC
+         LIMIT $3`,
+      [outing.id, since, limit]
+    )
+    // Server returns newest-first for cheap pagination; client renders
+    // oldest-first by reversing — same pattern Slack uses.
+    res.json({ messages: (r.rows || []).reverse() })
+  } catch (err) {
+    console.error('[outings/messages/list]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// POST /api/outings/:code/messages — body: { body }
+router.post('/:code/messages', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const body = String(req.body?.body || '').trim()
+    if (!body) return res.status(400).json({ error: 'empty_body' })
+    if (body.length > 500) return res.status(400).json({ error: 'too_long' })
+    const outing = await db.one('SELECT id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    const member = await db.query(
+      `SELECT 1 FROM tm_outing_participants
+       WHERE outing_id = $1 AND user_id = $2 LIMIT 1`,
+      [outing.id, req.user.id]
+    )
+    const hostRow = await db.query(
+      'SELECT 1 FROM tm_outings WHERE id = $1 AND host_id = $2 LIMIT 1',
+      [outing.id, req.user.id]
+    )
+    if (!member.rows.length && !hostRow.rows.length) {
+      return res.status(403).json({ error: 'Not a participant' })
+    }
+    const r = await db.one(
+      `INSERT INTO tm_outing_messages (outing_id, user_id, body)
+       VALUES ($1, $2, $3)
+       RETURNING id, user_id, body, created_at`,
+      [outing.id, req.user.id, body]
+    )
+    res.status(201).json({ message: r })
+  } catch (err) {
+    console.error('[outings/messages/create]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// DELETE /api/outings/:code/side-bets/:id — remove a bet. Host-only.
+router.delete('/:code/side-bets/:id', async (req, res) => {
+  try {
+    const code  = req.params.code.toUpperCase()
+    const betId = Number(req.params.id)
+    const outing = await db.one('SELECT id, host_id FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+    await db.query(
+      'DELETE FROM tm_outing_side_bets WHERE id = $1 AND outing_id = $2',
+      [betId, outing.id]
+    )
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[outings/side-bets/delete]', err)
     res.status(500).json({ error: 'Failed' })
   }
 })

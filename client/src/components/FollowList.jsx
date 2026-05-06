@@ -25,15 +25,25 @@ import { createPortal } from 'react-dom'
 import { api, post, del } from '../lib/api.js'
 import FriendProfile from './FriendProfile.jsx'
 import { SkeletonRow } from './primitives/Skeleton.jsx'
+import EmptyState from './primitives/EmptyState.jsx'
 
 const TITLES = {
   following: 'Following',
   followers: 'Followers',
 }
 
+// Empty-state copy redesigned 2026-05-06 (polish task #3) — was a flat
+// gray paragraph; now uses the EmptyState primitive with a pin-flag
+// icon, a short headline, and the explanatory subtitle.
 const EMPTY_COPY = {
-  following: "You're not following anyone yet. Find someone on a leaderboard or in a match and tap their name to follow.",
-  followers: "Nobody's followed you yet. Share your profile to start building a following.",
+  following: {
+    title: 'No one to follow yet.',
+    subtitle: "Find a player on a leaderboard or in a match — tap their name to follow.",
+  },
+  followers: {
+    title: 'No followers yet.',
+    subtitle: 'Share your profile, post a round, get on a leaderboard — your following will grow.',
+  },
 }
 
 export default function FollowList({ type, userId = null, onClose, onCountsChange }) {
@@ -184,9 +194,12 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
           )}
 
           {!loading && users.length === 0 && (
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'rgba(13,31,18,0.55)', fontSize: 13, lineHeight: 1.55 }}>
-              {EMPTY_COPY[type]}
-            </div>
+            <EmptyState
+              icon="pin-flag"
+              tone="light"
+              title={EMPTY_COPY[type].title}
+              subtitle={EMPTY_COPY[type].subtitle}
+            />
           )}
 
           {!loading && users.map(u => (

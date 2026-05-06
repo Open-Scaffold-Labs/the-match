@@ -64,7 +64,23 @@ router.post('/', async (req, res) => {
     console.warn('[rounds] handicap recompute failed', err.message)
   })
 
-  res.status(201).json({ id: row.id })
+  // Achievement detection (2026-05-06 — polish task #5). Same lambda
+  // freeze contract — awaited, failures swallowed. Newly-awarded
+  // achievements come back so the client can show the unlock card.
+  let newly = []
+  try {
+    const { checkAfterSoloRound } = require('../lib/achievements')
+    newly = await checkAfterSoloRound({
+      user_id:    req.user.id,
+      total,
+      scores,
+      course_par: Number(coursePar) || 72,
+    })
+  } catch (e) {
+    console.warn('[achievements] check after solo round failed', e.message)
+  }
+
+  res.status(201).json({ id: row.id, achievements: newly })
 })
 
 // GET /api/rounds/:id

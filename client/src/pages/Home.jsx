@@ -12,6 +12,8 @@ import AdminUsersModal from '../components/AdminUsersModal.jsx'
 import OnboardingChecklist from '../components/OnboardingChecklist.jsx'
 import CoachMark from '../components/CoachMark.jsx'
 import RivalryHistory from '../components/RivalryHistory.jsx'
+import AchievementsRow from '../components/AchievementsRow.jsx'
+import YearRecapModal from './Outing/YearRecap.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -2463,6 +2465,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   const [historyOpen, setHistoryOpen] = useState(false)
   // Tap "See all rivalries" → open the full RivalryHistory bottom-sheet.
   const [rivalriesOpen, setRivalriesOpen] = useState(false)
+  // 2026-05-06 (polish task #10) — Year-end recap share-card modal.
+  const [yearRecapOpen, setYearRecapOpen] = useState(false)
 
   return (
     <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
@@ -2711,6 +2715,37 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
 
         {/* The standalone MiniTrendBar is removed — its content moved
             inside HcpBadge above. (2026-05-01 — Matt request) */}
+
+        {/* 2026-05-06 (polish task #5) — Achievements row. Renders the
+            user's earned badges (first eagle, sub-80, three-round
+            week). Hidden-loading + empty-with-personality + populated
+            states all baked in. Listens to the global achievement
+            event so a fresh unlock during this session refreshes the
+            row without a page reload. */}
+        <AchievementsRow />
+
+        {/* 2026-05-06 (polish task #10) — Year-end recap entry.
+            Opens a Canvas-rendered share card with the user's full-
+            year stats. Defaults to the current year. */}
+        <button onClick={() => setYearRecapOpen(true)} style={{
+          width: '100%', padding: '12px 16px', marginBottom: 12,
+          borderRadius: 14,
+          background: 'linear-gradient(135deg, rgba(245,215,138,0.12) 0%, rgba(201,160,64,0.18) 100%)',
+          border: '1px solid rgba(232,192,90,0.40)',
+          color: '#F5D78A', fontWeight: 800, fontSize: 13,
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Your year in golf — {new Date().getFullYear()}
+          </span>
+          <span style={{ fontSize: 12, color: 'rgba(232,192,90,0.65)' }}>Share →</span>
+        </button>
 
         {/* Rivalries — top 3 head-to-head records vs friends you've
             played matches with. Each row: avatar + name + W-L-T +
@@ -3083,6 +3118,11 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           onSelectOpponent={onOpenFriend}
           onClose={() => setRivalriesOpen(false)}
         />
+      )}
+
+      {/* 2026-05-06 (polish task #10) — Year-end recap modal mount. */}
+      {yearRecapOpen && (
+        <YearRecapModal onClose={() => setYearRecapOpen(false)} />
       )}
     </div>
   )

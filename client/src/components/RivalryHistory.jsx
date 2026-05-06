@@ -19,6 +19,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import RivalryDetail from './RivalryDetail.jsx'
+import EmptyState from './primitives/EmptyState.jsx'
 
 export default function RivalryHistory({
   rivalries = [],
@@ -89,10 +90,12 @@ export default function RivalryHistory({
         {/* Body — scrollable list */}
         <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch', flex: 1 }}>
           {rivalries.length === 0 && (
-            <div style={{ padding: '32px 24px', textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>
-              No rivalries yet. Play a match against a friend and the
-              head-to-head record will start showing up here.
-            </div>
+            <EmptyState
+              icon="trophy"
+              tone="dark"
+              title="No rivals yet."
+              subtitle="Beat a friend in a match and they'll show up here, head-to-head, win-loss, scores side by side."
+            />
           )}
           {rivalries.map((r, i) => {
             const myWins   = Number(r.my_wins  ?? 0)

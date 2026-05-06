@@ -1,10 +1,17 @@
 import { useState } from 'react'
+import MatchEndShareModal from './MatchEndShare.jsx'
 
 // ─── End Match / Winner Ceremony ──────────────────────────────────────────────
-export default function EndMatchScreen({ summary, onDone }) {
+export default function EndMatchScreen({ summary, user, onDone }) {
   const { code, name, winner, podium = [], highlights, course, course_par, format } = summary
   const [shared, setShared] = useState(false)
   const [linkShared, setLinkShared] = useState(false)
+  // 2026-05-06 (polish task #4) — optional Canvas-rendered match-result
+  // share card. Reuses the HighlightShare pipeline (1080×1080 PNG +
+  // navigator.share with file blob, download fallback). Toggled by the
+  // "Save share image" button below the existing text + live-link
+  // share buttons. Defaults to closed; opens on demand.
+  const [showImageShare, setShowImageShare] = useState(false)
 
   async function share() {
     const lines = [`${winner?.name} wins ${winner?.name ? '"' + (course || 'The Match') + '"' : ''}!`]
@@ -153,12 +160,39 @@ export default function EndMatchScreen({ summary, onDone }) {
             {linkShared ? 'Link copied!' : 'Share live link'}
           </button>
         )}
+        {/* Save share image — generates a 1080×1080 Canvas card with the
+            winner, podium, format/course, and date, then offers the
+            native share sheet (or downloads on browsers without it).
+            Different from "Share Results" (text) and "Share live link"
+            (URL) because some chats prefer a graphic. (2026-05-06,
+            polish task #4) */}
+        <button onClick={() => setShowImageShare(true)} style={{
+          width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer',
+          background: 'rgba(245,215,138,0.10)', border: '1px solid rgba(245,215,138,0.32)',
+          color: '#F5D78A', fontWeight: 800, fontSize: 14,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          Save share image
+        </button>
         <button onClick={onDone} style={{
           width: '100%', padding: '16px', borderRadius: 14, cursor: 'pointer',
           background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',
           color: 'var(--tm-text-2)', fontWeight: 700, fontSize: 15,
         }}>Back to Matches</button>
       </div>
+
+      {showImageShare && (
+        <MatchEndShareModal
+          summary={summary}
+          viewerId={user?.id}
+          onClose={() => setShowImageShare(false)}
+        />
+      )}
     </div>
   )
 }
