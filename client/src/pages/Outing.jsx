@@ -10,6 +10,7 @@ import { warn } from '../lib/logger.js'
 import { scoreColor as scoreToParColor } from '../lib/scoreColors.js'
 import ActiveRound from './ActiveRound.jsx'
 import PublicLeaderboard from './PublicLeaderboard.jsx'
+import { QRCodeSVG } from 'qrcode.react'
 // Standalone AugustaBoard route was removed 2026-04-30 (Path A) — every
 // match now renders the Augusta scorecard directly via LiveOuting.
 
@@ -7285,6 +7286,93 @@ function TeamSetup({ outing, onClose, onSaved }) {
 }
 
 // ─── Share Code Button ────────────────────────────────────────────────────────
+// 2026-05-05 — Show-QR button. Tapping opens a portal modal with a
+// large QR code encoding the join URL. Friends standing next to the
+// host can scan it with their iPhone camera; URL has a ?join=CODE
+// param that App.jsx routes to auto-join (if signed in) or
+// stash-and-redirect (if not signed in yet).
+function ShareQRButton({ code, name, course }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button onClick={() => setOpen(true)} style={{
+        width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer', border: 'none',
+        background: 'linear-gradient(135deg, #1A6B28 0%, #0E3B23 100%)',
+        color: '#fff', fontWeight: 800, fontSize: 15,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        boxShadow: '0 4px 16px rgba(46,158,69,0.30), inset 0 1px 0 rgba(255,255,255,0.12)',
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><line x1="14" y1="14" x2="14" y2="14.01"/>
+          <line x1="17" y1="14" x2="17" y2="17"/><line x1="14" y1="17" x2="14" y2="20"/>
+          <line x1="17" y1="20" x2="20" y2="20"/><line x1="20" y1="14" x2="20" y2="17"/>
+        </svg>
+        Show QR Code
+      </button>
+      {open && <ShareQRModal code={code} name={name} course={course} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+// QR modal — portal to document.body, dark backdrop, big QR card.
+// stopPropagation on the inner card so taps on the QR/copy don't
+// bubble out and close the modal accidentally.
+function ShareQRModal({ code, name, course, onClose }) {
+  const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/?join=${encodeURIComponent(code)}`
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000,
+        background: 'rgba(0,0,0,0.75)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '20px',
+      }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 360,
+          background: '#FFFDF8',
+          borderRadius: 24, padding: '28px 24px 24px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.50)',
+          textAlign: 'center',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+        }}>
+        <div style={{ fontSize: 11, color: '#7A5800', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+          Scan to Join
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#0D1F12', lineHeight: 1.2 }}>{name}</div>
+        {course && (
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1A6B28' }}>{course}</div>
+        )}
+        <div style={{
+          padding: 16, borderRadius: 16,
+          background: '#fff',
+          border: '2px solid rgba(201,160,64,0.55)',
+          boxShadow: '0 4px 18px rgba(201,160,64,0.18)',
+        }}>
+          <QRCodeSVG value={url} size={232} level="M" includeMargin={false} fgColor="#0D1F12" bgColor="#FFFFFF" />
+        </div>
+        <div style={{
+          fontSize: 28, fontWeight: 900, letterSpacing: 8, color: '#C9A040',
+          fontFamily: '"Arial Black", Arial, sans-serif',
+        }}>{code}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(13,31,18,0.70)', lineHeight: 1.45 }}>
+          Have your friends point their iPhone camera at this code.
+        </div>
+        <button onClick={onClose} style={{
+          marginTop: 4,
+          padding: '10px 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: 'rgba(13,31,18,0.06)', color: 'rgba(13,31,18,0.65)',
+          fontWeight: 700, fontSize: 13,
+        }}>Close</button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 function ShareCodeButton({ code, name }) {
   const [copied, setCopied] = useState(false)
 
@@ -7372,6 +7460,8 @@ function CodeShare({ outing, onEnter }) {
       </div>
       {/* Share button */}
       <ShareCodeButton code={outing.code} name={outing.name} />
+      {/* QR-code share — opens a modal with a large scannable QR. */}
+      <ShareQRButton code={outing.code} name={outing.name} course={outing.course_name} />
       <button onClick={onEnter}
         style={{
           width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
@@ -7387,7 +7477,7 @@ function CodeShare({ outing, onEnter }) {
 }
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
-export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo' | 'spectate'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -7399,6 +7489,36 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
   // Reuses PublicLeaderboard; wrapped with a back chevron so the user
   // returns to OutingHub instead of being trapped on the public board.
   const [spectateCode, setSpectateCode] = useState(null)
+
+  // 2026-05-05 — QR-scan auto-join. App.jsx parses ?join=ABCD off the
+  // URL (or pulls a stash from localStorage post-onboarding) and
+  // forwards it here. We POST to /:code/join and switch to the live
+  // view. Errors are surfaced via a one-shot state slot the hub renders
+  // as a toast so the user knows why nothing happened (404 = bad code,
+  // 400 = closed match, etc.).
+  const [joinError, setJoinError] = useState(null)
+  useEffect(() => {
+    if (!pendingJoinCode) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        await post(`/api/outings/${encodeURIComponent(pendingJoinCode)}/join`, {})
+        if (cancelled) return
+        setActiveCode(pendingJoinCode)
+        setView('live')
+      } catch (err) {
+        if (cancelled) return
+        const msg = err?.status === 404 ? 'That match code doesn\'t exist anymore.'
+                  : err?.status === 400 ? 'That match has been closed.'
+                  : 'Could not join that match. Try entering the code manually.'
+        setJoinError(msg)
+        setTimeout(() => setJoinError(null), 5000)
+      } finally {
+        if (!cancelled) onClearPendingJoinCode?.()
+      }
+    })()
+    return () => { cancelled = true }
+  }, [pendingJoinCode])
 
   // Auto-open CreateWizard when navigated here with pre-filled players.
   // Depends on pendingPlayers so it fires both on mount AND when the
@@ -7473,6 +7593,23 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
         title="Create or join a match"
         body='Tap "Create" to start a new match, or "Enter a Code" if a friend shared one. Live matches you started can be deleted with a left-swipe.'
       />
+      {/* 2026-05-05 — auto-join error toast. Shown briefly when a
+          QR-scan or stashed pendingJoinCode failed (bad code / closed
+          match). Self-dismisses after 5s. */}
+      {joinError && (
+        <div style={{
+          position: 'fixed', top: 'calc(var(--safe-top) + 16px)',
+          left: '50%', transform: 'translateX(-50%)',
+          zIndex: 9999,
+          background: '#B22222', color: '#fff',
+          fontSize: 13, fontWeight: 700,
+          padding: '10px 16px', borderRadius: 999,
+          boxShadow: '0 4px 16px rgba(178,34,34,0.40)',
+          maxWidth: 360, textAlign: 'center',
+        }}>
+          {joinError}
+        </div>
+      )}
       {showJoin && (
         <JoinSheet
           onClose={() => setShowJoin(false)}

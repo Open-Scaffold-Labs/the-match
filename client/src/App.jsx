@@ -28,6 +28,14 @@ export default function App() {
   // Cleared when the wizard finishes or the user backs out.
   // (2026-05-02 — League-attached event creation.)
   const [pendingLeagueId, setPendingLeagueId] = useState(null)
+  // 2026-05-05 — QR-scan auto-join handoff. When a user scans the QR
+  // displayed by CodeShare's "Show QR Code" button, the URL is
+  // ?join=ABCD. Picked up here on mount, stashed in localStorage so
+  // it survives login/onboarding for new users, and passed down to
+  // Outing as a prop. Outing's useEffect calls POST /:code/join and
+  // switches to view='live'. Cleared via onClearPendingJoinCode after
+  // the join either succeeds or definitively fails.
+  const [pendingJoinCode, setPendingJoinCode] = useState(null)
   // Lazy-keep-alive: track which tabs the user has visited. Each visited
   // tab stays mounted (display: block when active, display: none otherwise)
   // so component state, polling, GPS subscriptions, and the BOARD/SCORECARD
@@ -75,6 +83,29 @@ export default function App() {
       if (window.location.hash) window.location.hash = ''
     }
 
+    // 2026-05-05 — QR-scan auto-join. ?join=ABCD on the URL is the
+    // join-code QR's payload. Scrub from the URL after capture so a
+    // refresh doesn't re-attempt the join. If the user isn't signed
+    // in yet, stash in localStorage so it survives login + onboarding.
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const j = sp.get('join')
+      if (j) {
+        const code = j.toUpperCase()
+        setPendingJoinCode(code)
+        try { localStorage.setItem('tm_pending_join', code) } catch { /* storage off */ }
+        sp.delete('join')
+        const newSearch = sp.toString() ? `?${sp.toString()}` : ''
+        window.history.replaceState(null, '', window.location.pathname + newSearch + window.location.hash)
+      } else {
+        // No URL param — check localStorage in case a prior session
+        // stashed a code that was never consumed (e.g. user closed
+        // the app mid-onboarding after scanning).
+        const stashed = localStorage.getItem('tm_pending_join')
+        if (stashed) setPendingJoinCode(stashed.toUpperCase())
+      }
+    } catch { /* URL parsing or storage off — no auto-join, no crash */ }
+
     const token = getToken()
     if (!token) { setLoading(false); return }
 
@@ -86,6 +117,17 @@ export default function App() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // 2026-05-05 — When pendingJoinCode is set AND the user is signed
+  // in past onboarding, route them to the Scorecard (Outing) tab so
+  // the auto-join can fire there. If they're still mid-auth, this
+  // useEffect just no-ops; the next tick (after user / onboarding
+  // becomes truthy) will route them.
+  useEffect(() => {
+    if (!pendingJoinCode) return
+    if (!user || !user.onboarding_completed_at) return
+    setTab(TABS.OUTING)
+  }, [pendingJoinCode, user?.id, user?.onboarding_completed_at])
 
   // Mark each visited tab as mounted on first activation. Once mounted, a
   // tab stays mounted for the rest of the session.
@@ -218,6 +260,11 @@ export default function App() {
               onClearPending={() => setPendingOutingPlayers([])}
               pendingLeagueId={pendingLeagueId}
               onClearPendingLeague={() => setPendingLeagueId(null)}
+              pendingJoinCode={pendingJoinCode}
+              onClearPendingJoinCode={() => {
+                setPendingJoinCode(null)
+                try { localStorage.removeItem('tm_pending_join') } catch { /* ignore */ }
+              }}
               onGoToEagleEye={hole => { setEyeHoleNudge(hole); setTab(TABS.EYE) }}
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
