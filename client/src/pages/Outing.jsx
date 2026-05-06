@@ -7353,7 +7353,7 @@ function CodeShare({ outing, onEnter }) {
         </svg>
       </div>
       <div style={{ fontWeight: 800, fontSize: 22, color: '#0D1F12', textAlign: 'center' }}>{outing.name}</div>
-      <div style={{ fontSize: 14, color: 'rgba(13,31,18,0.55)', textAlign: 'center' }}>{outing.course_name}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#1A6B28', textAlign: 'center' }}>{outing.course_name}</div>
       <div style={{
         background: 'rgba(255,253,248,0.85)',
         border: '1.5px solid rgba(201,160,64,0.55)',
