@@ -231,8 +231,15 @@ function HandicapTrendLine({ rounds }) {
 // computeHandicapMilestone moved to lib/handicap-milestone.js for
 // node-runnable testing. Re-exported here so existing import sites
 // that path to Stats.jsx keep working unchanged.
-export { computeHandicapMilestone } from '../lib/handicap-milestone.js'
+//
+// 2026-05-06 hotfix — the previous version had `export ... from` AND
+// `import ...` for the SAME name, which created two top-level bindings
+// with the same identifier. Vite/rollup tolerated it at build time but
+// the minified output threw "cannot access 'ci' before initialization"
+// at runtime (TDZ). The single-import + named-re-export pattern below
+// declares the binding exactly once.
 import { computeHandicapMilestone } from '../lib/handicap-milestone.js'
+export { computeHandicapMilestone }
 
 export function HcpBadge({ hcp, roundCount, rounds }) {
   // Coerce — handicap can arrive as a string from Postgres NUMERIC
