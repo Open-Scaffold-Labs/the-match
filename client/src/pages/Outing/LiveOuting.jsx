@@ -138,6 +138,18 @@ function SavedChip({ savedAt }) {
   // and per CSS spec creates a containing block for fixed descendants).
   // Without the portal the chip lands below the bottom nav and looks
   // like it never rendered.
+  // 2026-05-06 fix — render via createPortal to document.body so the
+  // chip's `position: fixed` is viewport-relative, not relative to the
+  // TabPanel's pull-to-refresh wrapper (which has transform:translateY
+  // and per CSS spec creates a containing block for fixed descendants).
+  // Without the portal the chip lands below the bottom nav and looks
+  // like it never rendered.
+  //
+  // Color: solid gold gradient (matches Share Code with Group + the
+  // gold accents elsewhere in the app). Dark ink text on gold for
+  // contrast. Earlier translucent green-on-grass version was hard to
+  // read on the cream page tint — Matt: 'barely visible because it
+  // uses a transparent see through color.'
   return createPortal(
     <div
       aria-live="polite"
@@ -146,19 +158,20 @@ function SavedChip({ savedAt }) {
         bottom: 'calc(56px + env(safe-area-inset-bottom) + 12px)',
         right: 16,
         zIndex: 50,
-        background: 'linear-gradient(135deg, #1A6B28 0%, #0E3B23 100%)',
-        color: '#fff',
-        padding: '8px 14px',
+        background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)',
+        color: '#070C09',
+        padding: '9px 16px',
         borderRadius: 999,
-        fontSize: 12, fontWeight: 700,
-        boxShadow: '0 6px 20px rgba(46,158,69,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
+        fontSize: 13, fontWeight: 800,
+        boxShadow: '0 6px 20px rgba(201,160,64,0.40), inset 0 1px 0 rgba(255,255,255,0.35)',
+        border: '1px solid rgba(122,88,0,0.30)',
         display: 'flex', alignItems: 'center', gap: 6,
         pointerEvents: 'none',
         opacity,
         transform: `translateY(${ty}px)`,
         transition: 'opacity 80ms linear',
       }}>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12"/>
       </svg>
       Saved
