@@ -1809,10 +1809,27 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     }
     return p
   }
+  // 2026-05-06 hotfix — hydrate team_id from state.teams[].member_ids.
+  // Best Ball / team scoring formats key off `p.team_id`, but the saved
+  // shape only has the team mapping at the OUTING level (state.teams)
+  // not on each participant row. Without this, computeBestBall treats
+  // every player as their own solo team and the leaderboard renders as
+  // singles instead of teams. (Matt's PLSL match.)
+  const teamIdByUserId = (() => {
+    const m = new Map()
+    for (const t of (outing.state?.teams || [])) {
+      for (const uid of (t.member_ids || [])) m.set(String(uid), t.id)
+    }
+    return m
+  })()
   const participants = allParticipants
     .filter(p => !p.withdrawn)
     .filter(p => !(p.no_show && noShowPolicy === 'dns'))
     .map(applyNoShowPolicy)
+    .map(p => {
+      const tid = teamIdByUserId.get(String(p.user_id))
+      return tid != null ? { ...p, team_id: p.team_id ?? tid } : p
+    })
   // DNS section roster — players excluded from ranking but still on
   // the roster. Empty when policy isn't DNS.
   const noShowList = noShowPolicy === 'dns'
