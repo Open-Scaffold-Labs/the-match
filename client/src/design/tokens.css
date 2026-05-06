@@ -222,16 +222,18 @@
   }
 
   /* "✓ Saved" toast that appears briefly after a score writes to the
-     server. Slides up from the bottom-edge with a fade, holds, fades
-     out. The keyframes here run in two passes (in + out) so a JS
-     timeout flips a class to retrigger the second half. (2026-05-06) */
-  @keyframes tm-saved-in {
-    from { transform: translateY(8px); opacity: 0; }
-    to   { transform: translateY(0);   opacity: 1; }
-  }
-  @keyframes tm-saved-out {
-    from { transform: translateY(0);   opacity: 1; }
-    to   { transform: translateY(-4px); opacity: 0; }
+     server. Single keyframe handles the full lifecycle so the
+     animation advances on the GPU compositor without needing React
+     re-renders to drive opacity. Earlier 2-pass JS-driven version
+     never reached full opacity because the component only re-rendered
+     at mount and at 1600ms — the chip displayed its mount-time
+     opacity (0) for the entire visible window, looking transparent.
+     CSS-only fixes that. (2026-05-06) */
+  @keyframes tm-saved-flash {
+    0%   { opacity: 0; transform: translateY(10px) scale(0.96); }
+    12%  { opacity: 1; transform: translateY(0)    scale(1); }
+    78%  { opacity: 1; transform: translateY(0)    scale(1); }
+    100% { opacity: 0; transform: translateY(-4px) scale(1); }
   }
 }
 

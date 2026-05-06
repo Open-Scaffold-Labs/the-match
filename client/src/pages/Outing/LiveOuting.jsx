@@ -111,47 +111,40 @@ function ScorecardSkeleton({ onBack }) {
 }
 
 function SavedChip({ savedAt }) {
-  const [now, setNow] = useState(() => Date.now())
+  // Schedule a re-render after the animation duration so the chip
+  // unmounts cleanly. Without this, the DOM node would linger
+  // (transparent, opacity 0 from CSS animation forwards) until the
+  // next save retriggers it.
+  const [, setTick] = useState(0)
   useEffect(() => {
     if (!savedAt) return
-    setNow(Date.now())
-    // Re-render once at the fade-out point so the chip disappears
-    // without us holding a re-render loop.
-    const t = setTimeout(() => setNow(Date.now()), 1600)
+    const t = setTimeout(() => setTick(n => n + 1), 1750)
     return () => clearTimeout(t)
   }, [savedAt])
+  if (!savedAt || (Date.now() - savedAt) > 1750) return null
 
-  if (!savedAt) return null
-  const elapsed = now - savedAt
-  if (elapsed > 1500) return null
-  // Animate: in (0-200ms) → hold (200-1100ms) → out (1100-1500ms).
-  const opacity = elapsed < 200
-    ? elapsed / 200
-    : elapsed > 1100
-      ? Math.max(0, 1 - (elapsed - 1100) / 400)
-      : 1
-  const ty = elapsed < 200 ? 8 - (elapsed / 200) * 8 : 0
-
-  // 2026-05-06 fix — render via createPortal to document.body so the
-  // chip's `position: fixed` is viewport-relative, not relative to the
+  // 2026-05-06 — render via createPortal to document.body so the chip's
+  // `position: fixed` is viewport-relative, not relative to the
   // TabPanel's pull-to-refresh wrapper (which has transform:translateY
   // and per CSS spec creates a containing block for fixed descendants).
-  // Without the portal the chip lands below the bottom nav and looks
-  // like it never rendered.
-  // 2026-05-06 fix — render via createPortal to document.body so the
-  // chip's `position: fixed` is viewport-relative, not relative to the
-  // TabPanel's pull-to-refresh wrapper (which has transform:translateY
-  // and per CSS spec creates a containing block for fixed descendants).
-  // Without the portal the chip lands below the bottom nav and looks
-  // like it never rendered.
+  // Without the portal the chip lands below the bottom nav off-screen.
+  //
+  // Animation: a single CSS keyframe (tm-saved-flash) drives the full
+  // 0→fade-in→hold→fade-out lifecycle on the GPU compositor — no React
+  // re-renders required mid-animation. Earlier JS-driven opacity math
+  // depended on the component re-rendering at every animation frame,
+  // which it didn't, so the chip displayed its mount-time opacity (0)
+  // for the entire visible window and looked transparent. CSS-only
+  // animation makes that impossible.
   //
   // Color: solid gold gradient (matches Share Code with Group + the
-  // gold accents elsewhere in the app). Dark ink text on gold for
-  // contrast. Earlier translucent green-on-grass version was hard to
-  // read on the cream page tint — Matt: 'barely visible because it
-  // uses a transparent see through color.'
+  // rest of the app's gold accents). Dark ink text on gold for
+  // contrast on any background. key={savedAt} forces React to unmount
+  // and remount on each new save, restarting the keyframe from the
+  // top.
   return createPortal(
     <div
+      key={savedAt}
       aria-live="polite"
       style={{
         position: 'fixed',
@@ -160,18 +153,16 @@ function SavedChip({ savedAt }) {
         zIndex: 50,
         background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)',
         color: '#070C09',
-        padding: '9px 16px',
+        padding: '10px 18px',
         borderRadius: 999,
-        fontSize: 13, fontWeight: 800,
-        boxShadow: '0 6px 20px rgba(201,160,64,0.40), inset 0 1px 0 rgba(255,255,255,0.35)',
-        border: '1px solid rgba(122,88,0,0.30)',
+        fontSize: 14, fontWeight: 800,
+        boxShadow: '0 8px 24px rgba(201,160,64,0.55), inset 0 1px 0 rgba(255,255,255,0.40)',
+        border: '1.5px solid rgba(122,88,0,0.45)',
         display: 'flex', alignItems: 'center', gap: 6,
         pointerEvents: 'none',
-        opacity,
-        transform: `translateY(${ty}px)`,
-        transition: 'opacity 80ms linear',
+        animation: 'tm-saved-flash 1700ms ease-out forwards',
       }}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12"/>
       </svg>
       Saved
