@@ -132,7 +132,13 @@ function SavedChip({ savedAt }) {
       : 1
   const ty = elapsed < 200 ? 8 - (elapsed / 200) * 8 : 0
 
-  return (
+  // 2026-05-06 fix — render via createPortal to document.body so the
+  // chip's `position: fixed` is viewport-relative, not relative to the
+  // TabPanel's pull-to-refresh wrapper (which has transform:translateY
+  // and per CSS spec creates a containing block for fixed descendants).
+  // Without the portal the chip lands below the bottom nav and looks
+  // like it never rendered.
+  return createPortal(
     <div
       aria-live="polite"
       style={{
@@ -156,7 +162,8 @@ function SavedChip({ savedAt }) {
         <polyline points="20 6 9 17 4 12"/>
       </svg>
       Saved
-    </div>
+    </div>,
+    document.body
   )
 }
 

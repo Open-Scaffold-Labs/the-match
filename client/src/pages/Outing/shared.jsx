@@ -85,9 +85,18 @@ export function wlLabel(w, l, t) {
   return `${w}-${l}${t ? `-${t}` : ''}`
 }
 
-// Score-vs-par label used by the recent-event banner. Returns "EAGLE",
-// "BIRDIE", "PAR", "BOGEY", "DOUBLE BOGEY", or "+N". (2026-04-30 PM round 10)
+// Score-vs-par label used by the recent-event banner. Returns
+// "HOLE-IN-ONE", "ALBATROSS", "EAGLE", "BIRDIE", "PAR", "BOGEY",
+// "DOUBLE", "TRIPLE", or "+N". (2026-04-30 PM round 10)
+//
+// 2026-05-06 — added explicit HOLE-IN-ONE branch so a score of 1 on
+// any par reads as 'HOLE-IN-ONE' instead of falling into ALBATROSS /
+// EAGLE / BIRDIE based on raw diff. Matches the highlight share-card's
+// badgeForScore logic (HighlightShare.jsx) so the recent-event banner
+// at the top of LiveOuting and the celebration modal both call the
+// moment by its proper name.
 export function scoreLabel(score, par) {
+  if (score === 1) return 'HOLE-IN-ONE'
   const d = score - par
   if (d <= -3) return 'ALBATROSS'
   if (d === -2) return 'EAGLE'
