@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../../lib/api.js'
 import { warn } from '../../lib/logger.js'
+import { dedupeTees } from '../../lib/tees.js'
 
 // ─── Create Outing Wizard ─────────────────────────────────────────────────────
 const FORMATS = [
@@ -144,7 +145,14 @@ function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
 
   // ─── Tee selection ───────────────────────────────────────────────────
   if (openCourse) {
-    const allTees = [...(openCourse.tees?.male || []), ...(openCourse.tees?.female || [])]
+    // 2026-05-06 — dedupe via the shared lib/tees.js helper. Earlier
+    // this was a naive `[...male, ...female]` concat, which showed
+    // each physical tee box twice when the course had both M and W
+    // ratings (Matt's complaint: "multiple sets of tees with different
+    // ratings"). EagleEye's CoursePicker already used dedupeTees;
+    // factored it into lib/tees.js so this picker shares the same
+    // single-source-of-truth implementation.
+    const allTees = dedupeTees(openCourse.tees)
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>

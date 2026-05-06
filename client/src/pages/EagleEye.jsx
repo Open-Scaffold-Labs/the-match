@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
 import { log } from '../lib/logger.js'
+import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
 
 // Module-level cache: keyed by `${courseId}-${teeName}` — survives re-renders,
@@ -32,23 +33,9 @@ function lsSaveOsm(key, data) {
 // occurrence keyed by tee_name + total_yards. Female-only tees (rare —
 // genuinely separate forward boxes) are suffixed " (W)" to keep them
 // distinct without breaking equality with downstream cache keys.
-function dedupeTees(teesObj) {
-  const out = []
-  const seen = new Set()
-  for (const t of (teesObj?.male || [])) {
-    const key = `${t.tee_name}|${t.total_yards}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push(t)
-  }
-  for (const t of (teesObj?.female || [])) {
-    const key = `${t.tee_name}|${t.total_yards}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push({ ...t, tee_name: `${t.tee_name} (W)` })
-  }
-  return out
-}
+// dedupeTees moved to client/src/lib/tees.js so the CreateWizard tee
+// picker can share the same logic. Imported above; same behavior.
+// (2026-05-06.)
 
 // ─── Nearest-neighbor sort for untagged greens (spatial fallback) ────────────
 function nearestNeighborSort(points, startLat, startLon) {
