@@ -2019,10 +2019,20 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // ── Best Ball: compute per-team totals (lowest of each team's
   // members per hole, summed). Players with the same team_id share
   // a team total; lowest team total wins. (B4d)
+  //
+  // 2026-05-06 — handicaps opt-in. Earlier this passed `netStrokes`
+  // unconditionally so best-ball totals were always net-adjusted,
+  // even when the user had GROSS selected on the leaderboard toggle.
+  // Matt's call: handicaps shouldn't apply automatically — the user
+  // has to explicitly flip the GROSS/NET button to opt in. So when
+  // netMode is OFF, we pass a stroke function that always returns 0,
+  // making computeBestBall run pure gross. When netMode is ON, we
+  // pass the real netStrokes and the math runs USGA-correct net.
   const isBestBallFormat = (outing.scoring_formats || []).includes('best_ball')
   const courseHoleHandicaps = Array.isArray(outing.hole_handicaps) ? outing.hole_handicaps : null
+  const zeroStrokes = () => 0
   const bestBallData     = isBestBallFormat
-    ? computeBestBall(participants, holePars, getScores, netStrokes, courseHoleHandicaps)
+    ? computeBestBall(participants, holePars, getScores, netMode ? netStrokes : zeroStrokes, courseHoleHandicaps)
     : null
   const bestBallByPlayer = bestBallData?.playerTeamTotal || {}
   // Sorted teams (low-to-high) for the standings card. Each entry has
