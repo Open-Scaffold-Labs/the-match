@@ -5,6 +5,10 @@ import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/off
 import { warn } from '../../lib/logger.js'
 import { scoreColor as scoreToParColor } from '../../lib/scoreColors.js'
 import GuestModal from './GuestModal.jsx'
+// 2026-05-06 Stage 5 — commissioner overlay components moved to their
+// own file. LiveOuting renders them as portals from inside the live
+// scorecard, so they import here, not in Outing.jsx.
+import { CommissionerPanel, GroupSetup, TeamSetup } from './Commissioner.jsx'
 import {
   AUGUSTA_GREEN, AUGUSTA_GREEN_DEEP, AUGUSTA_PANEL, AUGUSTA_PANEL_HI,
   AUGUSTA_PANEL_HOVER, AUGUSTA_TEXT, AUGUSTA_GOLD, AUGUSTA_GOLD_DIM,
