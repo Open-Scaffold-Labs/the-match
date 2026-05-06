@@ -7319,48 +7319,52 @@ function ShareCodeButton({ code, name }) {
 // ─── Code Share ───────────────────────────────────────────────────────────────
 function CodeShare({ outing, onEnter }) {
   return (
-    // 2026-05-05 — added dark gradient background. This screen was
-    // designed dark (white outing name, gold join-code, low-opacity
-    // white instructional copy) but had no background set, so when
-    // the page-level cream tint shipped on 2026-05-02 every text
-    // element became near-invisible on the cream surface. The dark
-    // backdrop matches EndMatchScreen's treatment and makes the gold
-    // join-code pop the way it was meant to.
+    // 2026-05-05 — kept transparent (sits over the page-level cream
+    // tint). Two fixes vs the earlier version:
+    //   1. Text colors: white-on-transparent was invisible on cream;
+    //      switched to dark-on-cream. Gold accents preserved.
+    //   2. Layout: was justifyContent:center on a fixed-height
+    //      container, which caused content taller than the viewport
+    //      to overflow top + bottom (Matt: "the entire bottom half is
+    //      sticking through"). Now flex-start with a scrollable
+    //      container, safe-area padding, and bottom padding to clear
+    //      the nav so the Enter Scorecard button is always reachable.
     <div data-no-pull-refresh="true" style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      height: '100%', padding: '0 32px', gap: 20,
-      background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+      padding: 'calc(var(--safe-top) + 24px) 32px calc(var(--safe-bottom) + 24px)',
+      gap: 16,
     }}>
       <div style={{
-        width: 72, height: 72, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(30,80,35,0.5) 0%, rgba(10,30,14,0.3) 100%)',
-        border: '1px solid rgba(94,212,122,0.25)',
-        boxShadow: '0 0 32px rgba(94,212,122,0.1)',
+        width: 64, height: 64, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(46,158,69,0.20) 0%, rgba(46,158,69,0.04) 100%)',
+        border: '1px solid rgba(46,158,69,0.35)',
+        boxShadow: '0 2px 12px rgba(46,158,69,0.18)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
       }}>
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#5ED47A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1A6B28" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
           <line x1="4" y1="22" x2="4" y2="15"/>
         </svg>
       </div>
-      <div style={{ fontWeight: 800, fontSize: 22, color: '#fff', textAlign: 'center' }}>{outing.name}</div>
-      <div style={{ fontSize: 14, color: 'var(--tm-text-3)', textAlign: 'center' }}>{outing.course_name}</div>
+      <div style={{ fontWeight: 800, fontSize: 22, color: '#0D1F12', textAlign: 'center' }}>{outing.name}</div>
+      <div style={{ fontSize: 14, color: 'rgba(13,31,18,0.55)', textAlign: 'center' }}>{outing.course_name}</div>
       <div style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(232,192,90,0.35)',
-        borderRadius: 20, padding: '24px 40px', textAlign: 'center',
-        boxShadow: '0 0 40px rgba(232,192,90,0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+        background: 'rgba(255,253,248,0.85)',
+        border: '1.5px solid rgba(201,160,64,0.55)',
+        borderRadius: 20, padding: '22px 40px', textAlign: 'center',
+        boxShadow: '0 4px 18px rgba(201,160,64,0.18)',
       }}>
-        <div style={{ fontSize: 11, color: 'rgba(232,192,90,0.7)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>Join Code</div>
+        <div style={{ fontSize: 11, color: '#7A5800', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Join Code</div>
         <div style={{
           fontSize: 54, fontWeight: 900, letterSpacing: 10,
-          background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+          background: 'linear-gradient(135deg, #C9A040, #8A6B28)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          filter: 'drop-shadow(0 0 8px rgba(232,192,90,0.3))',
         }}>{outing.code}</div>
       </div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
-        Share this code with your group — they open The Match app, tap the Match tab, and hit "Enter a Code"
+      <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.65)', textAlign: 'center', lineHeight: 1.45 }}>
+        Share this code with your group — they open The Match app, tap the Scorecard tab, and hit "Enter a Code"
       </div>
       {/* Share button */}
       <ShareCodeButton code={outing.code} name={outing.name} />
@@ -7369,7 +7373,8 @@ function CodeShare({ outing, onEnter }) {
           width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
           background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
           color: '#fff', fontWeight: 800, fontSize: 16,
-          boxShadow: '0 4px 20px rgba(46,158,69,0.35), inset 0 1px 0 rgba(255,255,255,0.12)',
+          boxShadow: '0 4px 16px rgba(46,158,69,0.30), inset 0 1px 0 rgba(255,255,255,0.12)',
+          flexShrink: 0,
         }}>
         Enter Scorecard →
       </button>
