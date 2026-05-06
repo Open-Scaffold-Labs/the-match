@@ -1950,6 +1950,55 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     : null
   const stablefordByPlayer = stablefordData?.pointsByPlayer || {}
 
+  // 2026-05-06 hotfix — hoisted from later in the body so they're
+  // initialized BEFORE computeBestBall (which calls netStrokes
+  // through a captured reference). Previously these lived ~100
+  // lines below; for any outing with `best_ball` in scoring_formats
+  // the call below would reach into `handicapOverrides` while it was
+  // still in TDZ, throwing "Cannot access 'ci' before initialization"
+  // at the Hooked-Left ErrorBoundary. Same definitions as before,
+  // just earlier in source order.
+  //
+  // Handicap allowance: most leagues apply a percentage to the raw
+  // handicap before stroke deduction. 100% = full handicap, common
+  // alternatives are 80% (member-guest), 85% (4-ball-stroke), 90%
+  // (singles match), 95% (stroke-play tournaments). Stored on the
+  // outing as state.handicap_allowance; defaults to 100. Applied
+  // BEFORE the floor so 12.0 hcp × 85% = 10.2 → floor → 10 strokes.
+  // (2026-05-01 — league must-have B4a.)
+  const hcpAllowance = (() => {
+    const v = Number(outing.state?.handicap_allowance)
+    return Number.isFinite(v) && v > 0 && v <= 100 ? v : 100
+  })()
+  // 6.4 — Per-event handicap overrides. Commissioner-set, one-outing
+  // adjustments stored in outing.state.handicap_overrides keyed by
+  // user_id. If a player has an override, it takes precedence over
+  // their stored tm_users.handicap for THIS outing's net calc.
+  const handicapOverrides = outing.state?.handicap_overrides || {}
+  function effectiveHandicap(p) {
+    const ov = handicapOverrides[String(p?.user_id)]
+    if (ov != null && Number.isFinite(Number(ov))) return Number(ov)
+    return parseFloat(p?.handicap)
+  }
+  // netStrokes — strokes the player gives (positive) or receives
+  // (negative). Plus-handicap players (handicap < 0) ADD strokes to
+  // their gross instead of subtracting; netTotal handles the sign by
+  // simple subtraction. (gross - (-2) = gross + 2)
+  // Allowance is applied to magnitude, sign preserved. For positive
+  // handicaps we floor (round down — fewer strokes back, harder).
+  // For plus handicaps we ceil the magnitude (round up — more
+  // strokes added, harder), matching USGA convention.
+  function netStrokes(p) {
+    const raw = effectiveHandicap(p)
+    if (!Number.isFinite(raw) || raw === 0) return 0
+    const mag = Math.abs(raw) * hcpAllowance / 100
+    return raw >= 0 ? Math.floor(mag) : -Math.ceil(mag)
+  }
+  function netTotal(p) {
+    const gross = getScores(p).reduce((s, v) => s + (v || 0), 0)
+    return gross - netStrokes(p)
+  }
+
   // ── Best Ball: compute per-team totals (lowest of each team's
   // members per hole, summed). Players with the same team_id share
   // a team total; lowest team total wins. (B4d)
@@ -2049,47 +2098,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   const myNextHole    = meParticipant && myHolesPlayed < holeCount ? myHolesPlayed + 1 : null
 
   // Net scoring helpers
-  // Handicap allowance: most leagues apply a percentage to the raw
-  // handicap before stroke deduction. 100% = full handicap, common
-  // alternatives are 80% (member-guest), 85% (4-ball-stroke), 90%
-  // (singles match), 95% (stroke-play tournaments). Stored on the
-  // outing as state.handicap_allowance; defaults to 100. Applied
-  // BEFORE the floor so 12.0 hcp × 85% = 10.2 → floor → 10 strokes.
-  // (2026-05-01 — league must-have B4a.)
-  const hcpAllowance = (() => {
-    const v = Number(outing.state?.handicap_allowance)
-    return Number.isFinite(v) && v > 0 && v <= 100 ? v : 100
-  })()
-  // 6.4 — Per-event handicap overrides. Commissioner-set, one-outing
-  // adjustments stored in outing.state.handicap_overrides keyed by
-  // user_id. If a player has an override, it takes precedence over
-  // their stored tm_users.handicap for THIS outing's net calc. Used
-  // for league handicap rules, guest fill-ins, sandbagger flags, etc.
-  const handicapOverrides = outing.state?.handicap_overrides || {}
-  function effectiveHandicap(p) {
-    const ov = handicapOverrides[String(p?.user_id)]
-    if (ov != null && Number.isFinite(Number(ov))) return Number(ov)
-    return parseFloat(p?.handicap)
-  }
-  // netStrokes — strokes the player gives (positive) or receives
-  // (negative). Plus-handicap players (handicap < 0) ADD strokes to
-  // their gross instead of subtracting; netTotal handles the sign by
-  // simple subtraction. (gross - (-2) = gross + 2)
-  // Allowance is applied to magnitude, sign preserved. For positive
-  // handicaps we floor (round down — fewer strokes back, harder).
-  // For plus handicaps we ceil the magnitude (round up — more
-  // strokes added, harder), matching USGA convention.
-  // (Round 1 fix.)
-  function netStrokes(p) {
-    const raw = effectiveHandicap(p)
-    if (!Number.isFinite(raw) || raw === 0) return 0
-    const mag = Math.abs(raw) * hcpAllowance / 100
-    return raw >= 0 ? Math.floor(mag) : -Math.ceil(mag)
-  }
-  function netTotal(p) {
-    const gross = getScores(p).reduce((s, v) => s + (v || 0), 0)
-    return gross - netStrokes(p)
-  }
+  // (hcpAllowance / handicapOverrides / effectiveHandicap / netStrokes /
+  // netTotal hoisted above the bestBallData block — see 2026-05-06 hotfix
+  // comment there. netDiffStr stays here since it isn't reached during
+  // the early bestBallData computation.)
   function netDiffStr(p) {
     const gross = getScores(p)
     const holesPlayed = gross.map((s, i) => ({ s, i })).filter(x => x.s > 0)
