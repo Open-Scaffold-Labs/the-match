@@ -30,6 +30,82 @@ import {
 // play), the main LiveOuting orchestrator, and the live-share modal.
 // Pure mechanical move; no behavior change.
 
+// GROSS / NET explainer popover. Tiny modal triggered by the (?) icon
+// next to the GROSS/NET chip on the host control row. Auto-shows once
+// per user via localStorage (handled in LiveOuting). Plain-language —
+// some users don't know what handicaps are, and the chip shouldn't
+// require golf-club-membership-level knowledge to understand.
+// (2026-05-06 — Matt feedback.)
+function HcpHelpPopover({ onClose }) {
+  return createPortal(
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      background: 'rgba(0,0,0,0.65)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 20,
+      animation: 'tm-celebrate-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 340,
+        background: '#FFFDF8',
+        borderRadius: 18, padding: '20px 22px 18px',
+        boxShadow: '0 18px 50px rgba(0,0,0,0.45)',
+        border: '1px solid rgba(201,160,64,0.45)',
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 800, letterSpacing: '0.14em',
+          textTransform: 'uppercase', color: '#7A5800', marginBottom: 6,
+        }}>Scoring · Handicaps</div>
+        <div style={{
+          fontSize: 17, fontWeight: 800, color: '#0D1F12', lineHeight: 1.25, marginBottom: 12,
+        }}>What does GROSS / NET mean?</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+          <div style={{
+            background: 'var(--tm-surface-2)',
+            border: '1px solid var(--tm-border)',
+            borderRadius: 12, padding: '10px 12px',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 4 }}>
+              GROSS <span style={{ color: 'var(--tm-text-3)', fontWeight: 600 }}>· raw strokes</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--tm-text-2)', lineHeight: 1.4 }}>
+              The number of times you hit the ball. No adjustments. If you took 92 strokes, you shot 92.
+            </div>
+          </div>
+          <div style={{
+            background: 'rgba(232,192,90,0.10)',
+            border: '1px solid rgba(232,192,90,0.45)',
+            borderRadius: 12, padding: '10px 12px',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--tm-gold-text)', marginBottom: 4 }}>
+              NET <span style={{ color: 'var(--tm-text-3)', fontWeight: 600 }}>· with handicap</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--tm-text-2)', lineHeight: 1.4 }}>
+              Your gross minus the strokes your handicap gives you. Lets unequal players compete fairly — a 20 handicap can beat a 5 handicap on net even after a worse raw score.
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          fontSize: 11, color: 'rgba(13,31,18,0.55)', lineHeight: 1.45, marginBottom: 14,
+          padding: '8px 10px', borderRadius: 8,
+          background: 'rgba(27,94,59,0.05)',
+        }}>
+          Tap the chip to switch the leaderboard between gross and net at any time. Default is GROSS — handicaps only apply when you opt in.
+        </div>
+
+        <button onClick={onClose} style={{
+          width: '100%', padding: '12px', borderRadius: 12, border: 'none',
+          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          color: '#070C09', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+        }}>Got it</button>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // 2026-05-06 — "✓ Saved" confidence chip. Renders bottom-right above
 // the bottom nav for ~1500ms whenever LiveOuting's savedAt timestamp
 // updates (set inside saveScore on every successful runWithQueue
@@ -1505,6 +1581,12 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   const [bulkEntryHole, setBulkEntryHole] = useState(null) // 0-indexed hole or null
   const [showGuestModal, setShowGuestModal] = useState(false)
   const [netMode, setNetMode] = useState(false)
+  // 2026-05-06 — GROSS/NET explainer popover. Casual players who don't
+  // know what handicaps are can tap the `?` next to the chip for a
+  // quick definition. We also auto-show it ONCE per user the first
+  // time they see the chip (gated by hasHandicaps), then never again
+  // unless they tap the `?` themselves. (Matt feedback.)
+  const [showHcpHelp, setShowHcpHelp] = useState(false)
   const [ending, setEnding] = useState(false)
   const [saving, setSaving] = useState(false)
   // Most recent score event — pops a broadcast banner at the top of the
@@ -2139,6 +2221,18 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
+  // Auto-pop the GROSS/NET help once per user, the first time they
+  // see the toggle. Subsequent matches with handicaps don't re-show.
+  // Tapping the `?` re-opens it intentionally. (2026-05-06.)
+  useEffect(() => {
+    if (!hasHandicaps) return
+    let seen = '0'
+    try { seen = localStorage.getItem('tm-gross-net-help-seen') || '0' } catch {}
+    if (seen !== '1') {
+      setShowHcpHelp(true)
+      try { localStorage.setItem('tm-gross-net-help-seen', '1') } catch {}
+    }
+  }, [hasHandicaps])
 
   // SCORECARD <-> BOARD view: explicit user choice if set, else auto-default.
   // Default to BOARD when there are 4+ players (the wide scorecard gets
@@ -2390,12 +2484,30 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               color: markers.length > 0 ? '#93C5FD' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>{markers.length > 0 ? 'Edit Groups' : 'Set Groups'}</button>
             {hasHandicaps && (
-              <button onClick={() => setNetMode(m => !m)} style={{
-                background: netMode ? 'rgba(197,160,64,0.15)' : 'rgba(255,255,255,0.07)',
-                border: `1px solid ${netMode ? 'rgba(197,160,64,0.4)' : 'var(--tm-border)'}`,
-                borderRadius: 20, padding: '3px 10px',
-                color: netMode ? '#F5D78A' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              }}>{netMode ? 'NET' : 'GROSS'}</button>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <button onClick={() => setNetMode(m => !m)} style={{
+                  background: netMode ? 'rgba(197,160,64,0.15)' : 'rgba(255,255,255,0.07)',
+                  border: `1px solid ${netMode ? 'rgba(197,160,64,0.4)' : 'var(--tm-border)'}`,
+                  borderRadius: 20, padding: '3px 10px',
+                  color: netMode ? '#F5D78A' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }} title="GROSS = your raw strokes. NET = your strokes adjusted for handicap. Tap to toggle.">
+                  {netMode ? 'NET' : 'GROSS'}
+                </button>
+                <button
+                  onClick={() => setShowHcpHelp(true)}
+                  aria-label="What does GROSS / NET mean?"
+                  title="What's the difference?"
+                  style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: 'rgba(255,255,255,0.55)',
+                    fontSize: 10, fontWeight: 800,
+                    lineHeight: 1, padding: 0,
+                    cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}>?</button>
+              </span>
             )}
             <button onClick={() => setShowGuestModal(true)} style={{
               background: 'rgba(255,255,255,0.07)', border: '1px solid var(--tm-border)',
@@ -2981,6 +3093,14 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           }}
           onClose={() => setShowGuestModal(false)}
         />
+      )}
+
+      {/* GROSS / NET explainer — pops once per user on first match
+          with handicaps, or on demand via the (?) icon. Plain-language
+          definition; doesn't bother experienced golfers more than
+          once. (2026-05-06 — Matt feedback.) */}
+      {showHcpHelp && (
+        <HcpHelpPopover onClose={() => setShowHcpHelp(false)} />
       )}
 
       {/* Team Setup sheet */}
