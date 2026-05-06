@@ -458,3 +458,74 @@ Matt's friends were testing the app on the course. Eight fixes shipped end-to-en
 - 1 orphan tm_follows row (Demo Player Three → Matt) — leftover demo data, cosmetic only, not deleted
 
 **Verdict:** asymmetric friend model is intentional; the "duplicate Daniel" UI bugs were all in JOIN queries multiplying rows, not in the underlying data. No DELETE FROM statements run.
+
+
+
+
+## [2026-05-06] refactor | Outing.jsx 7600 → split across 11 files (App-Store prep)
+
+Multi-stage mechanical refactor ahead of App Store submission. The 7600-line `client/src/pages/Outing.jsx` megafile got split into a top-level entry-point router (192 lines) plus 10 focused sub-views under `client/src/pages/Outing/`. Pure mechanical move — zero behavior change. Six staged commits, each with a vite build verification:
+
+| File | Lines | Purpose |
+|---|---|---|
+| Outing.jsx | 192 | Thin entry-point router (was 7600) |
+| Outing/OutingHub.jsx | 815 | Landing page + match cards + RivalryDetail |
+| Outing/LiveOuting.jsx | 3603 | Active scorecard + score modals + scoring math |
+| Outing/Commissioner.jsx | 1572 | Host-only Manage panel + tabs |
+| Outing/CreateWizard.jsx | 838 | 3-step match creation + course picker |
+| Outing/CodeShare.jsx | 193 | Post-create share + QR modal |
+| Outing/EndMatchScreen.jsx | 164 | Winner ceremony + podium + share |
+| Outing/shared.jsx | 148 | Theme tokens + helpers + PlayerAvatar |
+| Outing/GuestModal.jsx | 135 | Search-as-you-type add player |
+| Outing/JoinSheet.jsx | 50 | Code-entry bottom sheet |
+| Outing/SpectateView.jsx | 33 | In-app PublicLeaderboard wrapper |
+
+**Stage commits (in order on main):**
+- `a360118` Stage 1/6 — shared.jsx (theme + helpers + PlayerAvatar)
+- `16c29b7` Stage 2/6 — leaf components (CodeShare, JoinSheet, GuestModal, EndMatchScreen, SpectateView)
+- `fe4975e` Stage 3/6 — CreateWizard + CoursePicker
+- `9629aea` Stage 4/6 — LiveOuting + scorecard infra (3500-line extraction)
+- `2c81e93` Stage 5/6 — Commissioner panel
+- `bf8c950` Stage 6/6 — OutingHub + cards (final, ships as one push)
+
+**Caught during the work:** Stage 4 left LiveOuting.jsx referencing `<TeamSetup>` / `<GroupSetup>` / `<CommissionerPanel>` while those still lived in Outing.jsx. Vite's build "passed" because both files were in the bundle, but at runtime LiveOuting would have crashed when rendering those overlays. Stage 5 fixed it by exporting them from Commissioner.jsx and importing into LiveOuting. Lesson: a "passing" vite build is necessary but not sufficient — JSX-references-an-undefined-binding is only caught at module link time, which Vite's dev server resolves leniently. Real verification needs the actual render path.
+
+**Future sessions:** the file you want to edit lives at the obvious path. `Outing.jsx` is now a 192-line router — you almost never edit it. The big interactive components (LiveOuting, Commissioner, CreateWizard) each live in their own file, sized for a human (and an LLM context window) to navigate without grep-by-line-number hunts.
+
+
+
+## [2026-05-05 → 2026-05-06] refactor | Continuation of the live-fire bug-bash
+
+After the 2026-05-04 entry above, a follow-on session shipped additional bug fixes through 2026-05-05 (the Sean solo-round incident) and into 2026-05-06 (refactor). Highlights:
+
+**Critical data-loss fix:**
+- Solo Round now persists to localStorage on every state change (`ActiveRound.jsx`). A user (Sean) lost an entire in-progress round to a page reload caused by my pull-to-refresh fix earlier the same day. Pull-to-refresh now also opts out of `data-no-pull-refresh="true"` regions (Solo Round, LiveOuting, EndMatchScreen, CodeShare). Score writes already used `runWithQueue` — multi-player rounds were durable across reloads via the offline queue. Solo Round was the gap.
+
+**FriendProfile click-bubble bug (the kick-to-home):** When FriendProfile was opened from inside FollowList (Home → my Followers → tap a row), React's synthetic events bubbled UP the component tree (not the DOM tree, since both render to document.body via portals). Any click inside FriendProfile bubbled to FollowList's outer-backdrop `onClick={onClose}` and unmounted the whole stack. Fix: `onClick={e => e.stopPropagation()}` on FriendProfile's outermost wrapper (commit `e787822`). This was the actual cause of every "tap kicks me to Home" symptom — pull-to-refresh portal isolation was a red herring. The fix is one line at the right layer.
+
+**Comprehensive backend audit (commit `ddc7f29`):**
+- `tm_score_audit` was empty for every user lifetime — `writeScoreAudit` was fire-and-forget; Vercel kills the lambda after `res.json`, killing the in-flight INSERT. Now awaited at all 3 sites in outings.js.
+- `maybeUpdateUserHandicap` was fire-and-forget in rounds.js POST and outings.js /:code/end loop. Same fix: now awaited.
+- Push notifications silently dropped for league announcements, tee-time requests, game invites, outing announcements/cancellations. All 5 sites converted to `await Promise.all(...)` for fan-outs.
+- Pattern Matt's friends.js fix from 2026-05-02 already corrected for friend-request push — same fix applied across the codebase here.
+
+**Followers/Following on FriendProfile:**
+- Server: `GET /api/follows/list` now accepts `?userId` to view another user's list. `is_self` flag added so the viewer's own row in someone else's list renders a "You" badge instead of an action button.
+- Client: FollowList simplified per Matt — no more "Mutual ✓" badge or "Follow back" wording. New rule everywhere: `You` (self) > `Unfollow` (only on own Following) > `Following` (already follows) > `Pending` (request in flight) > `Follow`.
+
+**QR-code share + auto-join:**
+- "Show QR Code" button on CodeShare opens a modal with a scannable QR encoding `?join=ABCD`.
+- App.jsx parses `?join=CODE` on mount, scrubs from URL, stashes in localStorage so it survives login/onboarding for new users, then forwards as `pendingJoinCode` prop to the Outing tab.
+- Outing's useEffect calls `POST /:code/join`, switches to `view='live'`, surfaces failures via a transient red toast.
+- iOS PWA caveat: scanned URLs open in Safari, not the installed PWA. Universal Links would solve this; out of scope until App Store submission.
+
+**Cosmetic:**
+- CodeShare text + layout fixes (was unreadable on cream page tint, content overflowed viewport).
+- "Share Code with Group" button: solid gold gradient instead of translucent tint.
+- Course name + instructional copy: bolder, full-opacity dark green for legibility.
+
+**Eagle Eye 5xx (still pending Matt):**
+- `ANTHROPIC_API_KEY` is set in `.env` but missing from Vercel env vars. Matt to run `vercel env add ANTHROPIC_API_KEY production` and redeploy to fix. Cost is per-call (Anthropic vision API, ~$0.005-0.02 per Eagle Eye request) — caller's account pays for all users.
+
+**Open data-hygiene item (not blocking):**
+- 1 orphan `tm_follows` row: `(Demo Player Three → Matt)` from 2026-05-02 with no accepted friendship. Cosmetic — renders as a phantom follower for Matt. Safe single-row delete: `DELETE FROM tm_follows WHERE id = 60`.
