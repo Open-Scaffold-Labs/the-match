@@ -7289,7 +7289,7 @@ function ShareCodeButton({ code, name }) {
   const [copied, setCopied] = useState(false)
 
   async function share() {
-    const msg = `Join my golf match "${name}" on The Match!\n\nOpen the app → Match tab → "Enter a Code" → type: ${code}`
+    const msg = `Join my golf match "${name}" on The Match!\n\nOpen the app → Scorecard tab → "Enter a Code" → type: ${code}`
     if (navigator.share) {
       try { await navigator.share({ text: msg }) } catch {}
     } else {
@@ -7299,15 +7299,19 @@ function ShareCodeButton({ code, name }) {
     }
   }
 
+  // 2026-05-05 — solid gold (was a translucent gold tint that read as
+  // un-tappable on the cream page background). Matches the rest of
+  // the gold-accent buttons in the app (Profile's Request a Match
+  // CTA pattern). Dark text on gold for contrast.
   return (
     <button onClick={share} style={{
-      width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer',
-      background: 'rgba(232,192,90,0.12)',
-      border: '1px solid rgba(232,192,90,0.4)',
-      color: '#F5D78A', fontWeight: 800, fontSize: 15,
+      width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer', border: 'none',
+      background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)',
+      color: '#070C09', fontWeight: 800, fontSize: 15,
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      boxShadow: '0 4px 16px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,255,255,0.30)',
     }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
         <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
       </svg>
