@@ -1559,12 +1559,44 @@ export function TeamSetup({ outing, onClose, onSaved }) {
           }}>+ Add Team</button>
         )}
 
-        <button onClick={save} disabled={saving} style={{
-          width: '100%', padding: '14px',
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
-          color: '#070C09', border: 'none', borderRadius: 12,
-          fontSize: 15, fontWeight: 800, cursor: saving ? 'default' : 'pointer',
-        }}>{saving ? 'Saving…' : 'Save Teams'}</button>
+        {/* 2026-05-06 — relabeled from "Save Teams" because users
+            (rightly) thought the modal had no way to actually START
+            the match. Pressing this saves the teams AND closes the
+            modal, dropping you onto the scorecard ready to score —
+            the label now says exactly that. The first-time vs editing
+            split picks the right verb so editing teams mid-match
+            doesn't claim to "start" it again. */}
+        {(() => {
+          const isEditing = (outing.state?.teams || []).length > 0
+          const anyAssigned = teams.some(t => (t.member_ids || []).length > 0)
+          const disabled = saving || !anyAssigned
+          const label = saving
+            ? 'Saving…'
+            : isEditing
+              ? 'Save Teams'
+              : 'Save & Start Match →'
+          return (
+            <button onClick={save} disabled={disabled} style={{
+              width: '100%', padding: '14px',
+              background: disabled
+                ? 'rgba(255,255,255,0.10)'
+                : 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              color: disabled ? 'rgba(255,255,255,0.40)' : '#070C09',
+              border: 'none', borderRadius: 12,
+              fontSize: 15, fontWeight: 800,
+              cursor: disabled ? 'default' : 'pointer',
+            }}>{label}</button>
+          )
+        })()}
+        {/* Hint when nothing's assigned yet — softer than a hard
+            error, helps casual users understand why the button is
+            grayed. */}
+        {!saving && !teams.some(t => (t.member_ids || []).length > 0) && (
+          <div style={{
+            marginTop: 10, fontSize: 11,
+            color: 'rgba(255,255,255,0.50)', textAlign: 'center',
+          }}>Tap a player above to assign them to a team.</div>
+        )}
       </div>
     </div>,
     document.body
