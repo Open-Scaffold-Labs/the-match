@@ -45,6 +45,98 @@ function todayYMD() { return toYMD(new Date()) }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+// 2026-05-06 — First-match guidance card. Quiet, dismissable nudge for
+// users who have finished onboarding but haven't created or joined any
+// match yet. Sized + positioned to feel like a continuation of the
+// OnboardingChecklist, not a competing element. Auto-disappears once
+// matchCount > 0 or the user taps the dismiss X (per-user localStorage
+// flag so it doesn't reappear on every visit).
+function FirstMatchCard({ user, matchCount, onGoToScorecard }) {
+  const dismissKey = user?.id ? `tm-first-match-dismissed-${user.id}` : null
+  const [dismissed, setDismissed] = useState(() => {
+    try { return dismissKey && localStorage.getItem(dismissKey) === '1' }
+    catch { return false }
+  })
+
+  // Hide if: not loaded yet, already played a match, or user dismissed.
+  if (!user || !user.onboarding_completed_at) return null
+  if (matchCount > 0) return null
+  if (dismissed) return null
+
+  function dismiss() {
+    setDismissed(true)
+    try { dismissKey && localStorage.setItem(dismissKey, '1') } catch { /* ignore */ }
+  }
+
+  return (
+    <div style={{
+      borderRadius: 18,
+      background: 'linear-gradient(135deg, rgba(245,215,138,0.18) 0%, rgba(46,158,69,0.12) 100%)',
+      border: '1.5px solid rgba(232,192,90,0.55)',
+      padding: '18px 18px 16px',
+      marginBottom: 16,
+      position: 'relative',
+      boxShadow: '0 4px 18px rgba(201,160,64,0.18)',
+    }}>
+      <button onClick={dismiss} aria-label="Dismiss" style={{
+        position: 'absolute', top: 6, right: 8,
+        background: 'transparent', border: 'none',
+        color: 'rgba(13,31,18,0.45)', fontSize: 20,
+        cursor: 'pointer', padding: '4px 8px', lineHeight: 1,
+        WebkitTapHighlightColor: 'transparent',
+      }}>×</button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+          boxShadow: '0 2px 8px rgba(201,160,64,0.30)',
+        }}>
+          {/* Pin-flag glyph — matches the Augusta iconography used in
+              CodeShare and elsewhere. */}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#070C09" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+            <line x1="4" y1="22" x2="4" y2="15"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#7A5800' }}>
+            First time?
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1F12', lineHeight: 1.2 }}>
+            Start your first match
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.75)', marginBottom: 14, lineHeight: 1.45 }}>
+        Create one for your group, or scan a friend's QR code to join theirs. Live scores show up the moment anyone enters them.
+      </div>
+
+      <button
+        onClick={() => { dismiss(); onGoToScorecard?.() }}
+        style={{
+          width: '100%', padding: '13px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
+          background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+          color: '#fff', fontWeight: 800, fontSize: 14,
+          boxShadow: '0 3px 12px rgba(46,158,69,0.30), inset 0 1px 0 rgba(255,255,255,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="2" width="6" height="3" rx="0.8"/>
+          <path d="M9 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3"/>
+          <line x1="8" y1="10" x2="16" y2="10"/>
+          <line x1="8" y1="14" x2="16" y2="14"/>
+          <line x1="8" y1="18" x2="16" y2="18"/>
+        </svg>
+        Open the Scorecard tab
+      </button>
+    </div>
+  )
+}
+
 function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCountsChange, onStartSeason, onEditProfile, onOpenCard, notifCount = 0, onOpenNotifications, bagCount = 0, onOpenBag }) {
   const seasonBanner = season && !season.seasonStarted && season.year === currentSeasonYear()
   const [banner] = useState(randomBanner)
@@ -3934,6 +4026,18 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             else if (dest === 'bag')     onNavigate?.('bag')
             else if (dest === 'match')   onNavigate?.('outing')
           }}
+        />
+
+        {/* 2026-05-06 — First-match guidance card. Shows when the user
+            has finished onboarding but hasn't created or joined a match
+            yet. Triggered Sean's lost-round scenario: he completed
+            onboarding but bounced before scoring anything. The card is
+            a quiet, dismissable nudge that tells new users where to go
+            next. Tap either button → switch to the Scorecard tab. */}
+        <FirstMatchCard
+          user={user}
+          matchCount={matchCount}
+          onGoToScorecard={() => onNavigate?.('outing')}
         />
 
         {/* First-time coach mark on Home. Persists via /api/onboarding/

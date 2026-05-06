@@ -24,6 +24,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, del } from '../lib/api.js'
 import FriendProfile from './FriendProfile.jsx'
+import { SkeletonRow } from './primitives/Skeleton.jsx'
 
 const TITLES = {
   following: 'Following',
@@ -174,8 +175,11 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
         {/* Body */}
         <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {loading && (
-            <div style={{ padding: 32, textAlign: 'center', color: 'rgba(13,31,18,0.40)', fontSize: 13 }}>
-              Loading…
+            <div style={{ padding: '12px 14px' }}>
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
             </div>
           )}
 

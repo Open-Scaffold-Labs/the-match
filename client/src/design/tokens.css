@@ -200,6 +200,39 @@
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
+
+  /* Loading-skeleton shimmer — the moving highlight that sweeps across
+     a placeholder block while the real content is loading. Used by
+     <Skeleton/> in components/primitives/Skeleton.jsx. The cream tint
+     on the highlight matches the rest of the Augusta surface system —
+     light enough to feel soft, gold-ish enough to read as "loading"
+     not "broken." (2026-05-06) */
+  @keyframes tm-shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Birdie/eagle/HIO celebration — used by the highlight modal that
+     pops up after a sub-par score. Gentle scale + fade-in so the
+     modal asserts itself without feeling jarring. (2026-05-06) */
+  @keyframes tm-celebrate-pop {
+    0%   { transform: scale(0.92); opacity: 0; }
+    60%  { transform: scale(1.02); opacity: 1; }
+    100% { transform: scale(1.0);  opacity: 1; }
+  }
+
+  /* "✓ Saved" toast that appears briefly after a score writes to the
+     server. Slides up from the bottom-edge with a fade, holds, fades
+     out. The keyframes here run in two passes (in + out) so a JS
+     timeout flips a class to retrigger the second half. (2026-05-06) */
+  @keyframes tm-saved-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  @keyframes tm-saved-out {
+    from { transform: translateY(0);   opacity: 1; }
+    to   { transform: translateY(-4px); opacity: 0; }
+  }
 }
 
 /* ═══════════════════════════════════════════

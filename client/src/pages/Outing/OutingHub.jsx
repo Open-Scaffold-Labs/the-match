@@ -3,6 +3,7 @@ import { api, del } from '../../lib/api.js'
 import {
   PlayerAvatar, initials, copyCode, wlLabel, relDate, fmtOpponents,
 } from './shared.jsx'
+import { SkeletonCard } from '../../components/primitives/Skeleton.jsx'
 
 // ─── Outing/OutingHub.jsx ─────────────────────────────────────────────────
 // The Scorecard tab's main landing page (formerly the "Match" tab).
@@ -125,8 +126,32 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
         padding: '16px 20px',
         display: 'flex', flexDirection: 'column', gap: 16,
       }}>
+        {/* 2026-05-06 — Loading skeletons. While the initial Promise.all
+            for recent / rivalries / friends-live is in flight, show
+            shimmer cards so the page maintains its rhythm instead of
+            collapsing to a blank scroll area and then re-flowing once
+            data lands. */}
+        {loading && (
+          <div>
+            <div style={{
+              fontSize: 12, fontWeight: 800, color: 'rgba(26,107,40,0.55)',
+              textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10,
+              background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: 'rgba(46,158,69,0.30)',
+              }} />
+              Loading
+            </div>
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        )}
+
         {/* ─── Live Now strip ─────────────────────────────────────────── */}
-        {liveMatches.length > 0 && (
+        {!loading && liveMatches.length > 0 && (
           <div>
             <div style={{
               fontSize: 12, fontWeight: 800, color: '#1A6B28',

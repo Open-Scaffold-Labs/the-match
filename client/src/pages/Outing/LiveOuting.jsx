@@ -9,6 +9,10 @@ import GuestModal from './GuestModal.jsx'
 // own file. LiveOuting renders them as portals from inside the live
 // scorecard, so they import here, not in Outing.jsx.
 import { CommissionerPanel, GroupSetup, TeamSetup } from './Commissioner.jsx'
+// 2026-05-06 — celebratory share-card modal for birdie/eagle/HIO. Fired
+// from saveScore on every successful sub-par write where the writer is
+// the user themselves (don't celebrate someone else's score).
+import HighlightShareModal, { shouldCelebrate } from './HighlightShare.jsx'
 import {
   AUGUSTA_GREEN, AUGUSTA_GREEN_DEEP, AUGUSTA_PANEL, AUGUSTA_PANEL_HI,
   AUGUSTA_PANEL_HOVER, AUGUSTA_TEXT, AUGUSTA_GOLD, AUGUSTA_GOLD_DIM,
@@ -23,6 +27,138 @@ import {
 // modals, score-math (positions, best-ball, stableford, skins, match
 // play), the main LiveOuting orchestrator, and the live-share modal.
 // Pure mechanical move; no behavior change.
+
+// 2026-05-06 — "✓ Saved" confidence chip. Renders bottom-right above
+// the bottom nav for ~1500ms whenever LiveOuting's savedAt timestamp
+// updates (set inside saveScore on every successful runWithQueue
+// resolution). Visually quiet — small Augusta-green pill with a white
+// check — so it confirms data persistence without competing with the
+// celebratory recent-event banner above the scorecard. Self-dismisses
+// via state-tick driven by setTimeout; no user interaction required.
+// 2026-05-06 — initial-load skeleton for LiveOuting. Replaces the old
+// "Loading scorecard…" centered text. The shape mirrors what the user
+// is about to see: the dark-green header band with a back chevron and
+// a course-title placeholder, followed by 4 row-shaped placeholders
+// for the leaderboard. Reduces "page jump" feel when data lands.
+function ScorecardSkeleton({ onBack }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent' }}>
+      {/* Header band — same dark-green strip as the real header. */}
+      <div style={{
+        padding: 'calc(var(--safe-top) + 14px) 16px 10px',
+        background: 'rgba(232,232,232,0.55)',
+        borderBottom: '2px solid rgba(90,58,22,0.85)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={onBack} aria-label="Back" style={{
+            background: 'none', border: 'none', color: '#1A6B28',
+            fontSize: 22, padding: '0 4px', cursor: 'pointer',
+          }}>←</button>
+          <div style={{ flex: 1, padding: '0 12px' }}>
+            <div style={{
+              height: 16, width: '60%',
+              background: 'rgba(13,31,18,0.10)', borderRadius: 6,
+              position: 'relative', overflow: 'hidden', margin: '0 auto',
+            }}>
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(90deg, transparent, rgba(255,253,248,0.55), transparent)',
+                animation: 'tm-shimmer 1.4s ease-in-out infinite',
+              }} />
+            </div>
+          </div>
+          <div style={{ width: 24 }} />
+        </div>
+      </div>
+      {/* Body — 4 player-row skeletons */}
+      <div style={{ padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 14px',
+            background: 'rgba(255,253,248,0.55)',
+            border: '1px solid rgba(46,158,69,0.18)',
+            borderRadius: 12,
+          }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(13,31,18,0.10)',
+              position: 'relative', overflow: 'hidden', flexShrink: 0,
+            }}>
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(90deg, transparent, rgba(255,253,248,0.55), transparent)',
+                animation: 'tm-shimmer 1.4s ease-in-out infinite',
+              }} />
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ height: 14, width: '55%', background: 'rgba(13,31,18,0.10)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,253,248,0.55), transparent)', animation: 'tm-shimmer 1.4s ease-in-out infinite' }} />
+              </div>
+              <div style={{ height: 11, width: '78%', background: 'rgba(13,31,18,0.10)', borderRadius: 4, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,253,248,0.55), transparent)', animation: 'tm-shimmer 1.4s ease-in-out infinite' }} />
+              </div>
+            </div>
+            <div style={{ width: 48, height: 28, borderRadius: 8, background: 'rgba(13,31,18,0.08)', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,253,248,0.55), transparent)', animation: 'tm-shimmer 1.4s ease-in-out infinite' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SavedChip({ savedAt }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!savedAt) return
+    setNow(Date.now())
+    // Re-render once at the fade-out point so the chip disappears
+    // without us holding a re-render loop.
+    const t = setTimeout(() => setNow(Date.now()), 1600)
+    return () => clearTimeout(t)
+  }, [savedAt])
+
+  if (!savedAt) return null
+  const elapsed = now - savedAt
+  if (elapsed > 1500) return null
+  // Animate: in (0-200ms) → hold (200-1100ms) → out (1100-1500ms).
+  const opacity = elapsed < 200
+    ? elapsed / 200
+    : elapsed > 1100
+      ? Math.max(0, 1 - (elapsed - 1100) / 400)
+      : 1
+  const ty = elapsed < 200 ? 8 - (elapsed / 200) * 8 : 0
+
+  return (
+    <div
+      aria-live="polite"
+      style={{
+        position: 'fixed',
+        bottom: 'calc(56px + env(safe-area-inset-bottom) + 12px)',
+        right: 16,
+        zIndex: 50,
+        background: 'linear-gradient(135deg, #1A6B28 0%, #0E3B23 100%)',
+        color: '#fff',
+        padding: '8px 14px',
+        borderRadius: 999,
+        fontSize: 12, fontWeight: 700,
+        boxShadow: '0 6px 20px rgba(46,158,69,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
+        display: 'flex', alignItems: 'center', gap: 6,
+        pointerEvents: 'none',
+        opacity,
+        transform: `translateY(${ty}px)`,
+        transition: 'opacity 80ms linear',
+      }}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Saved
+    </div>
+  )
+}
 
 function estimateHolePars(coursePar, holes) {
   // Distribute par fairly: base each hole at floor(coursePar/holes),
@@ -1333,6 +1469,19 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // Most recent score event — pops a broadcast banner at the top of the
   // board for ~4s when a score is entered. (2026-04-30 PM round 10)
   const [recentEvent, setRecentEvent] = useState(null)
+  // 2026-05-06 — "✓ Saved" confidence cue. Set to Date.now() after every
+  // successful score write; the bottom-right SavedChip renders when
+  // savedAt is within the last 1500ms. After Sean's lost round we
+  // wanted users to have an explicit signal that their score reached
+  // the server (or is queued offline and will sync). See SavedChip
+  // below for the render path.
+  const [savedAt, setSavedAt] = useState(0)
+  // 2026-05-06 — Highlight share-card. Set to a payload object after
+  // a SELF-written sub-par score so the user can share a branded
+  // image of their birdie/eagle/HIO. Cleared on modal close. Only
+  // fires for the writer's own score — we don't celebrate someone
+  // else's birdie when YOU are the one entering it.
+  const [highlight, setHighlight] = useState(null)
   // SCORECARD <-> BOARD view toggle (2026-05-01 — match-page completion plan,
   // Thread 1). null = use auto default (BOARD for 4+ players, else SCORECARD).
   // Set explicitly when the user taps the toggle.
@@ -1440,6 +1589,16 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // saving when the previous row blew up. (Round 12 edge-case audit.)
   async function saveScore(hole, score, targetUserId) {
     setSaving(true)
+    // 2026-05-06 — capture the OLD score from local state before the
+    // write, so we can detect no-op re-taps. The highlight modal
+    // (birdie/eagle/HIO celebration) should only fire when the score
+    // actually changed — re-tapping "3" on a hole that was already a
+    // birdie shouldn't pop the modal again.
+    const oldScoreForCompare = (() => {
+      const p = (outing?.state?.participants || []).find(x => String(x.user_id) === String(targetUserId))
+      const s = p?.scores?.[hole]
+      return Number.isFinite(s) ? s : 0
+    })()
     try {
       // Host endpoint also handles same-foursome marker writes per
       // the 2026-05-01 widening — call it whenever the writer isn't
@@ -1483,6 +1642,32 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
       if (targetPlayer && score > 0) {
         setRecentEvent({ name: targetPlayer.name, hole, score, par: parForHole, ts: Date.now() })
       }
+      // 2026-05-06 — confidence cue for every save (including erasures
+      // where score === 0 and the recent-event banner doesn't fire).
+      setSavedAt(Date.now())
+      // 2026-05-06 — Highlight share-card for the writer's own birdie /
+      // eagle / albatross / hole-in-one. Suppression rules:
+      //   - Self-edit only — celebrating someone else's birdie when YOU
+      //     tapped it (as host / marker) would feel wrong.
+      //   - Score actually changed — re-tapping "3" when hole was
+      //     already a 3 shouldn't re-fire the modal.
+      //   - shouldCelebrate gates score-vs-par + hole-in-one rules.
+      if (
+        isSelfEdit &&
+        Number(score) !== Number(oldScoreForCompare) &&
+        shouldCelebrate(Number(score), Number(parForHole)) &&
+        targetPlayer
+      ) {
+        setHighlight({
+          playerName: targetPlayer.name || user?.name || 'Player',
+          avatarUrl:  targetPlayer.avatar || user?.avatar || null,
+          score:      Number(score),
+          par:        Number(parForHole),
+          // hole is 0-indexed in saveScore; users see 1-indexed numbers.
+          holeNumber: Number(hole) + 1,
+          courseName: outing?.course_name || '',
+        })
+      }
       await loadOuting()
       return true
     } catch (e) {
@@ -1505,11 +1690,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     finally { setSaving(false) }
   }
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--tm-text-3)' }}>
-      Loading scorecard…
-    </div>
-  )
+  if (loading) return <ScorecardSkeleton onBack={onBack} />
   if (!outing) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12, padding: 20 }}>
       <div style={{ color: 'var(--tm-text)', fontWeight: 700, fontSize: 16 }}>Match not found</div>
@@ -1934,6 +2115,24 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         // matches the rest of the app's glass cards. (2026-04-30 PM round 13)
         background: 'transparent',
       }}>
+      {/* 2026-05-06 — Saved-confidence chip. Renders bottom-right above
+          the bottom nav whenever savedAt was set in the last 1500ms.
+          Quiet, brand-consistent (Augusta green pill with white check),
+          self-dismisses without user interaction. Coexists with the
+          recent-event banner — that one celebrates birdies/eagles, this
+          one quietly confirms the bytes hit the server. */}
+      <SavedChip savedAt={savedAt} />
+
+      {/* 2026-05-06 — Birdie / eagle / hole-in-one celebration modal.
+          Renders when the user enters a sub-par score for themselves.
+          Generates a branded 1080x1080 share-card image via Canvas
+          and offers a Share / Skip choice. */}
+      {highlight && (
+        <HighlightShareModal
+          {...highlight}
+          onClose={() => setHighlight(null)}
+        />
+      )}
       {/* 2026-05-05 — data-no-pull-refresh disarms the TabPanel's
           pull-to-refresh gesture for the entire LiveOuting screen.
           Reasoning matches the Solo Round fix: a downward finger
