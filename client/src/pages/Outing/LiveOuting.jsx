@@ -1628,6 +1628,27 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     const t = setInterval(loadOuting, 5000)
     return () => clearInterval(t)
   }, [loadOuting])
+  // Auto-pop the GROSS/NET help ONCE per user the first time they
+  // open a match where any non-guest participant has a handicap. Must
+  // live up here with the other useEffects — putting it down by the
+  // hasHandicaps computation puts it AFTER the early-return paths
+  // (`if (loading) return`, `if (!outing) return`) which changes hook
+  // count between renders and trips React error #310. We compute
+  // hasHandicaps INSIDE the effect from outing.state directly so we
+  // don't need the mid-render `participants` array.
+  // (2026-05-06 — initial place was wrong; hotfix moves it here.)
+  useEffect(() => {
+    if (!outing) return
+    const ps = outing.state?.participants || []
+    const hasH = ps.some(p => p?.handicap != null && !p?.is_guest)
+    if (!hasH) return
+    let seen = '0'
+    try { seen = localStorage.getItem('tm-gross-net-help-seen') || '0' } catch {}
+    if (seen !== '1') {
+      setShowHcpHelp(true)
+      try { localStorage.setItem('tm-gross-net-help-seen', '1') } catch {}
+    }
+  }, [outing])
   // Auto-clear the recent-event banner ~4s after it pops
   useEffect(() => {
     if (!recentEvent) return
@@ -2221,18 +2242,12 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     return d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`
   }
   const hasHandicaps = participants.some(p => p.handicap != null && !p.is_guest)
-  // Auto-pop the GROSS/NET help once per user, the first time they
-  // see the toggle. Subsequent matches with handicaps don't re-show.
-  // Tapping the `?` re-opens it intentionally. (2026-05-06.)
-  useEffect(() => {
-    if (!hasHandicaps) return
-    let seen = '0'
-    try { seen = localStorage.getItem('tm-gross-net-help-seen') || '0' } catch {}
-    if (seen !== '1') {
-      setShowHcpHelp(true)
-      try { localStorage.setItem('tm-gross-net-help-seen', '1') } catch {}
-    }
-  }, [hasHandicaps])
+  // Auto-pop logic for the GROSS/NET help moved to a useEffect at the
+  // TOP of the component (alongside the other useEffects), so it
+  // can't be skipped by the early `if (loading) return` /
+  // `if (!outing) return` paths. Putting a hook AFTER an early return
+  // changes hook count between renders → React error #310.
+  // (2026-05-06 hotfix.)
 
   // SCORECARD <-> BOARD view: explicit user choice if set, else auto-default.
   // Default to BOARD when there are 4+ players (the wide scorecard gets
