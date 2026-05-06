@@ -7367,7 +7367,7 @@ function CodeShare({ outing, onEnter }) {
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>{outing.code}</div>
       </div>
-      <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.65)', textAlign: 'center', lineHeight: 1.45 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', textAlign: 'center', lineHeight: 1.45 }}>
         Share this code with your group — they open The Match app, tap the Scorecard tab, and hit "Enter a Code"
       </div>
       {/* Share button */}
