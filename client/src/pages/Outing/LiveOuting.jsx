@@ -319,13 +319,24 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrid
 function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, onSaveAndEagleEye, onClose }) {
   const [val, setVal] = useState(currentScore || par || 4)
 
+  // 2026-05-06 — score=1 is a HOLE-IN-ONE regardless of par (a 1 on a
+  // par-3 was previously labeled 'Eagle' since diff = -2, which is
+  // technically true by score-to-par but reads wrong to anyone who
+  // golfs — a 1 is universally called an ace). Override the label to
+  // 'Ace' when the resolved score is 1, matching the recent-event
+  // banner's HOLE-IN-ONE branch and the celebration modal's badge.
+  // 'Ace' (3 letters) keeps the chip compact on small phones; the
+  // big-screen version uses 'HOLE-IN-ONE'.
   const quickPicks = [
     { label: 'Eagle',  diff: -2 },
     { label: 'Birdie', diff: -1 },
     { label: 'Par',    diff:  0 },
     { label: 'Bogey',  diff: +1 },
     { label: 'Double', diff: +2 },
-  ].map(q => ({ ...q, score: (par || 4) + q.diff })).filter(q => q.score >= 1)
+  ].map(q => {
+    const score = (par || 4) + q.diff
+    return { ...q, score, label: score === 1 ? 'Ace' : q.label }
+  }).filter(q => q.score >= 1)
 
   // The "Save & Eagle Eye →" second action is enabled only when the parent
   // wired it (i.e., user is scoring their own hole AND there's a next hole
