@@ -96,9 +96,6 @@ EXCLUDE_FROM_NOTEBOOKS = [
     # just stop occupying NotebookLM slots. The dated snapshots are
     # superseded by current pages; erg-2024.md is FireHazmat-specific
     # and belongs in f376f6e8 (firehazmat) only.
-    # NOTE: this is the openscaffold-wiki vault's default list — the-match
-    # uses its own .limitless-project.py manifest, so this default doesn't
-    # affect the-match's sync. Kept in lockstep per the canonical sync contract.
     "wiki/sources/agentic-company-blueprint-2026-04-14.md",
     "wiki/sources/claude-code-karpathy-obsidian-video-2026-04-14.md",
     "wiki/synthesis/lint-2026-04-14.md",
