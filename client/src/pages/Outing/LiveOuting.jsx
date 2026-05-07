@@ -2134,13 +2134,45 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   const isBestBallFormat = (outing.scoring_formats || []).includes('best_ball')
   const courseHoleHandicaps = Array.isArray(outing.hole_handicaps) ? outing.hole_handicaps : null
   const zeroStrokes = () => 0
-  const bestBallData     = isBestBallFormat
+  // 2026-05-06 — also compute team data for "match + teams" (Four-Ball
+  // Match Play). User picked match-play with 2 teams of 2 expecting
+  // team scores to render; without this, best-ball math only ran when
+  // scoring_formats included 'best_ball' literally, and the team
+  // standings card was hidden. Matt: "i selected match play and 2
+  // teams of 2... its not showing the teams scores". Fires for any
+  // outing where state.teams has at least one team with 2+ members.
+  const stateTeams       = outing.state?.teams || []
+  const hasRealTeams     = stateTeams.some(t => (t.member_ids || []).length >= 2)
+  const isMatchFormat    = (outing.scoring_formats || []).includes('match')
+  const useTeamMath      = isBestBallFormat || hasRealTeams
+  const bestBallData     = useTeamMath
     ? computeBestBall(participants, holePars, getScores, netMode ? netStrokes : zeroStrokes, courseHoleHandicaps)
     : null
   const bestBallByPlayer = bestBallData?.playerTeamTotal || {}
   // Sorted teams (low-to-high) for the standings card. Each entry has
-  // { id, label, members, total, holesPlayed }.
+  // { id, label, members, total, holesPlayed, holes }.
   const bestBallTeams    = bestBallData?.teams || []
+  // Team match play — when format is `match` AND we have exactly 2
+  // teams with members on each side, run match-play math against the
+  // two teams' best-ball-per-hole arrays. Result feeds a small "Team
+  // Match" header that reads e.g. "Team 1 · 1 UP thru 4".
+  const teamMatchData = (() => {
+    if (!isMatchFormat || bestBallTeams.length !== 2) return null
+    const a = bestBallTeams[0], b = bestBallTeams[1]
+    if (!Array.isArray(a.holes) || !Array.isArray(b.holes)) return null
+    let aHolesUp = 0
+    let played = 0
+    for (let h = 0; h < holePars.length; h++) {
+      const sa = a.holes[h], sb = b.holes[h]
+      if (sa == null || sb == null) continue
+      played++
+      if (sa < sb) aHolesUp++
+      else if (sb < sa) aHolesUp--
+    }
+    const remaining = holePars.length - played
+    const dormie = played > 0 && Math.abs(aHolesUp) > remaining
+    return { a, b, aHolesUp, played, remaining, dormie }
+  })()
 
   // Leaderboard order:
   //   Skins      → primary: skins won desc, tiebreak: card-back STP
@@ -2769,17 +2801,50 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
       {/* Best-Ball team standings — header card above the leaderboard
           when format=best_ball. Player rows below are still ordered
           by team total. (Iteration 3 polish for B4d.) */}
-      {effectiveViewMode === 'board' && isBestBallFormat && bestBallTeams.length > 0 && (
+      {/* 2026-05-06 — team standings card. Renders in BOTH board AND
+          scorecard views (Matt: "in scorecard too not just board")
+          whenever the outing has at least one team with members. The
+          headline label adapts: for `match` format with 2 teams, it
+          reads the match-play state ("Team 1 · 1 UP thru 1"); for
+          everything else it reads "TEAM STANDINGS · BEST BALL". */}
+      {bestBallTeams.length > 0 && (
         <div style={{
           margin: '12px 12px 0', padding: '10px 14px',
           background: 'linear-gradient(180deg, rgba(245,215,138,0.10), rgba(201,160,64,0.04))',
           border: '1px solid rgba(245,215,138,0.30)',
           borderRadius: 14,
         }}>
-          <div style={{
-            fontSize: 10, fontWeight: 800, letterSpacing: '0.10em',
-            color: 'rgba(245,215,138,0.80)', marginBottom: 6,
-          }}>TEAM STANDINGS · BEST BALL</div>
+          {/* Header row — match-play headline OR plain label */}
+          {teamMatchData && teamMatchData.played > 0 ? (() => {
+            const { a, b, aHolesUp, played, remaining, dormie } = teamMatchData
+            const aLabel = a.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
+              || `Team ${a.label}`
+            const bLabel = b.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
+              || `Team ${b.label}`
+            const upBy = Math.abs(aHolesUp)
+            const leaderName = aHolesUp > 0 ? aLabel : aHolesUp < 0 ? bLabel : null
+            // "Closed" means leading by MORE than remaining holes — match
+            // mathematically over. e.g. 3 UP with 2 to play → 3&2.
+            const isClosed = played > 0 && upBy > remaining
+            const stateText = aHolesUp === 0
+              ? `ALL SQUARE · thru ${played}`
+              : isClosed
+                ? `${leaderName} WINS ${upBy}&${remaining}`
+                : dormie
+                  ? `${leaderName} DORMIE ${upBy}`
+                  : `${leaderName} ${upBy} UP · thru ${played}`
+            return (
+              <div style={{
+                fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
+                color: '#F5D78A', marginBottom: 8, textAlign: 'center',
+              }}>{stateText}</div>
+            )
+          })() : (
+            <div style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.10em',
+              color: 'rgba(245,215,138,0.80)', marginBottom: 6,
+            }}>TEAM STANDINGS{isBestBallFormat ? ' · BEST BALL' : isMatchFormat ? ' · MATCH PLAY' : ''}</div>
+          )}
           {bestBallTeams.map((team, i) => {
             const memberNames = team.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
             const isLeader = i === 0 && team.total > 0
