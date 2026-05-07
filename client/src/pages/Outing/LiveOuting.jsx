@@ -2717,32 +2717,51 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           winning (Tour-style board). Default is BOARD for 4+ player
           matches (where the wide scorecard gets visually busy).
           (2026-05-01 — match-page completion plan, Thread 1) */}
+      {/* 2026-05-06 — toggle redesigned for visibility. Earlier the
+          chip used translucent white over the cream/light Augusta page
+          background, which made both the active state (light gold on
+          light gray) and inactive label (white-on-cream) basically
+          invisible. New treatment: solid Augusta forest-green pill
+          with a clear active state (trophy-gold capsule with dark
+          ink text) and a high-contrast inactive label (cream on
+          green). Matches the visibility bar of the GROSS/NET chip
+          and the +Add Player button. */}
       <div style={{ padding: '10px 12px 0', display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
         <div style={{
           display: 'inline-flex',
-          background: 'rgba(255,255,255,0.18)',
-          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.30)',
+          background: '#1A4A24',
+          border: '1px solid rgba(232,192,90,0.45)',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
           borderRadius: 999,
-          padding: 3, gap: 2,
+          padding: 4, gap: 2,
         }}>
           <button onClick={() => setViewMode('scorecard')} style={{
-            background: effectiveViewMode === 'scorecard' ? AUGUSTA_GREEN_DEEP : 'transparent',
+            background: effectiveViewMode === 'scorecard'
+              ? 'linear-gradient(135deg, #F5D78A, #C9A040)'
+              : 'transparent',
             border: 'none', cursor: 'pointer',
-            padding: '6px 18px', borderRadius: 999,
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-            color: effectiveViewMode === 'scorecard' ? '#F5D78A' : 'rgba(255,255,255,0.72)',
+            padding: '7px 20px', borderRadius: 999,
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
+            color: effectiveViewMode === 'scorecard' ? '#0D1F12' : '#FBF3DC',
             fontFamily: 'inherit',
-            transition: 'background 120ms ease, color 120ms ease',
+            boxShadow: effectiveViewMode === 'scorecard'
+              ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
+              : 'none',
+            transition: 'background 140ms ease, color 140ms ease, box-shadow 140ms ease',
           }}>SCORECARD</button>
           <button onClick={() => setViewMode('board')} style={{
-            background: effectiveViewMode === 'board' ? AUGUSTA_GREEN_DEEP : 'transparent',
+            background: effectiveViewMode === 'board'
+              ? 'linear-gradient(135deg, #F5D78A, #C9A040)'
+              : 'transparent',
             border: 'none', cursor: 'pointer',
-            padding: '6px 18px', borderRadius: 999,
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-            color: effectiveViewMode === 'board' ? '#F5D78A' : 'rgba(255,255,255,0.72)',
+            padding: '7px 20px', borderRadius: 999,
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
+            color: effectiveViewMode === 'board' ? '#0D1F12' : '#FBF3DC',
             fontFamily: 'inherit',
-            transition: 'background 120ms ease, color 120ms ease',
+            boxShadow: effectiveViewMode === 'board'
+              ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
+              : 'none',
+            transition: 'background 140ms ease, color 140ms ease, box-shadow 140ms ease',
           }}>BOARD</button>
         </div>
       </div>
