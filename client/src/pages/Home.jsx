@@ -3075,6 +3075,14 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <RoundScorecard
           roundId={selectedRoundId}
           onClose={() => setSelectedRoundId(null)}
+          // Tap a co-participant's avatar/name inside the scorecard popup
+          // → close the scorecard and open that user's FriendProfile.
+          // (2026-05-07 PM3 — RoundScorecard now lists every player from
+          // the same outing; account-user pics navigate to their profile.)
+          onOpenFriend={(opp) => {
+            setSelectedRoundId(null)
+            setSelectedFriend(opp)
+          }}
         />
       )}
 
@@ -3103,6 +3111,10 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           rounds={rounds}
           title="Recent Rounds"
           onClose={() => setHistoryOpen(false)}
+          onOpenFriend={(opp) => {
+            setHistoryOpen(false)
+            setSelectedFriend(opp)
+          }}
         />
       )}
 

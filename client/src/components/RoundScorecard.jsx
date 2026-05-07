@@ -192,7 +192,7 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
   )
 }
 
-export default function RoundScorecard({ roundId, onClose }) {
+export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
   const [round, setRound] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -320,6 +320,125 @@ export default function RoundScorecard({ roundId, onClose }) {
               <NineHoleGrid label="Front 9" holes={frontHoles} holePars={holePars} scores={scores} holeCount={holeCount} />
               {backHoles.length > 0 && (
                 <NineHoleGrid label="Back 9" holes={backHoles} holePars={holePars} scores={scores} holeCount={holeCount} />
+              )}
+
+              {/* Playing partners — every other player in the same outing.
+                  Account users come from tm_outing_participants; guests
+                  come from tm_outings.state JSON. Each row reuses the
+                  same NineHoleGrid + color-coded ScoreCells as the
+                  focal player. Account-user avatars + names are tap
+                  targets that open that user's FriendProfile via
+                  onOpenFriend. Guests are non-tappable (no profile to
+                  open). Added 2026-05-07 PM3. */}
+              {Array.isArray(round?.co_participants) && round.co_participants.length > 0 && (
+                <div style={{ marginTop: 18, marginBottom: 4 }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 800, color: 'rgba(232,192,90,0.65)',
+                    letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10,
+                    paddingLeft: 2,
+                  }}>
+                    Playing partners
+                  </div>
+                  {round.co_participants.map((p, idx) => {
+                    const pScores = (() => {
+                      if (!p.scores) return []
+                      return Array.isArray(p.scores) ? p.scores : (() => { try { return JSON.parse(p.scores) } catch { return [] } })()
+                    })()
+                    const pTotal = Number(p.total ?? pScores.reduce((s, x) => s + (Number(x) || 0), 0))
+                    const pDiff = Number.isFinite(pTotal) && pTotal > 0 ? pTotal - coursePar : null
+                    const pDiffStr = pDiff == null ? '—' : pDiff === 0 ? 'E' : pDiff > 0 ? `+${pDiff}` : `${pDiff}`
+                    const pDiffColor = pDiff == null ? 'rgba(255,255,255,0.40)' : pDiff < 0 ? '#F5E070' : pDiff === 0 ? '#fff' : '#F87171'
+                    const canNavigate = !p.is_guest && p.user_id && typeof onOpenFriend === 'function'
+                    const initials = (p.name || '·').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+                    const headerOnClick = canNavigate
+                      ? () => onOpenFriend({ id: p.user_id, name: p.name, handle: p.handle, avatar: p.avatar })
+                      : undefined
+                    return (
+                      <div key={p.user_id ?? `guest-${idx}`} style={{
+                        marginBottom: 14,
+                        background: 'rgba(255,255,255,0.025)',
+                        border: '1px solid rgba(232,192,90,0.12)',
+                        borderRadius: 12, padding: '10px 10px 4px',
+                      }}>
+                        {/* Per-partner header — avatar + name + handle on the
+                            left, total + diff on the right. Tap target
+                            covers avatar + name (account users only). */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          gap: 10, padding: '2px 4px 10px',
+                        }}>
+                          <button
+                            onClick={headerOnClick}
+                            disabled={!canNavigate}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              flex: 1, minWidth: 0,
+                              background: 'transparent', border: 'none',
+                              padding: 0, textAlign: 'left',
+                              cursor: canNavigate ? 'pointer' : 'default',
+                              color: 'inherit', fontFamily: 'inherit',
+                            }}
+                            aria-label={canNavigate ? `Open ${p.name}'s profile` : undefined}
+                          >
+                            {/* Avatar — image when present, initials fallback. Guests get
+                                a neutral placeholder so the layout doesn't shift. */}
+                            <div style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              flexShrink: 0,
+                              background: p.avatar ? `center/cover no-repeat url("${p.avatar}")` : 'rgba(232,192,90,0.18)',
+                              border: '1px solid rgba(232,192,90,0.30)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11, fontWeight: 800, color: 'rgba(232,192,90,0.85)',
+                              letterSpacing: '0.04em',
+                            }}>
+                              {!p.avatar && initials}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontSize: 13, fontWeight: 700, color: '#fff',
+                                lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>
+                                {p.name}
+                                {p.is_guest && (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.55)',
+                                    background: 'rgba(255,255,255,0.08)',
+                                    border: '1px solid rgba(255,255,255,0.18)',
+                                    borderRadius: 6, padding: '1px 6px', marginLeft: 8,
+                                    letterSpacing: '0.06em', textTransform: 'uppercase',
+                                    verticalAlign: 'middle',
+                                  }}>Guest</span>
+                                )}
+                              </div>
+                              {p.handle && (
+                                <div style={{
+                                  fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.2,
+                                  marginTop: 1,
+                                }}>@{p.handle}</div>
+                              )}
+                            </div>
+                          </button>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{
+                              fontSize: 18, fontWeight: 900, color: '#fff',
+                              fontFamily: '"Arial Black", Arial, sans-serif', lineHeight: 1,
+                            }}>{pTotal > 0 ? pTotal : '—'}</div>
+                            <div style={{
+                              fontSize: 11, fontWeight: 800, color: pDiffColor,
+                              letterSpacing: '0.04em', marginTop: 2,
+                            }}>{pDiffStr}</div>
+                          </div>
+                        </div>
+                        {/* Their Front 9 + Back 9 grids — same color logic
+                            as the focal player's. */}
+                        <NineHoleGrid label="Front 9" holes={frontHoles} holePars={holePars} scores={pScores} holeCount={holeCount} />
+                        {backHoles.length > 0 && (
+                          <NineHoleGrid label="Back 9" holes={backHoles} holePars={holePars} scores={pScores} holeCount={holeCount} />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               )}
 
               {/* Highlights row */}

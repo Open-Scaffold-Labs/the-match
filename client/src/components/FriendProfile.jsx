@@ -1152,6 +1152,14 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
         <RoundScorecard
           roundId={selectedRoundId}
           onClose={() => setSelectedRoundId(null)}
+          // Tap a co-participant in the scorecard → close the scorecard
+          // and swap the FriendProfile to that user (via the same
+          // onOpenFriend prop that powers rivalry-pic taps).
+          // (2026-05-07 PM3.)
+          onOpenFriend={onOpenFriend ? (opp) => {
+            setSelectedRoundId(null)
+            onOpenFriend(opp)
+          } : undefined}
         />
       )}
 
@@ -1162,6 +1170,10 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
           rounds={data?.recentRounds ?? []}
           title={`${friend?.name?.split(' ')[0] || 'Player'}'s Rounds`}
           onClose={() => setHistoryOpen(false)}
+          onOpenFriend={onOpenFriend ? (opp) => {
+            setHistoryOpen(false)
+            onOpenFriend(opp)
+          } : undefined}
         />
       )}
 

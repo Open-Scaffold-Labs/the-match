@@ -94,14 +94,73 @@ router.post('/', async (req, res) => {
 // the My Profile view opens.)
 router.get('/:id', async (req, res) => {
   const row = await db.one(
-    `SELECT r.*, o.hole_pars, o.course_name AS outing_course_name
+    `SELECT r.*, o.hole_pars, o.course_name AS outing_course_name, o.state AS outing_state
      FROM tm_rounds r
      LEFT JOIN tm_outings o ON o.id = r.outing_id
      WHERE r.id = $1`,
     [req.params.id]
   )
   if (!row) return res.status(404).json({ error: 'Not found' })
-  res.json(row)
+
+  // Co-participants for the scorecard: every other player in the same
+  // outing as this round, so the popup can show the full party's
+  // scorecards (Matt 2026-05-07: "in my most recent round I played with
+  // Dan, James Ashe, and James Ryan who was a manually non-account
+  // entry... both Dan and James Ashe have accounts, so their scores
+  // should be viewable in that round scorecard pop up as well").
+  //
+  // Account users come from tm_outing_participants. Guest users (no
+  // user_id) live in tm_outings.state.participants JSON only — pull
+  // them from there so the round popup also surfaces guest scores.
+  // The focal user (the round's owner) is excluded from co_participants
+  // so the client doesn't render them twice.
+  let co_participants = []
+  if (row.outing_id) {
+    const accountRows = await db.many(
+      `SELECT op.user_id, op.scores, op.total, u.name, u.handle, u.avatar
+         FROM tm_outing_participants op
+         LEFT JOIN tm_users u ON u.id = op.user_id
+        WHERE op.outing_id = $1
+          AND op.user_id IS NOT NULL
+          AND op.user_id <> $2
+        ORDER BY op.total ASC NULLS LAST`,
+      [row.outing_id, row.user_id]
+    )
+    co_participants = accountRows.map(r => ({
+      user_id:  r.user_id,
+      name:     r.name,
+      handle:   r.handle,
+      avatar:   r.avatar,
+      scores:   r.scores || [],
+      total:    r.total,
+      is_guest: false,
+    }))
+
+    // Guest participants from the outing state JSON. Detect them by
+    // is_guest flag OR by user_id starting with 'guest_' (the legacy
+    // marker pattern used pre-flag).
+    const stateParticipants = (row.outing_state && row.outing_state.participants) || []
+    for (const p of stateParticipants) {
+      const isGuest = p.is_guest === true || (typeof p.user_id === 'string' && p.user_id.startsWith('guest_'))
+      if (!isGuest) continue
+      co_participants.push({
+        user_id:  null,
+        name:     p.name || 'Guest',
+        handle:   null,
+        avatar:   null,
+        scores:   Array.isArray(p.scores) ? p.scores : [],
+        total:    p.total ?? null,
+        is_guest: true,
+      })
+    }
+  }
+
+  // Don't leak the entire outing state — only return the parsed
+  // co-participants list. The round row itself is unchanged shape so
+  // existing clients that don't read co_participants stay backwards
+  // compatible.
+  delete row.outing_state
+  res.json({ ...row, co_participants })
 })
 
 module.exports = router
