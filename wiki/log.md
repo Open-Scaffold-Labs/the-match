@@ -8,6 +8,149 @@ updated: YYYY-MM-DD
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-05-06] refactor | Post-polish bug-cluster + UX fixes (live-fire pass)
+
+After the polish pass landed (commit d472d35), Matt walked through it on
+prod and surfaced a cluster of issues — some real bugs my "build clean +
+math correct" self-review hadn't caught, some pre-existing latent bugs
+that the polish pass exposed by exercising new code paths, and a stack
+of UX gaps. Seventeen commits total, all on `main`.
+
+**Real regressions / latent bugs found and fixed:**
+
+- `0e6e157` — **TDZ on `handicap_overrides`** in LiveOuting. Function
+  declarations like `netStrokes` are hoisted, but their bodies read
+  `const handicapOverrides` which isn't. `computeBestBall(... netStrokes ...)`
+  at line ~1959 invoked netStrokes ~100 lines BEFORE handicapOverrides
+  was declared at line 2068. Latent for everyone whose scoring_formats
+  didn't include `best_ball` — Matt's PLSL match was best_ball, so
+  every Resume crashed with "Hooked Left · cannot access 'ci' before
+  initialization". Fix: hoisted hcpAllowance / handicapOverrides /
+  effectiveHandicap / netStrokes / netTotal above the bestBallData
+  block.
+- `ddd01d0` — **team_id missing on participants**. computeBestBall
+  groups by `p.team_id` but the team mapping only exists on
+  `state.teams[].member_ids`. Without hydration, every player fell
+  into a `solo:user_id` bucket → leaderboard treated 4-player best
+  ball as 4 singles. Fix: build a Map<userIdString, teamId> from
+  state.teams before the participants pipeline, enrich each
+  participant with team_id during the .map chain.
+- `6a691dc` — **Best Ball ignored the GROSS/NET toggle**.
+  computeBestBall received `netStrokes` unconditionally → totals were
+  always net-adjusted even when the user had GROSS selected. Fix:
+  pass a no-op `() => 0` when netMode is off; the real netStrokes
+  only when on. Matches every other net-handicap path in LiveOuting.
+- `8ace043` — **React error #310 (Rules of Hooks)**. My GROSS/NET
+  auto-popover useEffect (`33f2898`) was placed after the
+  `if (loading) return` and `if (!outing) return` early returns. On
+  first render the early returns fired before reaching it; on the
+  next render it executed → different hook count between renders →
+  minified error #310 ('Rendered more/fewer hooks than during the
+  previous render') → Hooked Left boundary. Fix: move the useEffect
+  above the early returns, compute hasHandicaps inside the effect
+  from outing.state directly. Audit script run across all polish-
+  pass files confirmed no other hooks-after-return patterns.
+
+**UX gaps closed:**
+
+- `7744e62` — **Set Teams → 'Save & Start Match →'** label for
+  first-time team setup (was the unhelpful "Save Teams"); editing
+  mid-match still reads "Save Teams". Disabled state when no
+  players are assigned + a soft hint underneath.
+- `33f2898` — **GROSS/NET tooltip**. Small `?` icon next to the
+  GROSS/NET chip; tap opens a portal modal with plain-language
+  definitions of each term. Auto-pops once per user the first time
+  they open a match where any non-guest has a handicap (gated by
+  `tm-gross-net-help-seen` localStorage flag).
+- `714ae0f` — **Tee picker dedupe** for the create wizard. Lifted
+  EagleEye's existing `dedupeTees` helper into `client/src/lib/tees.js`
+  and reused it in CreateWizard so each physical tee box renders as
+  one row instead of one per gender (M / W / etc).
+- `c5d774f` — **'+ Add Player' button** inside the TeamSetup sheet
+  itself. Right after the wizard creates a match, the host has only
+  themselves as a participant — there was no UI to actually build
+  the roster from inside the team-setup sheet. Now opens GuestModal
+  (search-as-you-type for app users, fall back to named guest), then
+  re-fetches the outing so the new player appears in unassigned and
+  can be tapped onto a team.
+- `7cd86f0` — **SCORECARD/BOARD toggle visibility**. Earlier
+  translucent-white on cream was washed out; redesigned as a solid
+  forest-green pill with a gold-gradient active capsule. Same bar
+  as the GROSS/NET chip and the +Add Player button.
+
+**Multi-format scoring (the big one):**
+
+- `e66803c` + `8cc80b5` — **Team standings + team match-play in BOTH
+  scorecard AND board views**. Previously the team-standings card
+  was gated on `isBestBallFormat` AND `effectiveViewMode === 'board'`,
+  so picking Match Play with 2 teams of 2 (= four-ball match play)
+  rendered as singles. Now any team-shaped outing computes
+  bestBallData; for `match` format with exactly 2 teams the card
+  also shows live match-play state ("Matt/V · 1 UP · thru 4",
+  "DORMIE 2", "WINS 3&2", etc.). Card bg moved to solid green for
+  contrast on the cream page.
+- `00955cb` — **Wizard format step → multi-select**. Each format is
+  now an independently-togglable card with a gold-gradient checkmark
+  square; default is `['stroke']`; at least one required; gold hint
+  banner at the top teaches the two common combos:
+  `Match Play + Best Ball = four-ball match play` and
+  `Stroke + Skins = round with skins side bet`. Fixes Matt's
+  question 'four ball match play literally is match play + best ball
+  no?' — yes, so let users pick both explicitly.
+- `8b263d3` — **'Active formats' chip strip** above the leaderboard
+  showing every selected scoring_format as a gold-border pill so
+  the user knows what the rest of the page is rendering.
+- `2712447` — **Explicit section headers** inside the team-standings
+  card and above the per-player MatchScoreboard:
+  `MATCH PLAY` / `BEST BALL · TEAM TOTALS` / `STROKE PLAY · INDIVIDUAL`
+  (label adapts: SKINS · INDIVIDUAL when skins, STABLEFORD when
+  stableford, MATCH PLAY · HEAD TO HEAD for 1v1 match). Closes
+  Matt's confusion 'im only seeing scores for stroke im not seeing
+  the scores for match'.
+- `21faecb` — **Team card visual unification with the individual
+  board**. Restyled to translucent white-glass with backdrop blur,
+  dark text, gold border (matching MatchScoreboard exactly).
+  Side-by-side 38px square avatars per team member (Matt:
+  'profile pictures side by side for each team member in the team').
+  Up to 3 visible avatars per team with a `+N` chip for foursomes.
+
+**Tab + match management:**
+
+- `c09bd0c` — **Pull-to-refresh preserves tab**. Earlier reload
+  always landed on Home because tab state was in-memory only. Now
+  saved to `localStorage` under `tm-last-tab` on every tab switch,
+  read via lazy initializer on mount, validated against the TABS
+  whitelist on read.
+- `28dc459` — **Warn-on-create when host has an unfinished match**.
+  At the start of `handleCreate`, fetch `/api/outings/recent`, find
+  any outing the user hosts with status='active'. If found, native
+  confirm prompts to end-it-and-continue. Cancel bails out of the
+  wizard; OK auto-ends the stale match via `POST /:code/end` then
+  proceeds. Best-effort guard — network errors don't block creation.
+
+**DB-side cleanup (manual, not a commit):**
+
+Three stale `active` outings that had accumulated in Matt's account
+from testing (NMPC, 75LQ, GFB5) were closed via direct
+`UPDATE tm_outings SET status='closed'` so Live Now would be honest
+again. Done in conjunction with `28dc459` so the going-forward guard
+prevents re-accumulation.
+
+**Process lessons captured:**
+
+- Bundle-hash diff is a cheap, decisive proof that source changes
+  actually reached the artifact. After my first Stats.jsx "fix"
+  produced byte-identical output (rollup deduplicated the
+  export+import to the same code), I now check the bundle hash
+  changed before declaring a fix shipped.
+- 'Build clean' ≠ 'works'. Vite/rollup can't catch hooks-after-
+  return (runtime-only) or mid-render TDZ on hoisted-function
+  closures. Need an actual end-to-end click-through before the
+  push or risk shipping regressions like the #310.
+- For any new useEffect / useState added to a file with early
+  returns (like LiveOuting's `if (loading) return`), grep for
+  early-return lines BEFORE the new hook and confirm placement.
+
 ## [2026-05-06] refactor | Polish-pass batch — tasks 1-8 + 10 (App-Store prep)
 
 Shipped a 9-feature polish pass on the live app in one session. Order: 1-4 → self-review → 5-7 → self-review → 8 + 10 → self-review.
