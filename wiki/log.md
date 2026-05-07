@@ -1,7 +1,7 @@
 ---
-type: overview
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
+type: log
+created: 2026-04-29
+updated: 2026-05-07
 ---
 
 # Activity Log
@@ -755,3 +755,45 @@ After the 2026-05-04 entry above, a follow-on session shipped additional bug fix
 
 **Open data-hygiene item (not blocking):**
 - 1 orphan `tm_follows` row: `(Demo Player Three → Matt)` from 2026-05-02 with no accepted friendship. Cosmetic — renders as a phantom follower for Matt. Safe single-row delete: `DELETE FROM tm_follows WHERE id = 60`.
+
+
+
+## [2026-05-07] schema | semantic preflight checks + trust-anchor refresh discipline
+
+Session goal was to start work on the-match. Roll Call returned 3 yellow drifts (uncommitted state file, `notebooklm-wiki-refresh.py` byte-drift from canonical, no pinecone-sync state). Resolved all three:
+
+- State file (anti-pattern #12 fix from prior session) committed (commit `79cee03`).
+- Pinecone preflight bug fixed in canonical + the-match + Hub vault: `[4/7]` now gates on `check_enabled "pinecone"`, and `check_enabled` now distinguishes "no manifest" from "manifest with empty CHECKS." Empty CHECKS now correctly means "opt out of all optional checks." (commit `370ae4e` here, paired `f14c239` canonical, `996b5e1` Hub vault).
+- the-match's `notebooklm-wiki-refresh.py` back-port comment removed — 3 lines added in commit `8d38292` violated the canonical sync contract by editorializing in the deployed copy. (commit `2dd86c8`.)
+
+Then a deeper finding: CLAUDE.md and the wiki had drifted from reality without any mechanical check noticing.
+
+- CLAUDE.md "Feature status" table was 1 week stale — push notifications shipped 2026-05-05 but listed as "🔲 Next." Friends/Followers, Solo Round persistence, click-bubble fix, QR-code share — all shipped, none reflected.
+- DB setup section mentioned only `001_tm_initial.sql` despite 23 migrations existing.
+- `wiki/index.md` was missing 7 pages (POST-LAUNCH-TODO, HIGH-PRIORITY-TODO, 2 synthesis pages, 2 concepts, 1 source).
+- `wiki/overview.md` was still a `YYYY-MM-DD` template placeholder 10 days post-scaffold.
+- `wiki/log.md` had `created: YYYY-MM-DD` frontmatter despite being actively appended.
+- `wiki/HIGH-PRIORITY-TODO.md` (JWT_SECRET rotation) had sat 3 days past its 2026-05-04 deadline. JWT_SECRET in local `.env` is still the literal placeholder `change-me-to-a-long-random-string`; Vercel prod almost certainly the same. **ROTATE NEXT.**
+
+Diagnosis: every preflight check in the Limitless Stack was *mechanical* — file hashes, timestamps, sync state. None checked content semantics. So the trust anchor drifted invisibly while every layer below it (sync, refresh, dedupe) stayed perfectly consistent.
+
+**Three new semantic checks added to `tools/limitless-preflight.sh`** (back-ported to all 3 deployed copies + canonical's `vault-template/`):
+
+1. **Index completeness** — walks `wiki/*.md`, warns on any page not referenced (literal substring match) in `wiki/index.md`.
+2. **Template-placeholder detection** — flags any `wiki/*.md` with `created: YYYY-MM-DD` or `updated: YYYY-MM-DD` literal frontmatter.
+3. **Overdue TODO detection** — `wiki/*TODO*.md` with `priority: critical` frontmatter > 3d old, OR explicit `DO AFTER YYYY-MM-DD` / `by YYYY-MM-DD` / `before YYYY-MM-DD` past today.
+
+**Procedural fix**: new step 1 added to both the-match's and Hub vault's end-of-session checklists — *Refresh the trust anchors* (re-read CLAUDE.md + index.md, update if drifted). Inserted before the commit step so the refresh is included in the same commit.
+
+**Anti-pattern #13** added to `claude-anti-patterns.md` (in all 3 copies — the-match, Hub vault, LimitlessStack vault-template): "Mechanical checks without semantic checks." Captures the lesson: mechanical safeguards alone don't make a trust anchor trustworthy; for any system where a document is ground truth, the preflight must include semantic checks.
+
+**Content fixes applied this session**:
+
+- `CLAUDE.md`: replaced stale Feature status table with a "Where to find current state" pointer section (log.md / TODOs / synthesis). Updated DB setup to handle 23 migrations.
+- `wiki/index.md`: added the 7 missing pages, refreshed `updated:` date, added a "Top-level" section.
+- `wiki/overview.md`: filled in with a real synthesis — what the-match is, where to look for what, how the wiki is maintained.
+- `wiki/log.md`: fixed `YYYY-MM-DD` frontmatter to real created (2026-04-29) / updated (2026-05-07) dates, changed `type: overview` → `type: log`.
+
+**Verification**: preflight now reports `green: 11, yellow: 4` — all 4 yellows are expected (uncommitted work, JWT rotation pending, 2 NotebookLM refresh prompts that the end-of-session steps will resolve).
+
+**Next**: rotate JWT_SECRET. Runbook in `wiki/HIGH-PRIORITY-TODO.md` (5-minute job, Matt drives the Vercel env-var change since Claude is not allowed to modify security credentials).

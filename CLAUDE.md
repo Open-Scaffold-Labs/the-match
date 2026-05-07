@@ -41,11 +41,12 @@ When answering questions or doing wiki work, use the tools in this order:
 
 Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or tools:
 1. Update `wiki/log.md` with what changed
-2. Commit + push the project repo (this `the-match` repo)
-3. Run `python3.11 tools/notebooklm-wiki-refresh.py` if wiki/CLAUDE.md changed
-4. Verify the refresh actually landed (`verify_failed: 0`)
-5. Run preflight one more time — should be green except known accepted yellows
-6. **If `tools/<anything>` was edited** — back-port to `/Users/matthewlavin/LimitlessStack/tools/` and commit/push that repo too. Sync check will fail next session if you forget.
+2. **Refresh the trust anchors.** Re-read this `CLAUDE.md` end-to-end and update any feature-status tables, "current state" prose, "shipped vs next" lists, or DB-setup / migration counts to match what actually shipped this session. The trust anchor must describe reality — every Claude session reads it as ground truth, so silent staleness here propagates as confidently-stated wrong facts. Same for `wiki/index.md`: it must list every page that exists in `wiki/`. The preflight's semantic checks (index completeness, template-placeholder detection, overdue-TODO scan) catch the obvious cases — but only the writer of the session knows whether a status claim is still true.
+3. Commit + push the project repo (this `the-match` repo)
+4. Run `python3.11 tools/notebooklm-wiki-refresh.py` if wiki/CLAUDE.md changed
+5. Verify the refresh actually landed (`verify_failed: 0`)
+6. Run preflight one more time — should be green except known accepted yellows
+7. **If `tools/<anything>` was edited** — back-port to `/Users/matthewlavin/LimitlessStack/tools/` and commit/push that repo too. Sync check will fail next session if you forget.
 
 ## Stack
 
@@ -63,22 +64,18 @@ Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or
 - Mobile-first. Bottom tab nav. Touch targets ≥ 44px. Safe-area insets handled via CSS vars.
 - Score colors: eagle = gold, birdie = blue, par = muted, bogey = orange, double+ = red.
 
-## Feature status
+## Where to find current state
 
-| Feature | Status |
-|---|---|
-| Auth (login/signup) | ✅ Done |
-| Home dashboard | ✅ Done |
-| Eagle Eye (AI rangefinder) | ✅ Done |
-| Stats + seeded handicap | ✅ Done (calculated index switches in once 5+ rounds logged) |
-| Outing (tournaments) | ✅ Done |
-| Active Round / Solo Round | ✅ Done |
-| Friends + Availability Calendar | ✅ Done |
-| PGA Tour leaderboard | ✅ Done |
-| Big Team Battle | 🔲 Next (schema exists, UI pending) |
-| AI Caddie chat | 🔲 Next |
-| Per-hole scoring during live play | 🔲 Next |
-| Push notifications | 🔲 Next |
+**Static feature tables drift.** This file used to keep a `## Feature status` table; it went a week stale during active development before anyone noticed (`Push notifications: 🔲 Next` was sitting there long after they shipped on 2026-05-05). Removed 2026-05-07 — the live source is the wiki.
+
+For the current state of the-match, read these files in order:
+
+- `wiki/log.md` — chronological, append-only. Every shipped feature, refactor, and fix lands here as a `## [YYYY-MM-DD] <op> | <label>` entry. The most recent entries are the most current state.
+- `wiki/HIGH-PRIORITY-TODO.md` — urgent / overdue items. Read this every session.
+- `wiki/POST-LAUNCH-TODO.md` — deferred items from polish-pass sessions, with one-line context + next concrete step per item.
+- `wiki/synthesis/` — closed audits and one-off plans (e.g., `audit-2026-04-29.md`, `match-page-completion-plan.md`). Historical record of multi-session work.
+
+The preflight enforces this contract: it scans `wiki/*TODO*.md` for overdue deadlines and warns. It also walks `wiki/*.md` against `wiki/index.md` and warns on unindexed pages. If the preflight is green and you've read the most recent log entry + both TODO files, you have current state.
 
 ## Local dev
 
@@ -96,9 +93,22 @@ npm run dev            # starts both client (:5173) and server (:3010)
 
 ## DB setup
 
+Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 23 of them). Apply in order on a fresh database:
+
 ```bash
-psql $DATABASE_URL -f migrations/001_tm_initial.sql
+for f in migrations/*.sql; do
+  echo "Applying $f..."
+  psql "$DATABASE_URL" -f "$f"
+done
 ```
+
+For a single new migration on an existing database, apply just that file:
+
+```bash
+psql "$DATABASE_URL" -f migrations/0NN_<name>.sql
+```
+
+Migrations are append-only — never edit a numbered file. New schema changes go in a new file with the next number.
 
 ## Code discipline
 
