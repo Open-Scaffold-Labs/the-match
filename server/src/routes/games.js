@@ -13,44 +13,85 @@ router.use(requireAuth)
 router.post('/', async (req, res) => {
   try {
     const uid = req.user.id
-    const { date, start_time, course_name, request_type = 'tee_time', message, invitee_ids = [] } = req.body
+    const {
+      date, start_time, course_name, request_type = 'tee_time',
+      message, invitee_ids = [],
+      // 2026-05-06 — new "+ New Tee Time" flow on Home. Three additions:
+      //   confirmed_by_creator: when true ("we already agreed on the
+      //     phone"), invitees go straight to 'accepted' status instead
+      //     of pending. Push copy adapts.
+      //   guest_names: array of plain-text names for players without
+      //     accounts. Stored on tm_games.guests JSONB. They appear on
+      //     everyone's UpcomingTeeTimes roster but get no push (no
+      //     account to push to).
+      confirmed_by_creator = false,
+      guest_names = [],
+    } = req.body
     if (!date) return res.status(400).json({ error: 'date required' })
-    if (invitee_ids.length > 3) return res.status(400).json({ error: 'max 3 invitees' })
+    // Bumped invitee cap from 3 to 7 to allow up to an 8-some.
+    if (invitee_ids.length > 7) return res.status(400).json({ error: 'max 7 invitees' })
+    const cleanGuests = Array.isArray(guest_names)
+      ? guest_names.map(n => String(n || '').trim()).filter(Boolean).slice(0, 7)
+      : []
     // start_time is optional — accepted as 'HH:MM' or 'HH:MM:SS' or null
     if (start_time && !/^\d{2}:\d{2}(:\d{2})?$/.test(start_time)) {
       return res.status(400).json({ error: 'start_time must be HH:MM or HH:MM:SS' })
     }
 
-    // Create the match
+    // Create the match. guests + confirmed_by_creator persisted in
+    // the columns added by migration 023.
     const game = await db.one(
-      `INSERT INTO tm_games (created_by, date, start_time, course_name, request_type, message)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [uid, date, start_time || null, course_name || null, request_type, message || null]
+      `INSERT INTO tm_games (created_by, date, start_time, course_name, request_type, message, guests, confirmed_by_creator)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) RETURNING id`,
+      [
+        uid, date, start_time || null, course_name || null,
+        request_type, message || null,
+        JSON.stringify(cleanGuests.map(name => ({ name }))),
+        !!confirmed_by_creator,
+      ]
     )
     const gameId = game.id
 
-    // Organizer is auto-accepted
+    // Organizer is auto-accepted (always).
     await db.query(
       `INSERT INTO tm_game_participants (game_id, user_id, status) VALUES ($1, $2, 'accepted')`,
       [gameId, uid]
     )
 
-    // Invitees start pending
+    // Invitee starting status. Default = pending. When the host marks
+    // confirmed_by_creator=true they go straight to accepted — host
+    // confirmed verbally; decline becomes a one-tap exit on the card
+    // if anything changes.
+    const inviteeStatus = confirmed_by_creator ? 'accepted' : 'pending'
     for (const invId of invitee_ids) {
       await db.query(
-        `INSERT INTO tm_game_participants (game_id, user_id, status) VALUES ($1, $2, 'pending')
+        `INSERT INTO tm_game_participants (game_id, user_id, status) VALUES ($1, $2, $3)
          ON CONFLICT (game_id, user_id) DO NOTHING`,
-        [gameId, invId]
+        [gameId, invId, inviteeStatus]
       )
     }
-    // 2026-05-05 — Push to every invitee. Fire-and-forget was killed
-    // by Vercel lambda freeze after res.json. Promise.all so the loop
-    // total time is max(individual), not sum — important when inviting
-    // multiple friends at once.
+    // Push to every invitee. Awaited (Vercel freeze fix). Push copy
+    // adapts to confirmed-vs-invite mode.
+    const pushTitle = confirmed_by_creator ? 'Tee time scheduled' : 'Match invite'
+    const pushBody = (() => {
+      const who = req.user.name || 'Someone'
+      const whenStr = (() => {
+        if (!start_time) return null
+        const [h, m] = start_time.split(':').map(Number)
+        const ampm = h >= 12 ? 'PM' : 'AM'
+        const hh12 = ((h + 11) % 12) + 1
+        return `${hh12}:${String(m).padStart(2, '0')} ${ampm}`
+      })()
+      const courseStr = course_name ? ` at ${course_name}` : ''
+      const timeStr = whenStr ? ` · ${whenStr}` : ''
+      return confirmed_by_creator
+        ? `${who} added you to a tee time${courseStr}${timeStr}`
+        : `${who} invited you to play${courseStr}`
+    })()
     await Promise.all(invitee_ids.map(invId =>
       sendPushToUser(invId, {
-        title: 'Match invite',
-        body: `${req.user.name || 'Someone'} invited you to play${course_name ? ` at ${course_name}` : ''}`,
+        title: pushTitle,
+        body: pushBody,
         url: '/?notifs=open',
         tag: `game-invite-${gameId}`,
       }).catch(err => console.error('[push] game-invite', invId, err.message))
@@ -76,7 +117,7 @@ router.get('/', async (req, res) => {
          g.id, g.created_by, TO_CHAR(g.date, 'YYYY-MM-DD') AS date,
          TO_CHAR(g.start_time, 'HH24:MI') AS start_time,
          g.course_name, g.request_type, g.message, g.created_at,
-         g.broadcast,
+         g.broadcast, g.guests, g.confirmed_by_creator,
          gp.status AS my_status,
          u.name AS organizer_name
        FROM tm_game_participants gp

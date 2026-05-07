@@ -14,6 +14,7 @@ import CoachMark from '../components/CoachMark.jsx'
 import RivalryHistory from '../components/RivalryHistory.jsx'
 import AchievementsRow from '../components/AchievementsRow.jsx'
 import YearRecapModal from './Outing/YearRecap.jsx'
+import NewTeeTimeSheet from '../components/NewTeeTimeSheet.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -3631,6 +3632,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   const [planGame, setPlanGame]         = useState(null)
   const [createGameOpen, setCreateGameOpen] = useState(false)
   const [createGameDate, setCreateGameDate] = useState(null)
+  // 2026-05-06 — "Schedule a Tee Time" sheet entry from the TEE TIMES
+  // section. Distinct from createGameOpen (which goes through the
+  // calendar-based flow) — this is the manual roster + push flow.
+  const [showNewTeeTime, setShowNewTeeTime] = useState(false)
   const [playerCardOpen, setPlayerCardOpen] = useState(false)
   // 'home' = dashboard, 'profile' = full profile + stats screen.
   // Profile is a sibling view inside the Home tab (not a top-level tab).
@@ -4122,6 +4127,30 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, rgba(201,160,64,0.85), transparent)' }} />
           </div>
 
+        {/* 2026-05-06 — "+ New Tee Time" entry. Manual scheduler for
+            the case Matt described: friends agreed by phone or chat,
+            host wants to lock in the round on the app so it shows up
+            on everyone's UpcomingTeeTimes + calendar with push
+            notifications. Sheet supports app users (multi-select from
+            Following+Followers) and named guests (no account). */}
+        <button onClick={() => setShowNewTeeTime(true)} style={{
+          width: '100%', marginBottom: 12,
+          padding: '14px 18px', borderRadius: 16, border: 'none',
+          background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))',
+          color: '#fff', fontWeight: 800, fontSize: 14,
+          cursor: 'pointer',
+          boxShadow: '0 2px 12px rgba(27,94,59,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.4"
+            strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5"  x2="12" y2="19"/>
+            <line x1="5"  y1="12" x2="19" y2="12"/>
+          </svg>
+          Schedule a Tee Time
+        </button>
+
         {/* GolfNow booking card */}
         <a
           href="https://www.golfnow.com/tee-times"
@@ -4420,6 +4449,25 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
       {/* Edit profile modal */}
       {editOpen && (
         <EditProfileModal user={user} onSave={handleProfileSaved} onClose={() => setEditOpen(false)} />
+      )}
+
+      {/* 2026-05-06 — "Schedule a Tee Time" manual scheduler. After
+          create, refresh games list so the new tee time pops on
+          UpcomingTeeTimes immediately. */}
+      {showNewTeeTime && user && (
+        <NewTeeTimeSheet
+          user={user}
+          onClose={() => setShowNewTeeTime(false)}
+          onCreated={async () => {
+            try {
+              const g = await api('/api/games')
+              setGames({
+                incoming:  Array.isArray(g?.incoming)  ? g.incoming  : [],
+                confirmed: Array.isArray(g?.confirmed) ? g.confirmed : [],
+              })
+            } catch { /* harmless — UpcomingTeeTimes will catch it on next refresh */ }
+          }}
+        />
       )}
 
       {/* Plan / set course + time sheet */}
