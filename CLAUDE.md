@@ -71,7 +71,6 @@ Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or
 For the current state of the-match, read these files in order:
 
 - `wiki/log.md` — chronological, append-only. Every shipped feature, refactor, and fix lands here as a `## [YYYY-MM-DD] <op> | <label>` entry. The most recent entries are the most current state.
-- `wiki/HIGH-PRIORITY-TODO.md` — urgent / overdue items. Read this every session.
 - `wiki/POST-LAUNCH-TODO.md` — deferred items from polish-pass sessions, with one-line context + next concrete step per item.
 - `wiki/synthesis/` — closed audits and one-off plans (e.g., `audit-2026-04-29.md`, `match-page-completion-plan.md`). Historical record of multi-session work.
 
