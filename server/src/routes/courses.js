@@ -8,6 +8,29 @@ function gcHeaders() {
   return { 'Authorization': `Key ${GC_KEY}`, 'Content-Type': 'application/json' }
 }
 
+// The golfcourseapi.com vendor data abbreviates common golf-club suffixes
+// ("Pebble Beach Gl" instead of "Pebble Beach Golf Links"). Their data,
+// not our truncation. Expand on the way out so display strings read
+// naturally everywhere (autocomplete + profile + match cards). Ordered
+// longer-first so multi-token suffixes win against single-token ones.
+// Found 2026-05-07 during the E2E audit (audit-2026-05-07.md bug #3).
+const COURSE_NAME_ABBREVS = [
+  [/\bG&Cc\b/g, 'Golf & Country Club'],
+  [/\bGn&Cc\b/g, 'Golf & Country Club'],
+  [/\bGolf\s+Cl\b/g, 'Golf Club'],
+  [/\bCountry\s+Cl\b/g, 'Country Club'],
+  [/\bGl\b/g, 'Golf Links'],
+  [/\bGc\b/g, 'Golf Club'],
+  [/\bCc\b/g, 'Country Club'],
+  [/\bRc\b/g, 'Resort Club'],
+]
+function expandCourseName(name) {
+  if (!name || typeof name !== 'string') return name
+  let out = name
+  for (const [pat, sub] of COURSE_NAME_ABBREVS) out = out.replace(pat, sub)
+  return out
+}
+
 // Haversine — great-circle distance in km between two lat/lng pairs
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371
@@ -39,8 +62,8 @@ router.get('/search', requireAuth, async (req, res) => {
         : null
       return {
         id: c.id,
-        club_name: c.club_name,
-        course_name: c.course_name,
+        club_name: expandCourseName(c.club_name),
+        course_name: expandCourseName(c.course_name),
         city: c.location?.city,
         state: c.location?.state,
         country: c.location?.country,
@@ -75,8 +98,8 @@ router.get('/:id', requireAuth, async (req, res) => {
     // Return course + tee list with per-hole par/yardage/handicap
     res.json({
       id: c.id,
-      club_name: c.club_name,
-      course_name: c.course_name,
+      club_name: expandCourseName(c.club_name),
+      course_name: expandCourseName(c.course_name),
       latitude: c.location?.latitude,
       longitude: c.location?.longitude,
       tees: {

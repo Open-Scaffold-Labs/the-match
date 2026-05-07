@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — The Match</title>
+  <meta name="description" content="How The Match collects, uses, and protects your data." />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <style>
+    :root {
+      --tm-bg: #070C09;
+      --tm-fairway: #2A7A38;
+      --tm-gold: #C9A040;
+      --tm-cream: #F4ECDA;
+      --tm-text: rgba(244,236,218,0.92);
+      --tm-text-soft: rgba(244,236,218,0.65);
+      --tm-rule: rgba(244,236,218,0.18);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--tm-bg); color: var(--tm-text); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      line-height: 1.55;
+      font-size: 16px;
+      padding: 48px 24px 96px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 32px;
+      color: var(--tm-gold);
+      margin: 0 0 4px;
+      font-weight: 700;
+    }
+    .meta {
+      color: var(--tm-text-soft);
+      font-size: 13px;
+      margin-bottom: 32px;
+      letter-spacing: 0.4px;
+    }
+    h2 {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      color: var(--tm-gold);
+      margin: 36px 0 10px;
+      font-weight: 700;
+      border-top: 1px solid var(--tm-rule);
+      padding-top: 24px;
+    }
+    h2:first-of-type { border-top: 0; padding-top: 0; }
+    h3 {
+      font-size: 16px;
+      color: var(--tm-text);
+      margin: 20px 0 6px;
+      font-weight: 600;
+    }
+    p { margin: 8px 0 14px; }
+    ul { padding-left: 22px; }
+    li { margin: 4px 0; }
+    a { color: var(--tm-gold); text-decoration: underline; }
+    a:hover { text-decoration: none; }
+    .footer {
+      margin-top: 48px;
+      padding-top: 18px;
+      border-top: 1px solid var(--tm-rule);
+      font-size: 13px;
+      color: var(--tm-text-soft);
+    }
+    code {
+      background: rgba(244,236,218,0.06);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>The Match — Privacy Policy</h1>
+  <div class="meta">Effective 2026-05-07. Operated by The Match (Open Scaffold Labs).</div>
+
+  <h2>What we collect</h2>
+  <p>We collect only the data needed to run the app:</p>
+  <ul>
+    <li><strong>Account info:</strong> email address, display name, and a 4-digit PIN (stored hashed, never reversible).</li>
+    <li><strong>Profile:</strong> handicap range, home course, club bag (brand + average distance), profile photo, optional handle.</li>
+    <li><strong>Activity:</strong> rounds you log, scores you record, matches you create or join, friends you add, leagues you participate in.</li>
+    <li><strong>GPS while a round is active:</strong> when you have a Solo Round or matched outing in progress AND have granted location permission, we receive your latitude/longitude to power the Eagle Eye AI rangefinder. We do not record your location when no round is active.</li>
+    <li><strong>Camera (optional):</strong> when you tap "Analyze Shot" inside Eagle Eye, your camera frame is sent to our AI partner for distance estimation. The frame is processed and not retained.</li>
+    <li><strong>Push subscription tokens:</strong> if you enable notifications, we store the browser/device push endpoint so we can deliver match invites and friend requests.</li>
+    <li><strong>Standard server logs:</strong> IP address, user-agent, and HTTP request paths for debugging and abuse prevention. Retained 30 days.</li>
+  </ul>
+
+  <h2>What we do with it</h2>
+  <ul>
+    <li>Render the app for you (showing your scorecard, friends, leaderboards).</li>
+    <li>Compute your handicap index from logged rounds.</li>
+    <li>Notify you about match invites, friend requests, and league announcements.</li>
+    <li>Power the Eagle Eye AI rangefinder by sending GPS + (optionally) camera frames to our AI partner Anthropic.</li>
+    <li>Detect and prevent abuse (rate-limit checks, anomaly detection).</li>
+  </ul>
+  <p>We do <strong>not</strong> sell your personal information, and we do <strong>not</strong> show ads in The Match.</p>
+
+  <h2>Who we share it with</h2>
+  <p>We share the minimum data needed with these third parties to run the service:</p>
+  <ul>
+    <li><strong>Vercel</strong> — application hosting (<a href="https://vercel.com/legal/privacy-policy">vercel.com privacy</a>)</li>
+    <li><strong>Supabase</strong> — managed Postgres database (<a href="https://supabase.com/privacy">supabase.com privacy</a>)</li>
+    <li><strong>Anthropic</strong> — AI inference for Eagle Eye shot analysis (<a href="https://www.anthropic.com/legal/privacy">anthropic.com privacy</a>). Camera frames you submit are forwarded for one-shot analysis and not retained by us.</li>
+    <li><strong>golfcourseapi.com</strong> — course directory + per-hole yardage data for course pickers.</li>
+  </ul>
+
+  <h2>Retention</h2>
+  <p>Your data is kept while your account is active. When you delete your account (Settings → Delete my account), your profile, friends, achievements, club bag, and personal scores are permanently removed. Hosted matches and outing messages are preserved as historical records (so other players' scorecards stay intact) but the link to your account is anonymized.</p>
+
+  <h2>Your rights</h2>
+  <ul>
+    <li><strong>Access:</strong> all your data is visible to you in the app — your profile, friends list, round history, and scores.</li>
+    <li><strong>Correction:</strong> edit your profile, name, home course, and bag from the My Profile screen.</li>
+    <li><strong>Deletion:</strong> Settings → "Delete my account" performs a hard delete. No 30-day soft-delete grace period — once you confirm, the data is gone.</li>
+    <li><strong>Export:</strong> on request, we can provide a JSON export of your data. Email the address below.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>The Match is not directed at children under 13. If you believe a child has created an account, contact us and we will delete it.</p>
+
+  <h2>Security</h2>
+  <p>PINs are stored hashed with bcrypt (never reversible). Sessions use signed JWTs with a 90-day expiry. Database access is over TLS. Production runs in US data centers. We rotate auth secrets periodically — most recently 2026-05-07.</p>
+
+  <h2>Changes</h2>
+  <p>We will update this page when our practices change. The effective date at the top reflects the most recent revision.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or data requests: <a href="mailto:hello@thematch.app">hello@thematch.app</a></p>
+
+  <div class="footer">
+    <a href="/">← Back to The Match</a>
+  </div>
+</body>
+</html>

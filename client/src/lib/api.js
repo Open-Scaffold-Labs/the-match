@@ -45,5 +45,10 @@ export const post = (url, body) =>
 export const put = (url, body) =>
   fetchWithRetry(url, { method: 'PUT', body: JSON.stringify(body) })
 
-export const del = (url) =>
-  fetchWithRetry(url, { method: 'DELETE' })
+// DELETE supports an optional body (e.g. /api/auth/me requires
+// { confirm: "DELETE" } as a typed-confirm guard). Most callers pass none.
+export const del = (url, body) =>
+  fetchWithRetry(url, {
+    method: 'DELETE',
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  })

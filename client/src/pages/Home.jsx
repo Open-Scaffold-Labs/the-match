@@ -16,6 +16,7 @@ import AchievementsRow from '../components/AchievementsRow.jsx'
 import YearRecapModal from './Outing/YearRecap.jsx'
 import NewTeeTimeSheet from '../components/NewTeeTimeSheet.jsx'
 import PushNudgeBanner from '../components/PushNudgeBanner.jsx'
+import SettingsModal from '../components/SettingsModal.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -3665,6 +3666,10 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   // top bar. Uses /api/friends/search to find any user by name/email
   // (and later, handle). Tapping a result opens FriendProfile.
   const [userSearchOpen, setUserSearchOpen] = useState(false)
+  // Settings overlay — opened from the gear icon next to "My Profile" in
+  // the top bar. Provides Sign Out / Privacy Policy / Delete Account.
+  // Added 2026-05-07 (audit-2026-05-07 bug #1: no logout in the app).
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // Onboarding checklist inputs — driven by data the page already
   // fetches in loadAll(), populated alongside everything else.
   const [bagClubs, setBagClubs] = useState([])
@@ -3983,8 +3988,24 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             borderRadius: 10, color: '#1B5E3B', fontSize: 12,
             padding: '7px 12px', cursor: 'pointer',
           }}>My Profile</button>
+          {/* Settings (gear) — opens the SettingsModal which contains
+              Sign Out / Privacy Policy / Delete Account. Added 2026-05-07. */}
+          <button onClick={() => setSettingsOpen(true)} aria-label="Settings" style={{
+            background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
+            borderRadius: 10, padding: '6px 8px', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: 32, width: 32,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
         </div>
       </div>
+      {settingsOpen && (
+        <SettingsModal user={user} onClose={() => setSettingsOpen(false)} />
+      )}
       {/* Editorial hairline divider under the page header — gold
           gradient with a tiny diamond flourish in the middle. Reads
           like a tournament-program section break. */}

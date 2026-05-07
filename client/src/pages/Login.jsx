@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { post } from '../lib/api.js'
 import { TMEmblem } from '../components/primitives/Icons.jsx'
 
@@ -13,6 +13,16 @@ import { TMEmblem } from '../components/primitives/Icons.jsx'
 //   gold coloring, words with the georgia font and gold polish coloring,
 //   and the translucent boxes from our home screen.")
 export default function Login({ onLogin }) {
+  // Mode is one of:
+  //   'login'   — email + PIN sign-in (default)
+  //   'signup'  — email + name + PIN account creation
+  //   'forgot'  — email-only "send me a reset link" flow
+  //   'forgotSent' — confirmation message after the forgot-pin POST
+  //   'reset'   — landed via ?reset=TOKEN URL, prompts for new PIN
+  // 'forgot' / 'forgotSent' / 'reset' added 2026-05-07 (audit-2026-05-07
+  // medium bug #5: no Forgot PIN flow). Email delivery is currently
+  // STUBBED on the server — token is created and logged but no real
+  // email is sent until a Resend/SendGrid key is added to env.
   const [mode, setMode]     = useState('login')
   const [email, setEmail]   = useState('')
   const [name, setName]     = useState('')
@@ -20,14 +30,47 @@ export default function Login({ onLogin }) {
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
   const [focusedField, setFocusedField] = useState(null)
+  // Reset-flow state. resetToken holds the ?reset=... query param when the
+  // page loads on a reset link. Cleared after successful reset.
+  const [resetToken, setResetToken] = useState('')
+
+  // On mount, parse ?reset=TOKEN from the URL. If present, switch to reset
+  // mode so the user is prompted for their new PIN immediately.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const token = params.get('reset')
+      if (token) {
+        setResetToken(token)
+        setMode('reset')
+        // Scrub the token from the URL so it doesn't sit in browser history
+        // or referrer headers if the user follows another link from this page.
+        params.delete('reset')
+        const newQs = params.toString()
+        const newUrl = window.location.pathname + (newQs ? `?${newQs}` : '') + window.location.hash
+        window.history.replaceState({}, '', newUrl)
+      }
+    } catch {
+      // Older browsers / private mode — fall through to normal login.
+    }
+  }, [])
 
   const submit = async () => {
     setError(''); setLoading(true)
     try {
-      const body = mode === 'signup' ? { email, name, pin } : { email, pin }
-      const res  = await post(`/api/auth/${mode}`, body)
-      localStorage.setItem('tm_token', res.token)
-      onLogin(res.user)
+      if (mode === 'forgot') {
+        await post('/api/auth/forgot-pin', { email })
+        setMode('forgotSent')
+      } else if (mode === 'reset') {
+        const res = await post('/api/auth/reset-pin', { token: resetToken, pin })
+        localStorage.setItem('tm_token', res.token)
+        onLogin(res.user)
+      } else {
+        const body = mode === 'signup' ? { email, name, pin } : { email, pin }
+        const res  = await post(`/api/auth/${mode}`, body)
+        localStorage.setItem('tm_token', res.token)
+        onLogin(res.user)
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -36,6 +79,13 @@ export default function Login({ onLogin }) {
   }
 
   const handleKeyDown = (e) => { if (e.key === 'Enter') submit() }
+
+  const submitLabel = loading
+    ? 'Loading…'
+    : mode === 'signup' ? 'Create Account'
+    : mode === 'forgot' ? 'Send reset link'
+    : mode === 'reset'  ? 'Set new PIN'
+    : 'Sign In'
 
   return (
     <div style={{
@@ -149,6 +199,36 @@ export default function Login({ onLogin }) {
             background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
           }} />
 
+          {/* Mode-specific helper text for the reset/forgot states. The
+              login + signup modes use the toggle pills above as their cue. */}
+          {mode === 'forgot' && (
+            <div style={{
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 13, color: '#5A4810', lineHeight: 1.5,
+              marginBottom: 4,
+            }}>
+              Enter your email and we'll send a one-time link to reset your PIN.
+              The link expires in 30 minutes.
+            </div>
+          )}
+          {mode === 'forgotSent' && (
+            <div style={{
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 13, color: '#5A4810', lineHeight: 1.5,
+            }}>
+              If that email is registered, a reset link is on its way. Check your
+              inbox (and spam folder). The link expires in 30 minutes.
+            </div>
+          )}
+          {mode === 'reset' && (
+            <div style={{
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 13, color: '#5A4810', lineHeight: 1.5, marginBottom: 4,
+            }}>
+              Set a new 4-digit PIN. After saving, you'll be signed in.
+            </div>
+          )}
+
           {mode === 'signup' && (
             <PremiumInput
               label="Your Name"
@@ -160,15 +240,18 @@ export default function Login({ onLogin }) {
               onKeyDown={handleKeyDown}
             />
           )}
-          <PremiumInput
-            label="Email" type="email"
-            value={email} onChange={setEmail}
-            placeholder="golfer@example.com"
-            focused={focusedField === 'email'}
-            onFocus={() => setFocusedField('email')}
-            onBlur={() => setFocusedField(null)}
-            onKeyDown={handleKeyDown}
-          />
+          {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
+            <PremiumInput
+              label="Email" type="email"
+              value={email} onChange={setEmail}
+              placeholder="golfer@example.com"
+              focused={focusedField === 'email'}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
+              onKeyDown={handleKeyDown}
+            />
+          )}
+          {(mode === 'login' || mode === 'signup' || mode === 'reset') && (
           <PremiumInput
             label="4-Digit PIN" type="password"
             value={pin} onChange={setPin}
@@ -178,6 +261,7 @@ export default function Login({ onLogin }) {
             onBlur={() => setFocusedField(null)}
             onKeyDown={handleKeyDown}
           />
+          )}
 
           {error && (
             <div style={{
@@ -210,8 +294,40 @@ export default function Login({ onLogin }) {
             onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
             onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
           >
-            {loading ? 'Loading…' : mode === 'signup' ? 'Create Account' : 'Sign In'}
+            {submitLabel}
           </button>
+
+          {/* Forgot PIN / back-to-login secondary actions. Subtle row
+              under the primary button — matches the existing typography
+              vocabulary (Georgia italic in muted brown-gold). */}
+          {mode === 'login' && (
+            <button
+              onClick={() => { setMode('forgot'); setError(''); setPin('') }}
+              style={{
+                background: 'transparent', border: 'none',
+                color: 'rgba(122,88,0,0.70)', fontFamily: 'Georgia, "Times New Roman", serif',
+                fontSize: 12, fontStyle: 'italic', textAlign: 'center',
+                cursor: 'pointer', padding: '4px', marginTop: -4,
+                textDecoration: 'underline',
+              }}
+            >
+              Forgot your PIN?
+            </button>
+          )}
+          {(mode === 'forgot' || mode === 'forgotSent') && (
+            <button
+              onClick={() => { setMode('login'); setError(''); setPin('') }}
+              style={{
+                background: 'transparent', border: 'none',
+                color: 'rgba(122,88,0,0.70)', fontFamily: 'Georgia, "Times New Roman", serif',
+                fontSize: 12, fontStyle: 'italic', textAlign: 'center',
+                cursor: 'pointer', padding: '4px', marginTop: -4,
+                textDecoration: 'underline',
+              }}
+            >
+              ← Back to sign in
+            </button>
+          )}
         </div>
 
         {/* Footer note */}
