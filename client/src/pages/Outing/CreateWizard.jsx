@@ -401,6 +401,43 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
         setError('Pick at least one scoring format.')
         return
       }
+      // 2026-05-06 — guard against multiple live matches per host. A
+      // human can only physically play one round at a time, but
+      // nothing prevented hosts from accumulating "active" outings
+      // they never ended (Matt's Live Now had 3 stale matches before
+      // the cleanup). Before creating a new one, check the host's
+      // recent outings for any still-active hosted match. If found,
+      // ask the host to confirm — accepting ends the old match and
+      // creates the new one; cancelling backs out of the wizard
+      // submit so they can find/end the old one their own way.
+      try {
+        const r = await api('/api/outings/recent')
+        const stale = (r?.outings || []).find(o =>
+          o && o.status === 'active' && String(o.host_id) === String(user?.id)
+        )
+        if (stale) {
+          const ok = window.confirm(
+            `You have an unfinished match (${stale.code}) at ${stale.course_name}. ` +
+            `Creating a new one will end it. Continue?`
+          )
+          if (!ok) {
+            setLoading(false)
+            return
+          }
+          try {
+            await post(`/api/outings/${stale.code}/end`, {})
+          } catch (err) {
+            warn('[create] could not auto-end stale match', err?.message)
+            // Don't block creation — the host explicitly chose to
+            // proceed; if the end call fails, the duplicate will
+            // surface in their list and they can clean it up.
+          }
+        }
+      } catch (e) {
+        // Network failure → don't block creation; the guard is a
+        // nice-to-have, not a hard correctness requirement.
+        warn('[create] stale-match check failed', e?.message)
+      }
       // Validation: best_ball + match (= four-ball match play) require
       // team membership. Players are assigned a team_id either through
       // the small-outing TEAMS setup (team_format='teams') OR the >4
