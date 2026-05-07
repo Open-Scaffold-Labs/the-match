@@ -44,17 +44,27 @@ function estimateHolePars(coursePar = 72, holeCount = 18) {
   return pars
 }
 
+// Score cell palette — Option A (2026-05-07 PM3 — Matt: 'unify on dark
+// green'). Background stays the same dark green as HOLE + PAR rows so
+// the whole grid reads as one connected scorecard. Score-quality is
+// communicated by NUMERAL color + a thin marker outline that draws on
+// top of the green:
+//   eagle   — bright gold numeral + double red-orange circle
+//   birdie  — red numeral        + single red circle
+//   par     — white numeral      + no marker
+//   bogey   — white numeral      + soft white square
+//   double+ — white numeral      + soft white double-square
+// Empty cells (no score yet) show a faint placeholder.
 function scoreCellStyle(score, par) {
   const diff = Number(score) - Number(par)
-  // Tile background, numeral color, marker SVG (eagle = double-circle, birdie = circle, etc.)
   if (!Number.isFinite(diff) || score == null || score <= 0) {
-    return { bg: 'rgba(255,255,255,0.55)', color: 'rgba(13,31,18,0.30)', marker: null }
+    return { bg: '#1A5230', color: 'rgba(255,255,255,0.30)', marker: null }
   }
-  if (diff <= -2) return { bg: '#F5E070', color: '#B22222', marker: 'eagle'  }   // eagle/albatross — bright gold + double red
-  if (diff === -1) return { bg: '#F2EBD3', color: '#B22222', marker: 'birdie' }  // birdie — cream + red circle
-  if (diff === 0)  return { bg: '#F2EBD3', color: '#0F0F0F', marker: null     }  // par — cream
-  if (diff === 1)  return { bg: '#F2EBD3', color: '#0F0F0F', marker: 'bogey'  }  // bogey — cream + black square
-  return { bg: '#F2EBD3', color: '#0F0F0F', marker: 'double' }                    // double bogey or worse
+  if (diff <= -2) return { bg: '#1A5230', color: '#F5E070', marker: 'eagle'  }
+  if (diff === -1) return { bg: '#1A5230', color: '#FF6B6B', marker: 'birdie' }
+  if (diff === 0)  return { bg: '#1A5230', color: '#fff',    marker: null     }
+  if (diff === 1)  return { bg: '#1A5230', color: '#fff',    marker: 'bogey'  }
+  return { bg: '#1A5230', color: '#fff', marker: 'double' }
 }
 
 // Default score-cell dims match the HOLE + PAR rows (32×28, fontSize 13).
@@ -77,26 +87,31 @@ function ScoreCell({ score, par, w = 32, h = 28 }) {
       fontFamily: '"Arial Black", Arial, sans-serif',
       fontSize: 13, fontWeight: 900, color,
     }}>
+      {/* Marker strokes adjusted for dark-green background (Option A,
+          2026-05-07 PM3): eagle + birdie use the same red-orange so the
+          marker matches the score-quality color story; bogey + double+
+          use semi-transparent white so they read as quiet annotations
+          instead of competing with the numeral. */}
       {marker === 'eagle' && (
         <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
-          <circle cx="14" cy="14" r="11" fill="none" stroke="#B22222" strokeWidth="1.5" />
-          <circle cx="14" cy="14" r="8.5" fill="none" stroke="#B22222" strokeWidth="1.5" />
+          <circle cx="14" cy="14" r="11" fill="none" stroke="#FF6B6B" strokeWidth="1.5" />
+          <circle cx="14" cy="14" r="8.5" fill="none" stroke="#FF6B6B" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'birdie' && (
         <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
-          <circle cx="14" cy="14" r="10" fill="none" stroke="#B22222" strokeWidth="1.5" />
+          <circle cx="14" cy="14" r="10" fill="none" stroke="#FF6B6B" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'bogey' && (
         <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
-          <rect x="3" y="3" width="22" height="22" fill="none" stroke="#0F0F0F" strokeWidth="1.5" />
+          <rect x="3" y="3" width="22" height="22" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'double' && (
         <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
-          <rect x="3"   y="3"   width="22" height="22" fill="none" stroke="#0F0F0F" strokeWidth="1.5" />
-          <rect x="6.5" y="6.5" width="15" height="15" fill="none" stroke="#0F0F0F" strokeWidth="1.5" />
+          <rect x="3"   y="3"   width="22" height="22" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
+          <rect x="6.5" y="6.5" width="15" height="15" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
         </svg>
       )}
       <span style={{ position: 'relative', zIndex: 1 }}>{display}</span>
@@ -270,6 +285,15 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
   const subtotalPar = holes.reduce((s, h) => s + (holePars[h] || 4), 0)
   const subtotalScore = holes.reduce((s, h) => s + (Number(scores[h]) || 0), 0)
   const HOLE_W = 32
+  const LABEL_W = 60   // left-most cell ("HOLE" / "PAR" / "SCORE")
+  const TOT_W = 38     // right-most cell ("TOT" / subtotal)
+  // Total grid width — used as minWidth so the inner row can scroll
+  // horizontally if the screen is too narrow but never compress cells
+  // unevenly between rows. Bug fix 2026-05-07 PM3: prior minWidth missed
+  // the TOT column, allowing rows to compress slightly so cells didn't
+  // line up vertically. flexShrink:0 on every cell guarantees no row
+  // compresses while siblings stay full width.
+  const ROW_W = LABEL_W + holes.length * HOLE_W + TOT_W
 
   return (
     <div style={{
@@ -288,25 +312,31 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
       }}>{label}</div>
 
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <div style={{ minWidth: holes.length * HOLE_W + 60, display: 'flex', flexDirection: 'column' }}>
-          {/* HOLE row */}
+        <div style={{ minWidth: ROW_W, display: 'flex', flexDirection: 'column' }}>
+          {/* HOLE row — every cell has flexShrink:0 so it never compresses
+              when sibling rows have differently-sized cells. Widths
+              referenced from the LABEL_W / HOLE_W / TOT_W constants so
+              all three rows are guaranteed pixel-identical. */}
           <div style={{ display: 'flex', height: 28, background: '#1A5230', borderBottom: '1px solid rgba(0,0,0,0.5)' }}>
             <div style={{
-              width: 60, fontSize: 9, fontWeight: 800, color: '#F5E070',
+              width: LABEL_W, flexShrink: 0,
+              fontSize: 9, fontWeight: 800, color: '#F5E070',
               letterSpacing: '0.08em',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRight: '1px solid rgba(0,0,0,0.5)',
             }}>HOLE</div>
             {holes.map(h => (
               <div key={h} style={{
-                width: HOLE_W, fontSize: 13, fontWeight: 900, color: '#fff',
+                width: HOLE_W, flexShrink: 0,
+                fontSize: 13, fontWeight: 900, color: '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderRight: '1px solid rgba(0,0,0,0.45)',
                 fontFamily: '"Arial Black", Arial, sans-serif',
               }}>{h + 1}</div>
             ))}
             <div style={{
-              width: 38, fontSize: 11, fontWeight: 800, color: '#F5E070',
+              width: TOT_W, flexShrink: 0,
+              fontSize: 11, fontWeight: 800, color: '#F5E070',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>TOT</div>
           </div>
@@ -314,32 +344,39 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
           {/* PAR row */}
           <div style={{ display: 'flex', height: 28, background: '#1A5230', borderBottom: '1px solid rgba(0,0,0,0.5)' }}>
             <div style={{
-              width: 60, fontSize: 9, fontWeight: 800, color: '#F5E070',
+              width: LABEL_W, flexShrink: 0,
+              fontSize: 9, fontWeight: 800, color: '#F5E070',
               letterSpacing: '0.08em',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRight: '1px solid rgba(0,0,0,0.5)',
             }}>PAR</div>
             {holes.map(h => (
               <div key={h} style={{
-                width: HOLE_W, fontSize: 13, fontWeight: 900, color: '#F5E070',
+                width: HOLE_W, flexShrink: 0,
+                fontSize: 13, fontWeight: 900, color: '#F5E070',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderRight: '1px solid rgba(0,0,0,0.45)',
                 fontFamily: '"Arial Black", Arial, sans-serif',
               }}>{holePars[h] || 4}</div>
             ))}
             <div style={{
-              width: 38, fontSize: 13, fontWeight: 900, color: '#F5E070',
+              width: TOT_W, flexShrink: 0,
+              fontSize: 13, fontWeight: 900, color: '#F5E070',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: '"Arial Black", Arial, sans-serif',
             }}>{subtotalPar}</div>
           </div>
 
-          {/* SCORE row — height 28 matches HOLE + PAR rows so the grid
-              reads as a single connected scorecard, not three stacked
-              strips. (2026-05-07 PM3 — Matt: 'same size and look'.) */}
-          <div style={{ display: 'flex', height: 28 }}>
+          {/* SCORE row — same dark-green background as HOLE + PAR rows
+              (Option A unification, 2026-05-07 PM3). The label + total
+              cells get a slightly darker green tint to read as 'header'
+              ends; the data cells in the middle use the plain row green
+              with color-coded numerals + thin marker outlines drawing
+              the score-quality story. */}
+          <div style={{ display: 'flex', height: 28, background: '#1A5230' }}>
             <div style={{
-              width: 60, fontSize: 9, fontWeight: 800, color: '#fff',
+              width: LABEL_W, flexShrink: 0,
+              fontSize: 9, fontWeight: 800, color: '#fff',
               letterSpacing: '0.08em',
               background: '#0F3D1E',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -349,7 +386,8 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
               <ScoreCell key={h} score={scores[h]} par={holePars[h] || 4} w={HOLE_W} h={28} />
             ))}
             <div style={{
-              width: 38, fontSize: 13, fontWeight: 900, color: '#F5E070',
+              width: TOT_W, flexShrink: 0,
+              fontSize: 13, fontWeight: 900, color: '#F5E070',
               background: '#0F3D1E',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: '"Arial Black", Arial, sans-serif',
