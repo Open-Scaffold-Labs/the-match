@@ -797,3 +797,39 @@ Diagnosis: every preflight check in the Limitless Stack was *mechanical* — fil
 **Verification**: preflight now reports `green: 11, yellow: 4` — all 4 yellows are expected (uncommitted work, JWT rotation pending, 2 NotebookLM refresh prompts that the end-of-session steps will resolve).
 
 **Next**: rotate JWT_SECRET. Runbook in `wiki/HIGH-PRIORITY-TODO.md` (5-minute job, Matt drives the Vercel env-var change since Claude is not allowed to modify security credentials).
+
+
+
+## [2026-05-07] audit | E2E auth walk + visual sweep + improvement backlog
+
+Drove the live prod app via Claude-in-Chrome MCP, simulating a brand-new mobile user. Walked the full flow: signup → onboarding wizard (4 steps) → home → Scorecard → Eagle Eye → Leagues → Tour → wrong-PIN login → correct-PIN login. Captured screenshots + network logs throughout. Server-side auth re-verified via `scripts/smoke-test-auth.js` (passing post-JWT-rotation). Test user `e2e-test-2026-05-07-1234@example.com` (user_id=43) deleted post-test.
+
+**Bugs found (11):**
+
+HIGH:
+1. **No logout / sign-out anywhere in the app.** DOM scan confirms zero matches for "logout|log out|sign out|signout" anywhere. Only path to clear auth is `localStorage.removeItem('tm_token')`. Shared device → previous user stays logged in for 90 days.
+2. **No `/settings` route.** SPA silently routes any unknown path back to home.
+
+MEDIUM:
+3. **Course name truncation: "Pebble Beach Gl"** — full name "Pebble Beach Golf Links" cut mid-word in autocomplete + profile card. Likely a VARCHAR(N) somewhere in the import path.
+4. **Onboarding wizard renders full-width** instead of mobile-constrained — inconsistent with rest of app on tablet/desktop viewports.
+5. **No "Forgot PIN" reset flow** — 4-digit PIN forgotten = locked out forever.
+6. **Login error low contrast** — "Invalid email or PIN" pinkish-red on light bg, fails WCAG AA.
+
+LOW:
+7. **Onboarding progress bar shows 5 segments, text says "STEP X OF 4"** (welcome counted in segments but not numbered).
+8. **"AWAITING-tee-time"** weird capitalization in coach-mark copy.
+9. **Handle generation produces awkward results** for non-traditional names ("E2E Test User" → "@euse").
+10. **Email persists when toggling Sign In ↔ Create Account** — could surface "email exists" errors more often than necessary.
+11. **No loading state on auth submit** — button doesn't change during the 2-4s API call.
+
+Plus one investigative item: GET /api/auth/me returned 200 on initial fresh-load AFTER localStorage was cleared. Either cookie auth or stale-token caching — worth a 5-min probe.
+
+**Working well:** Signup flow (9 API calls all 200/201), wrong-PIN security (no email-exists leak), full onboarding wizard, polished empty states (Scorecard golf-ball hero, Leagues upgrade-gate copy), Tour leaderboard (real PGA data with player photos), Eagle Eye hero, coach-mark tooltip pattern. The visual design is impressively polished where it's polished — issues are mostly in the cracks between flows (auth, onboarding, edge cases) not in the main app surfaces.
+
+**Improvements (13)** + **New ideas (25)** filed in [[synthesis/audit-2026-05-07]]. Indexed.
+
+**Recommended next 3 sessions:**
+1. Privacy + logout + delete-account (paired Settings page) — closes audit bug #1 + POST-LAUNCH-TODO #11. App-Store-submission blockers.
+2. Forgot-PIN + Settings page polish.
+3. Course-name truncation root-cause.

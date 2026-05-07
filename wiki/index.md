@@ -34,6 +34,7 @@ Content catalog — every page listed here. The preflight's index-completeness c
 
 ## Synthesis
 
+- [[synthesis/audit-2026-05-07]] — E2E auth walk + visual sweep + bug list + improvement backlog + new-ideas brainstorm. Found 11 bugs (2 high: no logout, no /settings route; 4 medium; 5 low) + 13 improvements + ~25 new ideas across engagement loops, Eagle Eye depth, social, platform, AI · created 2026-05-07
 - [[synthesis/audit-2026-04-29]] — full static audit + runtime click-through findings: 12 bugs + 8 runtime bugs + 11 UX issues + 10 tech-debt + 14 missing-feature candidates. Priority list re-marked 2026-05-01 to show what's shipped vs still open · created 2026-04-29
 - [[synthesis/audit-fixes-proposal-2026-04-29]] — **CLOSED 2026-05-01** — every item in the original approval queue shipped (commits `1fa6ee4`, `8d74a76`, `93053ba` on 2026-04-29). Page preserved as historical record · created 2026-04-29
 - [[synthesis/eagle-eye-tile-grid-handoff-2026-05-01]] — Eagle Eye tile-grid UX handoff notes from 2026-05-01
