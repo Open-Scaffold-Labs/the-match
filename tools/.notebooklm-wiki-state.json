@@ -5,13 +5,14 @@
     "verified_at": 1778130608.233875
   },
   "wiki/log.md": {
-    "mtime": 1778130463.2101865,
-    "source_id": "7c3720bc-ac82-49ec-8a93-a113e93232b5"
+    "mtime": 1778133358.0803971,
+    "source_id": "fd64daae-ee1c-4614-81ff-015936288877",
+    "verified_at": 1778133394.038986
   },
   "wiki/index.md": {
-    "mtime": 1778130217.0620036,
-    "source_id": "06b99845-1ff4-4475-af5a-7e6439c6f256",
-    "verified_at": 1778130660.6336262
+    "mtime": 1778133334.5596929,
+    "source_id": "dfb4f9bb-9161-4cc7-b7d8-c9f1740bd3e1",
+    "verified_at": 1778133405.234347
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -51,14 +52,14 @@
     "source_id": "838b1722-d7c2-4d63-86ea-83d98165447d",
     "verified_at": 1777683687.3069088
   },
-  "wiki/HIGH-PRIORITY-TODO.md": {
-    "mtime": 1777790936.132474,
-    "source_id": "dd98e0f4-6472-410c-b453-fa1a2d5e097a",
-    "verified_at": 1777991692.553422
-  },
   "wiki/POST-LAUNCH-TODO.md": {
     "mtime": 1778106478.0210147,
     "source_id": "10ed4d6a-bf8c-409c-829c-e394a1009930",
     "verified_at": 1778126887.2527192
+  },
+  "wiki/synthesis/audit-2026-05-07.md": {
+    "mtime": 1778133321.099487,
+    "source_id": "5363aea7-f3ec-4e60-9750-bdc8dbf54a7b",
+    "verified_at": 1778133410.7795289
   }
 }
