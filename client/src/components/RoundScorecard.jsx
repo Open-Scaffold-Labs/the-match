@@ -93,23 +93,23 @@ function ScoreCell({ score, par, w = 32, h = 28 }) {
           use semi-transparent white so they read as quiet annotations
           instead of competing with the numeral. */}
       {marker === 'eagle' && (
-        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} viewBox="0 0 28 28">
           <circle cx="14" cy="14" r="11" fill="none" stroke="#FF6B6B" strokeWidth="1.5" />
           <circle cx="14" cy="14" r="8.5" fill="none" stroke="#FF6B6B" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'birdie' && (
-        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} viewBox="0 0 28 28">
           <circle cx="14" cy="14" r="10" fill="none" stroke="#FF6B6B" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'bogey' && (
-        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} viewBox="0 0 28 28">
           <rect x="3" y="3" width="22" height="22" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'double' && (
-        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} viewBox="0 0 28 28">
           <rect x="3"   y="3"   width="22" height="22" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
           <rect x="6.5" y="6.5" width="15" height="15" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
         </svg>
