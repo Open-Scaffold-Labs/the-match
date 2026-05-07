@@ -1,15 +1,95 @@
 ---
 type: todo
 created: 2026-05-06
+updated: 2026-05-07
 priority: high
 ---
 
 # Post-launch TODO — items deferred from polish-pass
 
-Tracking work that came out of the 2026-05-06 polish session but was
-explicitly deferred. Each item has a one-line context plus the next
-concrete step. When picked up, move into `wiki/log.md` as a separate
-session entry and remove from here.
+Tracking work that came out of polish-pass sessions but was explicitly
+deferred. Each item has a one-line context plus the next concrete step.
+When picked up, move into `wiki/log.md` as a separate session entry and
+remove from here.
+
+**Status snapshot (2026-05-07 PM):** #11 (privacy + delete-account) closed.
+New items added: #14 (Forgot PIN email activation), #15 (NotebookLM
+unverified entries), #16 (achievement expansion ideas), #17 (preflight
+main-bucket verified_at check). Plus 7 audit-2026-05-07 polish items
+remain in `synthesis/audit-2026-05-07.md` (MEDIUM #4, #6 + LOW #7-#11).
+
+## 14. Activate Forgot PIN email delivery
+
+The full Forgot PIN reset flow shipped 2026-05-07 PM (migration 025, server endpoints, Login.jsx modes) — but `sendResetEmail()` in `server/src/routes/auth.js` currently `console.log`s the reset URL instead of actually emailing it. The token IS created in the DB, the link IS valid, the reset endpoint works end-to-end. What's missing is the email step.
+
+**Why it's stubbed:** the-match has no email provider wired up yet. Adding one requires Matt to sign up for an external account (Resend, SendGrid, Postmark, SES) — Claude shouldn't create accounts on Matt's behalf.
+
+**Activation steps (~30 min including signup):**
+
+1. Sign up for **Resend** (https://resend.com) — free tier 100 emails/day, simple API. Or any other provider; Resend is the path of least resistance.
+2. Verify `thematch.app` (or whatever sender domain) — add the SPF + DKIM records to DNS.
+3. Generate an API key in the Resend dashboard.
+4. Add `RESEND_API_KEY` to Vercel env vars (`vercel env add RESEND_API_KEY production`).
+5. In `server/src/routes/auth.js` `sendResetEmail()`, uncomment the marked block (already written + commented out). The block uses `require('resend')` so also add `resend` to `server/package.json` dependencies.
+6. Force-redeploy.
+7. Smoke-test: forgot-pin → check inbox → reset-pin → confirm sign-in works with the new PIN.
+
+**Next step:** Matt to sign up for Resend.
+
+## 15. Re-add 3 NotebookLM main-bucket entries lacking verified_at
+
+Background: when the new wiki pages were added 2026-05-07 (`POST-LAUNCH-TODO`, `HIGH-PRIORITY-TODO`, `concepts/notebooklm-workflow`, `sources/claude-code-karpathy-obsidian-video-2026-04-14`, `synthesis/eagle-eye-tile-grid-handoff-2026-05-01`, `synthesis/match-page-completion-plan`), the `notebooklm-wiki-refresh.py` script uploaded them to the-match's main bucket (`41e645a3...`) — but 3 of them never received a `verified_at` timestamp:
+- `wiki/log.md`
+- `wiki/concepts/notebooklm-workflow.md`
+- `wiki/sources/claude-code-karpathy-obsidian-video-2026-04-14.md`
+
+The current preflight only verifies the *reminder* bucket's content (covered by check #5), not the main bucket's. So this gap isn't currently flagged.
+
+Two natural follow-ups:
+
+1. **Fix the 3 entries** — anti-pattern #12 protocol (delete + re-add) since `cmd_refresh` is a no-op for file sources. ~5 min:
+   ```
+   notebooklm use 41e645a3-044d-452b-8e68-a21939e18799
+   notebooklm source delete-by-title "log.md" → confirm y
+   notebooklm source add "/Users/matthewlavin/the-match/wiki/log.md"
+   notebooklm source wait <new_source_id>
+   # repeat for notebooklm-workflow.md and the karpathy-obsidian-video source
+   ```
+2. **Extend the preflight check** — see #17.
+
+Lower priority than #14 — these missing verifications aren't breaking anything, just incomplete bookkeeping.
+
+## 16. Achievement expansion (natural follow-on to first_birdie)
+
+The 2026-05-07 PM session shipped `first_birdie` and proved the pattern:
+add a META entry, add detection in `checkAfterHoleScore` or
+`checkAfterSoloRound`, the rest is automatic (DB unique-index handles
+first-time-only, `AchievementsRow` renders, push + toast fire on unlock).
+New runtime detections are 5-10 min each + a 10-line backfill script per
+achievement.
+
+Easy candidates (sorted roughly by leverage):
+
+- **`first_par`** — first par on the card. Lowers the floor for new golfers; meaningful first achievement. `score === par && par >= 3`. Backfill: scan all (outing × participant) pars.
+- **`breaking_90` / `breaking_85`** — first 18-hole round under 90 / 85. Same pattern as `sub_80`. Useful intermediate goals between sub-100 and sub-80.
+- **`front_nine_under_40` / `back_nine_under_40`** — sub-40 nine. Half-round achievements meet players where they are.
+- **`streak_three_pars`** — three consecutive pars in a single round. Detects rhythm, not just one-off heroics.
+- **`course_collector`** — first time playing 5 / 10 / 25 distinct courses (tier this — three separate badges from one detection).
+- **`birdie_hat_trick`** — three birdies in one round. Repeatable would need the unique-index relaxed (or per-round metadata key).
+- **`bunker_save`** — bonus if score-entry adds a "sand save" toggle. Half a feature, half an achievement.
+
+**Lower priority but high delight:**
+
+- **`hole_in_one`** — already covered by `first_eagle`'s HIO branch but worth its own dedicated badge. Would need either renaming or splitting (HIO and eagle are not the same thing emotionally).
+- **`under_par_hole`** — generalized version of birdie+, repeatable per round. Same unique-index relaxation problem.
+
+**Empty-state copy update:** the home profile says "Drop a birdie, post a sub-80 round, or play three rounds in a week — they unlock as you go." With more achievements, this string should grow or become dynamic ("X achievements unlocked, Y more available").
+
+## 17. Add main-bucket verified_at check to preflight
+
+See #15 — currently only the reminder bucket has content-verification audit in the preflight. The main wiki bucket can have unverified entries silently. Extend the check in `tools/limitless-preflight.sh` to walk `tools/.notebooklm-wiki-state.json` and warn on any entry without a `verified_at` timestamp. Apply to all 3 deployed copies (the-match, canonical, Hub vault) per the sync contract.
+
+~30 min + back-port. Self-improvement-rule territory (see Roll Call skill — add a check before closing the session that catches a drift mode, this fits exactly).
 
 ## 9. Eagle Eye automatic shot tracking
 
@@ -32,9 +112,11 @@ selection** as you move between shots — no manual taps. The pieces:
 round where the app is open the whole time and confirm GPS readings
 land with acceptable battery cost.
 
-## 11. Privacy policy + delete-my-account flow
+## 11. Privacy policy + delete-my-account flow ✅ CLOSED 2026-05-07 PM
 
-App Store / Google Play submission gate. Required components:
+Closed via commit `56f9d15`. Hosted privacy policy at `/privacy` (HTTP 200, ~6.8KB), `DELETE /api/auth/me` with typed-confirm guard (`req.body.confirm === 'DELETE'`), Settings → "Delete my account" with typed-DELETE confirmation modal. Migration 024 relaxed the two FK constraints that previously refused user deletion. App Store submission unblocked.
+
+Original requirements (preserved for historical context):
 
 - A hosted, linkable privacy policy at `https://the-match.app/privacy`.
   Apple and Google both require the URL be in the app metadata before

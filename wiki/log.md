@@ -877,3 +877,40 @@ Executed all three recommended next-sessions from the morning's audit-2026-05-07
 3. Then back to feature work — engagement loops (group chat per match, friends activity feed) or Eagle Eye depth (caddie history, voice commands) per audit-2026-05-07's new-ideas list.
 
 Commits this session: `b96fa13` (audit synthesis), `e201f98` (notebooklm state), `b50f4a2` (JWT rotation cleanup + label fix), `21eea87` (notebooklm state), `56f9d15` (Phase A+B+C feat), `b16b18b` (forgotSent button fix). Pushed to `origin/main`.
+
+
+
+## [2026-05-07 PM2] feat | first_birdie achievement + retro-award + friend-profile achievement row
+
+James Ashe scored a birdie mid-round and asked why he didn't get a badge — the home empty-state copy promises "Drop a birdie..." but only `first_eagle` was implemented. Triggered three small features:
+
+**first_birdie achievement** — added META entry + detection (`score === par - 1 && par >= 3`) in `lib/achievements.js`. Distinct from `first_eagle`: an eagle does NOT trigger first_birdie (different score), and both can fire in the same round. New SVG icon (rounder body + tail flick) in `AchievementToast.jsx` to distinguish from eagle silhouette.
+
+**Retroactive award** — `scripts/backfill-first-birdie.js` scans every `(outing × participant)` row, finds each user's earliest historical birdie, inserts the achievement with `earned_at = outing.created_at`. Skips push notifications by inserting raw (vs the runtime helper) — a notif 3 weeks after the round would be confusing. Backfill ran prod 2026-05-07: awarded 3 users (Matt id 1 / Daniel id 12 / James id 36) their first_birdie based on existing score data.
+
+**Friend-profile achievement row** — separate finding during verification. Matt asked why James's badge wasn't visible from Matt's view of James's profile. Two reasons:
+1. The `/api/profile/achievements` endpoint returned the VIEWER's own achievements only.
+2. `FriendProfile.jsx` didn't render an `AchievementsRow`.
+
+Fixed both:
+- New `GET /api/profile/achievements/:userId` — public per-user lookup. Achievements are public-by-design (bragging rights), so no friend-only gate.
+- `AchievementsRow` now accepts an optional `userId` prop. When present, fetches `/achievements/:userId`; otherwise falls back to viewer's own.
+- `FriendProfile` imports + renders `<AchievementsRow userId={friend.id} />` between the Avg/Best stat tiles and the Rivalries section.
+
+**Top-bar duplicate-icon fix** — admin users (Matt) saw two near-identical gear icons after the morning's Settings work landed (the existing admin gear + the new Settings entry). Swapped the Settings icon to a horizontal-dots kebab (⋯) so they read as distinct: gear = admin, kebab = "more options / account menu". Non-admins are unaffected.
+
+**Verified live:**
+- API call `GET /api/profile/achievements/36` (James) with Matt's JWT → 200, returns the Birdie! achievement.
+- Driving Chrome MCP through user-search → tap James → scroll to ACHIEVEMENTS card → see the gold "Birdie!" badge with caption.
+- Top bar after fix: `[admin gear] [search] [My Profile] [⋯ kebab]` — distinct shapes.
+
+**Commits this round:**
+- `ef156a1` — `feat(achievements): add first_birdie + retroactively award for historical birdies` (3 files, 194 insertions)
+- `6c1fd6e` — `feat(achievements): show badges on friend profiles` (3 files, 51 insertions)
+- `1551bcb` — `fix: swap Settings gear icon → kebab (⋯) to disambiguate from admin gear` (1 file, 11 insertions)
+
+All deployed to prod. Force-redeploys aliased to `the-match-roan.vercel.app` each time.
+
+**Wiki housekeeping** done in this session: audit-2026-05-07.md updated with closure markers (HIGH #1 + #2, MEDIUM #3 + #5 — code-closed; #5 email still stubbed). POST-LAUNCH-TODO.md gained 4 new items: #14 (Resend activation for Forgot PIN), #15 (re-add 3 NotebookLM main-bucket entries lacking verified_at), #16 (achievement expansion ideas — first_par, breaking_90, course_collector, etc.), #17 (extend preflight to audit main-bucket verified_at). #11 marked closed.
+
+**Today's overall scope (across morning + PM + PM2):** JWT_SECRET rotation · semantic preflight checks (3 new) + trust-anchor refresh discipline · audit-2026-05-07 written and acted on · Phase A course-name expansion · Phase B Settings + Sign Out + Privacy + Delete Account · Phase C Forgot PIN flow (email stubbed) · `first_birdie` achievement + retro-award + friend-profile rendering · top-bar icon disambiguation · anti-pattern #13 added to all 3 anti-patterns files. Roughly a week of feature work.
