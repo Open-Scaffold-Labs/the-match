@@ -4,24 +4,34 @@ import { AchievementBadge } from './AchievementToast.jsx'
 
 // ─── AchievementsRow ──────────────────────────────────────────────────────
 // Compact horizontal row of earned achievement badges, rendered on the
-// dark Profile body. Fetches /api/profile/achievements once on mount —
-// no polling because achievements only ever land via score writes (which
-// surface them through the global toast event), so the row is correct
-// after the next Profile open.
+// dark Profile body. Fetches achievements once on mount — no polling
+// because achievements only ever land via score writes (which surface
+// them through the global toast event), so the row is correct after the
+// next Profile open.
+//
+// Optional `userId` prop: when present, fetches that user's achievements
+// (via the public per-user endpoint added 2026-05-07). When absent,
+// falls back to the viewer's own. Used by FriendProfile to show
+// James's badges on James's profile.
 //
 // Empty state has personality (per Hub conventions) — gold pin-flag
 // silhouette on a faint dark card, with a one-liner.
 //
-// (2026-05-06 — polish task #5)
+// (2026-05-06 — polish task #5; 2026-05-07 — userId prop for FriendProfile.)
 
-export default function AchievementsRow() {
+export default function AchievementsRow({ userId } = {}) {
   const [list, setList] = useState(null)  // null = loading, [] = empty, [...] = list
 
   useEffect(() => {
     let alive = true
     async function load() {
       try {
-        const r = await api('/api/profile/achievements')
+        // Use the per-user endpoint when a userId was supplied (FriendProfile);
+        // fall back to /api/profile/achievements (the viewer's own) otherwise.
+        const url = userId
+          ? `/api/profile/achievements/${Number(userId)}`
+          : '/api/profile/achievements'
+        const r = await api(url)
         if (!alive) return
         setList(Array.isArray(r?.achievements) ? r.achievements : [])
       } catch {
@@ -31,14 +41,16 @@ export default function AchievementsRow() {
     load()
     // Refresh when a new achievement is awarded mid-session — the toast
     // dispatches `tm:achievement-earned`, we listen for the same event
-    // and re-pull. Cheap one-call refetch.
-    function onEarned() { load() }
+    // and re-pull. Cheap one-call refetch. Only refetch the SELF row;
+    // friend-profile achievements are driven by their own score writes,
+    // not the viewer's, so the local toast event is irrelevant there.
+    function onEarned() { if (!userId) load() }
     window.addEventListener('tm:achievement-earned', onEarned)
     return () => {
       alive = false
       window.removeEventListener('tm:achievement-earned', onEarned)
     }
-  }, [])
+  }, [userId])
 
   // Loading — render the same shape as the loaded state so layout
   // doesn't jump.

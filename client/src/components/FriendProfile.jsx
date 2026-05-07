@@ -7,6 +7,7 @@ import RoundScorecard from './RoundScorecard.jsx'
 import RoundHistory from './RoundHistory.jsx'
 import RivalryHistory from './RivalryHistory.jsx'
 import RivalryDetail from './RivalryDetail.jsx'
+import AchievementsRow from './AchievementsRow.jsx'
 import { AvailabilityCalendar } from '../pages/Home.jsx'
 
 // ── Nearby Course Picker ──────────────────────────────────────────────────────
@@ -804,6 +805,11 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
               </div>
             )
           })()}
+
+          {/* Friend's achievements row — pulls from /api/profile/achievements/:userId
+              (the public per-user variant added 2026-05-07). Renders the same
+              compact badge row that appears on the viewer's own profile. */}
+          {friend?.id && <AchievementsRow userId={friend.id} />}
 
           {/* Friend's top rivalries — same card, but "Avg N · Opp N" labels
               instead of "You / Them" since the viewer is a third party. */}

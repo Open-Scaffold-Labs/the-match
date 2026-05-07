@@ -99,9 +99,7 @@ router.get('/', async (req, res) => {
 })
 
 // GET /api/profile/achievements — list the viewer's earned achievements
-// (most-recent first). Used by the Profile badge row + the achievements
-// drawer. Public-but-self for v1 — no per-user lookup; future patch can
-// expose `/api/users/:id/achievements` if friend profiles want them.
+// (most-recent first). Used by the Profile badge row on Home.
 // (2026-05-06 — polish task #5)
 router.get('/achievements', async (req, res) => {
   try {
@@ -110,6 +108,28 @@ router.get('/achievements', async (req, res) => {
     res.json({ achievements: list })
   } catch (err) {
     console.error('[profile/achievements]', err.message)
+    res.status(500).json({ error: 'Failed to load achievements' })
+  }
+})
+
+// GET /api/profile/achievements/:userId — list ANY user's earned
+// achievements. Used by FriendProfile so badges show on friends' pages.
+// Achievements are public-by-design (bragging rights), so no friend-only
+// gate. (2026-05-07 — added after Matt asked why James's first_birdie
+// wasn't visible from Matt's view of James's profile. The earlier
+// /achievements endpoint only returned the viewer's own — there was a
+// TODO to expose a per-user variant; this is that variant.)
+router.get('/achievements/:userId', async (req, res) => {
+  const userId = Number(req.params.userId)
+  if (!Number.isFinite(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'invalid user id' })
+  }
+  try {
+    const { getUserAchievements } = require('../lib/achievements')
+    const list = await getUserAchievements(userId)
+    res.json({ achievements: list })
+  } catch (err) {
+    console.error('[profile/achievements/:userId]', err.message)
     res.status(500).json({ error: 'Failed to load achievements' })
   }
 })
