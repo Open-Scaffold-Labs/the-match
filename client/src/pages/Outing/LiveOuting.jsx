@@ -2798,6 +2798,41 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         </div>
       </div>
 
+      {/* 2026-05-06 — Active-formats strip. When the host picks
+          multiple scoring formats (e.g. Stroke + Match + Best Ball =
+          four-ball match play with stroke-totals tracking), the
+          leaderboard sections below correspond to each format — but
+          the user couldn't easily tell which was which. Tiny chip
+          row labels every active format so the rest of the page
+          reads in context. (Matt: "scoreboard is only showing team
+          standings for best ball but doesnt specify stroke, match,
+          or both"). */}
+      {(outing.scoring_formats || []).length > 0 && (
+        <div style={{
+          padding: '8px 12px 0',
+          display: 'flex', justifyContent: 'center',
+          flexWrap: 'wrap', gap: 6,
+          flexShrink: 0,
+        }}>
+          {[
+            { id: 'stroke',     label: 'STROKE' },
+            { id: 'match',      label: 'MATCH' },
+            { id: 'stableford', label: 'STABLEFORD' },
+            { id: 'skins',      label: 'SKINS' },
+            { id: 'best_ball',  label: 'BEST BALL' },
+          ].filter(o => (outing.scoring_formats || []).includes(o.id)).map(o => (
+            <span key={o.id} style={{
+              padding: '3px 9px',
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.10em',
+              color: '#F5D78A',
+              background: 'rgba(232,192,90,0.14)',
+              border: '1px solid rgba(232,192,90,0.40)',
+              borderRadius: 999,
+            }}>{o.label}</span>
+          ))}
+        </div>
+      )}
+
       {/* Best-Ball team standings — header card above the leaderboard
           when format=best_ball. Player rows below are still ordered
           by team total. (Iteration 3 polish for B4d.) */}
