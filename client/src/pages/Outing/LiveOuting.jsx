@@ -2844,21 +2844,22 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           everything else it reads "TEAM STANDINGS · BEST BALL". */}
       {bestBallTeams.length > 0 && (
         <div style={{
-          margin: '12px 12px 0', padding: '12px 14px',
-          // 2026-05-06 — solid forest-green pill so the team-standings
-          // card actually reads on the cream Augusta page background
-          // (earlier translucent gold-on-gold was washed out).
-          background: 'linear-gradient(180deg, #1A4A24 0%, #0E3B23 100%)',
-          border: '1px solid rgba(245,215,138,0.45)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-          borderRadius: 14,
+          margin: '12px 16px 0', padding: '12px 12px 8px',
+          // 2026-05-06 — restyled to match MatchScoreboard: translucent
+          // white-glass over the page bg, dark text, gold accents. The
+          // earlier solid-green chrome stood out too much next to the
+          // individual leaderboard below it. Matt: 'make the team
+          // board identical to the individual board below in terms of
+          // looks'.
+          background: 'rgba(255,255,255,0.22)',
+          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255,255,255,0.45)',
+          borderRadius: 16,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
         }}>
           {/* 2026-05-06 — Match Play sub-section. Shown when format
               includes 'match' AND we have 2 teams. Renders the live
-              match-play state ("Matt/L 1 UP · thru 1"). When this
-              section is shown, the team-totals rows below get their
-              own labeled sub-section so the user can see clearly that
-              they are TWO different format readouts. */}
+              match-play state ("Matt/L 1 UP · thru 1"). */}
           {teamMatchData && teamMatchData.played > 0 && (() => {
             const { a, b, aHolesUp, played, remaining, dormie } = teamMatchData
             const aLabel = a.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
@@ -2867,8 +2868,6 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               || `Team ${b.label}`
             const upBy = Math.abs(aHolesUp)
             const leaderName = aHolesUp > 0 ? aLabel : aHolesUp < 0 ? bLabel : null
-            // "Closed" means leading by MORE than remaining holes —
-            // match mathematically over. e.g. 3 UP with 2 to play → 3&2.
             const isClosed = played > 0 && upBy > remaining
             const stateText = aHolesUp === 0
               ? `ALL SQUARE · thru ${played}`
@@ -2878,55 +2877,111 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                   ? `${leaderName} DORMIE ${upBy}`
                   : `${leaderName} ${upBy} UP · thru ${played}`
             return (
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid rgba(27,94,59,0.18)' }}>
                 <div style={{
                   fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
-                  color: 'rgba(245,215,138,0.65)', marginBottom: 4, textAlign: 'center',
+                  color: 'rgba(27,94,59,0.55)', marginBottom: 3, textAlign: 'center',
                 }}>MATCH PLAY</div>
                 <div style={{
-                  fontSize: 13, fontWeight: 800, letterSpacing: '0.06em',
-                  color: '#F5D78A', textAlign: 'center',
+                  fontSize: 14, fontWeight: 800, letterSpacing: '0.04em',
+                  color: '#7A5800', textAlign: 'center',
                 }}>{stateText}</div>
               </div>
             )
           })()}
-          {/* Best-ball / team-totals sub-header. Always shown above the
-              team rows so users know this is the "BEST BALL" leaderboard
-              even when match-play state is also visible above. */}
+          {/* Best-ball / team-totals sub-header. */}
           <div style={{
             fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
-            color: 'rgba(245,215,138,0.65)',
-            marginTop: teamMatchData && teamMatchData.played > 0 ? 2 : 0,
-            marginBottom: 4,
-            paddingTop: teamMatchData && teamMatchData.played > 0 ? 8 : 0,
-            borderTop: teamMatchData && teamMatchData.played > 0 ? '1px solid rgba(245,215,138,0.18)' : 'none',
+            color: 'rgba(27,94,59,0.55)',
+            marginBottom: 6,
             textAlign: 'center',
           }}>{isBestBallFormat ? 'BEST BALL · TEAM TOTALS' : 'TEAM TOTALS'}</div>
+
+          {/* Team rows — same translucent-glass card chrome as the
+              individual board below. Side-by-side member avatars
+              (38px squares, same as MatchScoreboard's PlayerPhoto)
+              show who's on each team at a glance. (Matt: "profile
+              pictures side by side for each team member in the team") */}
           {bestBallTeams.map((team, i) => {
             const memberNames = team.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
             const isLeader = i === 0 && team.total > 0
             return (
               <div key={team.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '6px 0',
-                borderTop: i > 0 ? '1px solid rgba(245,215,138,0.10)' : 'none',
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 4px',
+                borderBottom: i < bestBallTeams.length - 1 ? '1px solid rgba(27,94,59,0.10)' : 'none',
+                background: isLeader ? 'rgba(201,160,64,0.20)' : 'transparent',
+                borderRadius: isLeader ? 8 : 0,
               }}>
                 <span style={{
-                  fontSize: 11, fontWeight: 800, color: isLeader ? '#F5D78A' : 'rgba(255,255,255,0.55)',
                   width: 22, textAlign: 'center',
+                  fontSize: 11, fontWeight: 800,
+                  color: isLeader ? '#C9A040' : 'rgba(27,94,59,0.50)',
+                  flexShrink: 0,
                 }}>{i + 1}</span>
-                <span style={{
-                  flex: 1, fontSize: 12, fontWeight: 700, color: '#fff',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{memberNames || `Team ${team.label}`}</span>
-                <span style={{
-                  fontSize: 12, fontWeight: 800, color: isLeader ? '#F5D78A' : 'rgba(255,255,255,0.85)',
-                  fontVariantNumeric: 'tabular-nums',
-                }}>{team.total > 0 ? team.total : '—'}</span>
-                <span style={{
-                  fontSize: 10, color: 'rgba(255,255,255,0.45)',
-                  width: 38, textAlign: 'right',
-                }}>thru {team.holesPlayed}</span>
+
+                {/* Side-by-side member avatars. 38px boxes, same shape
+                    as the individual board's PlayerPhoto. Up to 4
+                    members per team (foursomes); we cap visible avatars
+                    at 3 with a "+N" overflow chip if more. */}
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {team.members.slice(0, 3).map(m => (
+                    <div key={m.user_id} style={{
+                      width: 38, height: 38, borderRadius: 10, overflow: 'hidden',
+                      background: 'rgba(27,94,59,0.08)',
+                      border: '1px solid rgba(27,94,59,0.12)',
+                      position: 'relative', flexShrink: 0,
+                    }}>
+                      {m.avatar ? (
+                        <img src={m.avatar} alt={m.name || ''}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+                      ) : (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontWeight: 800, color: '#fff',
+                          background: avatarBg(m.name || ''),
+                        }}>{initials(m.name || '') || '·'}</div>
+                      )}
+                    </div>
+                  ))}
+                  {team.members.length > 3 && (
+                    <div style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      background: 'rgba(27,94,59,0.10)',
+                      border: '1px solid rgba(27,94,59,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 800, color: 'rgba(27,94,59,0.65)',
+                      flexShrink: 0,
+                    }}>+{team.members.length - 3}</div>
+                  )}
+                </div>
+
+                {/* Team name (member first names joined). */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: '#0D1F12',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>{memberNames || `Team ${team.label}`}</div>
+                  <div style={{
+                    fontSize: 9, color: 'rgba(27,94,59,0.45)',
+                    fontWeight: 500, letterSpacing: '0.02em', marginTop: 1,
+                  }}>{team.members.length} {team.members.length === 1 ? 'player' : 'players'}</div>
+                </div>
+
+                {/* Total + thru, mirroring MatchScoreboard right-side. */}
+                <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 50 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 800,
+                    color: isLeader ? '#C9A040' : '#0D1F12',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>{team.total > 0 ? team.total : '—'}</div>
+                </div>
+                <div style={{
+                  fontSize: 10, color: 'rgba(27,94,59,0.45)',
+                  textAlign: 'center', width: 36, flexShrink: 0,
+                }}>{team.holesPlayed}</div>
               </div>
             )
           })}
