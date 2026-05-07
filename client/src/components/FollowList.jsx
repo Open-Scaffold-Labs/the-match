@@ -266,11 +266,19 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
       </div>
 
       {/* FriendProfile modal — stacks on top of this sheet via its own
-          document.body portal. Closing returns to the FollowList. */}
+          document.body portal. Closing returns to the FollowList.
+          onOpenFriend wired so tapping an opponent face inside the
+          friend's rivalry popup swaps to that opponent's profile in
+          place — matches the behavior on Home's profile. (Bug fix
+          2026-05-07 PM3 — Matt: "I went to James's profile [via
+          followers] and clicked Dan's picture in a rivalry but it
+          didn't open Dan's profile". The Home-level invocation already
+          had this; FollowList was missing it.) */}
       {selectedFriend && (
         <FriendProfile
           friend={selectedFriend}
           onClose={() => setSelectedFriend(null)}
+          onOpenFriend={setSelectedFriend}
         />
       )}
     </div>,
