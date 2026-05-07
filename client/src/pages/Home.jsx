@@ -3076,13 +3076,18 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           roundId={selectedRoundId}
           onClose={() => setSelectedRoundId(null)}
           // Tap a co-participant's avatar/name inside the scorecard popup
-          // → close the scorecard and open that user's FriendProfile.
-          // (2026-05-07 PM3 — RoundScorecard now lists every player from
-          // the same outing; account-user pics navigate to their profile.)
-          onOpenFriend={(opp) => {
+          // → close the scorecard and bubble up to the parent (Home top-
+          // level) which owns the selectedFriend portal. ProfileView
+          // doesn't own that state; only the parent does. The first
+          // version of this callback referenced setSelectedFriend
+          // directly — it was a silent ReferenceError because that
+          // setter is only in scope at the Home top level. Same bug
+          // hit the RoundHistory invocation below; both fixed
+          // 2026-05-07 PM3.
+          onOpenFriend={onOpenFriend ? (opp) => {
             setSelectedRoundId(null)
-            setSelectedFriend(opp)
-          }}
+            onOpenFriend(opp)
+          } : undefined}
         />
       )}
 
@@ -3111,10 +3116,13 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           rounds={rounds}
           title="Recent Rounds"
           onClose={() => setHistoryOpen(false)}
-          onOpenFriend={(opp) => {
+          // Same scope fix as the RoundScorecard above — bubble through
+          // ProfileView's onOpenFriend prop instead of referencing the
+          // parent's setSelectedFriend directly.
+          onOpenFriend={onOpenFriend ? (opp) => {
             setHistoryOpen(false)
-            setSelectedFriend(opp)
-          }}
+            onOpenFriend(opp)
+          } : undefined}
         />
       )}
 
