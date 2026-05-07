@@ -3127,6 +3127,11 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             setOuting(prev => ({ ...prev, state: { ...(prev.state || {}), teams: savedTeams } }))
             setShowTeams(false)
           }}
+          // 2026-05-06 — when host adds a player from inside the
+          // TeamSetup sheet (via "+ Add Player"), it needs to refresh
+          // the outing so the new participant shows up in the
+          // unassigned list. loadOuting() refetches + setOuting()s.
+          onRefreshOuting={loadOuting}
         />
       )}
 

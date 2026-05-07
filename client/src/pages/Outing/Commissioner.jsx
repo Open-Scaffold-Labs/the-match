@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { api, post, put } from '../../lib/api.js'
 import { runWithQueue } from '../../lib/offline-queue.js'
 import { TEAM_PALETTE } from './LiveOuting.jsx'
+import GuestModal from './GuestModal.jsx'
 
 // ─── Outing/Commissioner.jsx ──────────────────────────────────────────────
 // Host-only "Manage" panel and its tabs. Extracted from the original
@@ -1383,7 +1384,7 @@ export function GroupSetup({ outing, onClose, onSaved }) {
   )
 }
 
-export function TeamSetup({ outing, onClose, onSaved }) {
+export function TeamSetup({ outing, onClose, onSaved, onRefreshOuting }) {
   const participants = outing.state?.participants ?? []
 
   function defaultTeams() {
@@ -1400,6 +1401,25 @@ export function TeamSetup({ outing, onClose, onSaved }) {
   const [teams, setTeams]           = useState(defaultTeams)
   const [saving, setSaving]         = useState(false)
   const [editingId, setEditingId]   = useState(null)
+  // 2026-05-06 — host can ADD players (app users or named guests)
+  // from the Set Teams sheet itself. Right after creating a 4-player
+  // best-ball match the wizard, the only participant is the host —
+  // there's literally no one to assign to teams. The "+ Add Player"
+  // button below opens GuestModal; on success, we ask the parent to
+  // re-fetch the outing so participants[] refreshes here.
+  // (Matt feedback: "u need to have add players button on that screen")
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
+  async function handleGuestAdd(name) {
+    try {
+      await post(`/api/outings/${outing.code}/guests`, { name })
+      await onRefreshOuting?.()
+      setShowAddPlayer(false)
+    } catch (e) { console.error('[teams/add-guest]', e) }
+  }
+  async function handleAppUserAdded() {
+    await onRefreshOuting?.()
+    setShowAddPlayer(false)
+  }
 
   const unassigned = participants.filter(p =>
     !teams.some(t => t.member_ids.map(String).includes(String(p.user_id)))
@@ -1461,8 +1481,39 @@ export function TeamSetup({ outing, onClose, onSaved }) {
           <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Set Teams</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
-        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 20 }}>
+        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 14 }}>
           Tap a player to assign them · tap their name again to move or remove
+        </div>
+
+        {/* 2026-05-06 — Roster controls. The wizard creates the match
+            with only the host as a participant; the rest of the
+            roster needs to be added before teams can be assigned.
+            "+ Add Player" opens GuestModal (search-as-you-type for
+            app users, fall back to named guest), then re-fetches the
+            outing so this sheet shows the new player in unassigned. */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '10px 12px', marginBottom: 16,
+          background: 'rgba(255,253,248,0.04)',
+          border: '1px solid rgba(255,253,248,0.12)',
+          borderRadius: 12,
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: 'rgba(255,253,248,0.92)', fontSize: 12, fontWeight: 700 }}>
+              Roster
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 2 }}>
+              {participants.length} {participants.length === 1 ? 'player' : 'players'} in match
+              {participants.length < 2 && ' — add more before assigning teams'}
+            </div>
+          </div>
+          <button onClick={() => setShowAddPlayer(true)} style={{
+            background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))',
+            border: 'none', borderRadius: 999,
+            padding: '8px 14px', color: '#fff',
+            fontSize: 12, fontWeight: 800, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>+ Add Player</button>
         </div>
 
         {/* Teams — each one its own card */}
@@ -1596,6 +1647,18 @@ export function TeamSetup({ outing, onClose, onSaved }) {
             marginTop: 10, fontSize: 11,
             color: 'rgba(255,255,255,0.50)', textAlign: 'center',
           }}>Tap a player above to assign them to a team.</div>
+        )}
+        {/* GuestModal — opened by the "+ Add Player" button up top.
+            On guest add we POST + refresh the outing so this sheet
+            sees the new player. On app-user add the modal already
+            POSTed; we just refresh + close. */}
+        {showAddPlayer && (
+          <GuestModal
+            code={outing.code}
+            onAdd={handleGuestAdd}
+            onAppUserAdded={handleAppUserAdded}
+            onClose={() => setShowAddPlayer(false)}
+          />
         )}
       </div>
     </div>,
