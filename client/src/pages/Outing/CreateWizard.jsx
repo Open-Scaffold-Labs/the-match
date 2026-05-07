@@ -281,7 +281,11 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
     return {
       name: '',
       courseName: slim?.courseName || '',
-      format: 'stroke',
+      // 2026-05-06 — formats is now an ARRAY so users can compose
+      // real combinations (Match + Best Ball = four-ball match play,
+      // Stroke + Skins = round with side bet, etc.). Default keeps
+      // the simple single-format experience for first-timers.
+      formats: ['stroke'],
       team: 'individual',
       holes: 18,
       // Expected total golfers in the match. Defaults to 1 + any
@@ -390,13 +394,23 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
   async function handleCreate() {
     setLoading(true); setError('')
     try {
-      // Validation: best_ball requires team membership. Players are
-      // assigned a team_id either through the small-outing TEAMS
-      // setup (team_format='teams') OR the >4 team_breakdown
-      // ('doubles' / 'foursomes'). Without one of those there's no
-      // grouping for the per-team math, so block creation rather
-      // than ship a confusing leaderboard. (Iteration fix B4d-2.)
-      if (form.format === 'best_ball') {
+      // 2026-05-06 — formats is an array now. At least one required.
+      const formats = Array.isArray(form.formats) ? form.formats : []
+      if (formats.length === 0) {
+        setLoading(false)
+        setError('Pick at least one scoring format.')
+        return
+      }
+      // Validation: best_ball + match (= four-ball match play) require
+      // team membership. Players are assigned a team_id either through
+      // the small-outing TEAMS setup (team_format='teams') OR the >4
+      // team_breakdown ('doubles' / 'foursomes'). Without one of those
+      // there's no grouping for per-team math, so block creation rather
+      // than ship a confusing leaderboard. (Iteration fix B4d-2;
+      // generalized 2026-05-06 from format==='best_ball' to a check
+      // that fires for any team-required format.)
+      const needsTeams = formats.includes('best_ball')
+      if (needsTeams) {
         const hasSmallTeams = form.players <= 4 && form.team !== 'individual'
         const hasLargeTeams = form.players > 4 && (form.teamBreakdown === 'doubles' || form.teamBreakdown === 'foursomes')
         if (!hasSmallTeams && !hasLargeTeams) {
@@ -417,7 +431,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
       const data = await post('/api/outings', {
         name: form.name || `${user.name}'s Match`,
         courseName: form.courseName || 'TBD',
-        scoringFormats: [form.format],
+        scoringFormats: formats,
         teamFormat: form.team,
         coursePar: computedPar || form.coursePar || (form.holes === 9 ? 36 : 72),
         // Real per-hole data — server stores nulls when not provided
@@ -438,12 +452,12 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
         teamBreakdown: form.players > 4 ? form.teamBreakdown : null,
         // Handicap allowance % for net scoring. (B4a)
         handicapAllowance: form.handicapAllowance,
-        // Stableford preset (only used when format=stableford). (B4b)
-        stablefordPreset: form.format === 'stableford' ? form.stablefordPreset : null,
+        // Stableford preset (only used when stableford is selected). (B4b)
+        stablefordPreset: formats.includes('stableford') ? form.stablefordPreset : null,
         // 6.5 — when the host picked Custom, ship the point map.
         // Server validates each bucket and falls back to standard if
         // anything's malformed.
-        customStablefordPoints: form.format === 'stableford' && form.stablefordPreset === 'custom'
+        customStablefordPoints: formats.includes('stableford') && form.stablefordPreset === 'custom'
           ? form.customStablefordPoints
           : null,
         // 2026-05-02 — when the wizard was opened from inside a league,
@@ -617,23 +631,67 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
       </div>
     </div>,
 
-    // Step 1: Format + handicap allowance %
+    // Step 1: Format(s) + handicap allowance %
+    //
+    // 2026-05-06 — multi-select. Each format is independently
+    // togglable. The user can compose real golf combinations:
+    //   • Match Play + Best Ball  = Four-Ball Match Play (the most
+    //     common 2v2 format)
+    //   • Stroke Play + Skins      = stroke round with skins side bet
+    //   • Stableford alone, etc.
+    // Default: just ['stroke']. At least one required (validated at
+    // create-time). The "Pick combos like…" hint at the top teaches
+    // the most common pairings without forcing extra UI.
     <div key="1" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {FORMATS.map(f => (
-        <button key={f.id} onClick={() => set('format', f.id)}
-          style={{ padding: '16px', borderRadius: 'var(--tm-radius-lg)', border: '2px solid', borderColor: form.format === f.id ? 'var(--tm-green)' : 'var(--tm-border)', background: form.format === f.id ? 'var(--tm-green-muted)' : 'var(--tm-surface)', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{f.label}</div>
-            <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginTop: 2 }}>{f.desc}</div>
-          </div>
-          {form.format === f.id && <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--tm-green)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>✓</div>}
-        </button>
-      ))}
+      <div style={{
+        padding: '8px 12px', borderRadius: 'var(--tm-radius)',
+        background: 'rgba(232,192,90,0.10)',
+        border: '1px solid rgba(232,192,90,0.28)',
+        fontSize: 11, color: 'var(--tm-gold-text)',
+        lineHeight: 1.45,
+      }}>
+        Tap multiple to combine. <b>Match&nbsp;Play&nbsp;+&nbsp;Best&nbsp;Ball</b> = four-ball match play.
+        &nbsp;<b>Stroke&nbsp;+&nbsp;Skins</b> = round with a skins side bet.
+      </div>
+      {FORMATS.map(f => {
+        const selected = (form.formats || []).includes(f.id)
+        function toggle() {
+          setForm(prev => {
+            const cur = Array.isArray(prev.formats) ? prev.formats : []
+            const next = cur.includes(f.id)
+              ? cur.filter(x => x !== f.id)
+              : [...cur, f.id]
+            return { ...prev, formats: next }
+          })
+          userTouchedRef.current = true
+        }
+        return (
+          <button key={f.id} onClick={toggle}
+            style={{ padding: '16px', borderRadius: 'var(--tm-radius-lg)', border: '2px solid', borderColor: selected ? 'var(--tm-green)' : 'var(--tm-border)', background: selected ? 'var(--tm-green-muted)' : 'var(--tm-surface)', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{f.label}</div>
+              <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginTop: 2 }}>{f.desc}</div>
+            </div>
+            {/* Square checkbox-style indicator instead of round radio
+                so multi-select reads visually. Empty when unselected,
+                gold-checked when selected. */}
+            <div style={{
+              width: 22, height: 22, borderRadius: 6,
+              background: selected ? 'linear-gradient(135deg, var(--tm-gold), var(--tm-gold-dim))' : 'var(--tm-surface-2)',
+              border: selected ? '1px solid rgba(122,88,0,0.45)' : '1px solid var(--tm-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#0D1F12', fontSize: 13, fontWeight: 900,
+              flexShrink: 0,
+            }}>{selected ? '✓' : ''}</div>
+          </button>
+        )
+      })}
 
-      {/* Stableford preset (only when format=stableford). Standard =
-          1/2/3/4 (USGA traditional); Modified = -3/-1/0/2/5 (PGA Tour
-          Reno-Tahoe variant). Custom = league-authored point map (6.5). */}
-      {form.format === 'stableford' && (
+      {/* Stableford preset (only when stableford is in the selected
+          formats). Standard = 1/2/3/4 (USGA traditional); Modified =
+          -3/-1/0/2/5 (PGA Tour Reno-Tahoe variant); Custom = league-
+          authored point map (6.5). */}
+      {(form.formats || []).includes('stableford') && (
         <div style={{ marginTop: 6 }}>
           <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
             Stableford Preset
