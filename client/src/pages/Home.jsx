@@ -15,6 +15,7 @@ import RivalryHistory from '../components/RivalryHistory.jsx'
 import AchievementsRow from '../components/AchievementsRow.jsx'
 import YearRecapModal from './Outing/YearRecap.jsx'
 import NewTeeTimeSheet from '../components/NewTeeTimeSheet.jsx'
+import PushNudgeBanner from '../components/PushNudgeBanner.jsx'
 // Helpers from Stats.jsx — used by the Profile view that replaced the
 // Stats tab on 2026-05-01. Stats.jsx still exists as a standalone page
 // but is no longer in the bottom nav; Profile is the canonical surface.
@@ -4126,6 +4127,13 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
             }}>TEE TIMES</div>
             <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, rgba(201,160,64,0.85), transparent)' }} />
           </div>
+
+        {/* 2026-05-06 — Push-permission nudge for users who haven't
+            subscribed yet. Inline banner; auto-hides when permission
+            is granted + subscription is registered, dismissible
+            otherwise. Lives here because the missing-push consequence
+            bites hardest at tee-time-invite time. */}
+        <PushNudgeBanner user={user} />
 
         {/* 2026-05-06 — "+ New Tee Time" entry. Manual scheduler for
             the case Matt described: friends agreed by phone or chat,
