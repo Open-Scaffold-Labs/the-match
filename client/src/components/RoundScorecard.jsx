@@ -98,6 +98,118 @@ function ScoreCell({ score, par, w = 32, h = 36 }) {
   )
 }
 
+// PlayerScorecardBlock — one player's section inside the scorecard popup.
+// Used for both the focal player (the round's owner) and every co-participant.
+// Header on the left has avatar (image or initials fallback), name + handle,
+// and a "Guest" chip when applicable. Right side shows total + diff vs par
+// in the same style for everyone. Below: Front 9 + Back 9 grids reusing the
+// existing NineHoleGrid + color-coded ScoreCells.
+//
+// Account-user blocks are tappable when onTap is provided — closes the
+// scorecard and opens that user's FriendProfile via the parent's
+// onOpenFriend chain. Guest blocks (and the focal player if no tap is
+// wanted) are non-interactive.
+//
+// Visual emphasis: the focal player's block gets a slightly stronger
+// border so the round's "owner" reads as primary even though every
+// player uses the same template. (Subtle — Matt asked for visual
+// consistency, this just preserves a faint hierarchy.)
+//
+// (2026-05-07 PM3 — extracted to share layout between focal + partners.)
+function PlayerScorecardBlock({
+  name, handle, avatar, isGuest, isFocal,
+  scores, total, holes, holePars, holeCount, coursePar,
+  frontHoles, backHoles, onTap,
+}) {
+  const playerScores = (() => {
+    if (!scores) return []
+    return Array.isArray(scores) ? scores : (() => { try { return JSON.parse(scores) } catch { return [] } })()
+  })()
+  const totalNum = Number(total ?? playerScores.reduce((s, x) => s + (Number(x) || 0), 0))
+  const diff = Number.isFinite(totalNum) && totalNum > 0 ? totalNum - coursePar : null
+  const diffStr  = diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
+  const diffColor = diff == null ? 'rgba(255,255,255,0.40)' : diff < 0 ? '#F5E070' : diff === 0 ? '#fff' : '#F87171'
+  const initials = (name || '·').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+  const canTap = typeof onTap === 'function'
+
+  return (
+    <div style={{
+      marginBottom: 14,
+      background: isFocal ? 'rgba(232,192,90,0.04)' : 'rgba(255,255,255,0.025)',
+      border: isFocal ? '1px solid rgba(232,192,90,0.22)' : '1px solid rgba(232,192,90,0.12)',
+      borderRadius: 12, padding: '10px 10px 4px',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10, padding: '2px 4px 10px',
+      }}>
+        <button
+          onClick={canTap ? onTap : undefined}
+          disabled={!canTap}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            flex: 1, minWidth: 0,
+            background: 'transparent', border: 'none',
+            padding: 0, textAlign: 'left',
+            cursor: canTap ? 'pointer' : 'default',
+            color: 'inherit', fontFamily: 'inherit',
+          }}
+          aria-label={canTap ? `Open ${name}'s profile` : undefined}
+        >
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+            background: avatar ? `center/cover no-repeat url("${avatar}")` : 'rgba(232,192,90,0.18)',
+            border: '1px solid rgba(232,192,90,0.30)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 800, color: 'rgba(232,192,90,0.85)',
+            letterSpacing: '0.04em',
+          }}>
+            {!avatar && initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 700, color: '#fff',
+              lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {name}
+              {isGuest && (
+                <span style={{
+                  fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.55)',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  borderRadius: 6, padding: '1px 6px', marginLeft: 8,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  verticalAlign: 'middle',
+                }}>Guest</span>
+              )}
+            </div>
+            {handle && (
+              <div style={{
+                fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.2,
+                marginTop: 1,
+              }}>@{handle}</div>
+            )}
+          </div>
+        </button>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{
+            fontSize: 18, fontWeight: 900, color: '#fff',
+            fontFamily: '"Arial Black", Arial, sans-serif', lineHeight: 1,
+          }}>{totalNum > 0 ? totalNum : '—'}</div>
+          <div style={{
+            fontSize: 11, fontWeight: 800, color: diffColor,
+            letterSpacing: '0.04em', marginTop: 2,
+          }}>{diffStr}</div>
+        </div>
+      </div>
+      <NineHoleGrid label="Front 9" holes={frontHoles} holePars={holePars} scores={playerScores} holeCount={holeCount} />
+      {backHoles.length > 0 && (
+        <NineHoleGrid label="Back 9" holes={backHoles} holePars={holePars} scores={playerScores} holeCount={holeCount} />
+      )}
+    </div>
+  )
+}
+
 function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
   // holes is an array of zero-indexed hole indices (e.g., 0..8 for front)
   const subtotalPar = holes.reduce((s, h) => s + (holePars[h] || 4), 0)
@@ -287,19 +399,17 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
             }}>✕</button>
           </div>
 
-          {/* Total + diff */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 12 }}>
-            <div style={{
-              fontSize: 44, fontWeight: 900, lineHeight: 0.9, color: '#fff',
-              fontFamily: '"Arial Black", Arial, sans-serif',
-              filter: 'drop-shadow(0 0 12px rgba(232,192,90,0.10))',
-            }}>{Number.isFinite(total) && total > 0 ? total : '—'}</div>
-            <div style={{ marginBottom: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <div style={{ fontSize: 18, fontWeight: 900, color: diffColor, lineHeight: 1 }}>{diffStr}</div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-                Par {coursePar}
-              </div>
-            </div>
+          {/* Course par hint stays in the outer header — the per-player
+              total + diff moved into the player-card blocks below so the
+              focal player's row matches the playing-partners' row style.
+              (2026-05-07 PM3 — Matt: 'my scorecard should look the same
+              as the playing partners do with the profile picture, name,
+              and round score to the top right just as theirs appear'.) */}
+          <div style={{
+            marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.40)',
+            letterSpacing: '0.10em', textTransform: 'uppercase',
+          }}>
+            Par {coursePar}
           </div>
         </div>
 
@@ -317,21 +427,36 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
           )}
           {!loading && !error && (
             <>
-              <NineHoleGrid label="Front 9" holes={frontHoles} holePars={holePars} scores={scores} holeCount={holeCount} />
-              {backHoles.length > 0 && (
-                <NineHoleGrid label="Back 9" holes={backHoles} holePars={holePars} scores={scores} holeCount={holeCount} />
-              )}
+              {/* Focal player — the round's owner. Same card template as
+                  partners; isFocal=true gives a subtle stronger border.
+                  Not tappable (it's the user whose profile we're already
+                  on; tapping their pic to "go to themselves" is a no-op
+                  by design — the parent handles that case if needed). */}
+              <PlayerScorecardBlock
+                name={round?.owner_name || 'You'}
+                handle={round?.owner_handle}
+                avatar={round?.owner_avatar}
+                isGuest={false}
+                isFocal={true}
+                scores={scores}
+                total={total}
+                holes={frontHoles}
+                holePars={holePars}
+                holeCount={holeCount}
+                coursePar={coursePar}
+                frontHoles={frontHoles}
+                backHoles={backHoles}
+                onTap={undefined}
+              />
 
               {/* Playing partners — every other player in the same outing.
-                  Account users come from tm_outing_participants; guests
-                  come from tm_outings.state JSON. Each row reuses the
-                  same NineHoleGrid + color-coded ScoreCells as the
-                  focal player. Account-user avatars + names are tap
-                  targets that open that user's FriendProfile via
-                  onOpenFriend. Guests are non-tappable (no profile to
-                  open). Added 2026-05-07 PM3. */}
+                  Same card template as the focal player. Account-user
+                  avatars + names are tap targets that open that user's
+                  FriendProfile via onOpenFriend. Guests are non-tappable.
+                  Added 2026-05-07 PM3; refactored to share the
+                  PlayerScorecardBlock template same day. */}
               {Array.isArray(round?.co_participants) && round.co_participants.length > 0 && (
-                <div style={{ marginTop: 18, marginBottom: 4 }}>
+                <div style={{ marginTop: 14, marginBottom: 4 }}>
                   <div style={{
                     fontSize: 10, fontWeight: 800, color: 'rgba(232,192,90,0.65)',
                     letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 10,
@@ -340,102 +465,28 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
                     Playing partners
                   </div>
                   {round.co_participants.map((p, idx) => {
-                    const pScores = (() => {
-                      if (!p.scores) return []
-                      return Array.isArray(p.scores) ? p.scores : (() => { try { return JSON.parse(p.scores) } catch { return [] } })()
-                    })()
-                    const pTotal = Number(p.total ?? pScores.reduce((s, x) => s + (Number(x) || 0), 0))
-                    const pDiff = Number.isFinite(pTotal) && pTotal > 0 ? pTotal - coursePar : null
-                    const pDiffStr = pDiff == null ? '—' : pDiff === 0 ? 'E' : pDiff > 0 ? `+${pDiff}` : `${pDiff}`
-                    const pDiffColor = pDiff == null ? 'rgba(255,255,255,0.40)' : pDiff < 0 ? '#F5E070' : pDiff === 0 ? '#fff' : '#F87171'
                     const canNavigate = !p.is_guest && p.user_id && typeof onOpenFriend === 'function'
-                    const initials = (p.name || '·').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
-                    const headerOnClick = canNavigate
+                    const onTap = canNavigate
                       ? () => onOpenFriend({ id: p.user_id, name: p.name, handle: p.handle, avatar: p.avatar })
                       : undefined
                     return (
-                      <div key={p.user_id ?? `guest-${idx}`} style={{
-                        marginBottom: 14,
-                        background: 'rgba(255,255,255,0.025)',
-                        border: '1px solid rgba(232,192,90,0.12)',
-                        borderRadius: 12, padding: '10px 10px 4px',
-                      }}>
-                        {/* Per-partner header — avatar + name + handle on the
-                            left, total + diff on the right. Tap target
-                            covers avatar + name (account users only). */}
-                        <div style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          gap: 10, padding: '2px 4px 10px',
-                        }}>
-                          <button
-                            onClick={headerOnClick}
-                            disabled={!canNavigate}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              flex: 1, minWidth: 0,
-                              background: 'transparent', border: 'none',
-                              padding: 0, textAlign: 'left',
-                              cursor: canNavigate ? 'pointer' : 'default',
-                              color: 'inherit', fontFamily: 'inherit',
-                            }}
-                            aria-label={canNavigate ? `Open ${p.name}'s profile` : undefined}
-                          >
-                            {/* Avatar — image when present, initials fallback. Guests get
-                                a neutral placeholder so the layout doesn't shift. */}
-                            <div style={{
-                              width: 32, height: 32, borderRadius: '50%',
-                              flexShrink: 0,
-                              background: p.avatar ? `center/cover no-repeat url("${p.avatar}")` : 'rgba(232,192,90,0.18)',
-                              border: '1px solid rgba(232,192,90,0.30)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 11, fontWeight: 800, color: 'rgba(232,192,90,0.85)',
-                              letterSpacing: '0.04em',
-                            }}>
-                              {!p.avatar && initials}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{
-                                fontSize: 13, fontWeight: 700, color: '#fff',
-                                lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                              }}>
-                                {p.name}
-                                {p.is_guest && (
-                                  <span style={{
-                                    fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.55)',
-                                    background: 'rgba(255,255,255,0.08)',
-                                    border: '1px solid rgba(255,255,255,0.18)',
-                                    borderRadius: 6, padding: '1px 6px', marginLeft: 8,
-                                    letterSpacing: '0.06em', textTransform: 'uppercase',
-                                    verticalAlign: 'middle',
-                                  }}>Guest</span>
-                                )}
-                              </div>
-                              {p.handle && (
-                                <div style={{
-                                  fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 1.2,
-                                  marginTop: 1,
-                                }}>@{p.handle}</div>
-                              )}
-                            </div>
-                          </button>
-                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                            <div style={{
-                              fontSize: 18, fontWeight: 900, color: '#fff',
-                              fontFamily: '"Arial Black", Arial, sans-serif', lineHeight: 1,
-                            }}>{pTotal > 0 ? pTotal : '—'}</div>
-                            <div style={{
-                              fontSize: 11, fontWeight: 800, color: pDiffColor,
-                              letterSpacing: '0.04em', marginTop: 2,
-                            }}>{pDiffStr}</div>
-                          </div>
-                        </div>
-                        {/* Their Front 9 + Back 9 grids — same color logic
-                            as the focal player's. */}
-                        <NineHoleGrid label="Front 9" holes={frontHoles} holePars={holePars} scores={pScores} holeCount={holeCount} />
-                        {backHoles.length > 0 && (
-                          <NineHoleGrid label="Back 9" holes={backHoles} holePars={holePars} scores={pScores} holeCount={holeCount} />
-                        )}
-                      </div>
+                      <PlayerScorecardBlock
+                        key={p.user_id ?? `guest-${idx}`}
+                        name={p.name}
+                        handle={p.handle}
+                        avatar={p.avatar}
+                        isGuest={!!p.is_guest}
+                        isFocal={false}
+                        scores={p.scores}
+                        total={p.total}
+                        holes={frontHoles}
+                        holePars={holePars}
+                        holeCount={holeCount}
+                        coursePar={coursePar}
+                        frontHoles={frontHoles}
+                        backHoles={backHoles}
+                        onTap={onTap}
+                      />
                     )
                   })}
                 </div>

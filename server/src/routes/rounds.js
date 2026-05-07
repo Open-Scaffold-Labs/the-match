@@ -94,9 +94,16 @@ router.post('/', async (req, res) => {
 // the My Profile view opens.)
 router.get('/:id', async (req, res) => {
   const row = await db.one(
-    `SELECT r.*, o.hole_pars, o.course_name AS outing_course_name, o.state AS outing_state
+    `SELECT r.*,
+            o.hole_pars,
+            o.course_name AS outing_course_name,
+            o.state AS outing_state,
+            u.name   AS owner_name,
+            u.handle AS owner_handle,
+            u.avatar AS owner_avatar
      FROM tm_rounds r
      LEFT JOIN tm_outings o ON o.id = r.outing_id
+     LEFT JOIN tm_users   u ON u.id = r.user_id
      WHERE r.id = $1`,
     [req.params.id]
   )
