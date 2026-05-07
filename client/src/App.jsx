@@ -18,8 +18,29 @@ import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
 
 
+// Active-tab persistence — restores the tab the user was on across
+// pull-to-refresh and any other window.location.reload() (Matt:
+// "the refresh automatically lands you back on home page... you
+// should remain on the page you refreshed from"). Stored as a plain
+// string in localStorage; validated against TABS on read so a stale
+// or corrupted value falls back to HOME instead of crashing the
+// router. (2026-05-06.)
+const TAB_STORAGE_KEY = 'tm-last-tab'
+function readPersistedTab() {
+  try {
+    const v = localStorage.getItem(TAB_STORAGE_KEY)
+    if (v && Object.values(TABS).includes(v)) return v
+  } catch { /* ignore — Safari private mode etc. */ }
+  return TABS.HOME
+}
+
 export default function App() {
-  const [tab, setTab] = useState(TABS.HOME)
+  const [tab, setTab] = useState(readPersistedTab)
+  // Save on every tab change. Cheap localStorage write, no debounce
+  // needed since taps are rare relative to other render work.
+  useEffect(() => {
+    try { localStorage.setItem(TAB_STORAGE_KEY, tab) } catch { /* ignore */ }
+  }, [tab])
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [pendingOutingPlayers, setPendingOutingPlayers] = useState([])
