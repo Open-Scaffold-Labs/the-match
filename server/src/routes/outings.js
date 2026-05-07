@@ -1745,20 +1745,37 @@ router.post('/:code/end', async (req, res) => {
         : sp // guest
     }).sort((a, b) => (a.total ?? 999) - (b.total ?? 999))
 
-    // For individual play: write 1v1 match history for every pair
+    // For individual play: write 1v1 match history for every PAIR of
+    // participants. The h2h trigger on tm_match_history rolls these up
+    // into tm_h2h_records.
+    //
+    // BUG FIX 2026-05-07: prior implementation looped (winner, loser_i)
+    // — it only paired the best-scoring player against every other,
+    // missing every NON-leader pair. In a 3-player stroke-play match
+    // (Matt 82, Dan 92, James 94 — outing 67), it wrote (Matt,Dan) +
+    // (Matt,James) but skipped (Dan,James) entirely. Dan and James
+    // didn't see each other in their rivalry lists. Now we walk
+    // N-choose-2 pairs and let the per-pair score comparison decide
+    // winner/loser/tie. Backfill for outing 67 lives in
+    // scripts/backfill-h2h-pairs.js.
     if (outing.team_format === 'individual' && dbParticipants.length >= 2) {
-      const winner = dbParticipants[0]
-      for (let i = 1; i < dbParticipants.length; i++) {
-        const loser   = dbParticipants[i]
-        const isTie   = winner.total === loser.total
-        await db.query(
-          `INSERT INTO tm_match_history
-             (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)
-           ON CONFLICT DO NOTHING`,
-          [outing.id, isTie ? null : winner.user_id, isTie ? null : loser.user_id,
-           isTie, winner.total, loser.total, outing.course_name]
-        )
+      for (let i = 0; i < dbParticipants.length; i++) {
+        for (let j = i + 1; j < dbParticipants.length; j++) {
+          const a = dbParticipants[i]
+          const b = dbParticipants[j]
+          // dbParticipants is ORDER BY total ASC, so a.total <= b.total.
+          // Equal totals → tie; otherwise a (lower score) wins.
+          const isTie = a.total === b.total
+          const winnerId = isTie ? null : a.user_id
+          const loserId  = isTie ? null : b.user_id
+          await db.query(
+            `INSERT INTO tm_match_history
+               (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
+             VALUES ($1,$2,$3,$4,$5,$6,$7)
+             ON CONFLICT DO NOTHING`,
+            [outing.id, winnerId, loserId, isTie, a.total, b.total, outing.course_name]
+          )
+        }
       }
       for (const p of dbParticipants) {
         const result = p.total === dbParticipants[0].total
