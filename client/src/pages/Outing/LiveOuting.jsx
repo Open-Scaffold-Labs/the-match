@@ -2853,8 +2853,13 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
           borderRadius: 14,
         }}>
-          {/* Header row — match-play headline OR plain label */}
-          {teamMatchData && teamMatchData.played > 0 ? (() => {
+          {/* 2026-05-06 — Match Play sub-section. Shown when format
+              includes 'match' AND we have 2 teams. Renders the live
+              match-play state ("Matt/L 1 UP · thru 1"). When this
+              section is shown, the team-totals rows below get their
+              own labeled sub-section so the user can see clearly that
+              they are TWO different format readouts. */}
+          {teamMatchData && teamMatchData.played > 0 && (() => {
             const { a, b, aHolesUp, played, remaining, dormie } = teamMatchData
             const aLabel = a.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
               || `Team ${a.label}`
@@ -2862,8 +2867,8 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               || `Team ${b.label}`
             const upBy = Math.abs(aHolesUp)
             const leaderName = aHolesUp > 0 ? aLabel : aHolesUp < 0 ? bLabel : null
-            // "Closed" means leading by MORE than remaining holes — match
-            // mathematically over. e.g. 3 UP with 2 to play → 3&2.
+            // "Closed" means leading by MORE than remaining holes —
+            // match mathematically over. e.g. 3 UP with 2 to play → 3&2.
             const isClosed = played > 0 && upBy > remaining
             const stateText = aHolesUp === 0
               ? `ALL SQUARE · thru ${played}`
@@ -2873,17 +2878,30 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                   ? `${leaderName} DORMIE ${upBy}`
                   : `${leaderName} ${upBy} UP · thru ${played}`
             return (
-              <div style={{
-                fontSize: 11, fontWeight: 800, letterSpacing: '0.08em',
-                color: '#F5D78A', marginBottom: 8, textAlign: 'center',
-              }}>{stateText}</div>
+              <div style={{ marginBottom: 12 }}>
+                <div style={{
+                  fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
+                  color: 'rgba(245,215,138,0.65)', marginBottom: 4, textAlign: 'center',
+                }}>MATCH PLAY</div>
+                <div style={{
+                  fontSize: 13, fontWeight: 800, letterSpacing: '0.06em',
+                  color: '#F5D78A', textAlign: 'center',
+                }}>{stateText}</div>
+              </div>
             )
-          })() : (
-            <div style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: '0.10em',
-              color: 'rgba(245,215,138,0.80)', marginBottom: 6,
-            }}>TEAM STANDINGS{isBestBallFormat ? ' · BEST BALL' : isMatchFormat ? ' · MATCH PLAY' : ''}</div>
-          )}
+          })()}
+          {/* Best-ball / team-totals sub-header. Always shown above the
+              team rows so users know this is the "BEST BALL" leaderboard
+              even when match-play state is also visible above. */}
+          <div style={{
+            fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
+            color: 'rgba(245,215,138,0.65)',
+            marginTop: teamMatchData && teamMatchData.played > 0 ? 2 : 0,
+            marginBottom: 4,
+            paddingTop: teamMatchData && teamMatchData.played > 0 ? 8 : 0,
+            borderTop: teamMatchData && teamMatchData.played > 0 ? '1px solid rgba(245,215,138,0.18)' : 'none',
+            textAlign: 'center',
+          }}>{isBestBallFormat ? 'BEST BALL · TEAM TOTALS' : 'TEAM TOTALS'}</div>
           {bestBallTeams.map((team, i) => {
             const memberNames = team.members.map(m => (m.name || '').split(' ')[0]).filter(Boolean).join(' / ')
             const isLeader = i === 0 && team.total > 0
@@ -2914,6 +2932,28 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           })}
         </div>
       )}
+
+      {/* 2026-05-06 — Section header above the per-player leaderboard,
+          telling the user which scoring format these rows represent.
+          When the user picked multiple formats, this is the section
+          for whichever is the *primary* per-player ranking — Skins
+          (sorted by skins won), Stableford (points), or Stroke
+          (gross/net to par). Hidden when only the team-card readouts
+          apply (e.g. pure best-ball with no per-player rank to show). */}
+      {effectiveViewMode === 'board' && (() => {
+        const label = isSkinsFormat ? 'SKINS · INDIVIDUAL'
+          : isStablefordFormat ? 'STABLEFORD · INDIVIDUAL'
+          : isMatchFormat && !isBestBallFormat && participants.length === 2 ? 'MATCH PLAY · HEAD TO HEAD'
+          : 'STROKE PLAY · INDIVIDUAL'
+        return (
+          <div style={{
+            margin: '12px 16px 4px',
+            fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
+            color: 'rgba(245,215,138,0.65)',
+            textAlign: 'center',
+          }}>{label}</div>
+        )
+      })()}
 
       {/* BOARD view — Tour-style leaderboard. Read-only; tapping a row
           flips back to SCORECARD so the user can enter that player's score. */}
