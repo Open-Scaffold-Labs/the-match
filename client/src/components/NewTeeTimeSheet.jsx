@@ -96,6 +96,13 @@ export default function NewTeeTimeSheet({ user, onClose, onCreated }) {
   // ── Friend list (Following + Followers, deduped) ────────────────────────
   const [friends, setFriends] = useState(null) // null = loading, [] = none, [...] = list
   const [friendQuery, setFriendQuery] = useState('')
+  // 2026-05-06 — friend dropdown collapses after each selection
+  // (Matt: 'the drop down is just staying on screen, it should
+  // disappear after u select a name'). Re-opens on input focus or
+  // typing. Selected friends still visible as chips above the
+  // search input so the user knows what's picked without keeping
+  // the whole list expanded.
+  const [friendDropdownOpen, setFriendDropdownOpen] = useState(false)
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -130,6 +137,17 @@ export default function NewTeeTimeSheet({ user, onClose, onCreated }) {
     setSelectedIds(prev => prev.includes(sid)
       ? prev.filter(x => x !== sid)
       : prev.length >= 7 ? prev : [...prev, sid])
+    // Collapse the dropdown after each selection. Re-opens on focus
+    // or typing in the search input.
+    setFriendDropdownOpen(false)
+    setFriendQuery('')
+  }
+  // Look up a friend's display name by id — used to render the
+  // selected-friends chip row above the search input.
+  function friendName(id) {
+    if (!Array.isArray(friends)) return id
+    const u = friends.find(x => String(x.id) === String(id))
+    return u?.name || `Player ${String(id).slice(0, 4)}`
   }
 
   function addGuest() {
@@ -294,52 +312,102 @@ export default function NewTeeTimeSheet({ user, onClose, onCreated }) {
             </Field>
           </div>
 
-          {/* Friend picker */}
+          {/* Friend picker — selected chips render above the input
+              (with × to remove); dropdown only appears when the
+              user focuses the search input or types something. Tap
+              a name in the dropdown → selected, dropdown collapses,
+              query clears. (Matt: 'should disappear after u select
+              a name'.) */}
           <Field label={`From your friends (${selectedIds.length} selected)`}>
-            <input
-              value={friendQuery}
-              onChange={e => setFriendQuery(e.target.value)}
-              placeholder="Search your following + followers"
-              style={inputStyle()}
-            />
-            <div style={{
-              maxHeight: 200, overflowY: 'auto', marginTop: 6,
-              border: '1px solid var(--tm-border)', borderRadius: 12,
-              background: 'var(--tm-surface)',
-            }}>
-              {friends === null && (
-                <div style={{ padding: 12, fontSize: 12, color: 'var(--tm-text-3)' }}>Loading…</div>
-              )}
-              {friends && filteredFriends.length === 0 && (
-                <div style={{ padding: 12, fontSize: 12, color: 'var(--tm-text-3)' }}>
-                  {friendQuery ? 'No matches.' : 'No friends found. Use guests below or follow some players first.'}
+            {selectedIds.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {selectedIds.map(sid => (
+                  <span key={sid} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '4px 10px', borderRadius: 999,
+                    background: 'rgba(27,94,59,0.10)',
+                    border: '1px solid rgba(27,94,59,0.32)',
+                    color: 'var(--tm-green-text)', fontSize: 12, fontWeight: 700,
+                  }}>
+                    {friendName(sid)}
+                    <button
+                      onClick={() => toggleFriend(sid)}
+                      aria-label={`Remove ${friendName(sid)}`}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--tm-green-text)', fontSize: 14, padding: 0, lineHeight: 1,
+                      }}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div style={{ position: 'relative' }}>
+              <input
+                value={friendQuery}
+                onFocus={() => setFriendDropdownOpen(true)}
+                onChange={e => {
+                  setFriendQuery(e.target.value)
+                  setFriendDropdownOpen(true)
+                }}
+                placeholder="Search your following + followers"
+                style={inputStyle()}
+              />
+              {friendDropdownOpen && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                  zIndex: 5,
+                  maxHeight: 220, overflowY: 'auto',
+                  border: '1px solid var(--tm-border)', borderRadius: 12,
+                  background: 'var(--tm-surface)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                }}>
+                  {friends === null && (
+                    <div style={{ padding: 12, fontSize: 12, color: 'var(--tm-text-3)' }}>Loading…</div>
+                  )}
+                  {friends && filteredFriends.length === 0 && (
+                    <div style={{ padding: 12, fontSize: 12, color: 'var(--tm-text-3)' }}>
+                      {friendQuery ? 'No matches.' : 'No friends found. Use guests below or follow some players first.'}
+                    </div>
+                  )}
+                  {filteredFriends.map(u => {
+                    const sid = String(u.id)
+                    const sel = selectedIds.includes(sid)
+                    return (
+                      <button key={sid} onClick={() => toggleFriend(sid)} style={{
+                        width: '100%', textAlign: 'left',
+                        padding: '10px 12px',
+                        background: sel ? 'rgba(27,94,59,0.10)' : 'transparent',
+                        border: 'none',
+                        borderBottom: '1px solid rgba(27,94,59,0.06)',
+                        cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tm-text)' }}>{u.name}</span>
+                        {sel && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 800, color: 'var(--tm-green-text)',
+                            background: 'rgba(27,94,59,0.12)',
+                            padding: '2px 8px', borderRadius: 999,
+                          }}>ADDED</span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
-              {filteredFriends.map(u => {
-                const sid = String(u.id)
-                const sel = selectedIds.includes(sid)
-                return (
-                  <button key={sid} onClick={() => toggleFriend(sid)} style={{
-                    width: '100%', textAlign: 'left',
-                    padding: '10px 12px',
-                    background: sel ? 'rgba(27,94,59,0.08)' : 'transparent',
-                    border: 'none',
-                    borderBottom: '1px solid rgba(27,94,59,0.06)',
-                    cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--tm-text)' }}>{u.name}</span>
-                    {sel && (
-                      <span style={{
-                        fontSize: 11, fontWeight: 800, color: 'var(--tm-green-text)',
-                        background: 'rgba(27,94,59,0.12)',
-                        padding: '2px 8px', borderRadius: 999,
-                      }}>SELECTED</span>
-                    )}
-                  </button>
-                )
-              })}
             </div>
+            {/* Tap-to-close affordance behind the dropdown — when open,
+                a transparent overlay covers the rest of the sheet so a
+                tap outside collapses it without committing a selection. */}
+            {friendDropdownOpen && (
+              <div
+                onClick={() => setFriendDropdownOpen(false)}
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 4,
+                  background: 'transparent',
+                }}
+              />
+            )}
           </Field>
 
           {/* Guest names */}
