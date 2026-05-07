@@ -66,6 +66,12 @@ export default function App() {
   // where they left off. Cost is bounded to "tabs you've actually visited."
   // (2026-05-01)
   const [mountedTabs, setMountedTabs] = useState(() => new Set([TABS.HOME]))
+  // Bumps every time the user taps a bottom-nav tab (including taps on the
+  // currently active tab). Children listen via useEffect to reset their
+  // internal navigation state — e.g., Home resets to view='home' so the
+  // profile sub-view doesn't stay sticky when the user taps Home again.
+  // (2026-05-07 PM3.)
+  const [tabPressedAt, setTabPressedAt] = useState(0)
   // Cross-tab "next hole" nudge from the live match's score modal to Eagle
   // Eye. When set, EagleEye picks it up via useEffect, calls setCurrentHole,
   // and clears the nudge via onConsumeEyeHoleNudge. Tight loop:
@@ -297,7 +303,12 @@ export default function App() {
             hidden and not interactive. */}
         {mountedTabs.has(TABS.HOME) && (
           <TabPanel active={tab === TABS.HOME}>
-            <Home user={user} onNavigate={setTab} onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }} />
+            <Home
+              user={user}
+              onNavigate={setTab}
+              onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }}
+              tabPressedAt={tabPressedAt}
+            />
           </TabPanel>
         )}
         {mountedTabs.has(TABS.EYE) && (
@@ -353,8 +364,20 @@ export default function App() {
           </TabPanel>
         )}
 
-        {/* Fixed nav pinned to bottom of screen */}
-        <BottomNav active={tab} onChange={setTab} />
+        {/* Fixed nav pinned to bottom of screen.
+            handleTabPress fires on EVERY tap, including taps on the
+            currently active tab. The tabPressedAt counter increments
+            unconditionally so child tab components can listen for "the
+            user tapped my tab again" and reset their internal view
+            state — e.g., Home resets view='home' so users on My Profile
+            who tap the Home icon land back on the home view instead of
+            having to use the back button. (2026-05-07 PM3 — Matt:
+            'when pressing any icon at the bottom of the page it should
+            bring you to that icons home page'.) */}
+        <BottomNav active={tab} onChange={(nextTab) => {
+          setTabPressedAt(Date.now())
+          if (nextTab !== tab) setTab(nextTab)
+        }} />
       </div>
 
       {/* First-signin permissions prompt. Renders outside the maxWidth

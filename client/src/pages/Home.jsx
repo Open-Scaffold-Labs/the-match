@@ -3639,7 +3639,7 @@ function NotificationsModal({
   )
 }
 
-export default function Home({ onNavigate, onNavigateToOuting }) {
+export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt }) {
   const [profile, setProfile] = useState(null)
   // outgoing: [] was missing here — caused the REQUESTS box to crash
   // on first render (friends.outgoing.length on undefined) before the
@@ -3663,6 +3663,18 @@ export default function Home({ onNavigate, onNavigateToOuting }) {
   // Profile is a sibling view inside the Home tab (not a top-level tab).
   // (2026-05-01)
   const [view, setView] = useState('home')
+  // Reset back to the home view whenever the user taps a bottom-nav tab —
+  // including a tap on the Home tab itself when they're already inside
+  // the Home tab but on the Profile sub-view. (2026-05-07 PM3 — Matt:
+  // "when pressing any icon at the bottom of the page it should bring
+  // you to that icons home page".) tabPressedAt is bumped by App on
+  // every BottomNav tap; this effect runs only when it changes (the
+  // initial 0 → first-tap value), so we skip on mount via the ref-guard.
+  const initialTabPressedAtRef = useRef(tabPressedAt)
+  useEffect(() => {
+    if (tabPressedAt === initialTabPressedAtRef.current) return
+    setView('home')
+  }, [tabPressedAt])
   // Stats data for the Profile view. Loaded alongside the dashboard data
   // so the Profile screen renders instantly when the user taps "My Profile".
   const [stats, setStats]   = useState(null)
