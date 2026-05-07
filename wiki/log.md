@@ -833,3 +833,47 @@ Plus one investigative item: GET /api/auth/me returned 200 on initial fresh-load
 1. Privacy + logout + delete-account (paired Settings page) — closes audit bug #1 + POST-LAUNCH-TODO #11. App-Store-submission blockers.
 2. Forgot-PIN + Settings page polish.
 3. Course-name truncation root-cause.
+
+
+
+## [2026-05-07 PM] feat | Phase A+B+C — settings + logout + privacy + delete-account + forgot-pin + course expansion
+
+Executed all three recommended next-sessions from the morning's audit-2026-05-07 in a single push, then verified end-to-end against live prod.
+
+**Phase A — Course name expansion (audit bug #3):**
+- Server `expandCourseName()` helper in `server/src/routes/courses.js` post-processes vendor abbreviations (`Gl` → `Golf Links`, `Gc` → `Golf Club`, `Cc` → `Country Club`, `G&Cc` → `Golf & Country Club`, `Cl` → `Club`, `Rc` → `Resort Club`). Applied to both `/search` and `/:id` responses.
+- DB backfill script ran across 6 tables (`tm_users.home_course`, `tm_games.course_name`, `tm_match_history.course_name`, `tm_outings.course_name`, `tm_rounds.course_name`, `tm_tee_time_requests.course_name`). 1 row updated (the rest of the existing data was already clean).
+- **Verified live:** searched "Pebble Beach" in onboarding → autocomplete shows "Pebble Beach Golf Links" (was "Pebble Beach Gl"). Confirmed in profile-card display too.
+
+**Phase B — Settings + Sign Out + Privacy Policy + Delete Account (audit HIGH bugs #1 + #2):**
+- Migration `024_tm_user_deletion_fk_relax.sql` — relaxed two FK constraints that previously refused user deletion: `tm_outings.host_id` (NOT NULL+NO ACTION → NULLABLE+SET NULL), `tm_score_audit.edited_by_id` (NO ACTION → SET NULL). Outings + audit log preserved when user deletes; host links become NULL.
+- `DELETE /api/auth/me` — server endpoint with typed-confirm guard (`req.body.confirm === 'DELETE'`). Cascade + set-null FKs handle every child row.
+- `client/src/components/SettingsModal.jsx` — fullscreen overlay with: signed-in-as summary, Privacy Policy link, Sign Out (clears `tm_token` + reload), Danger Zone with typed-DELETE confirmation modal for delete-account.
+- `client/public/privacy.html` — App-Store-required hosted privacy policy. Dark Augusta-night palette, Georgia serif headings, comprehensive coverage (data collected, third-party sharing, retention, your rights, security).
+- `vercel.json` — added rewrite `/privacy` → `/privacy.html` for clean App Store URL.
+- Gear icon added to Home top bar next to "My Profile". Opens SettingsModal.
+- `client/src/lib/api.js` `del()` now accepts an optional body (DELETE /api/auth/me requires `{confirm: 'DELETE'}`).
+- **Verified live:** Settings opens cleanly, Privacy Policy link opens `/privacy` (HTTP 200, 6838 bytes), Sign Out clears `tm_token` and redirects to login.
+
+**Phase C — Forgot PIN flow (audit bug #5):**
+- Migration `025_tm_pin_reset_tokens.sql` — one-time tokens, 30-min expiry, single-shot consumption, cascade delete on user delete. Includes a partial index on `(user_id, expires_at) WHERE consumed_at IS NULL` for the lookup hot path.
+- `POST /api/auth/forgot-pin` — generates a 32-byte base64url token, stores it, builds reset URL `${APP_BASE_URL}/?reset=${token}`. ALWAYS returns 200 to avoid email enumeration. Rate-limited 3/min/IP.
+- `POST /api/auth/reset-pin` — validates token (unconsumed + unexpired), bcrypt-hashes new PIN, marks token consumed, returns fresh JWT.
+- Login.jsx three new modes (`forgot`, `forgotSent`, `reset`) plus the existing `login`/`signup`. "Forgot your PIN?" link below Sign In button. `?reset=TOKEN` URL parsed on mount + scrubbed from history.
+- **EMAIL DELIVERY IS STUBBED**: `sendResetEmail()` console.logs the link instead of sending. Activation requires (1) signing up for Resend or similar, (2) adding `RESEND_API_KEY` to Vercel env, (3) uncommenting the marked block in `auth.js`. Until then, the front-door link works end-to-end in dev (admin reads token from server logs to test).
+- **Verified live:** clicked "Forgot your PIN?" → email-only form rendered → submitted with non-existent email → got the security-correct "If that email is registered, a reset link is on its way" success message.
+
+**Bug spotted + fixed during verification:** `forgotSent` state was rendering the Submit button with default "Sign In" label. Fixed: button hidden in `forgotSent` mode, only the Back-to-sign-in link remains. Commit `b16b18b`.
+
+**Regression check:** `node scripts/smoke-test-auth.js` against the current deploy returned ALL CHECKS PASSED. DELETE /api/auth/me with garbage token returns 401 (auth check works). /privacy returns 200 publicly.
+
+**Test users created + cleaned:** `e2e-test-2026-05-07-1234@example.com` (audit walk earlier today), `verify-2026-05-07@example.com` (Phase D verification this session). Both deleted.
+
+**Audit-2026-05-07 status update:** HIGH bugs #1 + #2 → CLOSED. MEDIUM bugs #3 + #5 → CLOSED. Remaining open: MEDIUM #4 (onboarding wizard not mobile-constrained), MEDIUM #6 (login error contrast), all 5 LOW polish items + handle generation. None are App-Store-submission blockers.
+
+**Next sessions worth considering:**
+1. Wire up Resend (or any email provider) to activate the Forgot PIN flow's actual email send. ~30min including signing up for the provider.
+2. Closeout audit MEDIUM #4 + #6 + the 5 LOW items in one polish-pass session.
+3. Then back to feature work — engagement loops (group chat per match, friends activity feed) or Eagle Eye depth (caddie history, voice commands) per audit-2026-05-07's new-ideas list.
+
+Commits this session: `b96fa13` (audit synthesis), `e201f98` (notebooklm state), `b50f4a2` (JWT rotation cleanup + label fix), `21eea87` (notebooklm state), `56f9d15` (Phase A+B+C feat), `b16b18b` (forgotSent button fix). Pushed to `origin/main`.
