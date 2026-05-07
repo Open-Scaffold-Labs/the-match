@@ -274,7 +274,10 @@ export default function Login({ onLogin }) {
             </div>
           )}
 
-          {/* Submit button — gold polish gradient (matches the ProfileHeroCard "Let's Go" button) */}
+          {/* Submit button — gold polish gradient (matches the ProfileHeroCard "Let's Go" button).
+              Hidden in 'forgotSent' since there's nothing to submit; the only
+              affordance there is the Back-to-sign-in link below. */}
+          {mode !== 'forgotSent' && (
           <button
             onClick={submit}
             disabled={loading}
@@ -296,6 +299,7 @@ export default function Login({ onLogin }) {
           >
             {submitLabel}
           </button>
+          )}
 
           {/* Forgot PIN / back-to-login secondary actions. Subtle row
               under the primary button — matches the existing typography
