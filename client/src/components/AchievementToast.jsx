@@ -34,6 +34,18 @@ function IconForType({ type, size = 26 }) {
   const stroke = '#7A5800'
   const fill   = '#F5D78A'
   switch (type) {
+    case 'first_birdie':
+      // Birdie — small songbird silhouette with a tail flick. Distinct from
+      // the eagle by rounder body + perched stance + visible tail. Added
+      // 2026-05-07 alongside the first_birdie achievement.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <path d="M9 14c0-3 2-5 5-5 1 0 2 0 3 1l2-1-1 2-1 1c0 2-1 4-3 5-2 0-3 0-4-1l-2 3-1-1 2-4z"
+            fill={fill} stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
+          <circle cx="16" cy="11" r="0.7" fill={stroke} />
+          <path d="M19 9l2-1" stroke={stroke} strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
+      )
     case 'first_eagle':
       // Eagle — stylized profile bird silhouette (paint the body in fill,
       // beak/wing line in stroke for definition).

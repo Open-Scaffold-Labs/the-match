@@ -1,5 +1,10 @@
 // ─── lib/achievements.js ────────────────────────────────────────────────────
 // Server-side detection + awarding of the v1 achievement set:
+//   • first_birdie — first hole scored 1-under-par on a par ≥ 3
+//                    (added 2026-05-07 after James Ashe scored a birdie
+//                     mid-round and asked why no badge — the home empty
+//                     state literally promises "Drop a birdie..." but
+//                     only first_eagle was implemented)
 //   • first_eagle  — first hole scored at par-2 or better, OR a 1 on any
 //                    par (a HIO is recognized as an eagle-or-better moment)
 //   • sub_80       — first 18-hole round with total < 80 strokes
@@ -35,6 +40,11 @@ const { sendPushToUser } = require('./push')
 // response payload, so the client can render the toast without an extra
 // fetch) and the GET /api/me/achievements endpoint.
 const META = {
+  first_birdie: {
+    title: 'Birdie!',
+    subtitle: 'First birdie on the card',
+    icon: 'birdie',
+  },
   first_eagle: {
     title: 'Eagle eye',
     subtitle: 'First eagle on the card',
@@ -142,6 +152,23 @@ async function _streakWeekCount(userId) {
 async function checkAfterHoleScore({ user_id, outing_id, hole, par, score, scores, course_par }) {
   const newly = []
   if (!user_id || String(user_id).startsWith('guest_')) return newly
+
+  // first_birdie — score is exactly par - 1 on a par ≥ 3. Independent of
+  // first_eagle: an eagle does NOT trigger first_birdie (different score),
+  // and a user who scores their first eagle without ever birdying still
+  // has first_birdie open until they actually card a 1-under. Both
+  // achievements can fire in the same round; both unlocks queue cleanly
+  // through AchievementToast. (Added 2026-05-07.)
+  const isBirdie =
+    Number.isFinite(score) && Number.isFinite(par) &&
+    par >= 3 && score === par - 1
+  if (isBirdie) {
+    const a = await maybeAwardAchievement(user_id, 'first_birdie', {
+      outing_id,
+      metadata: { hole: Number(hole) + 1, par, score },
+    })
+    if (a) newly.push(a)
+  }
 
   // first_eagle — score is 1 (HIO), or score ≤ par - 2 (eagle/albatross)
   // on a par ≥ 3.
