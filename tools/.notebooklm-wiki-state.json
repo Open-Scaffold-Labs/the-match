@@ -1,22 +1,22 @@
 {
   "wiki/overview.md": {
-    "mtime": 1777500342.2537706,
-    "source_id": "06512a7e-69f2-45d3-be81-bb309de0388f"
+    "mtime": 1778130255.8675916,
+    "source_id": "329f961c-ac38-4878-a283-04cbd4b33c64",
+    "verified_at": 1778130608.233875
   },
   "wiki/log.md": {
-    "mtime": 1778124913.3147104,
-    "source_id": "f7485381-f3f2-4420-9ed8-a31baee02b36",
-    "verified_at": 1778126898.077068
+    "mtime": 1778130463.2101865,
+    "source_id": "7c3720bc-ac82-49ec-8a93-a113e93232b5"
   },
   "wiki/index.md": {
-    "mtime": 1777638864.8846574,
-    "source_id": "2e0fcd59-a2e3-4956-b77b-a8e616627383",
-    "verified_at": 1777639027.952615
+    "mtime": 1778130217.0620036,
+    "source_id": "06b99845-1ff4-4475-af5a-7e6439c6f256",
+    "verified_at": 1778130660.6336262
   },
   "wiki/synthesis/claude-anti-patterns.md": {
-    "mtime": 1777500342.2546115,
-    "source_id": "99fb7ae8-a837-45c6-9068-7915dc51a5f7",
-    "verified_at": 1777501703.295112
+    "mtime": 1778130361.5556011,
+    "source_id": "b1e3fd6a-6130-444d-abac-5e6ce57d49ac",
+    "verified_at": 1778130671.452815
   },
   "wiki/concepts/llm-wiki-pattern.md": {
     "mtime": 1777500342.2565055,
