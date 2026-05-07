@@ -23,6 +23,63 @@ import { tmHaptic } from '../pages/Outing/shared.jsx'
 export default function NewTeeTimeSheet({ user, onClose, onCreated }) {
   // ── Form state ──────────────────────────────────────────────────────────
   const [courseName, setCourseName] = useState('')
+  // 2026-05-06 — course autocomplete. Mirrors CreateWizard's
+  // CoursePicker pattern: ask the browser for coordinates once on
+  // mount, then run a 250ms-debounced GET /api/courses/search whenever
+  // the user types 2+ chars. Results are surfaced in a dropdown
+  // directly under the input. Tap a result → courseName fills, the
+  // dropdown closes. The user can also keep typing a free-form name
+  // (for courses that aren't in the API). (Matt: "should auto
+  // populate with courses closest to you".)
+  const [coords, setCoords] = useState(null)
+  const [courseResults, setCourseResults] = useState([])
+  const [courseSearching, setCourseSearching] = useState(false)
+  const [coursePicked, setCoursePicked] = useState(false)
+  // Ask once on mount. If geolocation is denied or unsupported, we
+  // still search, just without distance ranking.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      ()  => { /* denied — silent fallback */ },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 5 * 60 * 1000 }
+    )
+  }, [])
+  // Debounced search.
+  useEffect(() => {
+    const q = courseName.trim()
+    // After the user has explicitly tapped a result we suppress the
+    // dropdown until they edit again (otherwise typing finishes →
+    // tap → dropdown reopens with same query).
+    if (coursePicked) return
+    if (q.length < 2) {
+      setCourseResults([])
+      setCourseSearching(false)
+      return
+    }
+    setCourseSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q })
+        if (coords) {
+          params.set('lat', String(coords.lat))
+          params.set('lng', String(coords.lng))
+        }
+        const r = await api(`/api/courses/search?${params.toString()}`)
+        setCourseResults(Array.isArray(r?.courses) ? r.courses : [])
+      } catch {
+        setCourseResults([])
+      } finally {
+        setCourseSearching(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [courseName, coords, coursePicked])
+  function pickCourse(c) {
+    setCourseName(c.club_name || c.course_name || '')
+    setCoursePicked(true)
+    setCourseResults([])
+  }
   // Default to tomorrow's date at 8:00 AM — most common case for a
   // tee time you're scheduling the night before.
   const [date, setDate] = useState(() => {
@@ -160,14 +217,71 @@ export default function NewTeeTimeSheet({ user, onClose, onCreated }) {
         </div>
 
         <div style={{ padding: '14px 18px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Course */}
+          {/* Course — autocomplete with closest-first ranking when
+              geolocation is granted. Matches CreateWizard's
+              CoursePicker behavior; query 2+ chars → debounced
+              /api/courses/search with lat/lng → tap a result to
+              select. Free-form typing still works for courses not
+              in the API (the input value submits as-is). */}
           <Field label="Course">
-            <input
-              value={courseName}
-              onChange={e => setCourseName(e.target.value)}
-              placeholder="Type a course (e.g. Weequahic Golf Course)"
-              style={inputStyle()}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                value={courseName}
+                onChange={e => {
+                  setCourseName(e.target.value)
+                  // User edited after picking → re-enable the dropdown.
+                  setCoursePicked(false)
+                }}
+                placeholder={coords ? 'Type a course (closest first)' : 'Type a course'}
+                style={inputStyle()}
+              />
+              {!coursePicked && (courseSearching || courseResults.length > 0) && courseName.trim().length >= 2 && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                  zIndex: 5,
+                  background: 'var(--tm-surface)',
+                  border: '1px solid var(--tm-border)',
+                  borderRadius: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  maxHeight: 240, overflowY: 'auto',
+                }}>
+                  {courseSearching && courseResults.length === 0 && (
+                    <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--tm-text-3)' }}>
+                      Searching{coords ? ' near you' : ''}…
+                    </div>
+                  )}
+                  {!courseSearching && courseResults.length === 0 && (
+                    <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--tm-text-3)' }}>
+                      No matches. Keep typing or use the name as-is.
+                    </div>
+                  )}
+                  {courseResults.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => pickCourse(c)}
+                      style={{
+                        width: '100%', textAlign: 'left',
+                        padding: '10px 14px',
+                        background: 'transparent', border: 'none',
+                        borderBottom: '1px solid rgba(27,94,59,0.06)',
+                        cursor: 'pointer',
+                      }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-text)' }}>
+                        {c.club_name || c.course_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 2 }}>
+                        {[c.location_city, c.location_state].filter(Boolean).join(', ')}
+                        {c.distance_miles != null && (
+                          <span style={{ marginLeft: 6, color: 'var(--tm-gold-text)', fontWeight: 700 }}>
+                            · {c.distance_miles.toFixed(1)} mi
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </Field>
 
           {/* Date + time */}
