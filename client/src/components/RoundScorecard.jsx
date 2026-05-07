@@ -57,9 +57,17 @@ function scoreCellStyle(score, par) {
   return { bg: '#F2EBD3', color: '#0F0F0F', marker: 'double' }                    // double bogey or worse
 }
 
-function ScoreCell({ score, par, w = 32, h = 36 }) {
+// Default score-cell dims match the HOLE + PAR rows (32×28, fontSize 13).
+// Was 32×36 + fontSize 16 before — Matt 2026-05-07 PM3: "the entered
+// scores look super cheap and are not matching up with the hole and par
+// cells above them when they should be same size and look". Markers
+// scale down proportionally so they still pop without overflowing.
+function ScoreCell({ score, par, w = 32, h = 28 }) {
   const { bg, color, marker } = scoreCellStyle(score, par)
   const display = score != null && Number(score) > 0 ? score : '—'
+  // Marker SVG occupies most of the cell height; inset 2px so it doesn't
+  // touch the borders. ViewBox stays 28 so existing path math still works.
+  const markerSize = h - 4
   return (
     <div style={{
       width: w, height: h, position: 'relative', flexShrink: 0,
@@ -67,28 +75,26 @@ function ScoreCell({ score, par, w = 32, h = 36 }) {
       background: bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: '"Arial Black", Arial, sans-serif',
-      fontSize: 16, fontWeight: 900, color,
+      fontSize: 13, fontWeight: 900, color,
     }}>
       {marker === 'eagle' && (
-        <>
-          <svg width="28" height="28" style={{ position: 'absolute', inset: 4 }} viewBox="0 0 28 28">
-            <circle cx="14" cy="14" r="11" fill="none" stroke="#B22222" strokeWidth="1.5" />
-            <circle cx="14" cy="14" r="8.5" fill="none" stroke="#B22222" strokeWidth="1.5" />
-          </svg>
-        </>
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
+          <circle cx="14" cy="14" r="11" fill="none" stroke="#B22222" strokeWidth="1.5" />
+          <circle cx="14" cy="14" r="8.5" fill="none" stroke="#B22222" strokeWidth="1.5" />
+        </svg>
       )}
       {marker === 'birdie' && (
-        <svg width="28" height="28" style={{ position: 'absolute', inset: 4 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
           <circle cx="14" cy="14" r="10" fill="none" stroke="#B22222" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'bogey' && (
-        <svg width="28" height="28" style={{ position: 'absolute', inset: 4 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
           <rect x="3" y="3" width="22" height="22" fill="none" stroke="#0F0F0F" strokeWidth="1.5" />
         </svg>
       )}
       {marker === 'double' && (
-        <svg width="28" height="28" style={{ position: 'absolute', inset: 4 }} viewBox="0 0 28 28">
+        <svg width={markerSize} height={markerSize} style={{ position: 'absolute', inset: 2 }} viewBox="0 0 28 28">
           <rect x="3"   y="3"   width="22" height="22" fill="none" stroke="#0F0F0F" strokeWidth="1.5" />
           <rect x="6.5" y="6.5" width="15" height="15" fill="none" stroke="#0F0F0F" strokeWidth="1.5" />
         </svg>
@@ -206,6 +212,55 @@ function PlayerScorecardBlock({
       {backHoles.length > 0 && (
         <NineHoleGrid label="Back 9" holes={backHoles} holePars={holePars} scores={playerScores} holeCount={holeCount} />
       )}
+      {/* Per-player highlights — eagle / birdie / par / bogey / dbl+ counts
+          for THIS player's round only. Was previously a single global row
+          at the bottom of the modal that confusingly only reflected the
+          focal player's stats; moved here so each player's stats sit in
+          their own card. (2026-05-07 PM3 — Matt: 'should show under each
+          players card with their relevant stats'.) */}
+      <PlayerHighlights scores={playerScores} holePars={holePars} />
+    </div>
+  )
+}
+
+// Compact 5-tile highlights row computed from a player's scores +
+// the course's hole pars. Shared between PlayerScorecardBlock and any
+// other place that wants a per-player highlights summary.
+function PlayerHighlights({ scores, holePars }) {
+  let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
+  ;(scores || []).forEach((s, i) => {
+    const sc = Number(s); const par = (holePars && holePars[i]) || 4
+    if (!Number.isFinite(sc) || sc <= 0) return
+    const d = sc - par
+    if (d <= -2)      eagles++
+    else if (d === -1) birdies++
+    else if (d === 0)  pars++
+    else if (d === 1)  bogeys++
+    else               doubles++
+  })
+  if (eagles + birdies + pars + bogeys + doubles === 0) return null
+  const tiles = [
+    { label: 'EAGLE',  value: eagles,  accent: '#F5E070' },
+    { label: 'BIRDIE', value: birdies, accent: '#F5E070' },
+    { label: 'PAR',    value: pars,    accent: '#fff'    },
+    { label: 'BOGEY',  value: bogeys,  accent: 'rgba(255,255,255,0.65)' },
+    { label: 'DBL+',   value: doubles, accent: '#F87171' },
+  ]
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5,
+      marginTop: 8, marginBottom: 6,
+    }}>
+      {tiles.map(t => (
+        <div key={t.label} style={{
+          borderRadius: 8, padding: '6px 4px', textAlign: 'center',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(232,192,90,0.16)',
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: t.accent, lineHeight: 1 }}>{t.value}</div>
+          <div style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.08em', marginTop: 3 }}>{t.label}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -279,8 +334,10 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
             }}>{subtotalPar}</div>
           </div>
 
-          {/* SCORE row */}
-          <div style={{ display: 'flex', height: 36 }}>
+          {/* SCORE row — height 28 matches HOLE + PAR rows so the grid
+              reads as a single connected scorecard, not three stacked
+              strips. (2026-05-07 PM3 — Matt: 'same size and look'.) */}
+          <div style={{ display: 'flex', height: 28 }}>
             <div style={{
               width: 60, fontSize: 9, fontWeight: 800, color: '#fff',
               letterSpacing: '0.08em',
@@ -289,10 +346,10 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
               borderRight: '1px solid rgba(0,0,0,0.5)',
             }}>SCORE</div>
             {holes.map(h => (
-              <ScoreCell key={h} score={scores[h]} par={holePars[h] || 4} w={HOLE_W} h={36} />
+              <ScoreCell key={h} score={scores[h]} par={holePars[h] || 4} w={HOLE_W} h={28} />
             ))}
             <div style={{
-              width: 38, fontSize: 14, fontWeight: 900, color: '#F5E070',
+              width: 38, fontSize: 13, fontWeight: 900, color: '#F5E070',
               background: '#0F3D1E',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: '"Arial Black", Arial, sans-serif',
@@ -333,27 +390,32 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
     return estimateHolePars(round?.course_par ?? 72, holeCount)
   })()
 
-  // Highlights — count of each scoring category for the summary row
-  const highlights = (() => {
-    let eagles = 0, birdies = 0, pars = 0, bogeys = 0, doubles = 0
-    scores.forEach((s, i) => {
-      const sc = Number(s); const par = holePars[i] || 4
-      if (!Number.isFinite(sc) || sc <= 0) return
-      const d = sc - par
-      if (d <= -2)      eagles++
-      else if (d === -1) birdies++
-      else if (d === 0)  pars++
-      else if (d === 1)  bogeys++
-      else               doubles++
-    })
-    return { eagles, birdies, pars, bogeys, doubles }
-  })()
-
   const total    = Number(round?.total ?? 0)
   const coursePar = Number(round?.course_par ?? 72)
   const diff     = Number.isFinite(total) && total > 0 ? total - coursePar : null
   const diffStr  = diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
   const diffColor = diff == null ? 'rgba(255,255,255,0.40)' : diff < 0 ? '#F5E070' : diff === 0 ? '#fff' : '#F87171'
+
+  // Standings — sort focal + co_participants by total ASC for the
+  // header line "1. James R 81 · 2. You 82 · ...". The focal player
+  // shows as "You" so it reads naturally on your own profile.
+  // (2026-05-07 PM3 — Matt: 'put the standings results in the header
+  // under the date'.)
+  const standings = (() => {
+    const focalEntry = {
+      isFocal: true,
+      name: 'You',
+      total: Number.isFinite(total) && total > 0 ? total : null,
+    }
+    const partnerEntries = (round?.co_participants || []).map(p => ({
+      isFocal: false,
+      name: (p.name || '').split(' ')[0] || (p.is_guest ? 'Guest' : '·'),
+      total: p.total != null ? Number(p.total) : null,
+    }))
+    return [focalEntry, ...partnerEntries]
+      .filter(e => Number.isFinite(e.total))
+      .sort((a, b) => a.total - b.total)
+  })()
 
   const frontHoles = Array.from({ length: Math.min(9, holeCount) }, (_, i) => i)
   const backHoles  = holeCount > 9 ? Array.from({ length: holeCount - 9 }, (_, i) => i + 9) : []
@@ -411,6 +473,31 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
           }}>
             Par {coursePar}
           </div>
+
+          {/* Standings — finishing order across all players in the round.
+              Sorted by total ASC, so the actual winner is "1." regardless
+              of the card display order below (which keeps focal player
+              first by design). (2026-05-07 PM3.) */}
+          {standings.length >= 2 && (
+            <div style={{
+              marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,0.65)',
+              lineHeight: 1.5, fontWeight: 600,
+            }}>
+              {standings.map((e, i) => (
+                <span key={i}>
+                  <span style={{
+                    color: i === 0 ? '#F5E070' : 'rgba(255,255,255,0.55)',
+                    fontWeight: 800, marginRight: 4,
+                  }}>{i + 1}.</span>
+                  <span style={{ color: e.isFocal ? '#F5E070' : '#fff' }}>{e.name}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.50)', marginLeft: 5 }}>{e.total}</span>
+                  {i < standings.length - 1 && (
+                    <span style={{ color: 'rgba(255,255,255,0.25)', margin: '0 8px' }}>·</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Body */}
@@ -427,11 +514,13 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
           )}
           {!loading && !error && (
             <>
-              {/* Focal player — the round's owner. Same card template as
-                  partners; isFocal=true gives a subtle stronger border.
-                  Not tappable (it's the user whose profile we're already
-                  on; tapping their pic to "go to themselves" is a no-op
-                  by design — the parent handles that case if needed). */}
+              {/* Focal player — the round's owner. Same card template
+                  as partners; isFocal=true gives a subtle stronger
+                  border. Tapping your own avatar simply closes the
+                  scorecard (returning to whichever profile view opened
+                  it) — clicking yourself to navigate to your own profile
+                  is a no-op semantically, so closing is the most useful
+                  affordance. (2026-05-07 PM3.) */}
               <PlayerScorecardBlock
                 name={round?.owner_name || 'You'}
                 handle={round?.owner_handle}
@@ -446,7 +535,7 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
                 coursePar={coursePar}
                 frontHoles={frontHoles}
                 backHoles={backHoles}
-                onTap={undefined}
+                onTap={onClose}
               />
 
               {/* Playing partners — every other player in the same outing.
@@ -492,30 +581,9 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
                 </div>
               )}
 
-              {/* Highlights row */}
-              {(highlights.eagles + highlights.birdies + highlights.pars + highlights.bogeys + highlights.doubles) > 0 && (
-                <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6,
-                  marginTop: 6, marginBottom: 12,
-                }}>
-                  {[
-                    { label: 'EAGLE',  value: highlights.eagles,  accent: '#F5E070' },
-                    { label: 'BIRDIE', value: highlights.birdies, accent: '#F5E070' },
-                    { label: 'PAR',    value: highlights.pars,    accent: '#fff'    },
-                    { label: 'BOGEY',  value: highlights.bogeys,  accent: 'rgba(255,255,255,0.65)' },
-                    { label: 'DBL+',   value: highlights.doubles, accent: '#F87171' },
-                  ].map(h => (
-                    <div key={h.label} style={{
-                      borderRadius: 10, padding: '8px 4px', textAlign: 'center',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(232,192,90,0.16)',
-                    }}>
-                      <div style={{ fontSize: 18, fontWeight: 900, color: h.accent, lineHeight: 1 }}>{h.value}</div>
-                      <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.08em', marginTop: 4 }}>{h.label}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Old global highlights row was removed 2026-05-07 PM3 —
+                  it had only the focal player's stats but read as an
+                  aggregate. Highlights are now per-card via PlayerHighlights. */}
             </>
           )}
         </div>
