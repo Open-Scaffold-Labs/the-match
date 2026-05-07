@@ -2809,9 +2809,13 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           everything else it reads "TEAM STANDINGS · BEST BALL". */}
       {bestBallTeams.length > 0 && (
         <div style={{
-          margin: '12px 12px 0', padding: '10px 14px',
-          background: 'linear-gradient(180deg, rgba(245,215,138,0.10), rgba(201,160,64,0.04))',
-          border: '1px solid rgba(245,215,138,0.30)',
+          margin: '12px 12px 0', padding: '12px 14px',
+          // 2026-05-06 — solid forest-green pill so the team-standings
+          // card actually reads on the cream Augusta page background
+          // (earlier translucent gold-on-gold was washed out).
+          background: 'linear-gradient(180deg, #1A4A24 0%, #0E3B23 100%)',
+          border: '1px solid rgba(245,215,138,0.45)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
           borderRadius: 14,
         }}>
           {/* Header row — match-play headline OR plain label */}
