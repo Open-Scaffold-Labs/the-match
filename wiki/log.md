@@ -8,6 +8,59 @@ updated: YYYY-MM-DD
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-05-06] refactor | PushNudgeBanner — close the loop on missing push subs
+
+After Matt scheduled a tee time for two friends (Daniel christie + James
+Ashe) using the new manual scheduler, he asked whether they'd received a
+push notification. They hadn't — a DB query against `tm_push_subscriptions`
+showed both invitees had **0 rows**. The server-side push code in
+`POST /api/games` ran cleanly but had no endpoints to push to, so it
+silently no-op'd. The in-app surface was unaffected (game showed up in
+their Upcoming Tee Times next time they opened the app, since that
+polls `tm_game_participants` directly), but the OS-level alert never
+fired.
+
+Root cause was an awareness gap: invitees who skipped the
+`PermissionsPrompt` on first sign-in never get re-prompted, so their
+device's `Notification.permission` stays at `default` and
+`ensurePushSubscription()` never registers them.
+
+**Fix — `PushNudgeBanner.jsx`** (commit `5baf7ed`):
+- Inline reminder rendered at the top of the TEE TIMES section on Home,
+  only when the current user isn't subscribed
+- Three states:
+  - **`pwa-install`** — iOS Safari outside a home-screen install. Web
+    push is impossible here until the app is installed. Banner shows
+    "Add to your Home Screen" hint (Share → Add to Home Screen).
+  - **`default`** — permission hasn't been asked. Inline "Turn on"
+    button calls `Notification.requestPermission` then
+    `ensurePushSubscription` — single tap to fix the gap.
+  - **`denied`** — user previously declined. Banner explains
+    "Enable in Settings → The Match → Notifications" because we can't
+    re-prompt programmatically.
+- Dismissible per user via `localStorage` (`tm-push-nudge-dismissed-<userId>`)
+  so it doesn't nag once they've explicitly opted out.
+- Re-checks state on `visibilitychange` (user came back from Settings).
+- After a state flip to granted, calls `ensurePushSubscription()` once
+  to make sure the server-side row gets written.
+
+Wiring: imported into `Home.jsx`, placed inside the TEE TIMES
+translucent-glass box just above the "+ Schedule a Tee Time" button.
+Color tokens lean gold/amber to read as a heads-up rather than
+urgent (red).
+
+Why this surface specifically: TEE TIMES is where the missing-push
+consequence bites hardest — when you invite a friend to a tee time and
+they don't see the OS-level alert, they only discover it next time they
+happen to open the app.
+
+**Files:**
+- `client/src/components/PushNudgeBanner.jsx` (new, ~165 lines)
+- `client/src/pages/Home.jsx` (import + one usage)
+
+Build passes (warnings about pre-existing duplicate `display` keys in
+LiveOuting.jsx are unrelated; not drive-by fixed per code-discipline rule).
+
 ## [2026-05-06] refactor | Post-polish bug-cluster + UX fixes (live-fire pass)
 
 After the polish pass landed (commit d472d35), Matt walked through it on
