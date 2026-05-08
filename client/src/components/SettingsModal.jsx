@@ -118,12 +118,18 @@ export default function SettingsModal({ user, onClose }) {
       background: 'rgba(7,12,9,0.92)',
       overflowY: 'auto', WebkitOverflowScrolling: 'touch',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      // Bottom padding now uses safe-area inset so the content clears the
-      // home indicator on iOS without leaving a giant dead zone on
-      // shorter screens. Horizontal padding shrinks slightly so the
-      // 480-max-width inner card still has breathing room on tablets
-      // but data fills the 390px iPhone width comfortably.
-      padding: '20px 16px calc(40px + env(safe-area-inset-bottom)) 16px',
+      // Top padding uses max(20px, safe-area-inset-top) so content
+      // clears the iOS notch / status bar on phones — same pattern
+      // as EagleEye + PlayerCard. Was a hard-coded 20px which left
+      // the Settings header sitting on the notch on iPhones with a
+      // notch (any 14+/Pro). Bottom padding uses safe-area-inset-bottom
+      // so content clears the home indicator without leaving a giant
+      // dead zone on shorter screens. Horizontal padding shrinks
+      // slightly so the 480-max-width inner card still has breathing
+      // room on tablets but data fills the 390px iPhone width
+      // comfortably. (2026-05-07 PM3 — Matt: 'settings page is still
+      // too high up on the screen on the phone'.)
+      padding: 'max(20px, env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)) 16px',
       boxSizing: 'border-box',
     }}>
       {/* Header bar — same in both sub-views. The "Done" button always
