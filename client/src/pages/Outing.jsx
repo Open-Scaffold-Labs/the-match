@@ -18,11 +18,12 @@
 // 'spectate') and route to the right sub-view. Cross-cutting handoffs
 // (pending players, pending league, pending join code from QR scan)
 // flow through here too.
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { post } from '../lib/api.js'
 import CoachMark from '../components/CoachMark.jsx'
 import ActiveRound from './ActiveRound.jsx'
 import OutingHub, { RivalryDetail } from './Outing/OutingHub.jsx'
+import { readSavedSoloRound } from '../lib/solo-round.js'
 import LiveOuting from './Outing/LiveOuting.jsx'
 import EndMatchScreen from './Outing/EndMatchScreen.jsx'
 import CodeShare from './Outing/CodeShare.jsx'
@@ -43,6 +44,28 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
   // Reuses PublicLeaderboard; wrapped with a back chevron so the user
   // returns to OutingHub instead of being trapped on the public board.
   const [spectateCode, setSpectateCode] = useState(null)
+
+  // 2026-05-07 PM — auto-resume an in-progress solo round on first
+  // mount. Bug we're closing: pull-to-refresh during a solo round
+  // reloads the page, Outing.jsx remounts with view='hub' (default),
+  // ActiveRound never mounts, so its localStorage restore (which was
+  // the only path for resuming a saved round) never runs — user
+  // is silently kicked out of the round even though their data is
+  // safely saved. Reading localStorage HERE means any reload puts
+  // the user right back where they were. Gated by soloResumeCheckedRef
+  // so the effect only fires once per Outing mount; subsequent navs
+  // (back arrow → hub, then back to Outing tab) won't re-route the
+  // user against their will. Matt: 'pulling to refresh backs u out
+  // of your solo round'.
+  const soloResumeCheckedRef = useRef(false)
+  useEffect(() => {
+    if (soloResumeCheckedRef.current) return
+    if (!user?.id) return
+    soloResumeCheckedRef.current = true
+    if (readSavedSoloRound(user.id)) {
+      setView('solo')
+    }
+  }, [user?.id])
 
   // 2026-05-05 — QR-scan auto-join. App.jsx parses ?join=ABCD off the
   // URL (or pulls a stash from localStorage post-onboarding) and

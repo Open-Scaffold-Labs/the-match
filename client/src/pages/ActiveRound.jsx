@@ -16,6 +16,7 @@ import {
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
+import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
@@ -711,11 +712,12 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 // ─── Main ActiveRound Component ───────────────────────────────────────────────
 // 2026-05-05 — localStorage key for resuming an in-progress solo round
 // after a page reload (network drop, accidental refresh, pull-to-refresh,
-// background-tab eviction). The bug this fixes was discovered when a
-// real user (Sean) lost an in-progress round to a reload. Before this,
-// all round state lived in React only and was wiped on any page reload.
-// Scoped per-user so two accounts on the same device don't collide.
-const SOLO_ROUND_STORAGE_KEY = uid => `tm-active-round-v1-${uid || 'anon'}`
+// background-tab eviction). Hoisted to lib/solo-round.js 2026-05-07 so
+// Outing.jsx and OutingHub.jsx can share the same source of truth — the
+// previous in-file definition meant only ActiveRound knew about saved
+// rounds, which broke the resume pipeline after a full page reload (see
+// lib/solo-round.js for the full bug narrative).
+const SOLO_ROUND_STORAGE_KEY = SOLO_KEY_LIB
 
 export default function ActiveRound({ user, onBack }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'

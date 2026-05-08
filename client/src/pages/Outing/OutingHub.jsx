@@ -4,6 +4,7 @@ import {
   PlayerAvatar, initials, copyCode, wlLabel, relDate, fmtOpponents,
 } from './shared.jsx'
 import { SkeletonCard } from '../../components/primitives/Skeleton.jsx'
+import { readSavedSoloRound, SOLO_ROUND_STORAGE_KEY } from '../../lib/solo-round.js'
 
 // ─── Outing/OutingHub.jsx ─────────────────────────────────────────────────
 // The Scorecard tab's main landing page (formerly the "Match" tab).
@@ -26,6 +27,12 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
   // active matches. Polled every 30s, visibility-aware (pauses when tab
   // is hidden, refetches immediately on focus). Tap a card → onSpectate.
   const [friendsLive, setFriendsLive] = useState([])
+  // 2026-05-07 PM — saved solo round (from localStorage). When present
+  // the Live Now strip renders a Resume Solo Round card alongside the
+  // multi-player matches. Refreshed on mount + visibilitychange so a
+  // round saved/cleared in another tab is reflected when the user
+  // returns. Matt: 'doesnt show up in live rounds'.
+  const [savedSolo, setSavedSolo] = useState(() => readSavedSoloRound(user?.id))
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +58,9 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
         const fl = await api('/api/outings/friends-live')
         if (!cancelled) setFriendsLive(fl.outings || [])
       } catch { /* swallow — next tick will retry */ }
+      // Re-read the saved solo round on every visibility resume too,
+      // so a round started/finished in another tab is reflected here.
+      if (!cancelled) setSavedSolo(readSavedSoloRound(user?.id))
     }
     function start() {
       if (interval) return
@@ -67,6 +77,13 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
         stop()
       }
     }
+    // Re-read savedSolo on mount + whenever user.id changes (e.g.,
+    // initial cold-load race where Outing mounts before /api/profile
+    // resolves, then user.id flips from null to a real id). Without
+    // this the initial useState initializer reads with anon-uid key
+    // and never refreshes — the resume card stays hidden even though
+    // a saved round exists.
+    setSavedSolo(readSavedSoloRound(user?.id))
     if (document.visibilityState === 'visible') start()
     document.addEventListener('visibilitychange', onVis)
     return () => {
@@ -74,7 +91,7 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
       stop()
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [])
+  }, [user?.id])
 
   // Split LIVE matches out of Recent — they get promoted to the Live Now strip
   const liveMatches     = recentOutings.filter(o => o.status === 'active')
@@ -151,7 +168,11 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
         )}
 
         {/* ─── Live Now strip ─────────────────────────────────────────── */}
-        {!loading && liveMatches.length > 0 && (
+        {/* Renders when EITHER a multi-player match is active OR the user
+            has an in-progress solo round saved in localStorage. The solo
+            card sits at the top of the strip — it's the user's own round,
+            so it takes precedence over their other multi-player matches. */}
+        {!loading && (savedSolo || liveMatches.length > 0) && (
           <div>
             <div style={{
               fontSize: 12, fontWeight: 800, color: '#1A6B28',
@@ -165,6 +186,22 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
               }} />
               Live Now
             </div>
+            {savedSolo && (
+              <SoloRoundLiveCard
+                saved={savedSolo}
+                onResume={onSoloRound}
+                onDiscard={() => {
+                  // Only nuke after explicit confirm — losing a 12-hole
+                  // card to a misclick would be infuriating. Refresh
+                  // local state from the source after delete.
+                  if (!window.confirm('Discard this solo round? Scores entered will be lost.')) return
+                  try {
+                    localStorage.removeItem(SOLO_ROUND_STORAGE_KEY(user?.id))
+                  } catch { /* localStorage disabled — no-op */ }
+                  setSavedSolo(null)
+                }}
+              />
+            )}
             {visibleLive.map(o => (
               <LiveMatchCard
                 key={o.id} o={o}
@@ -381,6 +418,104 @@ function FriendsLiveCard({ o, onTap }) {
         </svg>
       </div>
     </button>
+  )
+}
+
+// ─── Solo Round Live Card ────────────────────────────────────────────────────
+// Renders inside the Live Now strip when the user has an in-progress
+// solo round saved in localStorage. Tapping the card resumes the round
+// (callback comes from the parent's onSoloRound, which sets view='solo'
+// in Outing.jsx so ActiveRound mounts and reads localStorage). Small
+// "Discard" link nukes the saved round after a confirm — guards against
+// the situation where a user finished a round IRL but never saved
+// in-app, and now an old card is permanently in their Live Now strip.
+// (2026-05-07 PM — Matt: 'doesnt show up in live rounds'.)
+function SoloRoundLiveCard({ saved, onResume, onDiscard }) {
+  const config = saved?.config || {}
+  const scores = Array.isArray(saved?.scores) ? saved.scores : []
+  const pars   = Array.isArray(config.pars) ? config.pars : []
+  const holesPlayed = scores.filter(s => s > 0).length
+  const totalScore  = scores.reduce((s, x) => s + (Number(x) || 0), 0)
+  const playedPar   = scores.reduce((s, x, i) => x > 0 ? s + (pars[i] || 4) : s, 0)
+  const diff        = totalScore > 0 ? totalScore - playedPar : null
+  const diffStr     = diff == null ? '—'
+                    : diff === 0   ? 'E'
+                    : diff > 0     ? `+${diff}`
+                    : `${diff}`
+  const diffColor   = diff == null ? 'rgba(13,31,18,0.45)'
+                    : diff < 0     ? '#1A6B28'
+                    : diff === 0   ? 'rgba(13,31,18,0.75)'
+                    :                '#B91C1C'
+  const courseName  = config.courseName || 'Solo Round'
+
+  return (
+    <div style={{
+      position: 'relative',
+      background: 'linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(248,242,222,0.92) 100%)',
+      border: '1px solid rgba(232,192,90,0.35)',
+      borderRadius: 14,
+      padding: '14px 16px',
+      marginBottom: 10,
+      boxShadow: '0 4px 14px rgba(0,0,0,0.10)',
+    }}>
+      <button
+        onClick={onResume}
+        style={{
+          appearance: 'none', background: 'transparent', border: 'none', padding: 0,
+          width: '100%', textAlign: 'left', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 12,
+          font: 'inherit', color: 'inherit',
+        }}
+        aria-label="Resume solo round"
+      >
+        {/* Solo badge — small Augusta-gold pill so the card reads as
+            distinct from multi-player Live cards at a glance. */}
+        <div style={{
+          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+          background: 'linear-gradient(135deg, #E8C05A, #C9A040)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#0D1F12', fontWeight: 900, fontSize: 11,
+          letterSpacing: '0.06em',
+          fontFamily: '"Arial Black", Arial, sans-serif',
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.40), inset 0 -1px 2px rgba(0,0,0,0.20)',
+        }}>SOLO</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 15, fontWeight: 800, color: '#0D1F12',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{courseName}</div>
+          <div style={{
+            fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {holesPlayed > 0
+              ? <span>thru {holesPlayed} of {pars.length}</span>
+              : <span>Not started yet</span>}
+            {totalScore > 0 && (
+              <>
+                <span style={{ color: 'rgba(13,31,18,0.30)' }}>·</span>
+                <span style={{ color: '#0D1F12', fontWeight: 700 }}>{totalScore}</span>
+                <span style={{ color: diffColor, fontWeight: 800 }}>{diffStr}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{
+          fontSize: 13, fontWeight: 800, color: '#1A6B28',
+          letterSpacing: '0.04em', flexShrink: 0,
+        }}>Resume →</div>
+      </button>
+      {/* Discard — bottom-right small link. Doesn't compete with Resume. */}
+      <button
+        onClick={onDiscard}
+        style={{
+          appearance: 'none', background: 'transparent', border: 'none',
+          padding: '4px 0 0 56px', marginTop: 4,
+          fontSize: 11, fontWeight: 600, color: 'rgba(13,31,18,0.45)',
+          cursor: 'pointer', textDecoration: 'underline',
+        }}
+      >Discard saved round</button>
+    </div>
   )
 }
 
