@@ -3662,14 +3662,32 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt }) {
   // 'home' = dashboard, 'profile' = full profile + stats screen.
   // Profile is a sibling view inside the Home tab (not a top-level tab).
   // (2026-05-01)
-  const [view, setView] = useState('home')
+  // View persistence — same pattern as App's tm-last-tab. Survives
+  // pull-to-refresh + window.location.reload() so a user on My Profile
+  // doesn't bounce back to the home view when they refresh. (2026-05-07
+  // PM3 — Matt: 'when on my profile, and I do the pull to refresh it
+  // brings me back to home screen... I should remain on the screen
+  // that I'm on'.) Validated against the known set so a corrupted /
+  // stale value falls back to 'home' instead of crashing the render.
+  const VIEW_STORAGE_KEY = 'tm-home-view'
+  const VALID_VIEWS = ['home', 'profile']
+  const [view, setView] = useState(() => {
+    try {
+      const v = localStorage.getItem(VIEW_STORAGE_KEY)
+      if (VALID_VIEWS.includes(v)) return v
+    } catch { /* ignore — Safari private mode etc. */ }
+    return 'home'
+  })
+  useEffect(() => {
+    try { localStorage.setItem(VIEW_STORAGE_KEY, view) } catch { /* ignore */ }
+  }, [view])
+
   // Reset back to the home view whenever the user taps a bottom-nav tab —
   // including a tap on the Home tab itself when they're already inside
-  // the Home tab but on the Profile sub-view. (2026-05-07 PM3 — Matt:
-  // "when pressing any icon at the bottom of the page it should bring
-  // you to that icons home page".) tabPressedAt is bumped by App on
-  // every BottomNav tap; this effect runs only when it changes (the
-  // initial 0 → first-tap value), so we skip on mount via the ref-guard.
+  // the Home tab but on the Profile sub-view. (2026-05-07 PM3.) The
+  // ref-guard skips the initial mount so a freshly-mounted Home with a
+  // restored view='profile' from localStorage doesn't get clobbered by
+  // the effect's first run.
   const initialTabPressedAtRef = useRef(tabPressedAt)
   useEffect(() => {
     if (tabPressedAt === initialTabPressedAtRef.current) return
