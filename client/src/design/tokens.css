@@ -235,6 +235,22 @@
     78%  { opacity: 1; transform: translateY(0)    scale(1); }
     100% { opacity: 0; transform: translateY(-4px) scale(1); }
   }
+
+  /* Legendary-tier achievement card animations. Slow shimmer drives
+     the gold gradient bg horizontally; orbiting dashed ring around
+     the badge sells "this is special". Combined with the standard
+     tm-celebrate-pop entrance for a multi-stage feel.
+     (2026-05-07 PM — Matt: 'make bigger achievements feel really
+     special for the user'.) */
+  @keyframes tm-legendary-shimmer {
+    0%   { background-position:   0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position:   0% 50%; }
+  }
+  @keyframes tm-legendary-orbit {
+    0%   { transform: rotate(0deg);   }
+    100% { transform: rotate(360deg); }
+  }
 }
 
 /* ═══════════════════════════════════════════

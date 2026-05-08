@@ -43,16 +43,30 @@ router.get('/', async (req, res) => {
 
 // POST /api/rounds
 router.post('/', async (req, res) => {
-  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots } = req.body
+  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars } = req.body
   const total = scores?.reduce((s, x) => s + (x ?? 0), 0) ?? 0
+
+  // 2026-05-07 PM — holePars accepted from solo client so the
+  // server can detect per-hole achievements (first_birdie, first_eagle,
+  // first_par, hole_in_one) AND persist real pars on the row (so
+  // RoundScorecard renders the actual pars on re-open instead of
+  // estimateHolePars's synthetic spread). Validate it's an array of
+  // numeric pars before storing — anything else is ignored. Stored
+  // via migration 027.
+  const cleanHolePars = Array.isArray(holePars)
+    && holePars.length > 0
+    && holePars.every(p => Number.isFinite(Number(p)) && Number(p) >= 3 && Number(p) <= 6)
+    ? holePars.map(p => Number(p))
+    : null
 
   const row = await db.one(
     `INSERT INTO tm_rounds
-       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING id`,
     [req.user.id, courseName, coursePar ?? 72, courseRating, slopeRating,
-     gameType ?? 'stroke', JSON.stringify(scores ?? []), JSON.stringify(shots ?? []), total]
+     gameType ?? 'stroke', JSON.stringify(scores ?? []), JSON.stringify(shots ?? []), total,
+     cleanHolePars ? JSON.stringify(cleanHolePars) : null]
   )
 
   // 2026-05-05 — AWAITED. Was fire-and-forget which silently failed
@@ -75,6 +89,11 @@ router.post('/', async (req, res) => {
       total,
       scores,
       course_par: Number(coursePar) || 72,
+      // 2026-05-07 PM — pass the cleaned hole pars so the per-hole
+      // achievements (first_birdie, first_eagle, first_par, hole_in_one)
+      // can detect on solo rounds. Falls back to null when the client
+      // didn't send pars or they failed validation.
+      holePars:   cleanHolePars,
     })
   } catch (e) {
     console.warn('[achievements] check after solo round failed', e.message)
@@ -106,8 +125,14 @@ router.post('/', async (req, res) => {
 // the My Profile view opens.)
 router.get('/:id', async (req, res) => {
   const row = await db.one(
+    // 2026-05-07 PM — COALESCE the round's own hole_pars (set on solo
+    // rounds via migration 027) with the outing's hole_pars (set on
+    // matches). For solo rounds tm_outings JOIN returns null, so we
+    // fall through to r.hole_pars; for outing-linked rounds r.hole_pars
+    // is null and we use the outing's. Either way the response field
+    // stays "hole_pars" so the client doesn't change.
     `SELECT r.*,
-            o.hole_pars,
+            COALESCE(r.hole_pars, o.hole_pars) AS hole_pars,
             o.course_name AS outing_course_name,
             o.state AS outing_state,
             u.name   AS owner_name,

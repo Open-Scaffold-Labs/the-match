@@ -17,6 +17,7 @@ import {
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
 import { SavedChip } from './Outing/LiveOuting.jsx'
+import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 
 const CLUBS = [
@@ -589,6 +590,15 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
   // ('board'). Same SCORECARD/BOARD toggle multi-player matches use.
   // Matt: 'allow solo round to view score in board view as well'.
   const [viewMode, setViewMode] = useState('scorecard')
+  // 2026-05-07 PM — celebration share-card modal for sub-par + HIO
+  // scores. Same HighlightShareModal LiveOuting fires for multi-player
+  // birdies/eagles/holes-in-one. Solo had nothing here, so a hole-in-one
+  // saved silently with just the SavedChip — felt undersold. Matt:
+  // 'solo rounds should also receive the same pop ups for hole in ones,
+  // eagles, birdies etc that multi player matches have'. Held in this
+  // component instead of bubbled up so the modal only renders during
+  // active scoring (not during setup or summary phases).
+  const [celebrate, setCelebrate] = useState(null)
   const holeCount = config.pars.length
   const totalPar  = config.pars.reduce((s, p) => s + p, 0)
   const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
@@ -611,6 +621,8 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
 
   function handleSaveScore(val) {
     if (editingHole == null) return
+    const par = config.pars[editingHole] || 4
+    const holeNumberDisplay = editingHole + 1
     onScoreHole(editingHole, val)
     setEditingHole(null)
     // Fire the gold "Saved" chip — same UX as LiveOuting. Score is
@@ -619,6 +631,18 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
     // can fire right away (no waiting on a server roundtrip — solo
     // rounds only POST when the user finishes, not per hole).
     setSavedAt(Date.now())
+    // Birdie / eagle / HIO celebration — same shouldCelebrate gate
+    // multi-player uses. Solo fires the modal client-side immediately
+    // (no server roundtrip per hole), keying off the saved score +
+    // the hole's par. (2026-05-07 PM — Matt: 'solo rounds should also
+    // receive the same pop ups for hole in ones, eagles, birdies etc'.)
+    if (shouldCelebrate(Number(val), Number(par))) {
+      setCelebrate({
+        score: Number(val),
+        par: Number(par),
+        holeNumber: holeNumberDisplay,
+      })
+    }
     // Auto-advance the active-hole highlight to the next unfilled hole
     // so the gold flag pin tracks the user's progress without forcing
     // them to manually pick the next one. (Same UX as HoleScorer's
@@ -633,10 +657,7 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
   }
 
   return (
-    // position:relative so the absolute-positioned GET DISTANCES pill
-    // anchors to this container instead of the document. Same pattern
-    // LiveOuting uses for its own floating pill. (2026-05-07 PM)
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div style={{
         // Top padding clears the iOS notch via --safe-top — same pattern
@@ -792,15 +813,17 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
         />
       )}
 
-      {/* Footer — Finish Round button. Gold gradient when all holes are
-          scored; muted-but-tappable when not (we still let the user
-          finish early — the existing summary view handles partial cards
-          gracefully). Subtitle hint shows progress so the user knows
-          how many holes are left. */}
-      <div style={{ padding: '12px 16px', flexShrink: 0 }}>
+      {/* Footer — Finish Round button on the left, GET DISTANCES pill on
+          the right. Both flexShrink:0 so they stay visible while the
+          body scrolls (satisfies "floats with scroll"). Earlier
+          implementation had GET DISTANCES position:absolute at
+          bottom:80, which overlapped the BACK 9 score row's right
+          cells. (2026-05-07 PM — Matt: 'shouldnt be blocking cells in
+          the scoreboard so move it down a tiny bit'.) */}
+      <div style={{ padding: '12px 16px', flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 8 }}>
         <button onClick={() => { tmHaptic(15); onFinish() }}
           style={{
-            width: '100%', padding: '14px',
+            flex: 1, padding: '14px',
             borderRadius: 'var(--tm-radius-lg)',
             background: allDone
               ? 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))'
@@ -809,8 +832,35 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
             color: allDone ? 'var(--tm-text-inv)' : 'var(--tm-text-2)',
             fontWeight: 800, fontSize: 15, cursor: 'pointer',
           }}>
-          {allDone ? 'Finish Round' : `Finish Early · ${holesPlayed}/${holeCount} scored`}
+          {allDone ? 'Finish Round' : `Finish · ${holesPlayed}/${holeCount}`}
         </button>
+        {/* GET DISTANCES pill — same gold gradient + chevron LiveOuting
+            uses (~line 3489). Flex-aligned to the Finish button's
+            height so they read as one footer row. Hidden when the
+            round is complete (no need for distances) or no parent
+            handler. (2026-05-07 PM — moved into footer to stop
+            blocking BACK 9 cells.) */}
+        {onGoToEagleEye && !allDone && (
+          <button
+            onClick={() => onGoToEagleEye(hole + 1)}
+            style={{
+              flexShrink: 0,
+              background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
+              border: '1px solid rgba(245,215,138,0.6)',
+              borderRadius: 'var(--tm-radius-lg)',
+              padding: '14px 16px',
+              color: '#0D1F12',
+              fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.30), 0 0 0 1px rgba(245,215,138,0.15)',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontFamily: 'inherit',
+            }}
+          >
+            DISTANCES
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        )}
       </div>
 
       {editingHole != null && (
@@ -826,43 +876,25 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
         />
       )}
 
-      {/* Floating GET DISTANCES pill — same gold pill LiveOuting renders
-          for multi-player matches (~line 3489). Anchored bottom-right
-          and floats over the scrolling boards. Bottom offset 80 puts it
-          above the Finish Round footer (which is ~64-70px tall). Hidden
-          when all holes are scored (no distances needed for a finished
-          round) or when the score modal is open (covered by the modal
-          anyway). Tap → jumps to Eagle Eye on the active hole; Eagle
-          Eye expects 1-indexed hole numbers, our `hole` state is
-          0-indexed. (2026-05-07 PM — Matt: 'should have a get
-          distances button that floats with the page on scroll'.) */}
-      {onGoToEagleEye && !allDone && editingHole == null && (
-        <button
-          onClick={() => onGoToEagleEye(hole + 1)}
-          style={{
-            position: 'absolute',
-            bottom: 80, right: 16,
-            background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
-            border: '1px solid rgba(245,215,138,0.6)',
-            borderRadius: 999, padding: '10px 16px',
-            color: '#0D1F12',
-            fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
-            cursor: 'pointer',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            fontFamily: 'inherit',
-            zIndex: 30,
-          }}
-        >
-          GET DISTANCES
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-      )}
-
       {/* "Saved" confirmation chip — same gold flash that LiveOuting
           shows for multi-player score commits. Portals itself to
           document.body so positioning is viewport-relative. */}
       <SavedChip savedAt={savedAt} />
+
+      {/* Celebration share-card modal — same one LiveOuting fires for
+          multi-player birdies/eagles/HIO. shouldCelebrate gates entry;
+          modal handles its own portal + animation. (2026-05-07 PM) */}
+      {celebrate && (
+        <HighlightShareModal
+          playerName={user?.name || 'You'}
+          avatarUrl={user?.avatar}
+          score={celebrate.score}
+          par={celebrate.par}
+          holeNumber={celebrate.holeNumber}
+          courseName={config.courseName}
+          onClose={() => setCelebrate(null)}
+        />
+      )}
     </div>
   )
 }
@@ -1065,6 +1097,13 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
         slopeRating:  null,
         gameType:     'stroke',
         scores:       scores,
+        // 2026-05-07 PM — include per-hole pars so the server can
+        // detect per-hole achievements (first_birdie, first_eagle,
+        // first_par, hole_in_one) on solo rounds. Previously only
+        // round-level achievements (sub_80, streak_week) fired for
+        // solo. Matt: 'players can receive achievements on solo rounds
+        // as well'.
+        holePars:     config.pars,
         shots:        shots,
       })
       // 2026-05-06 (polish task #5) — fire the global achievement event
