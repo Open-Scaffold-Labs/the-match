@@ -201,6 +201,23 @@ export default function App() {
     if (typeof navigator === 'undefined' || !navigator.serviceWorker) return
     function onMessage(e) {
       const d = e?.data
+      // 2026-05-07 PM — handle the "new SW activated" broadcast first.
+      // Without this the user's PWA tab keeps running its old loaded
+      // bundle until they manually reload — which is how Matt got
+      // stuck on a 7-commits-stale build today (celebration modal,
+      // SoloScoreModal, rarity tiers, all missing client-side even
+      // though prod had them). location.reload() forces the browser
+      // to re-fetch index.html, which references the latest hashed
+      // bundle. SkipWaiting + claim mean the SW is already in control,
+      // so the next load gets the fresh code immediately.
+      if (d && d.kind === 'sw-activated') {
+        // Tiny delay so any in-flight microtasks (analytics, save
+        // confirmations) have a moment to settle before we kick the
+        // user. Long enough to feel intentional, short enough they
+        // shouldn't notice.
+        setTimeout(() => { try { window.location.reload() } catch { /* ignore */ } }, 500)
+        return
+      }
       if (!d || d.kind !== 'push') return
       const tag = d?.payload?.tag || ''
       if (!tag.startsWith('achievement-')) return

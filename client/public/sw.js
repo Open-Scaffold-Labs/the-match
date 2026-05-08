@@ -25,6 +25,21 @@ self.addEventListener('activate', (e) => {
     // Take control of pages that were already open when this SW
     // activated (otherwise they'd keep using the old SW until reload).
     await self.clients.claim()
+
+    // 2026-05-07 PM — broadcast a "new version" message to every
+    // foregrounded client so App.jsx can trigger a reload (or show a
+    // toast). Without this, a freshly-activated SW would just sit
+    // there holding new code while open tabs keep running the old
+    // bundle they loaded before the deploy. Real bug Matt hit today:
+    // his iPhone PWA was running an index-DOrG4P8T.js bundle from
+    // before the SoloScoreboard rewrite while production had moved on
+    // through 7+ commits — celebration modal, rarity tiers, even the
+    // SoloScoreModal itself were missing client-side. Now: SW update
+    // → claim → broadcast → client refreshes within seconds.
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    clients.forEach(c => {
+      try { c.postMessage({ kind: 'sw-activated' }) } catch { /* ignore */ }
+    })
   })())
 })
 
