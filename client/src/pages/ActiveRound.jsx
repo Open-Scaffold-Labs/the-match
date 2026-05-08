@@ -101,7 +101,13 @@ function SetupSheet({ onStart, onBack }) {
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--tm-gold-text)', marginBottom: 4 }}>Start Round</div>
         <div style={{ fontSize: 14, color: 'var(--tm-text-3)' }}>Set up your scorecard</div>
       </div>
-      <div className="page-scroll" style={{ padding: '20px', gap: 18, display: 'flex', flexDirection: 'column' }}>
+      {/* Body sizes to content so the "Tee It Up" footer sits right below
+          the Holes chips instead of being pushed to the bottom of the
+          viewport. (2026-05-07 PM — Matt: 'move the tee it up button
+          further up the screen so you dont have to scroll down through
+          empty space to see it'.) Was previously class="page-scroll"
+          which set height:100dvh - nav-height, eating the full screen. */}
+      <div style={{ padding: '20px', gap: 18, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         {/* Course — real GolfCourseAPI search + tee selection. Same
             component CreateWizard uses on its "Set the Stage" step. */}
         <div>
