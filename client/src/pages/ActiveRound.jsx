@@ -1,7 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
-import { tmHaptic } from './Outing/shared.jsx'
+import {
+  tmHaptic,
+  initials,
+  avatarBg,
+  AUGUSTA_TILE,
+  AUGUSTA_INK,
+  AUGUSTA_RED,
+  AUGUSTA_GOLD,
+  AUGUSTA_GREEN_DEEP,
+  AUGUSTA_PANEL,
+  AUGUSTA_PANEL_HI,
+  AUGUSTA_PANEL_HOVER,
+  AUGUSTA_TEXT,
+} from './Outing/shared.jsx'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
@@ -33,17 +46,6 @@ function scoreColor(strokes, par) {
   if (d === 1)  return 'var(--tm-bogey)'
   return 'var(--tm-double)'
 }
-function scoreBadge(strokes, par) {
-  if (!strokes || !par) return null
-  const d = strokes - par
-  if (d <= -2) return 'Eagle'
-  if (d === -1) return 'Birdie'
-  if (d === 0)  return 'Par'
-  if (d === 1)  return 'Bogey'
-  if (d === 2)  return 'Double'
-  return `+${d}`
-}
-
 // ─── Setup Sheet ────────────────────────────────────────────────────────────
 function SetupSheet({ onStart, onBack }) {
   const [courseName, setCourseName] = useState('')
@@ -135,108 +137,476 @@ function SetupSheet({ onStart, onBack }) {
   )
 }
 
-// ─── Hole Scorer ─────────────────────────────────────────────────────────────
-function HoleScorer({ hole, par, strokes, shots, onScore, onAddShot, gps, onNext, onPrev, isLast, holeCount }) {
-  const [showClubs, setShowClubs] = useState(false)
-  const badge = scoreBadge(strokes, par)
-  const color = scoreColor(strokes, par)
+// ─── Solo Score Cell — Augusta-style cream tile, single player ─────────────
+// Mirrors LiveOuting's ScorecardCell but stripped of multi-player concerns
+// (no skinsBadge, no match-play overrides, no isMarkerFor logic). Cream
+// tile when populated/empty for hole cells; AUGUSTA_GREEN_DEEP strip for
+// subtotal cells. Score numerals follow golf-tradition coloring: red for
+// under par, ink for par/over. Birdie = single red circle, eagle = double
+// red circle, bogey = single black square, double+ = double black square.
+// Active hole gets a soft gold ring so the user can see where they are.
+// (2026-05-07 PM — board-style live scoring view for solo rounds.)
+function SoloScoreCell({ score, par, isSubtotal, onTap, isActive, w = 32, h = 36 }) {
+  const bg = isSubtotal ? AUGUSTA_GREEN_DEEP : AUGUSTA_TILE
+  const color = isSubtotal
+    ? '#fff'
+    : (!score || !par ? AUGUSTA_INK : (score - par < 0 ? AUGUSTA_RED : AUGUSTA_INK))
+  const diff = (!isSubtotal && score && par) ? score - par : null
+  const canTap = !isSubtotal && typeof onTap === 'function'
+  return (
+    <div
+      onClick={canTap ? onTap : undefined}
+      style={{
+        minWidth: w, width: w, height: h,
+        background: bg,
+        borderLeft: '1px solid rgba(0,0,0,0.20)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: isSubtotal ? 14 : 15, fontWeight: 900,
+        fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
+        color, cursor: canTap ? 'pointer' : 'default',
+        flexShrink: 0, userSelect: 'none', position: 'relative',
+        boxShadow: isSubtotal
+          ? 'inset 0 1px 2px rgba(0,0,0,0.50)'
+          : isActive
+            ? 'inset 0 0 0 2px rgba(232,192,90,0.85), inset 0 1px 2px rgba(0,0,0,0.18)'
+            : 'inset 0 1px 2px rgba(0,0,0,0.18)',
+      }}
+    >
+      {diff === -1 && <div style={{ position: 'absolute', inset: 3, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />}
+      {diff != null && diff <= -2 && <>
+        <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />
+      </>}
+      {diff === 1 && <div style={{ position: 'absolute', inset: 3, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />}
+      {diff != null && diff >= 2 && <>
+        <div style={{ position: 'absolute', inset: 2, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 6, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
+      </>}
+      {(score || isSubtotal) ? (
+        <span style={{ display: 'inline-block', position: 'relative' }}>{score || ''}</span>
+      ) : (
+        !isSubtotal && <span style={{ color: 'rgba(0,0,0,0.18)', fontSize: 14 }}>·</span>
+      )}
+    </div>
+  )
+}
+
+// ─── Solo Scorecard Table — front 9 or back 9 stacked grid ────────────────
+// Three rows: HOLE numerals, gold PAR numerals, tappable SCORE cells. The
+// active hole gets a small gold flag pin in the HOLE header (same SVG as
+// LiveOuting's ScorecardTable). Designed for a single player so the left
+// column is just a label ("HOLE" / "PAR" / "YOU"); avatar + name lives in
+// the page-level header above the boards. Fits a 390px viewport with no
+// horizontal scroll. (2026-05-07 PM)
+function SoloScorecardTable({ label, holes, holePars, scores, activeHole, onCellTap }) {
+  const subtotalPar = holes.reduce((s, h) => s + (holePars[h] || 4), 0)
+  const subtotalScore = holes.reduce((s, h) => s + (Number(scores[h]) || 0), 0)
+  const LABEL_W = 56
+  const HOLE_W = 30
+  const TOT_W = 38
+
+  const panelGradient = `linear-gradient(180deg, ${AUGUSTA_PANEL_HI} 0%, ${AUGUSTA_PANEL} 100%)`
+  const headerHoleCell = {
+    minWidth: HOLE_W, width: HOLE_W, height: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, fontWeight: 900, color: AUGUSTA_TEXT,
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    flexShrink: 0,
+    borderLeft: '1px solid rgba(0,0,0,0.20)',
+    position: 'relative',
+  }
+  const labelCell = {
+    minWidth: LABEL_W, width: LABEL_W, height: 32,
+    padding: '0 10px',
+    display: 'flex', alignItems: 'center',
+    fontSize: 11, fontWeight: 900,
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    textTransform: 'uppercase', letterSpacing: '0.08em',
+    color: AUGUSTA_TEXT, flexShrink: 0,
+  }
+  const subtotalHeaderCell = {
+    minWidth: TOT_W, width: TOT_W, height: 32,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 12, fontWeight: 900, color: AUGUSTA_GOLD,
+    fontFamily: '"Arial Black", Arial, sans-serif',
+    background: AUGUSTA_GREEN_DEEP, letterSpacing: '0.06em',
+    flexShrink: 0,
+    textShadow: '0 1px 1px rgba(0,0,0,0.50)',
+    borderLeft: '1px solid rgba(0,0,0,0.50)',
+  }
+  const dividerColor = 'rgba(0,0,0,0.50)'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Hole header */}
-      <div style={{ padding: '16px 20px 12px', background: 'var(--tm-surface)', borderBottom: '1px solid var(--tm-border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Hole</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--tm-text)', lineHeight: 1 }}>{hole}</div>
+    <div style={{ marginBottom: 0 }}>
+      {/* HOLE row */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        borderBottom: '1px solid ' + dividerColor,
+        background: panelGradient,
+      }}>
+        <div style={labelCell}>{label}</div>
+        {holes.map(h => (
+          <div key={h} style={headerHoleCell}>
+            {h + 1}
+            {activeHole === h && (
+              <span style={{
+                position: 'absolute', top: -6, right: 2,
+                width: 9, height: 12, pointerEvents: 'none',
+              }} aria-label="Active hole">
+                <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
+                  <line x1="1" y1="0" x2="1" y2="12" stroke="#fff" strokeWidth="1" />
+                  <path d="M1 1 L8 3 L1 5 Z" fill={AUGUSTA_GOLD} stroke="#000" strokeWidth="0.5" strokeLinejoin="round" />
+                </svg>
+              </span>
+            )}
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Par</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--tm-green-text)', lineHeight: 1 }}>{par}</div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>Score</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color, lineHeight: 1 }}>{strokes || '—'}</div>
-            {badge && <div style={{ fontSize: 11, color, fontWeight: 700 }}>{badge}</div>}
-          </div>
-        </div>
-        {/* GPS distance display */}
-        {gps && (
-          <div style={{ marginTop: 10, padding: '6px 12px', background: 'var(--tm-surface-2)', borderRadius: 'var(--tm-radius-sm)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-green-text)', animation: 'pulse 2s infinite' }} />
-            <span style={{ fontSize: 12, color: 'var(--tm-text-2)', fontWeight: 600 }}>GPS Active</span>
-            {gps.accuracy && <span style={{ fontSize: 11, color: 'var(--tm-text-3)' }}>±{Math.round(gps.accuracy)}m</span>}
-          </div>
-        )}
+        ))}
+        <div style={subtotalHeaderCell}>{label === 'BACK 9' ? 'IN' : 'OUT'}</div>
       </div>
 
-      <div className="page-scroll" style={{ padding: '16px 20px', gap: 16, flex: 1 }}>
-        {/* Stroke counter */}
-        <div style={{ background: 'var(--tm-surface)', borderRadius: 'var(--tm-radius-lg)', padding: '20px', border: '1px solid var(--tm-border)' }}>
-          <div style={{ fontSize: 12, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, marginBottom: 16, textAlign: 'center' }}>Strokes</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-            <button onClick={() => onScore(Math.max(1, (strokes || 0) - 1))}
-              style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--tm-surface-2)', border: '2px solid var(--tm-border-2)', color: 'var(--tm-text)', fontSize: 28, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
-            <div style={{ minWidth: 60, textAlign: 'center' }}>
-              <div style={{ fontSize: 56, fontWeight: 900, color, lineHeight: 1 }}>{strokes || 0}</div>
-            </div>
-            <button onClick={() => onScore((strokes || 0) + 1)}
-              style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--tm-green-muted)', border: '2px solid var(--tm-green)', color: 'var(--tm-green-text)', fontSize: 28, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
-          </div>
-          {/* Quick-tap par presets */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
-            {[par-1, par, par+1, par+2].map(s => (
-              // Quick-pick is a commit-style action — light haptic on tap.
-              // The +/- steppers stay silent so iterating doesn't buzz on
-              // every press. (2026-05-06 — polish task #1)
-              <button key={s} onClick={() => { if (s > 0) { tmHaptic(12); onScore(s) } }}
-                style={{ flex: 1, maxWidth: 60, padding: '8px 0', borderRadius: 'var(--tm-radius-sm)', border: '1px solid', borderColor: strokes === s ? scoreColor(s, par) : 'var(--tm-border)', background: strokes === s ? 'var(--tm-surface-3)' : 'var(--tm-surface-2)', color: scoreColor(s, par), fontWeight: 700, fontSize: 14 }}>
-                {s > 0 ? s : '—'}
-              </button>
-            ))}
-          </div>
+      {/* PAR row */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        borderBottom: '2px solid ' + dividerColor,
+        background: panelGradient,
+      }}>
+        <div style={{ ...labelCell, color: AUGUSTA_GOLD }}>PAR</div>
+        {holes.map(h => (
+          <div key={h} style={{ ...headerHoleCell, color: AUGUSTA_GOLD }}>{holePars[h] || 4}</div>
+        ))}
+        <div style={{ ...subtotalHeaderCell, color: AUGUSTA_GOLD }}>{subtotalPar}</div>
+      </div>
+
+      {/* SCORE row — tappable cells */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
+        background: AUGUSTA_PANEL_HOVER,
+      }}>
+        <div style={{ ...labelCell, height: 44 }}>YOU</div>
+        {holes.map(h => (
+          <SoloScoreCell
+            key={h}
+            score={scores[h] || 0}
+            par={holePars[h] || 4}
+            isActive={activeHole === h}
+            onTap={() => onCellTap(h)}
+            w={HOLE_W}
+            h={44}
+          />
+        ))}
+        <SoloScoreCell
+          score={subtotalScore || null}
+          par={null}
+          isSubtotal={true}
+          w={TOT_W}
+          h={44}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ─── Solo Score Modal — stepper + quick picks for one hole ─────────────────
+// Pulled from LiveOuting's ScoreModal pattern but stripped to the solo
+// case (no playerName, no Save & Eagle Eye, no marker concerns). Includes
+// the suspicious-score guard so a 12-on-a-par-3 mis-tap still asks before
+// committing. Shot log lives below the picks so the existing per-hole
+// shots data path keeps working — tapping "+ Log Shot" pops the existing
+// ClubSheet, same as the old HoleScorer. (2026-05-07 PM)
+function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave, onAddShot, onClose }) {
+  const [val, setVal] = useState(currentScore || par || 4)
+  const [showClubs, setShowClubs] = useState(false)
+
+  const quickPicks = [
+    { label: 'Eagle',  diff: -2 },
+    { label: 'Birdie', diff: -1 },
+    { label: 'Par',    diff:  0 },
+    { label: 'Bogey',  diff: +1 },
+    { label: 'Double', diff: +2 },
+  ].map(q => {
+    const score = (par || 4) + q.diff
+    return { ...q, score, label: score === 1 ? 'Ace' : q.label }
+  }).filter(q => q.score >= 1)
+
+  function handleSave() {
+    const overBy = val - (par || 4)
+    const isUnusual = overBy >= 5 || val > (par || 4) * 2
+    if (isUnusual) {
+      const ok = window.confirm(
+        `${val} on a par-${par || 4}? That's ${overBy} over par. ` +
+        `Tap Cancel to fix it, OK to save anyway.`
+      )
+      if (!ok) return
+    }
+    tmHaptic(15)
+    onSave(val)
+  }
+
+  const cellColorFor = (score, p) => !score || !p ? AUGUSTA_INK : (score - p < 0 ? AUGUSTA_RED : AUGUSTA_INK)
+
+  return createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end',
+    }} onClick={onClose}>
+      <div style={{
+        width: '100%', maxWidth: 430, margin: '0 auto',
+        background: 'var(--tm-surface)', borderRadius: '20px 20px 0 0',
+        padding: '24px 20px 36px',
+        maxHeight: '85vh', overflowY: 'auto',
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--tm-border-2)', margin: '0 auto 20px' }} />
+        <div style={{ fontSize: 13, color: 'var(--tm-text-3)', textAlign: 'center', marginBottom: 4 }}>
+          Hole {hole + 1}{par ? ` · Par ${par}` : ''}
+          {holeCount ? ` · of ${holeCount}` : ''}
         </div>
 
-        {/* Shot log */}
-        <div style={{ background: 'var(--tm-surface)', borderRadius: 'var(--tm-radius-lg)', border: '1px solid var(--tm-border)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--tm-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-text-2)' }}>Shot Log</div>
+        {/* Stepper */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 20 }}>
+          <button onClick={() => setVal(v => Math.max(1, v - 1))}
+            style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)', color: 'var(--tm-text)', fontSize: 26, fontWeight: 300, cursor: 'pointer' }}>−</button>
+          <div style={{ fontSize: 56, fontWeight: 900, color: cellColorFor(val, par), minWidth: 64, textAlign: 'center', lineHeight: 1 }}>{val}</div>
+          <button onClick={() => setVal(v => v + 1)}
+            style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)', color: 'var(--tm-text)', fontSize: 26, fontWeight: 300, cursor: 'pointer' }}>+</button>
+        </div>
+
+        {/* Quick picks */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+          {quickPicks.map(q => (
+            <button key={q.label} onClick={() => setVal(q.score)}
+              style={{
+                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                background: val === q.score ? AUGUSTA_TILE : 'var(--tm-surface-2)',
+                border: val === q.score ? `1.5px solid ${cellColorFor(q.score, par)}` : '1px solid var(--tm-border)',
+                color: val === q.score ? cellColorFor(q.score, par) : 'var(--tm-text-3)',
+              }}>{q.label} ({q.score})</button>
+          ))}
+        </div>
+
+        {/* Save button */}
+        <button onClick={handleSave} style={{
+          width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
+          background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
+          color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 16, border: 'none', cursor: 'pointer',
+        }}>Save Score</button>
+
+        {/* Shot log — keeps the existing per-hole shots data path. Compact
+            section below the score entry so the primary affordance stays
+            the score itself. */}
+        <div style={{ marginTop: 18, background: 'var(--tm-surface-2)', borderRadius: 'var(--tm-radius)', border: '1px solid var(--tm-border)', overflow: 'hidden' }}>
+          <div style={{ padding: '10px 14px', borderBottom: shots.length ? '1px solid var(--tm-border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--tm-text-2)' }}>
+              Shot Log {shots.length > 0 && <span style={{ color: 'var(--tm-text-3)', fontWeight: 500 }}>· {shots.length}</span>}
+            </div>
             <button onClick={() => setShowClubs(true)}
-              style={{ padding: '6px 14px', borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-gold-muted)', border: '1px solid var(--tm-gold-dim)', color: 'var(--tm-gold-text)', fontSize: 12, fontWeight: 700 }}>
+              style={{ padding: '4px 12px', borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-gold-muted)', border: '1px solid var(--tm-gold-dim)', color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
               + Log Shot
             </button>
           </div>
-          {shots.length === 0
-            ? <div style={{ padding: '20px', textAlign: 'center', color: 'var(--tm-text-3)', fontSize: 13 }}>No shots logged yet</div>
-            : shots.map((s, i) => (
-              <div key={i} style={{ padding: '10px 16px', borderBottom: i < shots.length-1 ? '1px solid var(--tm-border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--tm-surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--tm-gold-text)' }}>{i+1}</div>
-                  <span style={{ color: 'var(--tm-text)', fontWeight: 600, fontSize: 14 }}>{s.club}</span>
+          {shots.length > 0 && (
+            <div style={{ padding: '4px 0' }}>
+              {shots.map((s, i) => (
+                <div key={i} style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                  <span style={{ color: 'var(--tm-text)' }}>
+                    <span style={{ color: 'var(--tm-gold-text)', fontWeight: 700, marginRight: 8 }}>{i + 1}</span>
+                    {s.club}
+                  </span>
+                  {s.dist && <span style={{ color: 'var(--tm-text-3)' }}>{s.dist}yd</span>}
                 </div>
-                {s.dist && <span style={{ color: 'var(--tm-text-3)', fontSize: 13 }}>{s.dist}yd</span>}
-              </div>
-            ))
-          }
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Navigation */}
-      <div style={{ padding: '12px 20px', flexShrink: 0, display: 'flex', gap: 12 }}>
-        {hole > 1 && (
-          <button onClick={onPrev}
-            style={{ flex: 1, padding: '14px', borderRadius: 'var(--tm-radius-lg)', background: 'var(--tm-surface)', border: '1px solid var(--tm-border)', color: 'var(--tm-text-2)', fontWeight: 700, fontSize: 15 }}>
-            ← H{hole-1}
-          </button>
+      {showClubs && <ClubSheet onSelect={club => { onAddShot({ club, dist: null }); setShowClubs(false) }} onClose={() => setShowClubs(false)} />}
+    </div>,
+    document.body
+  )
+}
+
+// ─── Solo Scoreboard — board-style live scoring for solo rounds ────────────
+// Replaces the old single-hole HoleScorer view. Mirrors LiveOuting's
+// scorecard board (front 9 + back 9 stacked Augusta tables) but for a
+// single player. Tapping any hole's score cell opens SoloScoreModal.
+// Active hole highlight tracks the `hole` index from parent state so
+// localStorage resume still puts the user back where they left off.
+// (2026-05-07 PM — Matt: 'i want solo round to have the same view as the
+// regular scorecard/board view as other matches have but just for one
+// player'.)
+function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, onAddShot, onSetActiveHole, onFinish, onBack }) {
+  const [editingHole, setEditingHole] = useState(null)
+  const holeCount = config.pars.length
+  const totalPar  = config.pars.reduce((s, p) => s + p, 0)
+  const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
+  const holesPlayed = scores.filter(s => s > 0).length
+  const allDone = holesPlayed >= holeCount
+  // Score-to-par across PLAYED holes only — running diff while still
+  // mid-round so the header reads honestly ("E through 7" not "+0 of 18").
+  const playedPar = scores.reduce((s, x, i) => x > 0 ? s + (config.pars[i] || 4) : s, 0)
+  const playedDiff = totalScore > 0 ? totalScore - playedPar : null
+  const diffStr = playedDiff == null ? '—' : playedDiff === 0 ? 'E' : playedDiff > 0 ? `+${playedDiff}` : `${playedDiff}`
+  const diffColor = playedDiff == null ? 'rgba(255,255,255,0.40)' : playedDiff < 0 ? 'var(--tm-birdie)' : playedDiff === 0 ? 'var(--tm-par)' : 'var(--tm-bogey)'
+
+  const frontHoles = Array.from({ length: Math.min(9, holeCount) }, (_, i) => i)
+  const backHoles  = holeCount > 9 ? Array.from({ length: holeCount - 9 }, (_, i) => i + 9) : []
+
+  function openScoreModal(idx) {
+    onSetActiveHole(idx)
+    setEditingHole(idx)
+  }
+
+  function handleSaveScore(val) {
+    if (editingHole == null) return
+    onScoreHole(editingHole, val)
+    setEditingHole(null)
+    // Auto-advance the active-hole highlight to the next unfilled hole
+    // so the gold flag pin tracks the user's progress without forcing
+    // them to manually pick the next one. (Same UX as HoleScorer's
+    // implicit "next hole" arrow.)
+    const next = scores.findIndex((s, i) => i > editingHole && !s)
+    if (next >= 0) onSetActiveHole(next)
+  }
+
+  function handleAddShot(shot) {
+    if (editingHole == null) return
+    onAddShot(editingHole, { ...shot, gps })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Header */}
+      <div style={{
+        padding: '14px 16px 12px',
+        background: 'var(--tm-surface)',
+        borderBottom: '1px solid var(--tm-border)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          <button onClick={onBack} style={{
+            background: 'none', border: 'none', color: 'var(--tm-text-3)',
+            fontSize: 13, fontWeight: 600, padding: 0, cursor: 'pointer',
+          }}>← Back</button>
+          <div style={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
+            <div style={{
+              fontSize: 14, fontWeight: 800, color: 'var(--tm-text)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{config.courseName}</div>
+            <div style={{ fontSize: 10, color: 'var(--tm-text-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 1 }}>
+              Par {totalPar} · {holeCount} holes
+            </div>
+          </div>
+          <div style={{ minWidth: 56, textAlign: 'right' }}>
+            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--tm-text)', lineHeight: 1, fontFamily: '"Arial Black", Arial, sans-serif' }}>
+              {totalScore > 0 ? totalScore : '—'}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: diffColor, marginTop: 2, letterSpacing: '0.04em' }}>
+              {diffStr}{holesPlayed > 0 && holesPlayed < holeCount ? ` · thru ${holesPlayed}` : allDone ? ' · F' : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Player + GPS strip */}
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, overflow: 'hidden', flexShrink: 0,
+            background: user?.avatar ? `center/cover no-repeat url("${user.avatar}")` : avatarBg(user?.name || ''),
+            border: '1px solid rgba(232,192,90,0.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: 11, fontWeight: 800,
+            fontFamily: '"Arial Black", Arial, sans-serif',
+          }}>
+            {!user?.avatar && (initials(user?.name) || '·')}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, color: 'var(--tm-text)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{user?.name || 'You'}</div>
+          </div>
+          {gps && (
+            <div style={{
+              padding: '4px 10px', background: 'var(--tm-surface-2)',
+              borderRadius: 'var(--tm-radius-sm)',
+              display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-green-text)', animation: 'pulse 2s infinite' }} />
+              <span style={{ fontSize: 10, color: 'var(--tm-text-2)', fontWeight: 700, letterSpacing: '0.04em' }}>GPS</span>
+              {gps.accuracy && <span style={{ fontSize: 10, color: 'var(--tm-text-3)' }}>±{Math.round(gps.accuracy)}m</span>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Boards */}
+      <div className="page-scroll" style={{ flex: 1, padding: '12px 8px 16px', overflowY: 'auto' }}>
+        <div style={{
+          borderRadius: 12, overflow: 'hidden',
+          border: '1px solid rgba(0,0,0,0.30)',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+          marginBottom: backHoles.length > 0 ? 12 : 0,
+        }}>
+          <SoloScorecardTable
+            label="FRONT 9"
+            holes={frontHoles}
+            holePars={config.pars}
+            scores={scores}
+            activeHole={hole}
+            onCellTap={openScoreModal}
+          />
+        </div>
+        {backHoles.length > 0 && (
+          <div style={{
+            borderRadius: 12, overflow: 'hidden',
+            border: '1px solid rgba(0,0,0,0.30)',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+          }}>
+            <SoloScorecardTable
+              label="BACK 9"
+              holes={backHoles}
+              holePars={config.pars}
+              scores={scores}
+              activeHole={hole}
+              onCellTap={openScoreModal}
+            />
+          </div>
         )}
-        <button onClick={onNext}
-          style={{ flex: 2, padding: '14px', borderRadius: 'var(--tm-radius-lg)', background: isLast ? 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))' : 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))', color: isLast ? 'var(--tm-text-inv)' : '#fff', fontWeight: 800, fontSize: 15, border: 'none' }}>
-          {isLast ? 'Finish Round' : `Hole ${hole+1} →`}
+      </div>
+
+      {/* Footer — Finish Round button. Gold gradient when all holes are
+          scored; muted-but-tappable when not (we still let the user
+          finish early — the existing summary view handles partial cards
+          gracefully). Subtitle hint shows progress so the user knows
+          how many holes are left. */}
+      <div style={{ padding: '12px 16px', flexShrink: 0 }}>
+        <button onClick={() => { tmHaptic(15); onFinish() }}
+          style={{
+            width: '100%', padding: '14px',
+            borderRadius: 'var(--tm-radius-lg)',
+            background: allDone
+              ? 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))'
+              : 'var(--tm-surface)',
+            border: allDone ? 'none' : '1px solid var(--tm-border)',
+            color: allDone ? 'var(--tm-text-inv)' : 'var(--tm-text-2)',
+            fontWeight: 800, fontSize: 15, cursor: 'pointer',
+          }}>
+          {allDone ? 'Finish Round' : `Finish Early · ${holesPlayed}/${holeCount} scored`}
         </button>
       </div>
 
-      {/* Club picker sheet */}
-      {showClubs && <ClubSheet onSelect={club => { onAddShot({ club, dist: null, gps }); setShowClubs(false) }} onClose={() => setShowClubs(false)} />}
+      {editingHole != null && (
+        <SoloScoreModal
+          hole={editingHole}
+          par={config.pars[editingHole] || 4}
+          currentScore={scores[editingHole] || 0}
+          holeCount={holeCount}
+          shots={shots[editingHole] || []}
+          onSave={handleSaveScore}
+          onAddShot={handleAddShot}
+          onClose={() => setEditingHole(null)}
+        />
+      )}
     </div>
   )
 }
@@ -501,18 +871,18 @@ export default function ActiveRound({ user, onBack }) {
 
   return (
     <NoPullWrap>
-      <HoleScorer
-        hole={hole + 1}
-        par={config.pars[hole]}
-        strokes={scores[hole]}
-        shots={shots[hole] || []}
+      <SoloScoreboard
+        user={user}
+        config={config}
+        scores={scores}
+        shots={shots}
+        hole={hole}
         gps={gps}
-        holeCount={config.pars.length}
-        isLast={hole === config.pars.length - 1}
-        onScore={val => setScore(hole, val)}
-        onAddShot={shot => addShot(hole, shot)}
-        onNext={nextHole}
-        onPrev={() => setHole(h => Math.max(0, h - 1))}
+        onScoreHole={(idx, val) => setScore(idx, val)}
+        onAddShot={(idx, shot) => addShot(idx, shot)}
+        onSetActiveHole={(idx) => setHole(idx)}
+        onFinish={() => setPhase('summary')}
+        onBack={onBack}
       />
     </NoPullWrap>
   )
