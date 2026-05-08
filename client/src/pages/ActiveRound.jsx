@@ -90,7 +90,12 @@ function SetupSheet({ onStart, onBack }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '20px 20px 0', flexShrink: 0 }}>
+      {/* Top padding clears the iOS notch / dynamic island via --safe-top
+          (env(safe-area-inset-top, 0px)) — same pattern OutingHub /
+          EagleEye / Leagues use. Without this the "Start Round" title
+          sits behind the notch on a phone. (2026-05-07 PM — Matt: 'top
+          of page is too high'.) */}
+      <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', flexShrink: 0 }}>
         {onBack && (
           <button onClick={onBack} style={{
             background: 'none', border: 'none', color: 'var(--tm-text-3)',
@@ -631,7 +636,10 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div style={{
-        padding: '14px 16px 12px',
+        // Top padding clears the iOS notch via --safe-top — same pattern
+        // OutingHub / Leagues use. (2026-05-07 PM — Matt: 'top of page
+        // is too high'.)
+        padding: 'calc(var(--safe-top) + 14px) 16px 12px',
         background: 'var(--tm-surface)',
         borderBottom: '1px solid var(--tm-border)',
         flexShrink: 0,
@@ -861,7 +869,9 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '24px 20px 0', flexShrink: 0 }}>
+      {/* Top padding clears the iOS notch — same pattern as the rest of
+          the solo views. (2026-05-07 PM.) */}
+      <div style={{ padding: 'calc(var(--safe-top) + 24px) 20px 0', flexShrink: 0 }}>
         <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 4 }}>Round Complete</div>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 2 }}>{courseName}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
