@@ -85,6 +85,44 @@ Easy candidates (sorted roughly by leverage):
 
 **Empty-state copy update:** the home profile says "Drop a birdie, post a sub-80 round, or play three rounds in a week — they unlock as you go." With more achievements, this string should grow or become dynamic ("X achievements unlocked, Y more available").
 
+## 19. Branded short URL for referral links
+
+The referral program (shipped 2026-05-07 PM3) currently generates links like `https://the-match-roan.vercel.app/?ref=AV4Z2Y`. Functional but ugly to copy/paste. A custom short domain — `thematch.app/r/AV4Z2Y` — would be much more shareable.
+
+Pieces to wire:
+- Buy or confirm `thematch.app` (or whatever domain) is registered + pointed at Vercel.
+- Add a Vercel rewrite: `{ "source": "/r/:code", "destination": "/?ref=:code" }`.
+- Update `server/src/routes/referrals.js` `/me` endpoint to build the URL from the new short form.
+- Update SettingsModal copy to match.
+
+~30 min once DNS is set up.
+
+## 20. Tighten referral qualifying gate with email verification
+
+`tm_referrals.qualifying_round_at` is currently set when a referred user logs their first round (solo or matched). For v2, we should also require the referred user to verify their email before counting — same gate as the Forgot PIN reset link will use. Depends on POST-LAUNCH-TODO #14 (Resend wiring) shipping first.
+
+Once #14 ships:
+- Add `tm_users.email_verified_at TIMESTAMPTZ`.
+- Email a 6-digit verify code at signup; user enters it in the app.
+- `markReferralQualified()` checks `email_verified_at IS NOT NULL` in addition to having a logged round.
+
+## 21. Anti-fraud hardening for referral program
+
+Current safeguards: `UNIQUE(referee_id)` (a user can only be referred once), self-referral CHECK at the DB layer, and the activity gate (referee must log a round). For v1 launch this is enough. If the program scales and we see gaming, add:
+- IP fingerprinting at signup; cluster suspiciously similar IPs.
+- Device fingerprint via canvas/WebGL signature.
+- Time-window heuristics: 10 signups from one referrer within 60 seconds = likely scripted.
+- Manual-review queue for flagged referrals.
+- Hard cap per IP per N days.
+
+## 22. Annual reset for referral rewards (if needed)
+
+Currently the model is lifetime — once a user hits 50 qualifying signups, they've earned the max (1 year of Elite) and additional referrals don't earn more. Simple, prevents unlimited free service.
+
+If power referrers hit the cap and we want to keep them motivated, layer a yearly reset: thresholds reset on the user's signup-anniversary, max 1 year of Elite earnable per calendar year.
+
+Don't ship this preemptively — wait for someone to actually max out and complain.
+
 ## 18. Hook up "Upgrade to Elite" billing
 
 The Settings page now ships an "★ Upgrade to Elite" button (visible only when `user.tier !== 'elite'`) — currently a visual stub that fires an alert "Coming soon — Elite billing is on the post-launch roadmap." Added 2026-05-07 PM3 alongside the rest of the Settings redesign so the surface is in place when billing is wired up.

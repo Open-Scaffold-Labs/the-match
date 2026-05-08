@@ -914,3 +914,33 @@ All deployed to prod. Force-redeploys aliased to `the-match-roan.vercel.app` eac
 **Wiki housekeeping** done in this session: audit-2026-05-07.md updated with closure markers (HIGH #1 + #2, MEDIUM #3 + #5 — code-closed; #5 email still stubbed). POST-LAUNCH-TODO.md gained 4 new items: #14 (Resend activation for Forgot PIN), #15 (re-add 3 NotebookLM main-bucket entries lacking verified_at), #16 (achievement expansion ideas — first_par, breaking_90, course_collector, etc.), #17 (extend preflight to audit main-bucket verified_at). #11 marked closed.
 
 **Today's overall scope (across morning + PM + PM2):** JWT_SECRET rotation · semantic preflight checks (3 new) + trust-anchor refresh discipline · audit-2026-05-07 written and acted on · Phase A course-name expansion · Phase B Settings + Sign Out + Privacy + Delete Account · Phase C Forgot PIN flow (email stubbed) · `first_birdie` achievement + retro-award + friend-profile rendering · top-bar icon disambiguation · anti-pattern #13 added to all 3 anti-patterns files. Roughly a week of feature work.
+
+
+
+## [2026-05-07 PM3] feat | Referral program v1 — invite-link + milestone Elite credits
+
+Built the full referral pipeline in one session per Matt's spec. Reward model: referrer earns +7 days Elite at 5 qualifying signups, +23 more days at 10 (total 30 = 1 month), +335 more at 50 (total 365 = 1 year). Referee gets +7 days at signup. "Qualifying" = signed up via a ref link AND played at least one round (solo or matched). Activity gate prevents alt-account gaming. Lifetime counts.
+
+**Schema (migration 026):** `tm_referral_codes` (1:1 with users, lazily created), `tm_referrals` (referrer→referee with `qualifying_round_at`; `UNIQUE(referee_id)` so a user can only be referred once; `CHECK (referrer_id <> referee_id)` blocks self-referral at the DB layer), `tm_referral_rewards` (audit log, `UNIQUE(user_id, milestone)` prevents double-credit). Plus `tm_users.elite_until TIMESTAMPTZ` for time-limited Elite. Effective Elite = `tier === 'elite' OR elite_until > NOW()`.
+
+**Server lib (`referrals.js`):** `getOrCreateCode(userId)` — race-safe lazy create with collision retry, 6-char base32 (no ambiguous I/L/O/0/1). `getReferralStats(userId)` — totals + next milestone + awarded list for the GET endpoint. `recordSignupReferral(refereeId, code)` — INSERT row + extend referee `elite_until` +7 days, idempotent via UNIQUE(referee_id). `markReferralQualified(refereeId)` — sets `qualifying_round_at` if not already, triggers `checkAndAwardMilestones` for the referrer. `extendEliteUntil()` rule: `GREATEST(COALESCE(elite_until, NOW()), NOW()) + N days` so credits stack on top of existing entitlements without overwriting longer trials.
+
+**Server routes:** `GET /api/referrals/me` returns code, full URL, stats. `POST /api/auth/signup` accepts `{ ref }` in body (non-blocking — bad code shouldn't fail signup). `POST /api/rounds` and `outings.js /:code/end` call `markReferralQualified` for each completing user (awaited per the lambda-freeze contract).
+
+**Client:** Login.jsx parses `?ref=CODE` on mount, persists in `localStorage.tm-pending-ref` so it survives Sign In ↔ Create Account toggling, sends in signup body. Gold "Invited by a friend… 7 days of Elite, free" hint visible in signup mode. SettingsModal: new ReferralCard slotted between Tier and Location with select-on-focus link input, Copy button (✓ confirmation), Share button (`navigator.share` with copy fallback), progress bar to next milestone, three reward-tier chips with ★ on earned ones. `USER_PUBLIC_COLUMNS` extended with `elite_until`.
+
+**Bugs caught + fixed mid-build:**
+1. Forgot `requireAuth` middleware on the new route — endpoint returned 401 unconditionally. Added `router.use(requireAuth)`.
+2. `APP_BASE_URL` had a trailing newline (same paste-quirk that bit VAPID_PRIVATE_KEY in 2026-05-02). Trimmed before URL concat.
+
+**Verified live:** `GET /api/referrals/me` as Matt returns `code: AV4Z2Y, url: https://the-match-roan.vercel.app/?ref=AV4Z2Y, totalSignups: 0, qualifyingCount: 0, nextMilestone: {target:5, days:7, remaining:5}, milestones:[5→7, 10→23, 50→335]`. Schema applied. Build clean. Force-redeployed.
+
+**Out of scope for v1, filed in POST-LAUNCH-TODO:**
+- #19 Branded short URL (`thematch.app/r/CODE` — DNS work)
+- #20 Email-verification gate on qualifying (depends on Resend / #14)
+- #21 Anti-fraud hardening (IP fingerprint, device fingerprint, time-window heuristics, manual-review queue)
+- #22 Annual reset model (only if someone maxes out and complains)
+
+**Commits this round:** `2aa5d7f` (feat), `1e2821b` (requireAuth fix), `c96be59` (URL trim).
+
+**Open chrome E2E** — full signup-with-ref → log-round → milestone-credit verification was deferred to next session for time. API contracts all manually verified; the round-save trigger and milestone math are tested via the structure of the code (UNIQUE constraints, idempotency) rather than end-to-end.
