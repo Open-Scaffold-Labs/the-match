@@ -1,28 +1,95 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { del, clearToken } from '../lib/api.js'
 
 /**
- * SettingsModal — fullscreen overlay opened from the gear icon in Home's top bar.
+ * SettingsModal — fullscreen overlay opened from the kebab (⋯) icon in
+ * Home's top bar.
  *
- * Provides the previously-missing session management surface (audit-2026-05-07
- * bug #1: no logout/sign-out anywhere in the app):
- *   - Sign Out — clears the JWT and reloads to the auth screen
- *   - Privacy Policy — opens the static privacy page in a new tab
- *   - Delete Account — typed-confirm modal → DELETE /api/auth/me → reload
- *
- * Self-contained: instead of prop-drilling onSignOut callbacks up to App.jsx,
- * we just clearToken() and window.location.reload(). The reload re-runs the
- * /api/auth/me bootstrap which fails (no token) and renders <Login>.
+ * 2026-05-07 PM3 redesign per Matt:
+ *   - Mobile sizing: container is box-sized so 100% width fits a 390px
+ *     iPhone viewport without horizontal scroll. Inner card max-width
+ *     stays 480 for tablets/desktop.
+ *   - Location on/off toggle (reflects navigator.permissions state).
+ *     Tapping when "prompt" triggers the OS permission prompt; tapping
+ *     when "granted" or "denied" surfaces a one-line note explaining
+ *     the permission can only be changed in the device's OS settings
+ *     (browsers don't let apps revoke).
+ *   - "Upgrade to Elite" button — visual only for now, no hookup until
+ *     the billing wiring lands. POST-LAUNCH-TODO #18 tracks the actual
+ *     payment integration.
+ *   - Delete-account moved out of the main Settings view into an
+ *     "Account Status" sub-view (state flag, back-arrow). Adds an extra
+ *     tap before the typed-DELETE modal so accidental presses are
+ *     less likely.
  *
  * Props:
- *   user      — the current user object (for display)
+ *   user      — the current user object (for display + tier badge)
  *   onClose   — callback to dismiss the modal
  */
 export default function SettingsModal({ user, onClose }) {
+  // 'main' shows the standard settings rows. 'account' is the
+  // Account Status sub-view with the delete-account flow.
+  const [view, setView] = useState('main')
+
+  // Delete-account modal state (only relevant in the 'account' sub-view).
   const [confirmText, setConfirmText] = useState('')
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+
+  // Location permission state. Possible values from the Permissions API:
+  //   'granted' | 'denied' | 'prompt' | 'unsupported' (legacy browsers).
+  // We mirror it into the toggle and surface a contextual hint when the
+  // user can't change it from the app.
+  const [locPerm, setLocPerm] = useState('prompt')
+  const [locHint, setLocHint] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    if (typeof navigator === 'undefined' || !navigator.permissions || !navigator.permissions.query) {
+      setLocPerm('unsupported')
+      return
+    }
+    navigator.permissions.query({ name: 'geolocation' })
+      .then(status => {
+        if (cancelled) return
+        setLocPerm(status.state)
+        // Watch for changes from outside the app (user grants/revokes
+        // via OS settings while the app is open).
+        status.onchange = () => { if (!cancelled) setLocPerm(status.state) }
+      })
+      .catch(() => { if (!cancelled) setLocPerm('unsupported') })
+    return () => { cancelled = true }
+  }, [])
+
+  function toggleLocation() {
+    setLocHint('')
+    if (locPerm === 'granted') {
+      setLocHint("Location is on. To turn it off, change it in your device's location settings.")
+      return
+    }
+    if (locPerm === 'denied') {
+      setLocHint("Location was denied. To enable it, change the permission in your device's location settings, then refresh.")
+      return
+    }
+    if (locPerm === 'unsupported') {
+      setLocHint('Your browser does not expose location permission state.')
+      return
+    }
+    // 'prompt' — fire the actual prompt by requesting position.
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocHint('Geolocation is not available in this browser.')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      () => setLocPerm('granted'),
+      (err) => {
+        // PERMISSION_DENIED, POSITION_UNAVAILABLE, TIMEOUT
+        if (err.code === err.PERMISSION_DENIED) setLocPerm('denied')
+        else setLocHint(err.message || 'Could not enable location.')
+      },
+      { timeout: 10000 }
+    )
+  }
 
   const signOut = () => {
     clearToken()
@@ -42,22 +109,49 @@ export default function SettingsModal({ user, onClose }) {
     }
   }
 
+  const tierLabel = user?.tier ? user.tier.toUpperCase() : 'FREE'
+  const isElite = user?.tier === 'elite'
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       background: 'rgba(7,12,9,0.92)',
       overflowY: 'auto', WebkitOverflowScrolling: 'touch',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '24px 20px 80px',
+      // Bottom padding now uses safe-area inset so the content clears the
+      // home indicator on iOS without leaving a giant dead zone on
+      // shorter screens. Horizontal padding shrinks slightly so the
+      // 480-max-width inner card still has breathing room on tablets
+      // but data fills the 390px iPhone width comfortably.
+      padding: '20px 16px calc(40px + env(safe-area-inset-bottom)) 16px',
+      boxSizing: 'border-box',
     }}>
-      {/* Header bar */}
+      {/* Header bar — same in both sub-views. The "Done" button always
+          closes the modal entirely; the back-arrow inside Account Status
+          returns to the main view. */}
       <div style={{
         width: '100%', maxWidth: 480, display: 'flex',
         alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 24,
+        marginBottom: 20, gap: 10,
       }}>
-        <div style={{ fontFamily: 'Georgia, serif', fontSize: 22, color: '#C9A040', fontWeight: 700 }}>
-          Settings
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          {view !== 'main' && (
+            <button
+              onClick={() => { setView('main'); setError(''); setConfirmText('') }}
+              aria-label="Back"
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.18)',
+                borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: 16,
+                padding: '4px 10px', cursor: 'pointer', lineHeight: 1, flexShrink: 0,
+              }}
+            >←</button>
+          )}
+          <div style={{
+            fontFamily: 'Georgia, serif', fontSize: 22, color: '#C9A040', fontWeight: 700,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {view === 'main' ? 'Settings' : 'Account Status'}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -65,105 +159,56 @@ export default function SettingsModal({ user, onClose }) {
           style={{
             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.18)',
             borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: 14,
-            padding: '6px 12px', cursor: 'pointer',
+            padding: '6px 12px', cursor: 'pointer', flexShrink: 0,
           }}
         >Done</button>
       </div>
 
-      {/* Account summary */}
-      <div style={{
-        width: '100%', maxWidth: 480,
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
-        borderRadius: 12, padding: '14px 16px', marginBottom: 16,
-      }}>
-        <div style={{ fontSize: 11, letterSpacing: 1.2, color: 'rgba(255,255,255,0.55)', marginBottom: 6 }}>
-          SIGNED IN AS
-        </div>
-        <div style={{ fontSize: 17, color: 'white', fontWeight: 600, marginBottom: 2 }}>
-          {user?.name || 'Unknown'}
-        </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>
-          {user?.email || ''} · @{user?.handle || ''}
-        </div>
-      </div>
+      {view === 'main' && (
+        <MainView
+          user={user}
+          tierLabel={tierLabel}
+          isElite={isElite}
+          locPerm={locPerm}
+          locHint={locHint}
+          onToggleLocation={toggleLocation}
+          onSignOut={signOut}
+          onOpenAccount={() => setView('account')}
+        />
+      )}
 
-      {/* Privacy + Sign Out group */}
-      <div style={{
-        width: '100%', maxWidth: 480,
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
-        borderRadius: 12, marginBottom: 16, overflow: 'hidden',
-      }}>
-        <a
-          href="/privacy"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '14px 16px', textDecoration: 'none', color: 'white',
-            borderBottom: '1px solid rgba(255,255,255,0.10)',
-          }}
-        >
-          <span>Privacy Policy</span>
-          <span style={{ color: 'rgba(255,255,255,0.45)' }}>↗</span>
-        </a>
-        <button
-          onClick={signOut}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '14px 16px', background: 'transparent', border: 'none',
-            color: 'white', fontSize: 16, cursor: 'pointer', textAlign: 'left',
-          }}
-        >
-          <span>Sign Out</span>
-          <span style={{ color: 'rgba(255,255,255,0.45)' }}>→</span>
-        </button>
-      </div>
+      {view === 'account' && (
+        <AccountStatusView
+          user={user}
+          tierLabel={tierLabel}
+          onOpenDeleteModal={() => { setDeleteOpen(true); setConfirmText('') }}
+        />
+      )}
 
-      {/* Danger zone */}
+      {/* Build/version footer — stays at the bottom of either sub-view. */}
       <div style={{
-        width: '100%', maxWidth: 480,
-        background: 'rgba(220,53,53,0.06)', border: '1px solid rgba(220,53,53,0.30)',
-        borderRadius: 12, padding: '14px 16px',
-      }}>
-        <div style={{ fontSize: 11, letterSpacing: 1.2, color: 'rgba(255,180,180,0.85)', marginBottom: 6, fontWeight: 600 }}>
-          DANGER ZONE
-        </div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.70)', marginBottom: 12, lineHeight: 1.4 }}>
-          Permanently delete your account and all associated data. Rounds, matches you hosted, and
-          posted scores remain in the historical record but are anonymized. This cannot be undone.
-        </div>
-        <button
-          onClick={() => { setDeleteOpen(true); setConfirmText('') }}
-          style={{
-            width: '100%', padding: '12px 14px',
-            background: 'rgba(220,53,53,0.12)', color: '#FF8585',
-            border: '1px solid rgba(220,53,53,0.50)',
-            borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          Delete my account
-        </button>
-      </div>
-
-      {/* Build/version footer */}
-      <div style={{
-        marginTop: 24, fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center',
+        width: '100%', maxWidth: 480, marginTop: 24,
+        fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center',
       }}>
         The Match · post-launch build · {new Date().getFullYear()}
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Delete-account confirmation modal. Only reachable from the
+          Account Status sub-view → Delete button, so it sits behind the
+          extra tap-to-enter-account-status step. */}
       {deleteOpen && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1100,
           background: 'rgba(0,0,0,0.75)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '20px',
+          boxSizing: 'border-box',
         }}>
           <div style={{
             width: '100%', maxWidth: 420,
             background: '#101814', border: '1px solid rgba(220,53,53,0.50)',
             borderRadius: 14, padding: '20px',
+            boxSizing: 'border-box',
           }}>
             <div style={{ fontSize: 18, color: '#FF8585', fontWeight: 700, marginBottom: 10 }}>
               Delete your account?
@@ -226,5 +271,262 @@ export default function SettingsModal({ user, onClose }) {
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Main Settings view ─────────────────────────────────────────────────────
+function MainView({
+  user, tierLabel, isElite,
+  locPerm, locHint,
+  onToggleLocation, onSignOut, onOpenAccount,
+}) {
+  return (
+    <>
+      {/* Account summary */}
+      <Card>
+        <SectionLabel>SIGNED IN AS</SectionLabel>
+        <div style={{ fontSize: 17, color: 'white', fontWeight: 600, marginBottom: 2 }}>
+          {user?.name || 'Unknown'}
+        </div>
+        <div style={{
+          fontSize: 13, color: 'rgba(255,255,255,0.65)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {user?.email || ''} · @{user?.handle || ''}
+        </div>
+      </Card>
+
+      {/* Tier — pill + Upgrade CTA when not elite. The upgrade button is
+          a visual stub for now (POST-LAUNCH-TODO #18 tracks the actual
+          billing hookup). When elite, we just show the badge. */}
+      <Card>
+        <Row>
+          <span>Tier</span>
+          <span style={{
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.10em',
+            padding: '4px 10px', borderRadius: 999,
+            color: isElite ? '#3A2A05' : 'rgba(255,255,255,0.85)',
+            background: isElite
+              ? 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)'
+              : 'rgba(255,255,255,0.08)',
+            border: isElite ? '1px solid rgba(155,120,24,0.55)' : '1px solid rgba(255,255,255,0.16)',
+          }}>{tierLabel}</span>
+        </Row>
+        {!isElite && (
+          <button
+            onClick={() => { /* TODO POST-LAUNCH-TODO #18: wire billing */ alert('Coming soon — Elite billing is on the post-launch roadmap.') }}
+            style={{
+              width: '100%', marginTop: 12,
+              padding: '12px 14px',
+              background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 45%, #C9971E 100%)',
+              color: '#3A2A05', border: '1px solid rgba(155,120,24,0.55)',
+              borderRadius: 10, fontSize: 14, fontWeight: 800,
+              letterSpacing: '0.04em', cursor: 'pointer',
+              fontFamily: 'Georgia, serif',
+              boxShadow: '0 4px 14px rgba(201,160,64,0.25), inset 0 1px 0 rgba(255,253,248,0.50)',
+            }}
+          >
+            ★ Upgrade to Elite
+          </button>
+        )}
+      </Card>
+
+      {/* Location toggle */}
+      <Card>
+        <Row>
+          <div>
+            <div style={{ color: 'white', fontSize: 16, marginBottom: 2 }}>Location</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.50)' }}>
+              {locPerm === 'granted' && 'On — Eagle Eye uses GPS during rounds.'}
+              {locPerm === 'prompt' && 'Off — turn on for live yardages.'}
+              {locPerm === 'denied' && 'Off — denied at the OS level.'}
+              {locPerm === 'unsupported' && 'Browser does not report state.'}
+            </div>
+          </div>
+          <Toggle on={locPerm === 'granted'} onClick={onToggleLocation} />
+        </Row>
+        {locHint && (
+          <div style={{
+            marginTop: 10, fontSize: 12, color: 'rgba(255,255,255,0.65)',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            borderRadius: 8, padding: '8px 10px', lineHeight: 1.45,
+          }}>
+            {locHint}
+          </div>
+        )}
+      </Card>
+
+      {/* Privacy / Account Status / Sign Out group */}
+      <div style={{
+        width: '100%', maxWidth: 480,
+        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 12, marginBottom: 16, overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}>
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 16px', textDecoration: 'none', color: 'white',
+            borderBottom: '1px solid rgba(255,255,255,0.10)',
+          }}
+        >
+          <span>Privacy Policy</span>
+          <span style={{ color: 'rgba(255,255,255,0.45)' }}>↗</span>
+        </a>
+        <button
+          onClick={onOpenAccount}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 16px', background: 'transparent', border: 'none',
+            color: 'white', fontSize: 16, cursor: 'pointer', textAlign: 'left',
+            borderBottom: '1px solid rgba(255,255,255,0.10)',
+            fontFamily: 'inherit',
+          }}
+        >
+          <span>Account Status</span>
+          <span style={{ color: 'rgba(255,255,255,0.45)' }}>›</span>
+        </button>
+        <button
+          onClick={onSignOut}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 16px', background: 'transparent', border: 'none',
+            color: 'white', fontSize: 16, cursor: 'pointer', textAlign: 'left',
+            fontFamily: 'inherit',
+          }}
+        >
+          <span>Sign Out</span>
+          <span style={{ color: 'rgba(255,255,255,0.45)' }}>→</span>
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ─── Account Status sub-view ────────────────────────────────────────────────
+function AccountStatusView({ user, tierLabel, onOpenDeleteModal }) {
+  return (
+    <>
+      <Card>
+        <SectionLabel>ACCOUNT</SectionLabel>
+        <Row>
+          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }}>Tier</span>
+          <span style={{ color: 'white', fontSize: 14, fontWeight: 600 }}>{tierLabel}</span>
+        </Row>
+        <Row>
+          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }}>Email</span>
+          <span style={{
+            color: 'white', fontSize: 13,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            maxWidth: '60%',
+          }}>{user?.email || '—'}</span>
+        </Row>
+        <Row>
+          <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }}>Handle</span>
+          <span style={{ color: 'white', fontSize: 13 }}>@{user?.handle || '—'}</span>
+        </Row>
+      </Card>
+
+      {/* Danger zone — same content as before, just gated behind the
+          Account Status entry so a casual tap can't get here. */}
+      <div style={{
+        width: '100%', maxWidth: 480,
+        background: 'rgba(220,53,53,0.06)', border: '1px solid rgba(220,53,53,0.30)',
+        borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+        boxSizing: 'border-box',
+      }}>
+        <div style={{
+          fontSize: 11, letterSpacing: 1.2,
+          color: 'rgba(255,180,180,0.85)', marginBottom: 6, fontWeight: 600,
+        }}>
+          DANGER ZONE
+        </div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.70)', marginBottom: 12, lineHeight: 1.45 }}>
+          Permanently delete your account and all associated data. Rounds,
+          matches you hosted, and posted scores remain in the historical
+          record but are anonymized. <strong style={{ color: '#FFB5B5' }}>This cannot be undone.</strong>
+        </div>
+        <button
+          onClick={onOpenDeleteModal}
+          style={{
+            width: '100%', padding: '12px 14px',
+            background: 'rgba(220,53,53,0.12)', color: '#FF8585',
+            border: '1px solid rgba(220,53,53,0.50)',
+            borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Delete my account
+        </button>
+      </div>
+    </>
+  )
+}
+
+// ─── Shared primitives ──────────────────────────────────────────────────────
+
+function Card({ children }) {
+  return (
+    <div style={{
+      width: '100%', maxWidth: 480,
+      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+      borderRadius: 12, padding: '14px 16px', marginBottom: 12,
+      boxSizing: 'border-box',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function SectionLabel({ children }) {
+  return (
+    <div style={{
+      fontSize: 11, letterSpacing: 1.2,
+      color: 'rgba(255,255,255,0.55)', marginBottom: 6,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function Row({ children }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 12,
+      padding: '6px 0',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function Toggle({ on, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      role="switch"
+      aria-checked={on}
+      style={{
+        width: 48, height: 28, borderRadius: 999,
+        background: on ? '#2A7A38' : 'rgba(255,255,255,0.18)',
+        border: '1px solid ' + (on ? 'rgba(232,192,90,0.55)' : 'rgba(255,255,255,0.22)'),
+        position: 'relative', cursor: 'pointer', flexShrink: 0,
+        transition: 'background 200ms ease',
+        padding: 0,
+      }}
+    >
+      <div style={{
+        position: 'absolute',
+        top: 2, left: on ? 22 : 2,
+        width: 22, height: 22, borderRadius: '50%',
+        background: 'white',
+        transition: 'left 200ms ease',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.30)',
+      }} />
+    </button>
   )
 }

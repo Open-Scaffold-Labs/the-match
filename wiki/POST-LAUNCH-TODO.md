@@ -85,6 +85,21 @@ Easy candidates (sorted roughly by leverage):
 
 **Empty-state copy update:** the home profile says "Drop a birdie, post a sub-80 round, or play three rounds in a week — they unlock as you go." With more achievements, this string should grow or become dynamic ("X achievements unlocked, Y more available").
 
+## 18. Hook up "Upgrade to Elite" billing
+
+The Settings page now ships an "★ Upgrade to Elite" button (visible only when `user.tier !== 'elite'`) — currently a visual stub that fires an alert "Coming soon — Elite billing is on the post-launch roadmap." Added 2026-05-07 PM3 alongside the rest of the Settings redesign so the surface is in place when billing is wired up.
+
+Pieces to wire when ready:
+
+- **Provider choice.** Stripe is the path of least resistance for web + iOS-PWA (App Store rules don't apply since The Match is a PWA today; if/when we ship a native iOS shell, IAP will be required and Stripe-on-web becomes "manage subscription" only).
+- **Pricing.** The Leagues empty-state copy already advertises "$7.50/mo annual" — that's the v1 price target. Confirm and lock it.
+- **Server-side webhook.** `POST /api/billing/webhook` — verifies Stripe signature, on `customer.subscription.created/updated` flips `tm_users.tier` to `elite` (and back to `free` on cancellation). Idempotent, logs + retries.
+- **Subscription portal.** Replace the alert in `SettingsModal.jsx` MainView with a call to `Stripe.checkout.sessions.create` (or the Stripe Customer Portal for existing subscribers — manage payment method, cancel, see invoices).
+- **Billing-related settings rows.** Once a user has a subscription, the "Upgrade to Elite" button becomes "Manage subscription" with a different action.
+- **Test cards + smoke test.** `scripts/smoke-test-billing.js` — assert that subscribing flips tier to elite and cancelling reverts it.
+
+**Next step:** create a Stripe account, generate test keys, decide annual vs monthly pricing model.
+
 ## 17. Add main-bucket verified_at check to preflight
 
 See #15 — currently only the reminder bucket has content-verification audit in the preflight. The main wiki bucket can have unverified entries silently. Extend the check in `tools/limitless-preflight.sh` to walk `tools/.notebooklm-wiki-state.json` and warn on any entry without a `verified_at` timestamp. Apply to all 3 deployed copies (the-match, canonical, Hub vault) per the sync contract.
