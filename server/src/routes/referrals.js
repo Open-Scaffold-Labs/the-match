@@ -26,7 +26,11 @@ router.get('/me', async (req, res) => {
     const userId = req.user.id
     const code = await getOrCreateCode(userId)
     const stats = await getReferralStats(userId)
-    const base = process.env.APP_BASE_URL || `https://${req.headers.host || 'the-match-roan.vercel.app'}`
+    // Trim() strips any trailing newline / whitespace baked into the
+    // env var (real bug observed 2026-05-07 PM3 — APP_BASE_URL had a
+    // \n at the end, same paste-quirk that bit the VAPID_PRIVATE_KEY
+    // setup earlier in the project).
+    const base = (process.env.APP_BASE_URL || `https://${req.headers.host || 'the-match-roan.vercel.app'}`).trim()
     const url = `${base}/?ref=${code}`
     res.json({ code, url, ...stats })
   } catch (err) {
