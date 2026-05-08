@@ -14,7 +14,11 @@
 // /api auth middleware).
 
 const router = require('express').Router()
+const requireAuth = require('../middleware/auth')
 const { getOrCreateCode, getReferralStats } = require('../lib/referrals')
+
+// All routes here require an authenticated user.
+router.use(requireAuth)
 
 router.get('/me', async (req, res) => {
   if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' })
