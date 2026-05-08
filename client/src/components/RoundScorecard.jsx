@@ -303,13 +303,35 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
       boxShadow: '0 4px 14px rgba(0,0,0,0.40)',
       marginBottom: 12,
     }}>
-      {/* Section label */}
+      {/* Section label — "FRONT 9" / "BACK 9" centered, plus the player's
+          subtotal pushed to the right edge so the 9-hole score is visible
+          at a glance without scanning the grid. The label stays
+          horizontally centered (absolute-positioning trick) so it doesn't
+          shift when the subtotal width changes (single vs double digit).
+          (2026-05-07 PM3 — Matt: 'put the players total score for the
+          front nine next to front 9'.) */}
       <div style={{
+        position: 'relative',
         background: '#0F3D1E',
-        color: '#F5E070', fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
-        textAlign: 'center', padding: '5px 0', textTransform: 'uppercase',
+        padding: '5px 12px', minHeight: 22,
         borderBottom: '1px solid rgba(232,192,90,0.35)',
-      }}>{label}</div>
+        display: 'flex', alignItems: 'center',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, right: 0,
+          textAlign: 'center',
+          color: '#F5E070', fontSize: 10, fontWeight: 800,
+          letterSpacing: '0.14em', textTransform: 'uppercase',
+          pointerEvents: 'none',
+        }}>{label}</div>
+        <div style={{
+          marginLeft: 'auto',
+          color: '#fff', fontSize: 13, fontWeight: 900,
+          fontFamily: '"Arial Black", Arial, sans-serif',
+          lineHeight: 1,
+          position: 'relative', zIndex: 1,
+        }}>{subtotalScore > 0 ? subtotalScore : '—'}</div>
+      </div>
 
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div style={{ minWidth: ROW_W, display: 'flex', flexDirection: 'column' }}>
