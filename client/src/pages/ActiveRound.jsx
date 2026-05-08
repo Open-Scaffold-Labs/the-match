@@ -576,7 +576,7 @@ function SoloBoardView({ user, config, scores, onTapRow }) {
   )
 }
 
-function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, onAddShot, onSetActiveHole, onFinish, onBack }) {
+function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, onAddShot, onSetActiveHole, onFinish, onBack, onGoToEagleEye }) {
   const [editingHole, setEditingHole] = useState(null)
   // 2026-05-07 PM — savedAt timestamp drives the gold "Saved" chip that
   // pops in the bottom-right after every score commit. Same SavedChip
@@ -633,7 +633,10 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    // position:relative so the absolute-positioned GET DISTANCES pill
+    // anchors to this container instead of the document. Same pattern
+    // LiveOuting uses for its own floating pill. (2026-05-07 PM)
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       {/* Header */}
       <div style={{
         // Top padding clears the iOS notch via --safe-top — same pattern
@@ -823,6 +826,39 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
         />
       )}
 
+      {/* Floating GET DISTANCES pill — same gold pill LiveOuting renders
+          for multi-player matches (~line 3489). Anchored bottom-right
+          and floats over the scrolling boards. Bottom offset 80 puts it
+          above the Finish Round footer (which is ~64-70px tall). Hidden
+          when all holes are scored (no distances needed for a finished
+          round) or when the score modal is open (covered by the modal
+          anyway). Tap → jumps to Eagle Eye on the active hole; Eagle
+          Eye expects 1-indexed hole numbers, our `hole` state is
+          0-indexed. (2026-05-07 PM — Matt: 'should have a get
+          distances button that floats with the page on scroll'.) */}
+      {onGoToEagleEye && !allDone && editingHole == null && (
+        <button
+          onClick={() => onGoToEagleEye(hole + 1)}
+          style={{
+            position: 'absolute',
+            bottom: 80, right: 16,
+            background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
+            border: '1px solid rgba(245,215,138,0.6)',
+            borderRadius: 999, padding: '10px 16px',
+            color: '#0D1F12',
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+            cursor: 'pointer',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontFamily: 'inherit',
+            zIndex: 30,
+          }}
+        >
+          GET DISTANCES
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      )}
+
       {/* "Saved" confirmation chip — same gold flash that LiveOuting
           shows for multi-player score commits. Portals itself to
           document.body so positioning is viewport-relative. */}
@@ -935,7 +971,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 // lib/solo-round.js for the full bug narrative).
 const SOLO_ROUND_STORAGE_KEY = SOLO_KEY_LIB
 
-export default function ActiveRound({ user, onBack }) {
+export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'
   const [config, setConfig] = useState(null)  // { courseName, pars[] }
   const [hole, setHole]     = useState(0)     // 0-indexed
@@ -1106,6 +1142,7 @@ export default function ActiveRound({ user, onBack }) {
         onSetActiveHole={(idx) => setHole(idx)}
         onFinish={() => setPhase('summary')}
         onBack={onBack}
+        onGoToEagleEye={onGoToEagleEye}
       />
     </NoPullWrap>
   )
