@@ -40,6 +40,9 @@ const USER_PUBLIC_COLUMNS = [
   'handle',
   'role',
   'tier',
+  'elite_until',     // time-limited Elite from referrals/signup bonus
+                     // (2026-05-07 PM3 — referral program v1).
+                     // Effective Elite = tier === 'elite' || elite_until > NOW().
   'onboarding_completed_at',
   'onboarding_steps',
   'coach_marks_seen',

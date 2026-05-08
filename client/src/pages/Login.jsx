@@ -34,18 +34,48 @@ export default function Login({ onLogin }) {
   // page loads on a reset link. Cleared after successful reset.
   const [resetToken, setResetToken] = useState('')
 
-  // On mount, parse ?reset=TOKEN from the URL. If present, switch to reset
-  // mode so the user is prompted for their new PIN immediately.
+  // Referral code (from a ?ref=CODE link). Captured on mount, persisted
+  // through localStorage so it survives the user toggling between Sign
+  // In ↔ Create Account or visiting other pages before completing
+  // signup. Sent in the signup body as `ref`. (2026-05-07 PM3.)
+  const [refCode, setRefCode] = useState('')
+
+  // On mount, parse ?reset=TOKEN and ?ref=CODE from the URL. If reset,
+  // switch to reset mode so the user is prompted for their new PIN
+  // immediately. If ref, stash it for the signup body. Both params are
+  // scrubbed from the URL after parse so they don't linger in browser
+  // history or get sent in document.referrer to outbound links.
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
       const token = params.get('reset')
+      const ref = params.get('ref')
+      let dirty = false
       if (token) {
         setResetToken(token)
         setMode('reset')
-        // Scrub the token from the URL so it doesn't sit in browser history
-        // or referrer headers if the user follows another link from this page.
         params.delete('reset')
+        dirty = true
+      }
+      if (ref) {
+        // Store + persist so the user landing on /?ref=ABC123 → toggling
+        // to Create Account → submitting still includes the code.
+        const cleaned = ref.trim().toUpperCase()
+        if (/^[A-Z0-9]{4,12}$/.test(cleaned)) {
+          setRefCode(cleaned)
+          try { localStorage.setItem('tm-pending-ref', cleaned) } catch { /* ignore */ }
+        }
+        params.delete('ref')
+        dirty = true
+      } else {
+        // No ref in URL — restore from localStorage if a previous
+        // session captured one (and signup hasn't completed yet).
+        try {
+          const stored = localStorage.getItem('tm-pending-ref')
+          if (stored && /^[A-Z0-9]{4,12}$/.test(stored)) setRefCode(stored)
+        } catch { /* ignore */ }
+      }
+      if (dirty) {
         const newQs = params.toString()
         const newUrl = window.location.pathname + (newQs ? `?${newQs}` : '') + window.location.hash
         window.history.replaceState({}, '', newUrl)
@@ -66,9 +96,20 @@ export default function Login({ onLogin }) {
         localStorage.setItem('tm_token', res.token)
         onLogin(res.user)
       } else {
-        const body = mode === 'signup' ? { email, name, pin } : { email, pin }
+        // Signup with a captured referral code includes it in the body
+        // so the server can record the referral + credit the new user
+        // with their 7-day Elite trial. Login ignores ref (only relevant
+        // at account creation). After a successful signup we clear the
+        // pending ref from localStorage so a later guest signup on the
+        // same device doesn't re-attribute. (2026-05-07 PM3.)
+        const body = mode === 'signup'
+          ? { email, name, pin, ...(refCode ? { ref: refCode } : {}) }
+          : { email, pin }
         const res  = await post(`/api/auth/${mode}`, body)
         localStorage.setItem('tm_token', res.token)
+        if (mode === 'signup') {
+          try { localStorage.removeItem('tm-pending-ref') } catch { /* ignore */ }
+        }
         onLogin(res.user)
       }
     } catch (e) {
@@ -198,6 +239,22 @@ export default function Login({ onLogin }) {
             position: 'absolute', top: 0, left: 0, right: 0, height: 3, pointerEvents: 'none',
             background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.7), rgba(232,192,90,1.0), rgba(201,160,64,0.7), transparent)',
           }} />
+
+          {/* Referral hint — shown when a ?ref=CODE was captured at
+              page load and the user is in the signup flow. Tells them
+              the perk so the link feels meaningful. (2026-05-07 PM3.) */}
+          {mode === 'signup' && refCode && (
+            <div style={{
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 12, color: '#5A4810', lineHeight: 1.5,
+              background: 'rgba(232,192,90,0.18)',
+              border: '1px solid rgba(155,120,24,0.40)',
+              borderRadius: 8, padding: '8px 10px', marginBottom: 4,
+              fontStyle: 'italic',
+            }}>
+              ★ Invited by a friend (<strong style={{ fontStyle: 'normal' }}>{refCode}</strong>) — your account starts with 7 days of Elite, free.
+            </div>
+          )}
 
           {/* Mode-specific helper text for the reset/forgot states. The
               login + signup modes use the toggle pills above as their cue. */}

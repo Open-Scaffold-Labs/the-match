@@ -31,7 +31,7 @@ const authLimiter = rateLimit({
 // POST /api/auth/signup
 router.post('/signup', authLimiter, async (req, res) => {
   try {
-    const { email, name, pin } = req.body
+    const { email, name, pin, ref } = req.body
     if (!email || !name || !pin) return res.status(400).json({ error: 'email, name, and pin required' })
     if (!/^\d{4}$/.test(pin))   return res.status(400).json({ error: 'PIN must be 4 digits' })
 
@@ -48,6 +48,20 @@ router.post('/signup', authLimiter, async (req, res) => {
        RETURNING ${USER_PUBLIC_COLUMNS}`,
       [email.toLowerCase(), name.trim(), hash, handle]
     )
+
+    // If a referral code was supplied, record the referral and credit
+    // the new user with their 7-day Elite trial. Failure is non-blocking
+    // — a bad ref code or DB hiccup shouldn't fail the signup itself.
+    // (2026-05-07 PM3 — referral program v1.)
+    if (ref) {
+      try {
+        const { recordSignupReferral } = require('../lib/referrals')
+        await recordSignupReferral(user.id, ref)
+      } catch (refErr) {
+        console.warn('[signup] referral record failed (non-blocking):', refErr.message)
+      }
+    }
+
     res.status(201).json({ token: mintToken(user.id), user })
   } catch (err) {
     console.error('[signup]', err.message)

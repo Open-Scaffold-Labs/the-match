@@ -80,6 +80,18 @@ router.post('/', async (req, res) => {
     console.warn('[achievements] check after solo round failed', e.message)
   }
 
+  // Referral qualification (2026-05-07 PM3). If this user was referred
+  // and this is their first qualifying round, mark the referral and
+  // trigger milestone-award checks for the referrer. No-op if the user
+  // wasn't referred or has already qualified. Awaited so the lambda
+  // doesn't freeze the in-flight UPDATE.
+  try {
+    const { markReferralQualified } = require('../lib/referrals')
+    await markReferralQualified(req.user.id)
+  } catch (e) {
+    console.warn('[referrals] mark-qualified after solo round failed', e.message)
+  }
+
   res.status(201).json({ id: row.id, achievements: newly })
 })
 

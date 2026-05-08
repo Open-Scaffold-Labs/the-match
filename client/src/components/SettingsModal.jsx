@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { del, clearToken } from '../lib/api.js'
+import { api, del, clearToken } from '../lib/api.js'
 
 /**
  * SettingsModal — fullscreen overlay opened from the kebab (⋯) icon in
@@ -331,6 +331,10 @@ function MainView({
         )}
       </Card>
 
+      {/* Referral / invite-link card. Sits between Tier and Location
+          so users see "earn free Elite" right after the tier badge. */}
+      <ReferralCard />
+
       {/* Location toggle */}
       <Card>
         <Row>
@@ -502,6 +506,196 @@ function Row({ children }) {
       {children}
     </div>
   )
+}
+
+// ─── Referral card ──────────────────────────────────────────────────────────
+// Pulls /api/referrals/me on mount. Shows the user's link with a copy
+// button (writes to clipboard with visual ✓ confirmation), a Share
+// button that opens the native share sheet on mobile (navigator.share
+// falls back to copy on desktop), the milestone progress, and the list
+// of awarded rewards as small chips.
+function ReferralCard() {
+  const [data, setData]   = useState(null)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    api('/api/referrals/me')
+      .then(d => { if (alive) setData(d) })
+      .catch(e => { if (alive) setError(e?.message || 'Could not load referral info') })
+    return () => { alive = false }
+  }, [])
+
+  async function copyLink() {
+    if (!data?.url) return
+    try {
+      await navigator.clipboard.writeText(data.url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Older browsers — manual fallback would go here. For now, the
+      // input is selectable so the user can copy by hand.
+    }
+  }
+
+  async function share() {
+    if (!data?.url) return
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join me on The Match',
+          text: 'Sign up with my link and we both get free Elite.',
+          url: data.url,
+        })
+      } catch {
+        // User canceled the share sheet — silent.
+      }
+    } else {
+      // Desktop / no share API — fall back to copy.
+      await copyLink()
+    }
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <SectionLabel>INVITE FRIENDS</SectionLabel>
+        <div style={{ fontSize: 12, color: 'rgba(255,140,140,0.85)' }}>{error}</div>
+      </Card>
+    )
+  }
+
+  if (!data) {
+    return (
+      <Card>
+        <SectionLabel>INVITE FRIENDS</SectionLabel>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.40)' }}>Loading…</div>
+      </Card>
+    )
+  }
+
+  const { url, qualifyingCount, nextMilestone, awarded, milestones } = data
+  // Progress bar fills from 0 to the NEXT milestone's count. If
+  // nextMilestone is null (max tier already earned), bar is full and
+  // we just show "max tier earned".
+  const progressMax = nextMilestone ? nextMilestone.target : (milestones[milestones.length - 1]?.count || 50)
+  const progressPct = Math.min(100, (qualifyingCount / progressMax) * 100)
+
+  return (
+    <Card>
+      <SectionLabel>INVITE FRIENDS · EARN FREE ELITE</SectionLabel>
+      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.70)', lineHeight: 1.45, marginBottom: 12 }}>
+        Share your link. When friends sign up + play a round, you earn free Elite —{' '}
+        <strong style={{ color: 'rgba(255,255,255,0.92)' }}>5 = 1 week, 10 = 1 month, 50 = 1 year.</strong>
+      </div>
+
+      {/* Link + copy + share row */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        <input
+          type="text"
+          value={url}
+          readOnly
+          onFocus={(e) => e.target.select()}
+          aria-label="Your referral link"
+          style={{
+            flex: 1, minWidth: 0,
+            padding: '10px 12px',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            borderRadius: 8,
+            color: 'white', fontSize: 13,
+            fontFamily: 'inherit',
+            boxSizing: 'border-box',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+          }}
+        />
+        <button
+          onClick={copyLink}
+          aria-label="Copy referral link"
+          style={{
+            padding: '10px 12px',
+            background: copied ? 'rgba(42,122,56,0.30)' : 'rgba(232,192,90,0.18)',
+            border: '1px solid ' + (copied ? 'rgba(42,122,56,0.55)' : 'rgba(232,192,90,0.45)'),
+            borderRadius: 8,
+            color: copied ? '#9CE3A3' : '#F5D78A',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'inherit', flexShrink: 0,
+            transition: 'background 200ms ease',
+          }}
+        >
+          {copied ? '✓ Copied' : 'Copy'}
+        </button>
+        <button
+          onClick={share}
+          aria-label="Share referral link"
+          style={{
+            padding: '10px 12px',
+            background: 'rgba(232,192,90,0.18)',
+            border: '1px solid rgba(232,192,90,0.45)',
+            borderRadius: 8,
+            color: '#F5D78A',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            fontFamily: 'inherit', flexShrink: 0,
+          }}
+        >
+          ↗ Share
+        </button>
+      </div>
+
+      {/* Progress bar — qualifying / next milestone */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: 11, color: 'rgba(255,255,255,0.65)',
+          marginBottom: 4, fontWeight: 700, letterSpacing: '0.04em',
+        }}>
+          <span>{qualifyingCount} qualifying signup{qualifyingCount === 1 ? '' : 's'}</span>
+          <span>
+            {nextMilestone
+              ? `${nextMilestone.remaining} to ${prettyDays(nextMilestone.days)} of Elite`
+              : 'Max tier earned ✓'}
+          </span>
+        </div>
+        <div style={{
+          width: '100%', height: 6, borderRadius: 999,
+          background: 'rgba(255,255,255,0.08)',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: `${progressPct}%`, height: '100%',
+            background: 'linear-gradient(90deg, #C9A040, #F5D78A)',
+            transition: 'width 300ms ease',
+          }} />
+        </div>
+      </div>
+
+      {/* Milestone tier reference + awarded chips */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {milestones.map(m => {
+          const earned = awarded.some(a => a.milestone === m.count)
+          return (
+            <div key={m.count} style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+              padding: '4px 8px', borderRadius: 999,
+              background: earned ? 'rgba(232,192,90,0.20)' : 'rgba(255,255,255,0.05)',
+              border: '1px solid ' + (earned ? 'rgba(232,192,90,0.55)' : 'rgba(255,255,255,0.14)'),
+              color: earned ? '#F5D78A' : 'rgba(255,255,255,0.55)',
+            }}>
+              {earned ? '★ ' : ''}{m.count} → {prettyDays(m.days)}
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+function prettyDays(days) {
+  if (days >= 365) return `${Math.round(days / 365)} year${days >= 730 ? 's' : ''}`
+  if (days >= 30) return `${Math.round(days / 30)} month${days >= 60 ? 's' : ''}`
+  if (days >= 7) return `${Math.round(days / 7)} week${days >= 14 ? 's' : ''}`
+  return `${days} day${days === 1 ? '' : 's'}`
 }
 
 function Toggle({ on, onClick }) {

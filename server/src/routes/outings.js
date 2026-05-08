@@ -1855,6 +1855,18 @@ router.post('/:code/end', async (req, res) => {
         await maybeUpdateUserHandicap(p.user_id).catch(err => {
           console.warn('[outings/end] handicap recompute failed for user', p.user_id, err.message)
         })
+        // Referral qualification (2026-05-07 PM3). If this participant
+        // was referred and this is their first qualifying round, the
+        // helper sets qualifying_round_at and triggers the referrer's
+        // milestone-award check. No-op if not referred or already
+        // qualified. Failures swallowed — same contract as the helpers
+        // above, the match-end response shouldn't fail over this.
+        try {
+          const { markReferralQualified } = require('../lib/referrals')
+          await markReferralQualified(p.user_id)
+        } catch (e) {
+          console.warn('[outings/end] referral mark-qualified failed for user', p.user_id, e.message)
+        }
       }
     } catch (e) {
       console.error('[outings/end] round-emit failed:', e.message)
