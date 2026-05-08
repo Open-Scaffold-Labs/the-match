@@ -442,6 +442,135 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave
 // (2026-05-07 PM — Matt: 'i want solo round to have the same view as the
 // regular scorecard/board view as other matches have but just for one
 // player'.)
+// ─── Solo Board View — Tour-leaderboard look, single row ──────────────────
+// Mirrors LiveOuting's MatchScoreboard visually (translucent glass card,
+// POS / avatar / PLAYER / TOT / THRU columns, gold leader tint, red/
+// green/gold score-to-par color story) but for one player. Even at a
+// field of 1, you're 1st — useful for the user who wants to "see their
+// score on a board". Tapping the row switches back to SCORECARD mode
+// (the only place you can actually enter scores). (2026-05-07 PM —
+// Matt: 'allow solo round to view score in board view as well'.)
+function SoloBoardView({ user, config, scores, onTapRow }) {
+  const holeCount  = config.pars.length
+  const totalScore = scores.reduce((s, x) => s + (Number(x) || 0), 0)
+  const playedPar  = scores.reduce((s, x, i) => x > 0 ? s + (config.pars[i] || 4) : s, 0)
+  const holesPlayed = scores.filter(s => s > 0).length
+  const numericDiff = totalScore > 0 ? totalScore - playedPar : null
+  const diffStr = numericDiff == null ? '—'
+                : numericDiff === 0   ? 'E'
+                : numericDiff > 0     ? `+${numericDiff}`
+                :                       `${numericDiff}`
+  const diffColor = numericDiff == null ? 'rgba(27,94,59,0.50)'
+                  : numericDiff < 0     ? '#1A6B28'
+                  : numericDiff === 0   ? 'rgba(27,94,59,0.75)'
+                  :                       '#B91C1C'
+  const thru = holesPlayed === 0 ? '—'
+             : holesPlayed >= holeCount ? 'F'
+             : String(holesPlayed)
+  const display = user?.name || 'You'
+  const avatarSrc = user?.avatar
+  const initialsStr = (display.split(/\s+/).map(s => s[0]).filter(Boolean).slice(0,2).join('') || '·').toUpperCase()
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 24px' }}>
+      <div style={{
+        background: 'rgba(255,255,255,0.22)',
+        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.45)',
+        borderRadius: 16,
+        padding: '12px 12px 4px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+      }}>
+        {/* Column headers — matches MatchScoreboard's stroke-format
+            grid template (no TODAY column for non-match-play). */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '28px 44px 1fr 50px 36px',
+          gap: 4, padding: '0 4px 6px',
+          borderBottom: '1px solid rgba(27,94,59,0.18)',
+          marginBottom: 6,
+        }}>
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>POS</div>
+          <div />
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em' }}>PLAYER</div>
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>TOT</div>
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textAlign: 'center' }}>THRU</div>
+        </div>
+
+        {/* The lone player row. Always position 1 (it's just you); leader
+            gold tint applies, plus the gold left-border self-accent. */}
+        <button
+          onClick={onTapRow}
+          style={{
+            width: '100%',
+            display: 'grid',
+            gridTemplateColumns: '28px 44px 1fr 50px 36px',
+            gap: 4, alignItems: 'center',
+            padding: '7px 4px',
+            borderBottom: '1px solid rgba(27,94,59,0.10)',
+            background: 'rgba(201,160,64,0.20)',
+            borderRadius: 8,
+            borderLeft: '3px solid #C9A040',
+            cursor: 'pointer',
+            textAlign: 'left', font: 'inherit',
+          }}
+          aria-label="Switch to scorecard view"
+        >
+          <div style={{
+            textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#C9A040',
+          }}>1</div>
+          <div style={{
+            width: 38, height: 38, borderRadius: 10, overflow: 'hidden',
+            background: 'rgba(27,94,59,0.08)',
+            border: '1px solid rgba(27,94,59,0.12)',
+            position: 'relative',
+          }}>
+            {avatarSrc ? (
+              <img src={avatarSrc} alt={display} style={{
+                width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center',
+              }} />
+            ) : (
+              <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 800, color: '#fff',
+                background: avatarBg(display),
+              }}>{initialsStr}</div>
+            )}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 700, color: '#0D1F12',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{display}</div>
+            <div style={{
+              fontSize: 9, color: 'rgba(27,94,59,0.45)', fontWeight: 500,
+              letterSpacing: '0.02em', marginTop: 1,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {totalScore > 0 ? `${totalScore} strokes · par ${playedPar}` : 'Solo round'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <span style={{
+              fontSize: 13, fontWeight: 800, color: diffColor,
+            }}>{diffStr}</span>
+          </div>
+          <div style={{
+            textAlign: 'center', fontSize: 11,
+            color: thru === 'F' ? 'rgba(27,94,59,0.55)' : 'rgba(27,94,59,0.45)',
+            fontWeight: thru === 'F' ? 700 : 400,
+          }}>{thru}</div>
+        </button>
+
+        <div style={{ padding: '12px 4px 4px', color: 'rgba(27,94,59,0.50)', fontSize: 10, textAlign: 'center' }}>
+          Tap your row to enter scores
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, onAddShot, onSetActiveHole, onFinish, onBack }) {
   const [editingHole, setEditingHole] = useState(null)
   // 2026-05-07 PM — savedAt timestamp drives the gold "Saved" chip that
@@ -450,6 +579,11 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
   // language matches multi-player matches. Matt: 'why is there no
   // saved pop up after a score is entered like in multiplayer matches'.
   const [savedAt, setSavedAt] = useState(0)
+  // 2026-05-07 PM — toggle between the Augusta hole-by-hole grid
+  // ('scorecard', default) and the Tour-leaderboard single-row view
+  // ('board'). Same SCORECARD/BOARD toggle multi-player matches use.
+  // Matt: 'allow solo round to view score in board view as well'.
+  const [viewMode, setViewMode] = useState('scorecard')
   const holeCount = config.pars.length
   const totalPar  = config.pars.reduce((s, p) => s + p, 0)
   const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
@@ -558,40 +692,94 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
         </div>
       </div>
 
-      {/* Boards */}
-      <div className="page-scroll" style={{ flex: 1, padding: '12px 8px 16px', overflowY: 'auto' }}>
+      {/* SCORECARD / BOARD toggle — same gold-pill toggle multi-player
+          matches use (LiveOuting). Default 'scorecard' since you need
+          it to enter scores; tap BOARD to see the Tour-leaderboard
+          look. Tapping the row in BOARD switches back to SCORECARD. */}
+      <div style={{
+        display: 'flex', justifyContent: 'center',
+        padding: '10px 16px 0', flexShrink: 0,
+      }}>
         <div style={{
-          borderRadius: 12, overflow: 'hidden',
-          border: '1px solid rgba(0,0,0,0.30)',
-          boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-          marginBottom: backHoles.length > 0 ? 12 : 0,
+          display: 'inline-flex',
+          background: '#1A4A24',
+          border: '1px solid rgba(232,192,90,0.45)',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+          borderRadius: 999, padding: 4, gap: 2,
         }}>
-          <SoloScorecardTable
-            label="FRONT 9"
-            holes={frontHoles}
-            holePars={config.pars}
-            scores={scores}
-            activeHole={hole}
-            onCellTap={openScoreModal}
-          />
+          <button onClick={() => setViewMode('scorecard')} style={{
+            background: viewMode === 'scorecard' ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'transparent',
+            border: 'none', cursor: 'pointer',
+            padding: '7px 20px', borderRadius: 999,
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
+            color: viewMode === 'scorecard' ? '#0D1F12' : '#FBF3DC',
+            fontFamily: 'inherit',
+            boxShadow: viewMode === 'scorecard'
+              ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
+              : 'none',
+            transition: 'background 140ms ease, color 140ms ease, box-shadow 140ms ease',
+          }}>SCORECARD</button>
+          <button onClick={() => setViewMode('board')} style={{
+            background: viewMode === 'board' ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'transparent',
+            border: 'none', cursor: 'pointer',
+            padding: '7px 20px', borderRadius: 999,
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
+            color: viewMode === 'board' ? '#0D1F12' : '#FBF3DC',
+            fontFamily: 'inherit',
+            boxShadow: viewMode === 'board'
+              ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
+              : 'none',
+            transition: 'background 140ms ease, color 140ms ease, box-shadow 140ms ease',
+          }}>BOARD</button>
         </div>
-        {backHoles.length > 0 && (
+      </div>
+
+      {/* Body — one of the two views, driven by viewMode. Scorecard is
+          the Augusta hole-by-hole grid (where you tap cells to enter
+          scores). Board is the Tour-leaderboard single-row view (read
+          only; tap the row to flip back to scorecard). */}
+      {viewMode === 'scorecard' ? (
+        <div className="page-scroll" style={{ flex: 1, padding: '12px 8px 16px', overflowY: 'auto' }}>
           <div style={{
             borderRadius: 12, overflow: 'hidden',
             border: '1px solid rgba(0,0,0,0.30)',
             boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+            marginBottom: backHoles.length > 0 ? 12 : 0,
           }}>
             <SoloScorecardTable
-              label="BACK 9"
-              holes={backHoles}
+              label="FRONT 9"
+              holes={frontHoles}
               holePars={config.pars}
               scores={scores}
               activeHole={hole}
               onCellTap={openScoreModal}
             />
           </div>
-        )}
-      </div>
+          {backHoles.length > 0 && (
+            <div style={{
+              borderRadius: 12, overflow: 'hidden',
+              border: '1px solid rgba(0,0,0,0.30)',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+            }}>
+              <SoloScorecardTable
+                label="BACK 9"
+                holes={backHoles}
+                holePars={config.pars}
+                scores={scores}
+                activeHole={hole}
+                onCellTap={openScoreModal}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <SoloBoardView
+          user={user}
+          config={config}
+          scores={scores}
+          onTapRow={() => setViewMode('scorecard')}
+        />
+      )}
 
       {/* Footer — Finish Round button. Gold gradient when all holes are
           scored; muted-but-tappable when not (we still let the user
