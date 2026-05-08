@@ -16,6 +16,7 @@ import {
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
+import { SavedChip } from './Outing/LiveOuting.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 
 const CLUBS = [
@@ -443,6 +444,12 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave
 // player'.)
 function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, onAddShot, onSetActiveHole, onFinish, onBack }) {
   const [editingHole, setEditingHole] = useState(null)
+  // 2026-05-07 PM — savedAt timestamp drives the gold "Saved" chip that
+  // pops in the bottom-right after every score commit. Same SavedChip
+  // component LiveOuting uses, exported from there so the visual
+  // language matches multi-player matches. Matt: 'why is there no
+  // saved pop up after a score is entered like in multiplayer matches'.
+  const [savedAt, setSavedAt] = useState(0)
   const holeCount = config.pars.length
   const totalPar  = config.pars.reduce((s, p) => s + p, 0)
   const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
@@ -467,6 +474,12 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
     if (editingHole == null) return
     onScoreHole(editingHole, val)
     setEditingHole(null)
+    // Fire the gold "Saved" chip — same UX as LiveOuting. Score is
+    // committed locally + persisted to localStorage immediately by
+    // ActiveRound's autosave effect, so the user-facing confirmation
+    // can fire right away (no waiting on a server roundtrip — solo
+    // rounds only POST when the user finishes, not per hole).
+    setSavedAt(Date.now())
     // Auto-advance the active-hole highlight to the next unfilled hole
     // so the gold flag pin tracks the user's progress without forcing
     // them to manually pick the next one. (Same UX as HoleScorer's
@@ -613,6 +626,11 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
           onClose={() => setEditingHole(null)}
         />
       )}
+
+      {/* "Saved" confirmation chip — same gold flash that LiveOuting
+          shows for multi-player score commits. Portals itself to
+          document.body so positioning is viewport-relative. */}
+      <SavedChip savedAt={savedAt} />
     </div>
   )
 }

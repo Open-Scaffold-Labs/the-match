@@ -188,7 +188,13 @@ function ScorecardSkeleton({ onBack }) {
   )
 }
 
-function SavedChip({ savedAt }) {
+// Exported 2026-05-07 PM so the solo-round score modal (ActiveRound.jsx)
+// can fire the same gold "Saved" flash that multi-player matches show
+// — Matt: 'why is there no saved pop up after a score is entered like
+// in multiplayer matches?'. Same component, same animation, same
+// position; ActiveRound just sets its own savedAt timestamp after each
+// onScore call.
+export function SavedChip({ savedAt }) {
   // Schedule a re-render after the animation duration so the chip
   // unmounts cleanly. Without this, the DOM node would linger
   // (transparent, opacity 0 from CSS animation forwards) until the
