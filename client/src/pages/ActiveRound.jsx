@@ -15,6 +15,7 @@ import {
   AUGUSTA_PANEL_HOVER,
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
+import { CoursePicker } from './Outing/CreateWizard.jsx'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
@@ -47,17 +48,43 @@ function scoreColor(strokes, par) {
   return 'var(--tm-double)'
 }
 // ─── Setup Sheet ────────────────────────────────────────────────────────────
+// Solo-round setup. Mirrors CreateWizard's "Set the Stage" step visually
+// — same CoursePicker (real GolfCourseAPI search + tee selection), same
+// Holes chip pattern, same uppercase letter-spaced section labels, same
+// surface-2 input bg — but drops every multi-player concern (match name,
+// golfers count, scoring format, handicap allowance, team breakdown) and
+// the old manual par grid (the picker auto-populates pars from the
+// chosen tee; free-form course names fall back to DEFAULT_PARS).
+// (2026-05-07 PM — Matt: 'setup screen should be exactly the same as
+// the other just without the multiplayer questions'.)
 function SetupSheet({ onStart, onBack }) {
-  const [courseName, setCourseName] = useState('')
+  // courseSelection holds the picked tee's data (courseId, courseName,
+  // courseTee, holePars, coursePar, courseRating, slopeRating). Null when
+  // the user hasn't picked one. typedName is the free-form fallback when
+  // the API doesn't have the course (or the user chose not to pick one).
+  const [courseSelection, setCourseSelection] = useState(null)
+  const [typedName, setTypedName] = useState('')
   const [holes, setHoles] = useState(18)
-  const [pars, setPars] = useState(DEFAULT_PARS.slice(0, 18))
-  const [editPars, setEditPars] = useState(false)
 
-  function togglePar(i) {
-    const cycle = [3, 4, 5]
-    setPars(p => { const n = [...p]; n[i] = cycle[(cycle.indexOf(p[i]) + 1) % 3]; return n })
+  function handleStart() {
+    let pars
+    let courseName
+    if (courseSelection?.holePars?.length) {
+      // Picked tee: use its real pars. Slice if user picked 9 holes
+      // against an 18-hole course; pad with DEFAULT_PARS if (rare)
+      // the picked tee is shorter than the requested hole count.
+      const apiPars = courseSelection.holePars
+      pars = apiPars.length >= holes
+        ? apiPars.slice(0, holes)
+        : [...apiPars, ...DEFAULT_PARS.slice(apiPars.length, holes)]
+      courseName = courseSelection.courseName
+    } else {
+      // Free-form / unpicked: standard rotation of pars.
+      pars = DEFAULT_PARS.slice(0, holes)
+      courseName = typedName.trim() || 'Course'
+    }
+    onStart({ courseName, pars })
   }
-  const totalPar = pars.slice(0, holes).reduce((s, p) => s + p, 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -74,61 +101,33 @@ function SetupSheet({ onStart, onBack }) {
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--tm-gold-text)', marginBottom: 4 }}>Start Round</div>
         <div style={{ fontSize: 14, color: 'var(--tm-text-3)' }}>Set up your scorecard</div>
       </div>
-      <div className="page-scroll" style={{ padding: '20px', gap: 16, display: 'flex', flexDirection: 'column' }}>
-        {/* Course name */}
+      <div className="page-scroll" style={{ padding: '20px', gap: 18, display: 'flex', flexDirection: 'column' }}>
+        {/* Course — real GolfCourseAPI search + tee selection. Same
+            component CreateWizard uses on its "Set the Stage" step. */}
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tm-text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Course</div>
-          <input
-            value={courseName}
-            onChange={e => setCourseName(e.target.value)}
-            placeholder="Course name (optional)"
-            style={{ width: '100%', background: 'var(--tm-surface)', border: '1px solid var(--tm-border)', borderRadius: 'var(--tm-radius)', color: 'var(--tm-text)', fontSize: 16, padding: '12px 14px', outline: 'none', boxSizing: 'border-box' }}
+          <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Course</div>
+          <CoursePicker
+            value={courseSelection?.courseId ? courseSelection : null}
+            onPick={picked => setCourseSelection(picked)}
+            onClear={() => setCourseSelection(null)}
+            onTypedName={setTypedName}
           />
         </div>
         {/* Holes */}
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tm-text-3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Holes</div>
+          <div style={{ fontSize: 12, color: 'var(--tm-text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Holes</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {[9, 18].map(h => (
-              <button key={h} onClick={() => { setHoles(h); setPars(DEFAULT_PARS.slice(0, h)) }}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--tm-radius)', border: '1px solid', borderColor: holes === h ? 'var(--tm-green)' : 'var(--tm-border)', background: holes === h ? 'var(--tm-green-muted)' : 'var(--tm-surface)', color: holes === h ? 'var(--tm-green-text)' : 'var(--tm-text-2)', fontWeight: 700, fontSize: 15 }}>
+              <button key={h} onClick={() => setHoles(h)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 'var(--tm-radius)', border: '1px solid', borderColor: holes === h ? 'var(--tm-green)' : 'var(--tm-border)', background: holes === h ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)', color: holes === h ? 'var(--tm-green-text)' : 'var(--tm-text-2)', fontWeight: 700, fontSize: 15 }}>
                 {h} Holes
               </button>
             ))}
           </div>
         </div>
-        {/* Par grid */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1 }}>Par ({totalPar})</div>
-            <button onClick={() => setEditPars(e => !e)} style={{ fontSize: 12, color: 'var(--tm-gold-text)', background: 'none', border: 'none', fontWeight: 600 }}>
-              {editPars ? 'Done' : 'Edit'}
-            </button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${holes === 9 ? 9 : 9}, 1fr)`, gap: 4 }}>
-            {pars.slice(0, 9).map((p, i) => (
-              <button key={i} onClick={() => editPars && togglePar(i)}
-                style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid var(--tm-border)', background: editPars ? 'var(--tm-surface-2)' : 'var(--tm-surface)', color: p === 3 ? 'var(--tm-birdie)' : p === 5 ? 'var(--tm-gold-text)' : 'var(--tm-text-2)', fontWeight: 700, fontSize: 13, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.2 }}>
-                <span style={{ fontSize: 9, opacity: 0.6 }}>{i+1}</span>
-                {p}
-              </button>
-            ))}
-          </div>
-          {holes === 18 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 4, marginTop: 4 }}>
-              {pars.slice(9, 18).map((p, i) => (
-                <button key={i+9} onClick={() => editPars && togglePar(i+9)}
-                  style={{ aspectRatio: '1', borderRadius: 8, border: '1px solid var(--tm-border)', background: editPars ? 'var(--tm-surface-2)' : 'var(--tm-surface)', color: p === 3 ? 'var(--tm-birdie)' : p === 5 ? 'var(--tm-gold-text)' : 'var(--tm-text-2)', fontWeight: 700, fontSize: 13, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.2 }}>
-                  <span style={{ fontSize: 9, opacity: 0.6 }}>{i+10}</span>
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
       <div style={{ padding: '16px 20px', flexShrink: 0 }}>
-        <button onClick={() => onStart({ courseName: courseName || 'Course', pars: pars.slice(0, holes) })}
+        <button onClick={handleStart}
           style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))', color: '#fff', fontWeight: 800, fontSize: 17, border: 'none' }}>
           Tee It Up
         </button>

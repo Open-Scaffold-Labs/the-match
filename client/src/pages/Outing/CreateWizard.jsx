@@ -33,7 +33,13 @@ const TEAM_BREAKDOWNS = [
 // course detail and lets them choose a tee; the resulting hole_pars[] flows
 // up to the wizard via onPick. Includes a "type your own" fallback for
 // courses that aren't in the API. (2026-04-30)
-function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected }) {
+//
+// Exported 2026-05-07 so the solo-round SetupSheet (ActiveRound.jsx) can
+// reuse the same picker — Matt: 'setup screen should be exactly the same
+// as the other just without the multiplayer questions'. Same component,
+// same API, same look — solo just doesn't pass onCourseTeeSelected since
+// it has no shared-course pipeline.
+export function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
