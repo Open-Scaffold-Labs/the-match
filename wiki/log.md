@@ -1,7 +1,7 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-05-07
+updated: 2026-05-09
 ---
 
 # Activity Log
@@ -944,3 +944,37 @@ Built the full referral pipeline in one session per Matt's spec. Reward model: r
 **Commits this round:** `2aa5d7f` (feat), `1e2821b` (requireAuth fix), `c96be59` (URL trim).
 
 **Open chrome E2E** — full signup-with-ref → log-round → milestone-credit verification was deferred to next session for time. API contracts all manually verified; the round-save trigger and milestone math are tested via the structure of the code (UNIQUE constraints, idempotency) rather than end-to-end.
+
+
+## [2026-05-07] feature | solo-round overhaul + achievements v2 + SW auto-reload
+
+Major rewrite of the solo-round live scoring experience to mirror the multi-player match feel, plus achievements v2 expansion with rarity tiers, plus a service-worker auto-reload fix.
+
+**Active round (live solo scoring) — full UI parity with multi-player matches:**
+- Replaced HoleScorer (single-hole stepper view) with SoloScoreboard: Augusta-style front-9 + back-9 stacked tables, cream score tiles, gold PAR row, AUGUSTA_GREEN_DEEP OUT/IN strip, active-hole gold flag pin. Tap a cell to enter score.
+- New SoloScoreModal: stepper + Eagle/Birdie/Par/Bogey/Double quick-picks + suspicious-score guard. Shot log nested inside.
+- SCORECARD / BOARD toggle (matches multi-player). BOARD = Tour-leaderboard single-row view (you in 1st position, avatar, name, TOT, THRU). Tap row to flip back.
+- SetupSheet now uses the real CoursePicker (GolfCourseAPI search with tee selection) — same component CreateWizard uses. Dropped the manual par grid; pars come from picked tee or DEFAULT_PARS fallback.
+- "Tee It Up" now sits naturally below content (was pushed below the fold by .page-scroll height).
+- Auto-resume after reload: localStorage check hoisted from ActiveRound to Outing.jsx so a pull-to-refresh during a round lands the user back in scoring instead of OutingHub.
+- "Resume Solo Round" card in OutingHub Live Now strip. Shows course name, thru N of M, running total/diff. Tap to resume; small Discard link with confirm.
+- SavedChip flash after every score commit (same gold check pop multi-player has).
+- HighlightShareModal celebration card fires on birdie/eagle/HIO during solo play.
+- Floating GET DISTANCES pill in the footer (alongside Finish) jumps to Eagle Eye on the active hole.
+- iOS notch fixes via calc(var(--safe-top) + Npx) on all three solo screens (SetupSheet, SoloScoreboard header, ScorecardSummary).
+
+**Achievements v2:**
+- Expanded from 4 to 8 types: hole_in_one, first_par, breaking_100, breaking_90 added (existing first_birdie, first_eagle, sub_80, streak_week kept).
+- Per-hole detection in BOTH checkAfterHoleScore (multi) and checkAfterSoloRound (solo). Solo POSTs config.pars now; server validates + persists in new tm_rounds.hole_pars column (migration 027).
+- Rarity tiers (common / rare / legendary) with three-tier visual treatment in AchievementToast: legendary = full-screen takeover with orbiting dashed sparkle ring + LEGENDARY tag (hole_in_one only), rare = bigger pill with iridescent gold/silver border + RARE tag (first_eagle, sub_80), common = standard pill (everything else).
+- New SVG icons for hole_in_one (cup with flag + "1") and first_par (flag on green).
+- AchievementBadge in profile row is also tier-aware.
+
+**Service worker auto-reload (sw.js + App.jsx + vercel.json):**
+- Closed the bug where Matt's iPhone PWA was running a 7-commits-stale bundle while production had moved on. SW activate handler now broadcasts {kind:'sw-activated'} after claim(); App.jsx listens and calls window.location.reload() with a 500ms delay. vercel.json adds Cache-Control: no-cache, no-store, must-revalidate on /sw.js. Net effect: deploys propagate within seconds of next page request.
+
+**Migrations:** 026 (referrals + elite_until), 027 (tm_rounds.hole_pars). Both applied to prod.
+
+**Files touched:** client/src/pages/ActiveRound.jsx (heavy), client/src/pages/Outing.jsx, client/src/pages/Outing/OutingHub.jsx, client/src/pages/Outing/CreateWizard.jsx (CoursePicker exported), client/src/pages/Outing/HighlightShare.jsx (imported), client/src/pages/Outing/LiveOuting.jsx (SavedChip exported), client/src/lib/solo-round.js (new), client/src/components/AchievementToast.jsx (rewrite for rarity tiers), client/src/design/tokens.css (legendary keyframes), client/public/sw.js, client/src/App.jsx, vercel.json, server/src/lib/achievements.js, server/src/routes/rounds.js, migrations/026_tm_referrals.sql, migrations/027_tm_rounds_hole_pars.sql, plus PIN reset (025) + user deletion FK relax (024).
+
+**Commits:** c02143f, 04f7883, 13b2d59, da4b4ed, c31a6e8, f5c2ece, 1e4e57b, 365fb02, e3fccfd, 06517b1, 975023b.
