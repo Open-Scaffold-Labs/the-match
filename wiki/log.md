@@ -1019,3 +1019,13 @@ Triggered by the home-background incident cascade (hot-linked Unsplash photo →
 Filed [[synthesis/top-contender-gameplan-2026-06-01]] — 7-pillar gameplan (reliability foundation, visual identity/design-system, competitive teardown, flagship feature polish, performance, instrumentation, App Store launch), each with a best-possible-end-result bar + phased checklist, sequenced Phase 0→3 with a "definition of flawless" per phase. Grounded in the whitepaper's competitive analysis + the existing tokens.css design system. Phase 0 immediate actions (decide light/dark signature, build owned CSS background, drop Nominatim for GC coords, stand up Sentry) added to the task list.
 
 **Files touched:** wiki/synthesis/top-contender-gameplan-2026-06-01.md (new), wiki/index.md (indexed).
+
+## [2026-06-01] refactor | Design direction — dusk-dark explored, reversed to premium editorial LIGHT
+
+Explored a dark "Augusta at dusk" redesign (mockup + real build on branch `redesign/dusk-dark`: owned CSS dusk canvas in App.jsx + Login.jsx killing the Unsplash hotlink/cream-bug/Titleist-trademark; Login screen fully converted + verified beautiful on preview). Then **reversed the direction** after Matt's pushback: (1) dark-green+gold is the most predictable golf-luxury cliché and a recolor isn't a real leap; (2) **most golf apps are light for a functional reason — on-course sunlight legibility** (bright screens read in sun; dark glares/washes out). Eagle Eye gets away with dark because it's satellite imagery + high-contrast HUD.
+
+New direction: **premium editorial LIGHT** — sun-correct AND the open lane (every golf app is light-but-bland; none are beautifully light). Did web research on premium/award-winning UI (Apple Design Awards 2025, premium-UI guides, typography, color/depth) and filed [[synthesis/ui-excellence-playbook-2026-06-01]] — 7 sourced principles each mapped to a concrete brand move + spec + build sequence.
+
+State of `redesign/dusk-dark` branch: NOT merged. The owned-background work (kills the live cream bug) is reusable but must be re-themed to paper-light, not dusk. The Vercel **Preview** env has `db:false` (DB env vars not scoped to Preview) — confirmed via /health on the preview — which blocks logging into previews to verify authed screens; fix that env scoping to make previews testable.
+
+**Files touched:** client/src/App.jsx, client/src/pages/Login.jsx, client/src/design/tokens.css (on branch redesign/dusk-dark, unmerged); wiki/synthesis/ui-excellence-playbook-2026-06-01.md (new), wiki/index.md.
