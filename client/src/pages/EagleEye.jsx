@@ -327,7 +327,22 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       // Don't fitBounds here — the hole-pan effect will position the map
       // correctly once OSM data arrives. Avoids a redundant double-move.
       setMapReady(true)
+
+      // iOS fix: the flex container often hasn't reached its final size at
+      // init time (dynamic-viewport units + safe-area insets settle a frame
+      // later), so Leaflet measures a wrong pixel size and lays tiles out
+      // offset / off-screen. Recompute once layout settles, and again after
+      // a beat for slow first paints. (2026-06-01 — Matt: map rendered
+      // off-screen on iPhone.)
+      requestAnimationFrame(() => { try { map.invalidateSize() } catch {} })
+      setTimeout(() => { try { map.invalidateSize() } catch {} }, 350)
     }
+
+    // Keep the map sized correctly across rotation / viewport changes
+    // (address bar show/hide, orientation) — same iOS sizing gremlin.
+    const onResize = () => { if (mapRef.current) { try { mapRef.current.invalidateSize() } catch {} } }
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
 
     // Load Leaflet + rotate plugin in parallel, init when both are ready
     const tryInit = () => { if (window.L && window.__leafletRotateReady) init() }
@@ -366,6 +381,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     }
 
     return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
       markerRef.current = null
       holeMarkerRef.current = null
@@ -1720,7 +1737,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const teeHoles = courseCtx?.tee?.holes ?? []
 
   return (
-    <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative',
+        // iOS: stop a swipe on the map from bubbling to the document and
+        // triggering pull-to-refresh (which reloads the app and dumps the
+        // user back to the course-select start screen). (2026-06-01)
+        overscrollBehavior: 'none', touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}>
       <CoachMark
         id="eagle_eye"
         user={user}
