@@ -238,3 +238,26 @@ The 2026-06-01 fix (per-mirror 10s timeout + lz4-first + retry-once) resolved th
 - Persist a successful per-course OSM payload server-side (not just the client localStorage 7-day cache) so a cold course that loaded once for anyone is fast for everyone.
 - Consider fetching holes + teegreen with a shorter Overpass `[timeout:N]` and `out geom` only for the current hole's way (lazy-load the rest) to shrink the heaviest query.
 - Add lightweight server-side telemetry (ties into TODO #12 Sentry) so OSM fetch latency/failures are observable without needing to be caught live — the runtime logs aged out before we could see this round.
+
+## 25. Cache Golf Course API data — the 50/day free-tier cap is a scaling blocker (HIGH / pre-launch)
+
+**The problem (verified 2026-06-01).** `server/src/routes/courses.js` proxies the Golf Course API (golfcourseapi.com) **live with no caching** — both `/api/courses/search?q=` and `/api/courses/:id` hit the vendor on every call (confirmed: no `db` import, no cache in the file). The free tier is **50 requests/day, shared across all users** (paid tiers: 10,000/day, 100,000/day — golfcourseapi.com pricing). Course search (debounced, fires per typing pause) + scorecard fetch (per course pick) both draw on that 50/day budget, so the app hits the wall at a handful of active users. This is a launch/scaling blocker for the whole app, not just Eagle Eye.
+
+**Important distinction:** the OSM/Overpass *map* data IS already cached (server 60-min in-memory + client 7-day localStorage in EagleEye.jsx). That's free OSM data. The Golf Course API *course* data (search + scorecards) is the uncached piece exposed to the cap.
+
+**Design — phase it:**
+
+Phase 1 — cache course detail (biggest win, course data is ~static):
+- New migration `028_tm_courses.sql`: `tm_courses (id BIGINT PK /* GC API course id */, club_name, course_name, city, state, country, latitude, longitude, tees JSONB, fetched_at TIMESTAMPTZ)`.
+- `/api/courses/:id`: look up `tm_courses` first; on miss, fetch GC API, upsert, serve. After warm-up, popular courses cost ~0 API calls. Course data rarely changes, so no TTL needed (or a long one, e.g. refresh if `fetched_at` > 180 days).
+
+Phase 2 — cache search results (reduce the heaviest consumer):
+- `tm_course_search_cache (query_norm TEXT PK /* lowercased+trimmed q */, results JSONB, fetched_at TIMESTAMPTZ)` with a TTL (e.g. 30 days).
+- `/api/courses/search`: serve from cache on hit; on miss, call GC API, store. Popular searches ("pebble beach") stop hitting the vendor.
+- Also store each returned course's lightweight record into `tm_courses` opportunistically.
+
+Phase 3 (optional, fully removes the cap for search) — periodically import the course list into `tm_courses` and serve search from Postgres (ILIKE / full-text), so search makes **zero** vendor calls. Depends on whether the API allows bulk listing on the current tier.
+
+**Bonus:** Phase 1's cached coords also feed TODO #23 (promote Golf Course API coords to primary geocoder, drop Nominatim) at zero extra vendor cost, since the coords come from the same cached detail record.
+
+**Next step:** build Phase 1 (`028_tm_courses.sql` + read-through cache in `courses.js`). ~1-2 hrs incl. testing. Verify GC API `/courses/:id` response shape (already known: returns id, club_name, course_name, location{city,state,country,latitude,longitude}, tees{male,female}) before writing the upsert.
