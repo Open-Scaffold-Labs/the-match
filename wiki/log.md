@@ -1011,3 +1011,11 @@ Follow-on session after the OSM regression fix, three threads:
 - Phase 2/3 (cache search results; own course DB) remain in POST-LAUNCH-TODO #25.
 
 **Files touched:** client/src/pages/EagleEye.jsx, server/src/routes/courses.js, migrations/028_tm_courses.sql, CLAUDE.md (migration count 27→28), wiki/POST-LAUNCH-TODO.md (#23/#24/#25).
+
+## [2026-06-01] query | "Top contender" design-led elevation gameplan
+
+Triggered by the home-background incident cascade (hot-linked Unsplash photo → DNS-blocked on Matt's phone → cream screen) and Matt's ambition to make the app look flawless and challenge the industry leaders. Investigated the background root cause (DNS failure resolving images.unsplash.com on phone; app code unchanged since 05-02; the bg is a hot-linked Unsplash photo reverted to from a local file in 93f55ec because the edit "looked cheap"), and the licensing (Unsplash License permits commercial self-host; the real exposure is the Titleist trademark *in* the photo — same whether hotlinked or hosted). Audited my own Canva output honestly: had called 4 generated concepts "premium" without viewing them; on inspection they're competent-but-generic stock-style photos, and photo-behind-glass is a dated pattern not fit for the stated ambition.
+
+Filed [[synthesis/top-contender-gameplan-2026-06-01]] — 7-pillar gameplan (reliability foundation, visual identity/design-system, competitive teardown, flagship feature polish, performance, instrumentation, App Store launch), each with a best-possible-end-result bar + phased checklist, sequenced Phase 0→3 with a "definition of flawless" per phase. Grounded in the whitepaper's competitive analysis + the existing tokens.css design system. Phase 0 immediate actions (decide light/dark signature, build owned CSS background, drop Nominatim for GC coords, stand up Sentry) added to the task list.
+
+**Files touched:** wiki/synthesis/top-contender-gameplan-2026-06-01.md (new), wiki/index.md (indexed).

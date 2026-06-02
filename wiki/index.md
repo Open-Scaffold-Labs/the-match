@@ -1,7 +1,7 @@
 ---
 type: overview
 created: 2026-04-29
-updated: 2026-05-07
+updated: 2026-06-01
 ---
 
 # Wiki Index
@@ -40,3 +40,4 @@ Content catalog — every page listed here. The preflight's index-completeness c
 - [[synthesis/eagle-eye-tile-grid-handoff-2026-05-01]] — Eagle Eye tile-grid UX handoff notes from 2026-05-01
 - [[synthesis/match-page-completion-plan]] — multi-session plan for the LiveOuting / Match page completion (refactor sequenced in stages 1/6 → 6/6, all shipped)
 - [[synthesis/claude-anti-patterns]] — institutional memory of mistakes (entries inherited from LimitlessStack base + project-specific additions)
+- [[synthesis/top-contender-gameplan-2026-06-01]] — design-led elevation gameplan to take The Match from aspirational to top-spot contender: 7 pillars (reliability, visual identity, competitive teardown, flagship polish, performance, instrumentation, App Store launch) each with a best-result bar + phased checklist; master tracker for the elevation effort · created 2026-06-01
