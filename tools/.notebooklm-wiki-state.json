@@ -5,14 +5,14 @@
     "verified_at": 1778130608.233875
   },
   "wiki/log.md": {
-    "mtime": 1780374217.3882136,
-    "source_id": "63650705-5edb-4b53-b233-acb4bd5a69f6",
-    "verified_at": 1780374264.926869
+    "mtime": 1780379969.8880098,
+    "source_id": "b4893996-f234-4aef-8d14-81f42031cb21",
+    "verified_at": 1780380088.754907
   },
   "wiki/index.md": {
-    "mtime": 1780374199.3442717,
-    "source_id": "090fb170-9570-40ee-97ab-e7bf29e29dd3",
-    "verified_at": 1780374277.160823
+    "mtime": 1780379969.8860178,
+    "source_id": "271f5989-4229-4cb9-8947-16fb16188a74",
+    "verified_at": 1780380102.394061
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -66,5 +66,10 @@
     "mtime": 1780374104.037256,
     "source_id": "909c24cf-1247-4987-aa1e-e64748dae493",
     "verified_at": 1780374284.541556
+  },
+  "wiki/synthesis/ui-excellence-playbook-2026-06-01.md": {
+    "mtime": 1780379969.8895159,
+    "source_id": "731043b2-760e-4b3c-99f5-5a67632b7902",
+    "verified_at": 1780380112.62834
   }
 }
