@@ -1273,8 +1273,19 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // (2026-05-01)
   const [holeGeometries, setHoleGeometries] = useState({})
   const [osmLoading, setOsmLoading]         = useState(false)
+  // True when hole pins were derived from heuristic guesses (no
+  // authoritative golf=hole refs) — drives the "approx. positions" chip
+  // so a guessed pin never reads as exact. (2026-06-01)
+  const [osmApproximate, setOsmApproximate] = useState(false)
 
   const watchIdRef = useRef(null)
+  // Timestamp of the last weather fetch. Weather changes slowly over a
+  // round, so we throttle open-meteo to once per WEATHER_TTL instead of
+  // firing it on every GPS tick (the watch fires continuously while
+  // walking — the old per-tick fetch hammered the API and re-rendered
+  // the whole page all round, a primary cause of on-course lag). (2026-06-01)
+  const lastWeatherRef = useRef(0)
+  const WEATHER_TTL = 10 * 60 * 1000 // 10 min
 
   // Preload Leaflet + rotate plugin the moment EagleEye mounts so both scripts
   // are cached and ready before the user ever opens the satellite map view.
@@ -1346,14 +1357,22 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
         setGps(coords)
-        fetchWeather(coords)
+        // Throttle weather to once per WEATHER_TTL — not every tick.
+        const now = Date.now()
+        if (now - lastWeatherRef.current >= WEATHER_TTL) {
+          lastWeatherRef.current = now
+          fetchWeather(coords)
+        }
       },
       err => {
         if (err.code === 1) setGpsError('denied-hard')
         else if (err.code === 2) setGpsError('unavailable')
         else setGpsError('timeout')
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      // maximumAge lets the device serve a recent cached fix instead of
+      // computing a fresh high-accuracy one on every callback — fewer
+      // wakeups, less churn while walking. (2026-06-01)
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
     )
   }
 
@@ -1365,6 +1384,8 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
         setGps(coords)
+        // First fix on arrival → fetch weather once and seed the throttle.
+        lastWeatherRef.current = Date.now()
         fetchWeather(coords)
         startGpsWatch()
       },
@@ -1394,6 +1415,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     setHolePositions({})
     setGreenPositions({})
     setHoleGeometries({})
+    setOsmApproximate(false)
     setOsmLoading(true)
 
     const { club_name, city, state } = courseCtx.course
@@ -1412,6 +1434,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       setHolePositions(cached.tees)
       setGreenPositions(cached.greens)
       setHoleGeometries(cached.geoms || {})
+      setOsmApproximate(!!cached.approximate)
       setOsmLoading(false)
       return
     }
@@ -1423,6 +1446,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       setHolePositions(stored.tees)
       setGreenPositions(stored.greens)
       setHoleGeometries(stored.geoms || {})
+      setOsmApproximate(!!stored.approximate)
       setOsmLoading(false)
       return
     }
@@ -1432,16 +1456,34 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
       .then(r => r.json())
       .then(data => {
-        if (!data[0]) { setOsmLoading(false); return }
-        // Store bounding box for fitBounds in map
-        const bb = data[0].boundingbox // [minlat, maxlat, minlon, maxlon]
-        const gc = {
-          lat: parseFloat(data[0].lat),
-          lon: parseFloat(data[0].lon),
-          bbox: bb ? {
-            south: parseFloat(bb[0]), north: parseFloat(bb[1]),
-            west:  parseFloat(bb[2]), east:  parseFloat(bb[3]),
-          } : null,
+        // Prefer Nominatim's hit (it carries a tight, course-only bbox).
+        // But Nominatim can return nothing when the course's listed city
+        // doesn't match its real town — e.g. East Orange Golf Course is
+        // listed under "East Orange" by some sources but physically sits
+        // in Short Hills, and "...,East Orange,NJ" geocodes to empty.
+        // In that case fall back to the lat/long the Golf Course API
+        // already gave us instead of bailing with a blank map. The tight
+        // bbox is unavailable on that path, so the ±0.015° synthetic box
+        // below is used. (2026-06-01)
+        const hit = data[0]
+        const courseLat = parseFloat(courseCtx.course.latitude)
+        const courseLon = parseFloat(courseCtx.course.longitude)
+        let gc
+        if (hit) {
+          const bb = hit.boundingbox // [minlat, maxlat, minlon, maxlon]
+          gc = {
+            lat: parseFloat(hit.lat),
+            lon: parseFloat(hit.lon),
+            bbox: bb ? {
+              south: parseFloat(bb[0]), north: parseFloat(bb[1]),
+              west:  parseFloat(bb[2]), east:  parseFloat(bb[3]),
+            } : null,
+          }
+        } else if (Number.isFinite(courseLat) && Number.isFinite(courseLon)) {
+          log('[OSM] Nominatim empty — falling back to Golf Course API coords')
+          gc = { lat: courseLat, lon: courseLon, bbox: null }
+        } else {
+          setOsmLoading(false); return
         }
         setCourseGeocoded(gc)
 
@@ -1459,12 +1501,30 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         // coerce that to an empty {elements:[]} so downstream loops still
         // work (the localStorage 7-day cache is the actual fallback).
         const safeOsm = r => r.json().then(d => d?.error ? { elements: [] } : d).catch(() => ({ elements: [] }))
+        const fetchOsm = type => fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=${type}`).then(safeOsm)
+        // The golf=hole query is the authoritative source of tee+green
+        // pins and is the heavier/slower of the two. A single transient
+        // Overpass miss drops the app into the degraded teegreen-only
+        // fallback for the whole session, so retry it once before giving
+        // up. (2026-06-01)
+        const fetchHolesWithRetry = async () => {
+          let h = await fetchOsm('holes')
+          if (!h?.elements?.length) {
+            await new Promise(res => setTimeout(res, 1500))
+            h = await fetchOsm('holes')
+          }
+          return h
+        }
         return Promise.all([
-          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(safeOsm),
-          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(safeOsm),
+          fetchHolesWithRetry(),
+          fetchOsm('teegreen'),
         ]).then(([osmHoles, osmNodes]) => {
             const scorecard = courseCtx?.tee?.holes ?? []
             const holeTees = {}, holeGreens = {}
+            // True when any pin came from a heuristic guess (yardage match
+            // or spatial sort) rather than authoritative golf=hole refs —
+            // surfaced in the UI so a guessed pin never reads as exact.
+            let approximate = false
 
             // ── Primary: golf=hole ways (have authoritative ref → hole number) ──
             // We also keep el.geometry — the full path of {lat,lon} points
@@ -1532,6 +1592,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               for (const [hStr, green] of Object.entries(matched)) {
                 holeGreens[parseInt(hStr)] = green
                 gapFills++
+                approximate = true
               }
             }
             // Last resort: spatial sort for completely unmapped courses
@@ -1539,13 +1600,41 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             if (stillNoAnything.length === scorecard.length && unrefGreens.length >= 9) {
               const ordered = nearestNeighborSort(unrefGreens, gc.lat, gc.lon)
               ordered.forEach((g, i) => { holeGreens[i + 1] = g })
+              approximate = true
+            }
+
+            // Honest degraded mode: when the golf=hole query failed, the
+            // greens above were matched from unref'd nodes but have NO
+            // paired tee — holeTees would be empty and the map would
+            // render with no tee marker, no aim line, and no tee→green
+            // yardage (exactly the "pins wrong / distances off" failure
+            // observed at East Orange GC). Pair each tee-less hole with
+            // the unref'd tee whose distance to that green best matches
+            // the scorecard yardage, so the map is usable. Guarded so a
+            // tee is only accepted when it plausibly fits the hole. (2026-06-01)
+            if (unrefTees.length > 0) {
+              for (const h of scorecard) {
+                if (!holeGreens[h.hole] || holeTees[h.hole]) continue
+                let best = null, bestDiff = Infinity
+                for (const t of unrefTees) {
+                  const d = haversineYards(t, holeGreens[h.hole])
+                  if (d == null) continue
+                  const diff = Math.abs(d - (h.yardage ?? d))
+                  if (diff < bestDiff) { bestDiff = diff; best = t }
+                }
+                // Only accept a tee that sits within 80yds of the hole's
+                // scorecard length from the green — avoids grabbing the
+                // next hole's tee box that happens to be nearby.
+                if (best && bestDiff < 80) { holeTees[h.hole] = best; approximate = true }
+              }
             }
 
             log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens,', Object.keys(holeGeoms).length, 'geoms — gap-fills:', gapFills)
             setHolePositions(holeTees)
             setGreenPositions(holeGreens)
             setHoleGeometries(holeGeoms)
-            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms }
+            setOsmApproximate(approximate)
+            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms, approximate }
             osmPositionCache.set(cacheKey, cachePayload)
             lsSaveOsm(cacheKey, cachePayload) // persist across page reloads
           })
@@ -1898,6 +1987,23 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             clubYards={selectedClub ? Number(selectedClub.avg_yards) : null}
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
           />
+
+          {/* Approximate-positions chip — shown when hole pins were
+              derived from heuristic guesses (no authoritative OSM hole
+              refs / golf=hole data unavailable). Keeps a guessed pin
+              from reading as exact. (2026-06-01) */}
+          {osmApproximate && (
+            <div style={{
+              position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 900, pointerEvents: 'none',
+              background: 'rgba(201,160,64,0.92)', color: '#0D1F12',
+              fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
+              padding: '5px 11px', borderRadius: 999,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.5)', whiteSpace: 'nowrap',
+            }}>
+              ≈ Approx. pin positions
+            </div>
+          )}
 
           {/* HUD overlay — wrapper stays at auto z-index because it
               spans the full map (`inset: 0`) and at z-index 800 its
