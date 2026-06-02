@@ -5,14 +5,14 @@
     "verified_at": 1778130608.233875
   },
   "wiki/log.md": {
-    "mtime": 1780368388.731786,
-    "source_id": "f54aa11d-2bad-4861-ae13-f31a829153f7",
-    "verified_at": 1780368424.553202
+    "mtime": 1780374217.3882136,
+    "source_id": "63650705-5edb-4b53-b233-acb4bd5a69f6",
+    "verified_at": 1780374264.926869
   },
   "wiki/index.md": {
-    "mtime": 1778133334.5596929,
-    "source_id": "dfb4f9bb-9161-4cc7-b7d8-c9f1740bd3e1",
-    "verified_at": 1778133405.234347
+    "mtime": 1780374199.3442717,
+    "source_id": "090fb170-9570-40ee-97ab-e7bf29e29dd3",
+    "verified_at": 1780374277.160823
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -61,5 +61,10 @@
     "mtime": 1778180654.29875,
     "source_id": "0e31c096-9d77-40a0-8602-1586c2fade8d",
     "verified_at": 1778180852.917377
+  },
+  "wiki/synthesis/top-contender-gameplan-2026-06-01.md": {
+    "mtime": 1780374104.037256,
+    "source_id": "909c24cf-1247-4987-aa1e-e64748dae493",
+    "verified_at": 1780374284.541556
   }
 }
