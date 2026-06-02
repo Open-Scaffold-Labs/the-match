@@ -1,15 +1,8 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
-const db = require('../db')
 
 const GC_API = 'https://api.golfcourseapi.com/v1'
 const GC_KEY = process.env.GOLF_COURSE_API_KEY
-
-// Course detail is cached in tm_courses (migration 028) because the vendor
-// free tier is only 50 req/day shared across all users. Course data is
-// effectively static, so a long TTL is fine — refresh only if the cached
-// row is older than this. (2026-06-01 — wiki/POST-LAUNCH-TODO.md #25.)
-const COURSE_CACHE_TTL_MS = 180 * 24 * 60 * 60 * 1000 // 180 days
 
 function gcHeaders() {
   return { 'Authorization': `Key ${GC_KEY}`, 'Content-Type': 'application/json' }
@@ -98,41 +91,10 @@ router.get('/search', requireAuth, async (req, res) => {
 // GET /api/courses/:id — full hole data
 router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10)
-    let c = null
-    let cacheHit = false
-
-    // 1️⃣ Read-through cache (tm_courses). Wrapped in try/catch so a missing
-    // table (migration not yet applied) or a DB hiccup degrades gracefully
-    // to a live vendor fetch rather than 500ing.
-    if (Number.isFinite(id)) {
-      try {
-        const row = await db.one('SELECT raw, fetched_at FROM tm_courses WHERE id = $1', [id])
-        if (row && (Date.now() - new Date(row.fetched_at).getTime()) < COURSE_CACHE_TTL_MS) {
-          c = row.raw
-          cacheHit = true
-        }
-      } catch { /* table missing / db unavailable → fall through to vendor */ }
-    }
-
-    // 2️⃣ Vendor fetch on miss, then best-effort cache write.
-    if (!c) {
-      const r = await fetch(`${GC_API}/courses/${req.params.id}`, { headers: gcHeaders() })
-      const d = await r.json()
-      if (!d.course) return res.status(404).json({ error: 'Course not found' })
-      c = d.course
-      if (Number.isFinite(id)) {
-        try {
-          await db.query(
-            `INSERT INTO tm_courses (id, raw, fetched_at) VALUES ($1, $2::jsonb, now())
-             ON CONFLICT (id) DO UPDATE SET raw = EXCLUDED.raw, fetched_at = now()`,
-            [id, JSON.stringify(c)]
-          )
-        } catch { /* cache write is best-effort — never block the response */ }
-      }
-    }
-
-    res.set('X-Course-Cache', cacheHit ? 'hit' : 'miss')
+    const r = await fetch(`${GC_API}/courses/${req.params.id}`, { headers: gcHeaders() })
+    const d = await r.json()
+    if (!d.course) return res.status(404).json({ error: 'Course not found' })
+    const c = d.course
     // Return course + tee list with per-hole par/yardage/handicap
     res.json({
       id: c.id,

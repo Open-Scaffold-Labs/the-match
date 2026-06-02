@@ -5,14 +5,14 @@
     "verified_at": 1778130608.233875
   },
   "wiki/log.md": {
-    "mtime": 1780379969.8880098,
-    "source_id": "b4893996-f234-4aef-8d14-81f42031cb21",
-    "verified_at": 1780380088.754907
+    "mtime": 1778348499.2159228,
+    "source_id": "8d13f681-0e5c-426c-a399-99f19100f9f6",
+    "verified_at": 1778348529.218675
   },
   "wiki/index.md": {
-    "mtime": 1780379969.8860178,
-    "source_id": "271f5989-4229-4cb9-8947-16fb16188a74",
-    "verified_at": 1780380102.394061
+    "mtime": 1778133334.5596929,
+    "source_id": "dfb4f9bb-9161-4cc7-b7d8-c9f1740bd3e1",
+    "verified_at": 1778133405.234347
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -53,23 +53,13 @@
     "verified_at": 1777683687.3069088
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1780367740.2324004,
-    "source_id": "8cac84cf-c8f6-4412-a0be-8d4b807b1a2c",
-    "verified_at": 1780367786.391854
+    "mtime": 1778203635.3300104,
+    "source_id": "fbafc274-3724-4ab8-874c-50f795bfbd39",
+    "verified_at": 1778203703.095797
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1778180654.29875,
     "source_id": "0e31c096-9d77-40a0-8602-1586c2fade8d",
     "verified_at": 1778180852.917377
-  },
-  "wiki/synthesis/top-contender-gameplan-2026-06-01.md": {
-    "mtime": 1780374104.037256,
-    "source_id": "909c24cf-1247-4987-aa1e-e64748dae493",
-    "verified_at": 1780374284.541556
-  },
-  "wiki/synthesis/ui-excellence-playbook-2026-06-01.md": {
-    "mtime": 1780379969.8895159,
-    "source_id": "731043b2-760e-4b3c-99f5-5a67632b7902",
-    "verified_at": 1780380112.62834
   }
 }

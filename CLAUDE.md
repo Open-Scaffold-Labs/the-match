@@ -92,7 +92,7 @@ npm run dev            # starts both client (:5173) and server (:3010)
 
 ## DB setup
 
-Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 28 of them — 024 relaxed FKs for user deletion, 025 added PIN-reset tokens, 026 added the referral schema + `tm_users.elite_until`, 027 added `tm_rounds.hole_pars` so solo rounds persist real per-hole pars, 028 added `tm_courses` — a read-through cache of Golf Course API course detail so repeat lookups don't burn the vendor's 50/day free-tier cap). Apply in order on a fresh database:
+Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 27 of them — 024 relaxed FKs for user deletion, 025 added PIN-reset tokens, 026 added the referral schema + `tm_users.elite_until`, 027 added `tm_rounds.hole_pars` so solo rounds persist real per-hole pars). Apply in order on a fresh database:
 
 ```bash
 for f in migrations/*.sql; do

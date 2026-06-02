@@ -1,7 +1,7 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-06-01
+updated: 2026-05-09
 ---
 
 # Activity Log
@@ -978,54 +978,3 @@ Major rewrite of the solo-round live scoring experience to mirror the multi-play
 **Files touched:** client/src/pages/ActiveRound.jsx (heavy), client/src/pages/Outing.jsx, client/src/pages/Outing/OutingHub.jsx, client/src/pages/Outing/CreateWizard.jsx (CoursePicker exported), client/src/pages/Outing/HighlightShare.jsx (imported), client/src/pages/Outing/LiveOuting.jsx (SavedChip exported), client/src/lib/solo-round.js (new), client/src/components/AchievementToast.jsx (rewrite for rarity tiers), client/src/design/tokens.css (legendary keyframes), client/public/sw.js, client/src/App.jsx, vercel.json, server/src/lib/achievements.js, server/src/routes/rounds.js, migrations/026_tm_referrals.sql, migrations/027_tm_rounds_hole_pars.sql, plus PIN reset (025) + user deletion FK relax (024).
 
 **Commits:** c02143f, 04f7883, 13b2d59, da4b4ed, c31a6e8, f5c2ece, 1e4e57b, 365fb02, e3fccfd, 06517b1, 975023b.
-
-## [2026-06-01] fix | Eagle Eye broke on-course — OSM holes-fetch regression + hardening
-
-Matt reported Eagle Eye "wasn't working at all" during a round at East Orange Golf Course (Short Hills NJ, Middle tee): wrong/missing pins, distances off, page lagging and intermittently not loading, whole round. It had worked previously and stopped ~2 days prior with no deploy on our side (last commit before this was 9e9e220, 2026-05-09).
-
-**Root cause (confirmed by live measurement, not theory):** the failure is external, not in our code. The `/api/eagle-eye/osm` proxy tried Overpass mirrors in order `[kumi, lz4, main]` with NO per-mirror client timeout. `overpass.kumi.systems` (first in line) degraded — measured live, the `golf=hole` query through production took **33,956 ms** (returning correct 18/18 data). ~34s is slow enough to effectively fail on course cell signal, which drops the app into a degraded teegreen-only fallback. Verified via Claude-in-Chrome on the deployed app + reproduced the Overpass calls directly (kumi timed out repeatedly; lz4 answered in <1s).
-
-**Investigation notes:** OSM has complete, correct data for East Orange (18 golf=hole ways, refs 1-18, orientation correct, way-lengths match scorecard). Geocode is fine (GC API reports city "Short Hills", and `/api/courses/:id` returns no city/state so the geocode query is name-only anyway). Vercel runtime logs from the round had aged out (Pro = 24h retention); the round was >24h prior, so logs were a dead end — diagnosis came from live reproduction instead.
-
-**Fixes (branch fix/eagle-eye-osm-reliability → merged to main 46bab3f):**
-- `server/src/routes/eagle-eye.js` — per-mirror 10s AbortController timeout; reordered mirrors to `[lz4, main, kumi]` (reliable first, flaky kumi last). THIS is the regression fix.
-- `client/src/pages/EagleEye.jsx` — (a) retry the holes fetch once on empty; (b) honest degraded fallback: when golf=hole is unavailable the old path assigned 0 tees (tee-less broken map) — now pairs each heuristically-matched green with its best-fit unref tee (verified: 0/18 → 18/18 on real East Orange teegreen data, distances within ~2yd of scorecard) and flags positions `approximate` with an "≈ Approx. pin positions" chip; (c) geocode falls back to GC API lat/long when Nominatim returns empty instead of bailing to a blank map; (d) weather throttled to once/10min + GPS `maximumAge:5000` (was fetching open-meteo on EVERY watchPosition tick all round — on-course lag).
-
-**Verification:** preview cold holes fetches 794/1132/560/508 ms (was ~34s); production post-merge 3283 ms (cold start) / 671 / 1542 ms, all returning full data. Build clean (the "2 errors" in Vercel build log are benign pre-existing advisories: Vite >500kB chunk notice + Node engines >=22 auto-upgrade note).
-
-**Follow-ups (added to POST-LAUNCH-TODO):** confirm "© OpenStreetMap contributors" attribution is shown; consider a paid/self-hosted geocoder to stay within Nominatim's usage policy at App-Store scale.
-
-**Files touched:** client/src/pages/EagleEye.jsx, server/src/routes/eagle-eye.js. **Commits:** 55d4bbb, merge 46bab3f.
-
-## [2026-06-01] fix | Eagle Eye iOS map fixes + Golf Course API read-through cache
-
-Follow-on session after the OSM regression fix, three threads:
-
-**iOS Eagle Eye fixes (pre-existing, not from the OSM fix — Matt confirmed they predated it).** Map rendered off-screen on iPhone and swiping triggered pull-to-refresh → reload → in-memory course state lost → back to the Select Course start screen.
-- `client/src/pages/EagleEye.jsx`: call `map.invalidateSize()` on next frame + after 350ms + on resize/orientationchange (Leaflet measured the flex container before dvh/safe-area settled → tiles laid out offset). Added `overscrollBehavior:none` + `touchAction` containment on the Eagle Eye root so a map swipe doesn't bubble to the document. Commits 942d7a5 → merge 0c3f80b.
-
-**Golf Course API 50/day cap — read-through cache (POST-LAUNCH-TODO #25).** Matt flagged (correctly) that golfcourseapi.com's free tier is **50 requests/day shared across all users** — and `courses.js` proxied it live on every call. (Correction logged: earlier in-session I wrongly claimed the API was paid; it's free, capped at 50/day — verified via golfcourseapi.com. The OSM *map* data was already cached; the *course* data was not.)
-- `migrations/028_tm_courses.sql`: `tm_courses(id BIGINT PK, raw JSONB, fetched_at TIMESTAMPTZ)` — applied to Supabase.
-- `server/src/routes/courses.js`: `/api/courses/:id` now read-through caches the raw vendor object (180-day TTL), DB reads/writes wrapped in try/catch so a missing table / DB hiccup degrades to a live fetch (never 500s). `X-Course-Cache` header (stripped by Vercel edge, cosmetic).
-- **Verified on prod:** first authed call wrote the `tm_courses` row; a later authed call served without changing `fetched_at` → cache hit, zero vendor calls. Commit 98eef53 → merge 1aeaf52.
-- Phase 2/3 (cache search results; own course DB) remain in POST-LAUNCH-TODO #25.
-
-**Files touched:** client/src/pages/EagleEye.jsx, server/src/routes/courses.js, migrations/028_tm_courses.sql, CLAUDE.md (migration count 27→28), wiki/POST-LAUNCH-TODO.md (#23/#24/#25).
-
-## [2026-06-01] query | "Top contender" design-led elevation gameplan
-
-Triggered by the home-background incident cascade (hot-linked Unsplash photo → DNS-blocked on Matt's phone → cream screen) and Matt's ambition to make the app look flawless and challenge the industry leaders. Investigated the background root cause (DNS failure resolving images.unsplash.com on phone; app code unchanged since 05-02; the bg is a hot-linked Unsplash photo reverted to from a local file in 93f55ec because the edit "looked cheap"), and the licensing (Unsplash License permits commercial self-host; the real exposure is the Titleist trademark *in* the photo — same whether hotlinked or hosted). Audited my own Canva output honestly: had called 4 generated concepts "premium" without viewing them; on inspection they're competent-but-generic stock-style photos, and photo-behind-glass is a dated pattern not fit for the stated ambition.
-
-Filed [[synthesis/top-contender-gameplan-2026-06-01]] — 7-pillar gameplan (reliability foundation, visual identity/design-system, competitive teardown, flagship feature polish, performance, instrumentation, App Store launch), each with a best-possible-end-result bar + phased checklist, sequenced Phase 0→3 with a "definition of flawless" per phase. Grounded in the whitepaper's competitive analysis + the existing tokens.css design system. Phase 0 immediate actions (decide light/dark signature, build owned CSS background, drop Nominatim for GC coords, stand up Sentry) added to the task list.
-
-**Files touched:** wiki/synthesis/top-contender-gameplan-2026-06-01.md (new), wiki/index.md (indexed).
-
-## [2026-06-01] refactor | Design direction — dusk-dark explored, reversed to premium editorial LIGHT
-
-Explored a dark "Augusta at dusk" redesign (mockup + real build on branch `redesign/dusk-dark`: owned CSS dusk canvas in App.jsx + Login.jsx killing the Unsplash hotlink/cream-bug/Titleist-trademark; Login screen fully converted + verified beautiful on preview). Then **reversed the direction** after Matt's pushback: (1) dark-green+gold is the most predictable golf-luxury cliché and a recolor isn't a real leap; (2) **most golf apps are light for a functional reason — on-course sunlight legibility** (bright screens read in sun; dark glares/washes out). Eagle Eye gets away with dark because it's satellite imagery + high-contrast HUD.
-
-New direction: **premium editorial LIGHT** — sun-correct AND the open lane (every golf app is light-but-bland; none are beautifully light). Did web research on premium/award-winning UI (Apple Design Awards 2025, premium-UI guides, typography, color/depth) and filed [[synthesis/ui-excellence-playbook-2026-06-01]] — 7 sourced principles each mapped to a concrete brand move + spec + build sequence.
-
-State of `redesign/dusk-dark` branch: NOT merged. The owned-background work (kills the live cream bug) is reusable but must be re-themed to paper-light, not dusk. The Vercel **Preview** env has `db:false` (DB env vars not scoped to Preview) — confirmed via /health on the preview — which blocks logging into previews to verify authed screens; fix that env scoping to make previews testable.
-
-**Files touched:** client/src/App.jsx, client/src/pages/Login.jsx, client/src/design/tokens.css (on branch redesign/dusk-dark, unmerged); wiki/synthesis/ui-excellence-playbook-2026-06-01.md (new), wiki/index.md.
