@@ -327,7 +327,22 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       // Don't fitBounds here — the hole-pan effect will position the map
       // correctly once OSM data arrives. Avoids a redundant double-move.
       setMapReady(true)
+
+      // iOS fix: the flex container often hasn't reached its final size at
+      // init time (dynamic-viewport units + safe-area insets settle a frame
+      // later), so Leaflet measures wrong and lays tiles out offset /
+      // off-screen. Recompute once layout settles, and again after a beat
+      // for slow first paints. Pure map sizing — no GPS/distance impact.
+      // (2026-06-01 — map-rendered-off-screen glitch on iPhone.)
+      requestAnimationFrame(() => { try { map.invalidateSize() } catch { /* map gone */ } })
+      setTimeout(() => { try { map.invalidateSize() } catch { /* map gone */ } }, 350)
     }
+
+    // Keep the map correctly sized across rotation / viewport changes
+    // (address bar show/hide, orientation) — same iOS sizing gremlin.
+    const onMapResize = () => { if (mapRef.current) { try { mapRef.current.invalidateSize() } catch { /* map gone */ } } }
+    window.addEventListener('resize', onMapResize)
+    window.addEventListener('orientationchange', onMapResize)
 
     // Load Leaflet + rotate plugin in parallel, init when both are ready
     const tryInit = () => { if (window.L && window.__leafletRotateReady) init() }
@@ -366,6 +381,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     }
 
     return () => {
+      window.removeEventListener('resize', onMapResize)
+      window.removeEventListener('orientationchange', onMapResize)
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
       markerRef.current = null
       holeMarkerRef.current = null
@@ -1275,6 +1292,15 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const [osmLoading, setOsmLoading]         = useState(false)
 
   const watchIdRef = useRef(null)
+  // Weather is fetched from open-meteo and changes slowly over a round, so
+  // we throttle it to once per WEATHER_TTL instead of firing it on every
+  // GPS tick (the watch fires continuously while walking — the per-tick
+  // fetch was hundreds of needless requests + re-renders per round, a
+  // primary cause of on-course lag). This gates ONLY the weather call; the
+  // GPS position + distance path is untouched and stays full-frequency.
+  // (2026-06-01)
+  const lastWeatherRef = useRef(0)
+  const WEATHER_TTL = 10 * 60 * 1000 // 10 min
 
   // Preload Leaflet + rotate plugin the moment EagleEye mounts so both scripts
   // are cached and ready before the user ever opens the satellite map view.
@@ -1346,7 +1372,12 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
         setGps(coords)
-        fetchWeather(coords)
+        // Weather only — throttled. GPS position above is unthrottled.
+        const now = Date.now()
+        if (now - lastWeatherRef.current >= WEATHER_TTL) {
+          lastWeatherRef.current = now
+          fetchWeather(coords)
+        }
       },
       err => {
         if (err.code === 1) setGpsError('denied-hard')
@@ -1365,6 +1396,8 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
         setGps(coords)
+        // First fix on arrival → fetch weather once and seed the throttle.
+        lastWeatherRef.current = Date.now()
         fetchWeather(coords)
         startGpsWatch()
       },
