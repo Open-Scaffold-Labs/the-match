@@ -224,3 +224,17 @@ runaway scenario.
 **Next step:** Matt to set the cap in the Anthropic console (no code
 change). Then we add a `tm_user_rate_limits` table or in-memory limiter
 on the Node side as a defense in depth.
+
+## 23. Eagle Eye — OSM attribution + geocoder hardening (from 2026-06-01 regression)
+
+Surfaced while fixing the Overpass-mirror regression (see log 2026-06-01). Both are App-Store-scale hygiene, not launch blockers:
+
+- **Confirm OSM attribution.** Eagle Eye renders OpenStreetMap-derived hole geometry and ESRI satellite tiles. ODbL requires an "© OpenStreetMap contributors" credit visible somewhere on the map view. Verify it's shown; add a small attribution line in the HoleMap legend if missing.
+- **Replace public Nominatim for geocoding.** The client geocodes course-by-name against `nominatim.openstreetmap.org` directly from the browser with a default UA. Nominatim's usage policy caps ~1 req/sec and discourages production use on their public server. At scale this risks rate-limiting/blocking (a plausible future "geocode suddenly fails" incident). Options: self-host Nominatim, use a paid geocoder, or lean on the Golf Course API lat/long we already have (Fix 1 this session made that a fallback — could promote it to the primary and skip Nominatim entirely, since `/api/courses/:id` returns coords).
+
+## 24. Eagle Eye — make the Overpass holes fetch even more robust (optional follow-on)
+
+The 2026-06-01 fix (per-mirror 10s timeout + lz4-first + retry-once) resolved the ~34s stall. Further hardening if it recurs:
+- Persist a successful per-course OSM payload server-side (not just the client localStorage 7-day cache) so a cold course that loaded once for anyone is fast for everyone.
+- Consider fetching holes + teegreen with a shorter Overpass `[timeout:N]` and `out geom` only for the current hole's way (lazy-load the rest) to shrink the heaviest query.
+- Add lightweight server-side telemetry (ties into TODO #12 Sentry) so OSM fetch latency/failures are observable without needing to be caught live — the runtime logs aged out before we could see this round.

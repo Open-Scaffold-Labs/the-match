@@ -1,7 +1,7 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-05-09
+updated: 2026-06-01
 ---
 
 # Activity Log
@@ -978,3 +978,21 @@ Major rewrite of the solo-round live scoring experience to mirror the multi-play
 **Files touched:** client/src/pages/ActiveRound.jsx (heavy), client/src/pages/Outing.jsx, client/src/pages/Outing/OutingHub.jsx, client/src/pages/Outing/CreateWizard.jsx (CoursePicker exported), client/src/pages/Outing/HighlightShare.jsx (imported), client/src/pages/Outing/LiveOuting.jsx (SavedChip exported), client/src/lib/solo-round.js (new), client/src/components/AchievementToast.jsx (rewrite for rarity tiers), client/src/design/tokens.css (legendary keyframes), client/public/sw.js, client/src/App.jsx, vercel.json, server/src/lib/achievements.js, server/src/routes/rounds.js, migrations/026_tm_referrals.sql, migrations/027_tm_rounds_hole_pars.sql, plus PIN reset (025) + user deletion FK relax (024).
 
 **Commits:** c02143f, 04f7883, 13b2d59, da4b4ed, c31a6e8, f5c2ece, 1e4e57b, 365fb02, e3fccfd, 06517b1, 975023b.
+
+## [2026-06-01] fix | Eagle Eye broke on-course — OSM holes-fetch regression + hardening
+
+Matt reported Eagle Eye "wasn't working at all" during a round at East Orange Golf Course (Short Hills NJ, Middle tee): wrong/missing pins, distances off, page lagging and intermittently not loading, whole round. It had worked previously and stopped ~2 days prior with no deploy on our side (last commit before this was 9e9e220, 2026-05-09).
+
+**Root cause (confirmed by live measurement, not theory):** the failure is external, not in our code. The `/api/eagle-eye/osm` proxy tried Overpass mirrors in order `[kumi, lz4, main]` with NO per-mirror client timeout. `overpass.kumi.systems` (first in line) degraded — measured live, the `golf=hole` query through production took **33,956 ms** (returning correct 18/18 data). ~34s is slow enough to effectively fail on course cell signal, which drops the app into a degraded teegreen-only fallback. Verified via Claude-in-Chrome on the deployed app + reproduced the Overpass calls directly (kumi timed out repeatedly; lz4 answered in <1s).
+
+**Investigation notes:** OSM has complete, correct data for East Orange (18 golf=hole ways, refs 1-18, orientation correct, way-lengths match scorecard). Geocode is fine (GC API reports city "Short Hills", and `/api/courses/:id` returns no city/state so the geocode query is name-only anyway). Vercel runtime logs from the round had aged out (Pro = 24h retention); the round was >24h prior, so logs were a dead end — diagnosis came from live reproduction instead.
+
+**Fixes (branch fix/eagle-eye-osm-reliability → merged to main 46bab3f):**
+- `server/src/routes/eagle-eye.js` — per-mirror 10s AbortController timeout; reordered mirrors to `[lz4, main, kumi]` (reliable first, flaky kumi last). THIS is the regression fix.
+- `client/src/pages/EagleEye.jsx` — (a) retry the holes fetch once on empty; (b) honest degraded fallback: when golf=hole is unavailable the old path assigned 0 tees (tee-less broken map) — now pairs each heuristically-matched green with its best-fit unref tee (verified: 0/18 → 18/18 on real East Orange teegreen data, distances within ~2yd of scorecard) and flags positions `approximate` with an "≈ Approx. pin positions" chip; (c) geocode falls back to GC API lat/long when Nominatim returns empty instead of bailing to a blank map; (d) weather throttled to once/10min + GPS `maximumAge:5000` (was fetching open-meteo on EVERY watchPosition tick all round — on-course lag).
+
+**Verification:** preview cold holes fetches 794/1132/560/508 ms (was ~34s); production post-merge 3283 ms (cold start) / 671 / 1542 ms, all returning full data. Build clean (the "2 errors" in Vercel build log are benign pre-existing advisories: Vite >500kB chunk notice + Node engines >=22 auto-upgrade note).
+
+**Follow-ups (added to POST-LAUNCH-TODO):** confirm "© OpenStreetMap contributors" attribution is shown; consider a paid/self-hosted geocoder to stay within Nominatim's usage policy at App-Store scale.
+
+**Files touched:** client/src/pages/EagleEye.jsx, server/src/routes/eagle-eye.js. **Commits:** 55d4bbb, merge 46bab3f.
