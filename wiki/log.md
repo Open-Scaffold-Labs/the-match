@@ -996,3 +996,18 @@ Matt reported Eagle Eye "wasn't working at all" during a round at East Orange Go
 **Follow-ups (added to POST-LAUNCH-TODO):** confirm "© OpenStreetMap contributors" attribution is shown; consider a paid/self-hosted geocoder to stay within Nominatim's usage policy at App-Store scale.
 
 **Files touched:** client/src/pages/EagleEye.jsx, server/src/routes/eagle-eye.js. **Commits:** 55d4bbb, merge 46bab3f.
+
+## [2026-06-01] fix | Eagle Eye iOS map fixes + Golf Course API read-through cache
+
+Follow-on session after the OSM regression fix, three threads:
+
+**iOS Eagle Eye fixes (pre-existing, not from the OSM fix — Matt confirmed they predated it).** Map rendered off-screen on iPhone and swiping triggered pull-to-refresh → reload → in-memory course state lost → back to the Select Course start screen.
+- `client/src/pages/EagleEye.jsx`: call `map.invalidateSize()` on next frame + after 350ms + on resize/orientationchange (Leaflet measured the flex container before dvh/safe-area settled → tiles laid out offset). Added `overscrollBehavior:none` + `touchAction` containment on the Eagle Eye root so a map swipe doesn't bubble to the document. Commits 942d7a5 → merge 0c3f80b.
+
+**Golf Course API 50/day cap — read-through cache (POST-LAUNCH-TODO #25).** Matt flagged (correctly) that golfcourseapi.com's free tier is **50 requests/day shared across all users** — and `courses.js` proxied it live on every call. (Correction logged: earlier in-session I wrongly claimed the API was paid; it's free, capped at 50/day — verified via golfcourseapi.com. The OSM *map* data was already cached; the *course* data was not.)
+- `migrations/028_tm_courses.sql`: `tm_courses(id BIGINT PK, raw JSONB, fetched_at TIMESTAMPTZ)` — applied to Supabase.
+- `server/src/routes/courses.js`: `/api/courses/:id` now read-through caches the raw vendor object (180-day TTL), DB reads/writes wrapped in try/catch so a missing table / DB hiccup degrades to a live fetch (never 500s). `X-Course-Cache` header (stripped by Vercel edge, cosmetic).
+- **Verified on prod:** first authed call wrote the `tm_courses` row; a later authed call served without changing `fetched_at` → cache hit, zero vendor calls. Commit 98eef53 → merge 1aeaf52.
+- Phase 2/3 (cache search results; own course DB) remain in POST-LAUNCH-TODO #25.
+
+**Files touched:** client/src/pages/EagleEye.jsx, server/src/routes/courses.js, migrations/028_tm_courses.sql, CLAUDE.md (migration count 27→28), wiki/POST-LAUNCH-TODO.md (#23/#24/#25).
