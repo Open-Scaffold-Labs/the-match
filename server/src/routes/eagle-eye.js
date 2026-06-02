@@ -104,11 +104,23 @@ function estimateAltFromPressure(hPa) {
 const overpassCache = new Map()
 const OVERPASS_CACHE_TTL = 60 * 60 * 1000
 
+// Mirror order matters: a hung mirror at the front of the list delays
+// every fallback behind it. lz4 (CDN-fronted main instance) has been the
+// most reliable in testing; overpass.kumi.systems was repeatedly the
+// slow/timing-out one, so it's demoted to last. (Reordered 2026-06-01
+// after reproducing East Orange GC fetches — kumi-first timed out
+// repeatedly while lz4 answered.)
 const OVERPASS_MIRRORS = [
-  'https://overpass.kumi.systems/api/interpreter',
   'https://lz4.overpass-api.de/api/interpreter',
   'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
 ]
+// Per-mirror client timeout. The Overpass [timeout:N] directive only
+// bounds query *execution* server-side — it does nothing for a mirror
+// that's slow to accept the connection or stream a response. Without a
+// client abort, one stalled mirror could hold the request open until the
+// 60s function limit, blocking the fallback to a healthy mirror. (2026-06-01)
+const MIRROR_TIMEOUT_MS = 10000
 router.get('/osm', async (req, res) => {
   try {
     const { bbox, type } = req.query
@@ -133,13 +145,20 @@ router.get('/osm', async (req, res) => {
     const body = 'data=' + encodeURIComponent(query)
     let lastErr = null
     for (const mirror of OVERPASS_MIRRORS) {
+      const ac = new AbortController()
+      const timer = setTimeout(() => ac.abort(), MIRROR_TIMEOUT_MS)
       try {
-        const response = await fetch(mirror, { method: 'POST', headers, body })
+        const response = await fetch(mirror, { method: 'POST', headers, body, signal: ac.signal })
         if (!response.ok) { lastErr = `${mirror} → ${response.status}`; continue }
         const data = await response.json()
         overpassCache.set(cacheKey, { data, ts: Date.now() })
         return res.json(data)
-      } catch (e) { lastErr = `${mirror} → ${e.message}`; continue }
+      } catch (e) {
+        lastErr = `${mirror} → ${e.name === 'AbortError' ? `timeout after ${MIRROR_TIMEOUT_MS}ms` : e.message}`
+        continue
+      } finally {
+        clearTimeout(timer)
+      }
     }
     console.error('[eagle-eye/osm] all mirrors failed:', lastErr)
     res.status(502).json({ error: 'OSM unavailable: ' + lastErr })
