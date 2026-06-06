@@ -2,6 +2,13 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles } from '../lib/geo.js'
+
+// Feature flags — flip to false to disable a feature that isn't yet
+// device-tested, without a revert/redeploy. Both degrade safely when off:
+// tap-to-measure simply doesn't attach; F/C/B falls back to the single
+// center number. (2026-06-06)
+const ENABLE_TAP_MEASURE = true
+const ENABLE_FCB = true
 import { log } from '../lib/logger.js'
 import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
@@ -387,7 +394,7 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       // the label html). Uses e.latlng; if an on-course test shows skew
       // under map rotation, switch to map.mouseEventToLatLng(e.originalEvent).
       // (2026-06-06 — Feature A.)
-      map.on('click', (e) => {
+      if (ENABLE_TAP_MEASURE) map.on('click', (e) => {
         if (!mapRef.current) return
         const tap = { lat: e.latlng.lat, lon: e.latlng.lng }
         const g = gpsPropRef.current
@@ -1826,7 +1833,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
   const greenPolygon = greenPolys[currentHole]
   const fcbPlayer = (gps?.lat != null) ? { lat: gps.lat, lon: gps.lon } : (holePositions[currentHole] ?? null)
-  const fcb = (greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
+  const fcb = (ENABLE_FCB && greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
 
