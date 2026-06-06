@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+import { greenFCB, matchPolygonsToHoles } from '../lib/geo.js'
 import { log } from '../lib/logger.js'
 import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
@@ -1405,6 +1406,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const [courseGeocoded, setCourseGeocoded] = useState(null)
   const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
   const [greenPositions, setGreenPositions] = useState({}) // { 1: {lat,lon}, ... } greens
+  const [greenPolys, setGreenPolys]         = useState({}) // { 1: [{lat,lon},...] } OSM green polygons → F/C/B
   // Full geometry of each golf=hole way: array of {lat, lon} tracing the
   // playing line from tee through the fairway to the green. Used for
   // dogleg-aware aim-point default placement (par 4/5 layup along the
@@ -1558,7 +1560,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     // and can land OOB on dogleg holes. Bumping the key forces a single
     // fresh Overpass fetch per (course, tee) combo so the new geometry-
     // aware behavior kicks in immediately.
-    const cacheKey = `v2-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+    // v3 (2026-06-06): added green polygons (polys) to the payload for
+    // Front/Center/Back green distances. Bumping the key forces one fresh
+    // fetch per (course, tee) so stale v2 entries without polygons fall
+    // back cleanly to the single center number.
+    const cacheKey = `v3-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
 
     // 1️⃣ In-memory cache (survives re-renders within a page session)
     if (osmPositionCache.has(cacheKey)) {
@@ -1567,6 +1573,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       setHolePositions(cached.tees)
       setGreenPositions(cached.greens)
       setHoleGeometries(cached.geoms || {})
+      setGreenPolys(cached.polys || {})
       setOsmLoading(false)
       return
     }
@@ -1578,6 +1585,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       setHolePositions(stored.tees)
       setGreenPositions(stored.greens)
       setHoleGeometries(stored.geoms || {})
+      setGreenPolys(stored.polys || {})
       setOsmLoading(false)
       return
     }
@@ -1617,7 +1625,8 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         return Promise.all([
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(safeOsm),
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(safeOsm),
-        ]).then(([osmHoles, osmNodes]) => {
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=greengeom`).then(safeOsm),
+        ]).then(([osmHoles, osmNodes, osmGreenGeom]) => {
             const scorecard = courseCtx?.tee?.holes ?? []
             const holeTees = {}, holeGreens = {}
 
@@ -1696,11 +1705,22 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               ordered.forEach((g, i) => { holeGreens[i + 1] = g })
             }
 
+            // ── Front/Center/Back: associate green polygons to holes ──
+            // golf=green ways carry no hole ref and the count exceeds 18
+            // (practice greens), so match each hole's green-center point to
+            // the nearest polygon centroid within ~40y. (2026-06-06)
+            const greenPolygons = (osmGreenGeom?.elements ?? [])
+              .filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length >= 3)
+              .map(el => el.geometry.map(p => ({ lat: p.lat, lon: p.lon })))
+            const holePolys = matchPolygonsToHoles(holeGreens, greenPolygons, 40)
+            log('[OSM] green polygons:', greenPolygons.length, '→ matched holes:', Object.keys(holePolys).length)
+
             log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens,', Object.keys(holeGeoms).length, 'geoms — gap-fills:', gapFills)
             setHolePositions(holeTees)
             setGreenPositions(holeGreens)
             setHoleGeometries(holeGeoms)
-            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms }
+            setGreenPolys(holePolys)
+            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms, polys: holePolys }
             osmPositionCache.set(cacheKey, cachePayload)
             lsSaveOsm(cacheKey, cachePayload) // persist across page reloads
           })
@@ -1801,6 +1821,12 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         altFt,
       })
     : null
+
+  // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
+  // when available, else the tee. Null → single number, unchanged. (2026-06-06)
+  const greenPolygon = greenPolys[currentHole]
+  const fcbPlayer = (gps?.lat != null) ? { lat: gps.lat, lon: gps.lon } : (holePositions[currentHole] ?? null)
+  const fcb = (greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
 
@@ -2108,6 +2134,19 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', paddingBottom: 3 }}>YDS</span>
               </div>
+              {/* Front / Center / Back green — the big number above is center;
+                  these flank it with the near + far edge. Only when a green
+                  polygon matched (else the single number stands). (2026-06-06) */}
+              {fcb && fcb.front != null && fcb.back != null && (
+                <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(94,212,122,0.9)' }}>
+                    F <span style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{fcb.front}</span>
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.55)' }}>
+                    B <span style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{fcb.back}</span>
+                  </span>
+                </div>
+              )}
               {/* Plays-like — wind/temp/altitude-adjusted live distance.
                   Shown only when it actually differs from the raw GPS yardage.
                   (2026-06-06) */}
