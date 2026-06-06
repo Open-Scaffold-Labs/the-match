@@ -988,3 +988,11 @@ Major rewrite of the solo-round live scoring experience to mirror the multi-play
 **Strategic: course-data sourcing.** OSM/Overpass is crowd-sourced + no SLA — fine as MVP/fallback, not launch-grade vs 18Birdies/TheGrint (who run verified DBs; 18Birdies = Google Maps base + in-house verification). Researched licensed providers: Golf Intelligence (only one with public pricing: free 200-credit test → $399–$5,999/mo, ~$0.18–0.35/golfer/yr, 99.9% SLA, + 3D green slope/elevation), iGolf Solutions + GolfLogix (device-grade verified, quote-only), golfapi.io (budget, DB export), Golfbert. Recommendation: trial Golf Intelligence now (evaluable + slope data feeds plays-like), quote iGolf/GolfLogix as accuracy benchmark, keep OSM as fallback. Deliverables saved to repo root: `Course-Data-Provider-Comparison.docx`.
 
 **GolfNow affiliate.** Confirmed the home `Book a Tee Time` card links to a bare (untracked) golfnow.com URL — $0, no attribution. Prepared partnership application packet under Open Scaffold Labs, LLC (Dale = Account Holder/submitter). Deliverables: `golfnow-affiliate-application.md`, `GolfNow-Partnership-for-Dale.docx`.
+
+## [2026-06-06] schema | GolfNow social-media docs + brand kit + marketing URL
+
+Non-code session producing GolfNow-affiliate marketing collateral, a reusable document style system, and the marketing-site URL decision.
+
+- Built two social-media marketing deliverables as native `.pages`, styled to match `the-match-brief.pages` (gold-gradient cover + "Match" wordmark, cream interior, Didot green headings, gold eyebrows/rules, two-column feature grid, pull quotes, refined gold-accented tables): `The-Match-Social-Media-Marketing-Strategy.pages` (full deck) and `The-Match-Social-Media-One-Pager.pages` (1-page, strictly social media). Pipeline: docx via docx-js → gold cover/banner rendered with Chrome headless using the Mac's Didot font → Pages saves as native `.pages`. Removed the earlier flat `.docx` versions of both.
+- Added reusable `brand-kit/` (`STYLE-GUIDE.md`, `brandkit.js`, `build-pages-docs.js`, `cover.html`, `banner.html`) — the standard appearance for all future Match docs.
+- Recorded the marketing-site URL from Dale: **the-match.openscaffoldlabs.com** (POST-LAUNCH-TODO #23). Distinct from the app origin `the-match-roan.vercel.app` and the still-TBD referral short URL (#19).
