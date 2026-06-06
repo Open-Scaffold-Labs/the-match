@@ -12,6 +12,23 @@ const osmPositionCache = new Map()
 // ─── localStorage persistence for OSM data (7-day TTL) ───────────────────────
 // After the first load of a course, pins are instant on every subsequent visit.
 const OSM_LS_TTL = 7 * 24 * 60 * 60 * 1000
+// Per-course hole persistence so a reload (pull-to-refresh / SW update)
+// resumes the exact hole instead of snapping back to hole 1. Keyed by
+// course id so switching courses doesn't carry a stale hole. (2026-06-06)
+const EYE_HOLE_KEY = 'tm-eye-hole'
+function readEyeHole(courseId) {
+  if (!courseId) return null
+  try {
+    const v = JSON.parse(localStorage.getItem(EYE_HOLE_KEY) || 'null')
+    if (v && String(v.courseId) === String(courseId) && v.hole >= 1) return v.hole
+  } catch { /* ignore */ }
+  return null
+}
+function saveEyeHole(courseId, hole) {
+  if (!courseId) return
+  try { localStorage.setItem(EYE_HOLE_KEY, JSON.stringify({ courseId, hole })) } catch { /* ignore */ }
+}
+
 function lsLoadOsm(key) {
   try {
     const raw = localStorage.getItem(`tm-osm-${key}`)
@@ -144,6 +161,25 @@ function haversineYards(a, b) {
   const Δλ = (b.lon - a.lon) * Math.PI / 180
   const x = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2
   return Math.round(Math.sqrt(x + (1-x)) * 2 * Math.asin(Math.sqrt(x)) * R * 1.09361)
+}
+
+// ─── Client-side "plays like" ────────────────────────────────────────────────
+// Applies the same wind / temperature / altitude model the AI rangefinder
+// uses (minus visual slope, which needs the photo) to the live GPS distance,
+// so every glance shows an adjusted "plays like" number — not just the
+// camera. Headwind + cold + low altitude all play longer. (2026-06-06)
+function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0 } = {}) {
+  if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0 }
+  const per100 = baseYds / 100
+  let wind = 0
+  if (windSpeed && windFromDeg != null && shotBearing != null) {
+    const theta = ((shotBearing - windFromDeg) * Math.PI) / 180
+    wind = windSpeed * Math.cos(theta) * per100   // +headwind plays longer, -tailwind shorter
+  }
+  const temp = tempF != null ? ((70 - tempF) / 10) * per100 : 0  // colder plays longer
+  const alt  = -baseYds * ((altFt || 0) / 1000) * 0.02            // altitude plays shorter
+  const adj  = wind + temp + alt
+  return { plays: Math.max(0, Math.round(baseYds + adj)), adj: Math.round(adj) }
 }
 
 // ─── Pulsating Eagle Eye Button ───────────────────────────────────────────────
@@ -1243,7 +1279,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const [teeGps, setTeeGps]         = useState(null)
   const [weather, setWeather]       = useState(null)
   const [courseCtx, setCourseCtx]   = useState(null)
-  const [currentHole, setCurrentHole] = useState(1)
+  const [currentHole, setCurrentHole] = useState(() => readEyeHole(sharedCourse?.course?.id) || 1)
 
   // Cross-tab nudge from the live match's score modal: "user just scored
   // hole N, take them to Eagle Eye on hole N+1." App.jsx sets the nudge,
@@ -1278,6 +1314,35 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // starts fresh with the toggle in its idle BAG state, ready for a
   // new recommendation. (2026-05-01)
   useEffect(() => { setSelectedClub(null) }, [currentHole])
+
+  // Persist the current hole per course so a reload resumes it. (2026-06-06)
+  useEffect(() => {
+    const cid = courseCtx?.course?.id ?? sharedCourse?.course?.id
+    if (cid) saveEyeHole(cid, currentHole)
+  }, [currentHole, courseCtx, sharedCourse])
+
+  // Keep the screen awake while on a course — golfers leave the app up
+  // between shots and the screen sleeping mid-round is a constant
+  // annoyance. The Wake Lock auto-releases when the tab is backgrounded,
+  // so re-acquire on visibilitychange. Engages only once a course is
+  // selected, releases when cleared. No-ops where unsupported. (2026-06-06)
+  useEffect(() => {
+    if (!courseCtx) return
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+    let lock = null
+    let released = false
+    const acquire = async () => {
+      try { lock = await navigator.wakeLock.request('screen') } catch { /* denied / not visible */ }
+    }
+    const onVis = () => { if (document.visibilityState === 'visible' && !released) acquire() }
+    acquire()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      released = true
+      document.removeEventListener('visibilitychange', onVis)
+      try { lock && lock.release() } catch { /* already gone */ }
+    }
+  }, [courseCtx])
 
   // OSM course data: geocoded position, tee coords, green coords
   const [courseGeocoded, setCourseGeocoded] = useState(null)
@@ -1645,7 +1710,9 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     // Avoid calling onCourseSelected from within handleCourseSelect here —
     // we already have this ctx FROM sharedCourse. Inline the body instead.
     setCourseCtx(sharedCourse)
-    setCurrentHole(1)
+    // Resume the persisted hole for this course on reload; fall back to 1
+    // for a genuinely new course. (2026-06-06)
+    setCurrentHole(readEyeHole(sharedCourse.course.id) || 1)
     setTeeGps(gps)
     setShowPicker(false)
     setResult(null)
@@ -1660,6 +1727,23 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const displayYards = gpsToGreen ?? (distanceWalked > 10 && remainingYards != null
     ? remainingYards
     : (holeData?.yardage ?? null))
+
+  // "Plays like" on the live distance — only when we have a real GPS-to-green
+  // reading + weather (so the wind/temp/altitude model has real inputs). Uses
+  // the player→green bearing for the wind component. (2026-06-06)
+  const altFt = gps?.alt != null
+    ? Math.round(gps.alt * 3.281)
+    : estimateAltFromPressure(weather?.surface_pressure)
+  const shotBearing = (gps && greenCoord) ? calcBearing({ lat: gps.lat, lon: gps.lon }, greenCoord) : null
+  const playsLike = (gpsToGreen != null && weather)
+    ? computePlaysLike(gpsToGreen, {
+        windSpeed: wind?.speed ?? 0,
+        windFromDeg: wind?.dir ?? null,
+        shotBearing,
+        tempF: temp,
+        altFt,
+      })
+    : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
 
@@ -1967,6 +2051,18 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', paddingBottom: 3 }}>YDS</span>
               </div>
+              {/* Plays-like — wind/temp/altitude-adjusted live distance.
+                  Shown only when it actually differs from the raw GPS yardage.
+                  (2026-06-06) */}
+              {playsLike && playsLike.adj !== 0 && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
+                  <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(245,215,138,0.7)' }}>PLAYS</span>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{playsLike.plays}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: playsLike.adj > 0 ? '#F0A868' : '#5ED47A' }}>
+                    {playsLike.adj > 0 ? `+${playsLike.adj}` : playsLike.adj}
+                  </span>
+                </div>
+              )}
               {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
               <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-start' }}>
                 <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 4, padding: '1px 6px' }}>

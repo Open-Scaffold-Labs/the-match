@@ -34,6 +34,25 @@ function readPersistedTab() {
   return TABS.HOME
 }
 
+// Selected-course persistence — survives pull-to-refresh, the service
+// worker's auto-reload-on-update, and any window.location.reload(). The
+// active tab was already persisted (TAB_STORAGE_KEY), but sharedCourse
+// was in-memory only, so a reload dumped Eagle Eye to its empty course-
+// picker state and "lost everything" mid-round. Persist the {course, tee}
+// pair so Eagle Eye + Match resume the exact course on reload. (2026-06-06
+// — Matt: "swipe down refreshes and loses all data".)
+const COURSE_STORAGE_KEY = 'tm-shared-course'
+function readPersistedCourse() {
+  try {
+    const raw = localStorage.getItem(COURSE_STORAGE_KEY)
+    if (!raw) return null
+    const v = JSON.parse(raw)
+    // Validate shape so a stale/corrupted value can't crash the UI.
+    if (v && v.course && v.course.id) return v
+  } catch { /* ignore — bad JSON / private mode */ }
+  return null
+}
+
 export default function App() {
   const [tab, setTab] = useState(readPersistedTab)
   // Save on every tab change. Cheap localStorage write, no debounce
@@ -91,7 +110,16 @@ export default function App() {
   // The first-load-only rule on (3) means the user can pick a different
   // course on Eye for "what if" exploration mid-match without the live
   // match's polling re-snapping Eye back. (2026-05-01)
-  const [sharedCourse, setSharedCourse] = useState(null)
+  const [sharedCourse, setSharedCourse] = useState(readPersistedCourse)
+  // Persist the selected course so a reload (pull-to-refresh, SW update,
+  // etc.) resumes it instead of losing the round. Mirrors the tab-persist
+  // pattern above. (2026-06-06)
+  useEffect(() => {
+    try {
+      if (sharedCourse?.course?.id) localStorage.setItem(COURSE_STORAGE_KEY, JSON.stringify(sharedCourse))
+      else localStorage.removeItem(COURSE_STORAGE_KEY)
+    } catch { /* ignore */ }
+  }, [sharedCourse])
   // Permissions prompt — shown once per device on first signed-in
   // visit after onboarding finishes. Asks for notifications + location
   // in a single sheet. Gated by localStorage flag tm-perms-asked so
