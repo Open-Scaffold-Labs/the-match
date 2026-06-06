@@ -8,6 +8,22 @@ updated: 2026-05-09
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-06] refactor | Eagle Eye next-level build — 5 features on branch (NOT deployed)
+
+All work on branch `feat/eagle-eye-upgrades` (pushed, undeployed; awaits on-course test + G1 merge). Verification = build + Node unit tests only — **no on-device test yet**.
+
+**Shipped (commits):**
+- `438bdb5` — pull-to-refresh **data-loss fix**: `sharedCourse` now persists to localStorage (`tm-shared-course`) in App.jsx + current hole per course (`tm-eye-hole`) in EagleEye; a reload (pull-to-refresh / SW update) resumes the round instead of dumping to empty. Also Wake Lock (screen stays awake on a course) + plays-like (wind/temp/altitude) on the live GPS-to-green number.
+- `86a4c02` — `client/src/lib/geo.js` + `geo.test.mjs`: pure geometry kit (`haversineYards`, `calcBearing`, `computePlaysLike`, `polygonCentroid`, `greenFCB`, `matchPolygonsToHoles`). **21/21 Node tests pass** (`node client/src/lib/geo.test.mjs`).
+- `35182ec` — **Feature A: tap-to-measure** — tap the satellite for carry-from-player + to-green-from-tap; circleMarker pin + divIcon label; clears on hole change. Uses `e.latlng` (rotation = device-test item; one-line `mouseEventToLatLng` fallback known).
+- `f365ecf` — **Feature B: Front/Center/Back green** — additive server `type=greengeom` (golf=green polygons, allowlisted query type) + client parse + `matchPolygonsToHoles` association + `greenFCB`. Card shows F/B flanking the center number; falls back to single number when no polygon. OSM cache bumped v2→v3.
+- `03b12c2` — feature flags `ENABLE_TAP_MEASURE` / `ENABLE_FCB` (one-line kill switch; both degrade safely off).
+- `2d34ec0` — GPS status pill is now a button → `requestLocation()` (turns GPS on when off, refreshes exact high-accuracy fix when on; watch guarded against duplicates).
+
+**Empirical findings:** OSM green-polygon coverage measured across 11 courses (US munis, UK links, Australia, small-town muni) — 11/11 have green polygons, 0 node-only → F/C/B viable on free OSM. (Caveat: counts include practice greens → association required, done.) Plan + risk register: `wiki/synthesis/eagle-eye-next-level-plan-2026-06-06.md` (`c6899ec`).
+
+**Remaining (Matt):** on-course device test (tap accuracy under rotation, F/C/B vs yardage book, reload-resume, wake lock, GPS refresh); merge `fix/osm-mirror-only`→main (G1, now pushed); untangle the concurrent marketing commit `836833f` from the branch for a clean PR; preview smoke-test → deploy. `main` is 1 local commit ahead (diagnosis log). Conscious skip: OSM-parser fixture test (avoided refactoring the sensitive parse path; new math already unit-tested).
+
 ## [2026-05-06] refactor | PushNudgeBanner — close the loop on missing push subs
 
 After Matt scheduled a tee time for two friends (Daniel christie + James
