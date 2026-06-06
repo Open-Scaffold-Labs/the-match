@@ -224,3 +224,23 @@ runaway scenario.
 **Next step:** Matt to set the cap in the Anthropic console (no code
 change). Then we add a `tm_user_rate_limits` table or in-memory limiter
 on the Node side as a defense in depth.
+
+## 23. Marketing site URL — the-match.openscaffoldlabs.com
+
+**Decided 2026-06-06 (Dale).** When the marketing/landing page is built,
+its public URL is **`the-match.openscaffoldlabs.com`** (a subdomain of
+`openscaffoldlabs.com`). Use this exact host for the marketing page — not
+the `the-match-roan.vercel.app` app origin and not `thematch.app`.
+
+Note the relationships:
+- `the-match.openscaffoldlabs.com` — marketing/landing page (this item).
+- `the-match-roan.vercel.app` — the live PWA app origin (current).
+- `thematch.app` / short URL — still TBD for referral links (see #19).
+
+Pieces to wire when the page is built:
+- Point the `the-match.openscaffoldlabs.com` DNS record (CNAME) at the
+  marketing-page host (Vercel project for the landing page).
+- Add the domain in the Vercel project settings + verify.
+- Use this URL in all social bios, share-card CTAs, and the GolfNow
+  affiliate materials (the social-media strategy docs reference the app
+  origin today — swap to the marketing URL once it's live).

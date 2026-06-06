@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:816px; height:1056px; }
+  body {
+    font-family:"Helvetica Neue",Arial,sans-serif;
+    background:
+      radial-gradient(120% 80% at 50% 18%, #F0E3B8 0%, #E2CD92 34%, #D2B569 60%, #C2A04E 82%, #B8954180 100%),
+      linear-gradient(160deg,#E8D6A2 0%,#CDAF66 100%);
+    position:relative; overflow:hidden;
+  }
+  .arc { position:absolute; left:-20%; right:-20%; bottom:-58%; height:90%;
+    border-radius:50%; border:1px solid rgba(120,95,35,.30); }
+  .arc2 { position:absolute; left:-10%; right:-10%; bottom:-50%; height:78%;
+    border-radius:50%; border:1px solid rgba(120,95,35,.18); }
+  .frame { position:absolute; inset:34px; border:1px solid rgba(110,86,28,.55); }
+  .pad { position:absolute; inset:78px; }
+  .eyebrow { font-size:12px; font-weight:700; letter-spacing:4px; color:#5E5224; text-transform:uppercase; }
+  .mono { position:absolute; right:0; top:-4px; width:42px; height:42px; border:1.3px solid #6E5A26;
+    border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:"Didot",Georgia,serif; font-size:22px; color:#6E5A26; }
+  .kick { position:absolute; top:300px; display:flex; align-items:center; gap:14px; }
+  .kick .dash { width:46px; height:1.5px; background:#6E5A26; display:inline-block; }
+  .kick span { font-size:13px; font-weight:700; letter-spacing:4px; color:#5E5224; text-transform:uppercase; }
+  .wm { position:absolute; top:330px; font-family:"Didot",Georgia,serif; line-height:.92; }
+  .wm .the { font-size:74px; color:#8A7434; font-weight:400; }
+  .wm .match { font-size:150px; font-weight:700;
+    background:linear-gradient(180deg,#FBF1CE 0%,#E7C878 38%,#C49A3C 72%,#9C7A2A 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 2px 1px rgba(90,66,20,.25)); }
+  .sub { position:absolute; top:600px; font-family:"Didot",Georgia,serif; font-style:italic;
+    font-size:25px; line-height:1.32; color:#173E29; max-width:620px; }
+  .rule { position:absolute; top:712px; left:0; right:0; height:1px; background:rgba(110,86,28,.5); }
+  .stats { position:absolute; top:742px; left:0; right:0; display:flex; }
+  .stat { flex:1; border-left:2px solid #9A7E33; padding:0 14px 0 14px; }
+  .stat:first-child { padding-left:14px; }
+  .stat .n { font-size:34px; font-weight:700; color:#173E29; line-height:1; margin-bottom:8px; }
+  .stat .l { font-size:11px; font-weight:700; letter-spacing:2.5px; color:#6E5A26; text-transform:uppercase; line-height:1.3; }
+  .foot { position:absolute; bottom:0; left:0; right:0; display:flex; justify-content:space-between; }
+  .foot .c { font-size:11px; font-weight:700; letter-spacing:2.5px; color:#6E5A26; text-transform:uppercase; line-height:1.7; }
+  .foot .r { text-align:right; }
+</style></head><body>
+  <div class="arc"></div><div class="arc2"></div>
+  <div class="frame"></div>
+  <div class="pad">
+    <div style="position:relative;">
+      <div class="eyebrow">GOLFNOW AFFILIATE PROGRAM</div>
+      <div class="mono">M</div>
+    </div>
+    <div class="kick"><span class="dash"></span><span>SOCIAL MEDIA STRATEGY &middot; 2026</span></div>
+    <div class="wm"><span class="the">The</span> <span class="match">Match</span></div>
+    <div class="sub">Turning every round into shareable content&mdash;<br>and shareable content into booked tee times.</div>
+    <div class="rule"></div>
+    <div class="stats">
+      <div class="stat"><div class="n">3</div><div class="l">Lead<br>Channels</div></div>
+      <div class="stat"><div class="n">1</div><div class="l">Owned Share<br>Loop</div></div>
+      <div class="stat"><div class="n">8</div><div class="l">Core Features<br>Live</div></div>
+      <div class="stat"><div class="n">41M+</div><div class="l">US<br>Golfers</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">Paid-Spend<br>Reliance</div></div>
+    </div>
+    <div class="foot">
+      <div class="c">PREPARED FOR THE GOLFNOW AFFILIATE TEAM<br>MOBILE GOLF COMPANION APP</div>
+      <div class="c r">THE MATCH &middot; INC.<br>THE-MATCH-ROAN.VERCEL.APP</div>
+    </div>
+  </div>
+</body></html>
