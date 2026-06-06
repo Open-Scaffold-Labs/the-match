@@ -310,6 +310,13 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // closure would freeze the hole-1 values and aim-point drags on
   // hole 2+ would compute against the wrong tee/green. (2026-05-01)
   const livePosRef        = useRef({ teePt: null, greenPt: null, totalYards: 0 })
+  // Tap-to-measure (Feature A, 2026-06-06): a white pin + label dropped where
+  // the user taps the satellite — shows carry from the player and distance to
+  // the green from that point. gpsPropRef gives the once-attached click
+  // handler the live player position without a frozen closure.
+  const measureMarkerRef  = useRef(null)
+  const measureLabelRef   = useRef(null)
+  const gpsPropRef         = useRef(gps)
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
   // Aim-point state. null means "use default" (midpoint of tee→green).
@@ -372,6 +379,40 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       // (2026-06-01 — map-rendered-off-screen glitch on iPhone.)
       requestAnimationFrame(() => { try { map.invalidateSize() } catch { /* map gone */ } })
       setTimeout(() => { try { map.invalidateSize() } catch { /* map gone */ } }, 350)
+
+      // ── Tap-to-measure ── tap anywhere on the satellite to drop a pin
+      // showing carry from the player + distance to the green from that
+      // point. carry/toGreen are integers from haversineYards (XSS-safe in
+      // the label html). Uses e.latlng; if an on-course test shows skew
+      // under map rotation, switch to map.mouseEventToLatLng(e.originalEvent).
+      // (2026-06-06 — Feature A.)
+      map.on('click', (e) => {
+        if (!mapRef.current) return
+        const tap = { lat: e.latlng.lat, lon: e.latlng.lng }
+        const g = gpsPropRef.current
+        const gAtCourse = g?.lat != null && geocoded?.lat != null &&
+          haversineYards({ lat: g.lat, lon: g.lon }, { lat: geocoded.lat, lon: geocoded.lon }) < 8800
+        const player  = gAtCourse ? { lat: g.lat, lon: g.lon } : null
+        const greenPt = livePosRef.current?.greenPt
+        const carry   = player ? haversineYards(player, tap) : null
+        const toGreen = greenPt ? haversineYards(tap, greenPt) : null
+        if (carry == null && toGreen == null) return
+        // White pin (circleMarker → reliable SVG pane). Tap it to clear.
+        if (measureMarkerRef.current) {
+          measureMarkerRef.current.setLatLng([tap.lat, tap.lon])
+        } else {
+          measureMarkerRef.current = L.circleMarker([tap.lat, tap.lon], {
+            radius: 7, color: '#fff', weight: 2, fillColor: '#fff', fillOpacity: 0.9,
+          }).addTo(map)
+          measureMarkerRef.current.on('click', (ev) => { L.DomEvent.stopPropagation(ev); clearMeasure() })
+        }
+        const txt = (carry != null && toGreen != null) ? `${carry}y · ${toGreen} to grn`
+                  : (carry != null) ? `${carry}y` : `${toGreen}y to grn`
+        const html = `<div style="background:rgba(7,12,9,0.92);color:#fff;font-weight:800;font-size:12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.55);white-space:nowrap;">${txt}</div>`
+        const icon = L.divIcon({ className: '', html, iconSize: [90, 22], iconAnchor: [45, 30] })
+        if (measureLabelRef.current) { measureLabelRef.current.setLatLng([tap.lat, tap.lon]); measureLabelRef.current.setIcon(icon) }
+        else measureLabelRef.current = L.marker([tap.lat, tap.lon], { icon, interactive: false, keyboard: false }).addTo(map)
+      })
     }
 
     // Keep the map correctly sized across rotation / viewport changes
@@ -427,6 +468,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       distLabelRef.current = null
       aimToGreenLabelRef.current = null
       aimMarkerRef.current = null
+      measureMarkerRef.current = null
+      measureLabelRef.current = null
       setMapReady(false)
     }
   }, [geocoded])
@@ -434,6 +477,20 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // Reset aim-point when the hole changes. The position-update effect
   // below treats null as "use the new hole's midpoint default."
   useEffect(() => { setAimPoint(null) }, [currentHole])
+
+  // Keep the live-gps ref current for the once-attached map click handler.
+  useEffect(() => { gpsPropRef.current = gps }, [gps])
+
+  // Remove the tap-to-measure pin + label. Reused by the click handler
+  // (tap the pin to clear), the hole-change effect, and teardown. (2026-06-06)
+  const clearMeasure = useCallback(() => {
+    if (measureMarkerRef.current) { measureMarkerRef.current.remove(); measureMarkerRef.current = null }
+    if (measureLabelRef.current)  { measureLabelRef.current.remove();  measureLabelRef.current = null }
+  }, [])
+
+  // Clear any measure pin when the hole changes so a stale pin doesn't
+  // linger onto the next hole. (2026-06-06)
+  useEffect(() => { clearMeasure() }, [currentHole, clearMeasure])
 
   // Landing-zone marker — projects a target along the aim line at the
   // selected club's distance, so the player sees exactly where the
