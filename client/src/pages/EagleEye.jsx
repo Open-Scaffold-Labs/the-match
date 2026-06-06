@@ -1923,15 +1923,26 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           </div>
           {/* Conditions pills */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              background: gps ? 'rgba(42,122,56,0.18)' : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${gps ? 'rgba(42,122,56,0.35)' : 'rgba(255,255,255,0.1)'}`,
-              borderRadius: 20, padding: '4px 8px',
-            }}>
+            {/* Tap to enable GPS when off, or refresh the exact location when
+                on — requestLocation() re-requests a fresh fix and (re)starts
+                the watch either way. (2026-06-06) */}
+            <button
+              onClick={requestLocation}
+              title={gps ? 'Tap to refresh your location' : 'Tap to turn on GPS'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                background: gps ? 'rgba(42,122,56,0.18)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${gps ? 'rgba(42,122,56,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 20, padding: '4px 8px', cursor: 'pointer',
+                fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
+              }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: gps ? '#5ED47A' : 'rgba(255,255,255,0.2)' }} />
               <span style={{ fontSize: 10, fontWeight: 700, color: gps ? '#5ED47A' : 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>GPS</span>
-            </div>
+              {/* refresh glyph — signals the pill is tappable */}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gps ? '#5ED47A' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+                <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
             {wind && (
               <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>
