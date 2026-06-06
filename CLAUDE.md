@@ -90,6 +90,16 @@ npm run dev            # starts both client (:5173) and server (:3010)
 2. Add env vars: DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY, CLIENT_ORIGIN, APP_BASE_URL.
 3. `vercel --prod` or push to main.
 
+## Push & branch discipline
+
+`main` auto-deploys to production on push (Vercel). That single fact governs where work lands:
+
+- **Docs / wiki / marketing / plan files → commit straight to `main` and push.** They carry zero deploy risk (not part of the client build), so there is no reason to withhold them. Parking safe docs on a branch — or committing them to `main` locally and never pushing — leaves `main` stale, makes the repo look dead to the next session, and hides decisions. Push them.
+- **Untested app/feature code (`client/` or `server/`) → feature branch** until Matt has tested it AND Matt triggers the deploy. Never push unproven runtime code to `main`; that ships it to live golfers. Branch it, build-verify, hand Matt the branch — he merges and deploys. Guard not-yet-tested features behind a flag so a merge can ship them dark.
+- **Unsure if a change is "docs" or "code"?** If it changes `client/` or `server/` runtime behavior, it's code → branch. Everything else is docs → `main`.
+
+Why this is written down: a 2026-06-06 session parked a full day's work — including deploy-safe docs and a local-only log commit — on branches, leaving `main` stale all day. The feature-branch call was correct; withholding the safe docs was the mistake. Don't repeat it. (Cross-referenced in the OpenScaffold wiki's `claude-anti-patterns.md`.)
+
 ## DB setup
 
 Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 27 of them — 024 relaxed FKs for user deletion, 025 added PIN-reset tokens, 026 added the referral schema + `tm_users.elite_until`, 027 added `tm_rounds.hole_pars` so solo rounds persist real per-hole pars). Apply in order on a fresh database:
