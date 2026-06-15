@@ -132,11 +132,17 @@ router.get('/osm', async (req, res) => {
       return res.json(hit.data)
     }
 
-    // 'holes' = fast path: only golf=hole ways (primary, authoritative)
-    // 'teegreen' = gap-fill: individual tee/green nodes
-    const query = type === 'teegreen'
-      ? `[out:json][timeout:25];(node["golf"="tee"](${bbox});way["golf"="tee"](${bbox});node["golf"="green"](${bbox});way["golf"="green"](${bbox}););out center;`
-      : `[out:json][timeout:15];(way["golf"="hole"](${bbox}););out geom;`
+    // 'holes'     = golf=hole ways (primary, authoritative) — out geom
+    // 'teegreen'  = individual tee/green nodes/ways (gap-fill) — out center
+    // 'greengeom' = golf=green polygons for Front/Center/Back distances — out geom
+    // `type` is used only as an allowlist key (never interpolated into the
+    // query), so it can't inject Overpass QL. Unknown type → holes. (2026-06-06)
+    const queries = {
+      teegreen:  `[out:json][timeout:25];(node["golf"="tee"](${bbox});way["golf"="tee"](${bbox});node["golf"="green"](${bbox});way["golf"="green"](${bbox}););out center;`,
+      greengeom: `[out:json][timeout:20];(way["golf"="green"](${bbox}););out geom;`,
+      holes:     `[out:json][timeout:15];(way["golf"="hole"](${bbox}););out geom;`,
+    }
+    const query = queries[type] || queries.holes
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Accept': 'application/json',

@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+import { greenFCB, matchPolygonsToHoles } from '../lib/geo.js'
+
+// Feature flags — flip to false to disable a feature that isn't yet
+// device-tested, without a revert/redeploy. Both degrade safely when off:
+// tap-to-measure simply doesn't attach; F/C/B falls back to the single
+// center number. (2026-06-06)
+const ENABLE_TAP_MEASURE = true
+const ENABLE_FCB = true
 import { log } from '../lib/logger.js'
 import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
@@ -12,6 +20,23 @@ const osmPositionCache = new Map()
 // ─── localStorage persistence for OSM data (7-day TTL) ───────────────────────
 // After the first load of a course, pins are instant on every subsequent visit.
 const OSM_LS_TTL = 7 * 24 * 60 * 60 * 1000
+// Per-course hole persistence so a reload (pull-to-refresh / SW update)
+// resumes the exact hole instead of snapping back to hole 1. Keyed by
+// course id so switching courses doesn't carry a stale hole. (2026-06-06)
+const EYE_HOLE_KEY = 'tm-eye-hole'
+function readEyeHole(courseId) {
+  if (!courseId) return null
+  try {
+    const v = JSON.parse(localStorage.getItem(EYE_HOLE_KEY) || 'null')
+    if (v && String(v.courseId) === String(courseId) && v.hole >= 1) return v.hole
+  } catch { /* ignore */ }
+  return null
+}
+function saveEyeHole(courseId, hole) {
+  if (!courseId) return
+  try { localStorage.setItem(EYE_HOLE_KEY, JSON.stringify({ courseId, hole })) } catch { /* ignore */ }
+}
+
 function lsLoadOsm(key) {
   try {
     const raw = localStorage.getItem(`tm-osm-${key}`)
@@ -146,6 +171,25 @@ function haversineYards(a, b) {
   return Math.round(Math.sqrt(x + (1-x)) * 2 * Math.asin(Math.sqrt(x)) * R * 1.09361)
 }
 
+// ─── Client-side "plays like" ────────────────────────────────────────────────
+// Applies the same wind / temperature / altitude model the AI rangefinder
+// uses (minus visual slope, which needs the photo) to the live GPS distance,
+// so every glance shows an adjusted "plays like" number — not just the
+// camera. Headwind + cold + low altitude all play longer. (2026-06-06)
+function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0 } = {}) {
+  if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0 }
+  const per100 = baseYds / 100
+  let wind = 0
+  if (windSpeed && windFromDeg != null && shotBearing != null) {
+    const theta = ((shotBearing - windFromDeg) * Math.PI) / 180
+    wind = windSpeed * Math.cos(theta) * per100   // +headwind plays longer, -tailwind shorter
+  }
+  const temp = tempF != null ? ((70 - tempF) / 10) * per100 : 0  // colder plays longer
+  const alt  = -baseYds * ((altFt || 0) / 1000) * 0.02            // altitude plays shorter
+  const adj  = wind + temp + alt
+  return { plays: Math.max(0, Math.round(baseYds + adj)), adj: Math.round(adj) }
+}
+
 // ─── Pulsating Eagle Eye Button ───────────────────────────────────────────────
 const PULSE_STYLE = `
   @keyframes ee-pulse {
@@ -274,6 +318,13 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // closure would freeze the hole-1 values and aim-point drags on
   // hole 2+ would compute against the wrong tee/green. (2026-05-01)
   const livePosRef        = useRef({ teePt: null, greenPt: null, totalYards: 0 })
+  // Tap-to-measure (Feature A, 2026-06-06): a white pin + label dropped where
+  // the user taps the satellite — shows carry from the player and distance to
+  // the green from that point. gpsPropRef gives the once-attached click
+  // handler the live player position without a frozen closure.
+  const measureMarkerRef  = useRef(null)
+  const measureLabelRef   = useRef(null)
+  const gpsPropRef         = useRef(gps)
   const [mapErr, setMapErr] = useState(null)
   const [mapReady, setMapReady] = useState(false)
   // Aim-point state. null means "use default" (midpoint of tee→green).
@@ -336,6 +387,40 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       // (2026-06-01 — map-rendered-off-screen glitch on iPhone.)
       requestAnimationFrame(() => { try { map.invalidateSize() } catch { /* map gone */ } })
       setTimeout(() => { try { map.invalidateSize() } catch { /* map gone */ } }, 350)
+
+      // ── Tap-to-measure ── tap anywhere on the satellite to drop a pin
+      // showing carry from the player + distance to the green from that
+      // point. carry/toGreen are integers from haversineYards (XSS-safe in
+      // the label html). Uses e.latlng; if an on-course test shows skew
+      // under map rotation, switch to map.mouseEventToLatLng(e.originalEvent).
+      // (2026-06-06 — Feature A.)
+      if (ENABLE_TAP_MEASURE) map.on('click', (e) => {
+        if (!mapRef.current) return
+        const tap = { lat: e.latlng.lat, lon: e.latlng.lng }
+        const g = gpsPropRef.current
+        const gAtCourse = g?.lat != null && geocoded?.lat != null &&
+          haversineYards({ lat: g.lat, lon: g.lon }, { lat: geocoded.lat, lon: geocoded.lon }) < 8800
+        const player  = gAtCourse ? { lat: g.lat, lon: g.lon } : null
+        const greenPt = livePosRef.current?.greenPt
+        const carry   = player ? haversineYards(player, tap) : null
+        const toGreen = greenPt ? haversineYards(tap, greenPt) : null
+        if (carry == null && toGreen == null) return
+        // White pin (circleMarker → reliable SVG pane). Tap it to clear.
+        if (measureMarkerRef.current) {
+          measureMarkerRef.current.setLatLng([tap.lat, tap.lon])
+        } else {
+          measureMarkerRef.current = L.circleMarker([tap.lat, tap.lon], {
+            radius: 7, color: '#fff', weight: 2, fillColor: '#fff', fillOpacity: 0.9,
+          }).addTo(map)
+          measureMarkerRef.current.on('click', (ev) => { L.DomEvent.stopPropagation(ev); clearMeasure() })
+        }
+        const txt = (carry != null && toGreen != null) ? `${carry}y · ${toGreen} to grn`
+                  : (carry != null) ? `${carry}y` : `${toGreen}y to grn`
+        const html = `<div style="background:rgba(7,12,9,0.92);color:#fff;font-weight:800;font-size:12px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.6);box-shadow:0 2px 8px rgba(0,0,0,0.55);white-space:nowrap;">${txt}</div>`
+        const icon = L.divIcon({ className: '', html, iconSize: [90, 22], iconAnchor: [45, 30] })
+        if (measureLabelRef.current) { measureLabelRef.current.setLatLng([tap.lat, tap.lon]); measureLabelRef.current.setIcon(icon) }
+        else measureLabelRef.current = L.marker([tap.lat, tap.lon], { icon, interactive: false, keyboard: false }).addTo(map)
+      })
     }
 
     // Keep the map correctly sized across rotation / viewport changes
@@ -391,6 +476,8 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       distLabelRef.current = null
       aimToGreenLabelRef.current = null
       aimMarkerRef.current = null
+      measureMarkerRef.current = null
+      measureLabelRef.current = null
       setMapReady(false)
     }
   }, [geocoded])
@@ -398,6 +485,20 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
   // Reset aim-point when the hole changes. The position-update effect
   // below treats null as "use the new hole's midpoint default."
   useEffect(() => { setAimPoint(null) }, [currentHole])
+
+  // Keep the live-gps ref current for the once-attached map click handler.
+  useEffect(() => { gpsPropRef.current = gps }, [gps])
+
+  // Remove the tap-to-measure pin + label. Reused by the click handler
+  // (tap the pin to clear), the hole-change effect, and teardown. (2026-06-06)
+  const clearMeasure = useCallback(() => {
+    if (measureMarkerRef.current) { measureMarkerRef.current.remove(); measureMarkerRef.current = null }
+    if (measureLabelRef.current)  { measureLabelRef.current.remove();  measureLabelRef.current = null }
+  }, [])
+
+  // Clear any measure pin when the hole changes so a stale pin doesn't
+  // linger onto the next hole. (2026-06-06)
+  useEffect(() => { clearMeasure() }, [currentHole, clearMeasure])
 
   // Landing-zone marker — projects a target along the aim line at the
   // selected club's distance, so the player sees exactly where the
@@ -1243,7 +1344,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const [teeGps, setTeeGps]         = useState(null)
   const [weather, setWeather]       = useState(null)
   const [courseCtx, setCourseCtx]   = useState(null)
-  const [currentHole, setCurrentHole] = useState(1)
+  const [currentHole, setCurrentHole] = useState(() => readEyeHole(sharedCourse?.course?.id) || 1)
 
   // Cross-tab nudge from the live match's score modal: "user just scored
   // hole N, take them to Eagle Eye on hole N+1." App.jsx sets the nudge,
@@ -1279,10 +1380,40 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // new recommendation. (2026-05-01)
   useEffect(() => { setSelectedClub(null) }, [currentHole])
 
+  // Persist the current hole per course so a reload resumes it. (2026-06-06)
+  useEffect(() => {
+    const cid = courseCtx?.course?.id ?? sharedCourse?.course?.id
+    if (cid) saveEyeHole(cid, currentHole)
+  }, [currentHole, courseCtx, sharedCourse])
+
+  // Keep the screen awake while on a course — golfers leave the app up
+  // between shots and the screen sleeping mid-round is a constant
+  // annoyance. The Wake Lock auto-releases when the tab is backgrounded,
+  // so re-acquire on visibilitychange. Engages only once a course is
+  // selected, releases when cleared. No-ops where unsupported. (2026-06-06)
+  useEffect(() => {
+    if (!courseCtx) return
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+    let lock = null
+    let released = false
+    const acquire = async () => {
+      try { lock = await navigator.wakeLock.request('screen') } catch { /* denied / not visible */ }
+    }
+    const onVis = () => { if (document.visibilityState === 'visible' && !released) acquire() }
+    acquire()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      released = true
+      document.removeEventListener('visibilitychange', onVis)
+      try { lock && lock.release() } catch { /* already gone */ }
+    }
+  }, [courseCtx])
+
   // OSM course data: geocoded position, tee coords, green coords
   const [courseGeocoded, setCourseGeocoded] = useState(null)
   const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
   const [greenPositions, setGreenPositions] = useState({}) // { 1: {lat,lon}, ... } greens
+  const [greenPolys, setGreenPolys]         = useState({}) // { 1: [{lat,lon},...] } OSM green polygons → F/C/B
   // Full geometry of each golf=hole way: array of {lat, lon} tracing the
   // playing line from tee through the fairway to the green. Used for
   // dogleg-aware aim-point default placement (par 4/5 layup along the
@@ -1436,7 +1567,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     // and can land OOB on dogleg holes. Bumping the key forces a single
     // fresh Overpass fetch per (course, tee) combo so the new geometry-
     // aware behavior kicks in immediately.
-    const cacheKey = `v2-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+    // v3 (2026-06-06): added green polygons (polys) to the payload for
+    // Front/Center/Back green distances. Bumping the key forces one fresh
+    // fetch per (course, tee) so stale v2 entries without polygons fall
+    // back cleanly to the single center number.
+    const cacheKey = `v3-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
 
     // 1️⃣ In-memory cache (survives re-renders within a page session)
     if (osmPositionCache.has(cacheKey)) {
@@ -1445,6 +1580,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       setHolePositions(cached.tees)
       setGreenPositions(cached.greens)
       setHoleGeometries(cached.geoms || {})
+      setGreenPolys(cached.polys || {})
       setOsmLoading(false)
       return
     }
@@ -1456,6 +1592,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       setHolePositions(stored.tees)
       setGreenPositions(stored.greens)
       setHoleGeometries(stored.geoms || {})
+      setGreenPolys(stored.polys || {})
       setOsmLoading(false)
       return
     }
@@ -1495,7 +1632,8 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         return Promise.all([
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(safeOsm),
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(safeOsm),
-        ]).then(([osmHoles, osmNodes]) => {
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=greengeom`).then(safeOsm),
+        ]).then(([osmHoles, osmNodes, osmGreenGeom]) => {
             const scorecard = courseCtx?.tee?.holes ?? []
             const holeTees = {}, holeGreens = {}
 
@@ -1574,11 +1712,22 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               ordered.forEach((g, i) => { holeGreens[i + 1] = g })
             }
 
+            // ── Front/Center/Back: associate green polygons to holes ──
+            // golf=green ways carry no hole ref and the count exceeds 18
+            // (practice greens), so match each hole's green-center point to
+            // the nearest polygon centroid within ~40y. (2026-06-06)
+            const greenPolygons = (osmGreenGeom?.elements ?? [])
+              .filter(el => el.type === 'way' && Array.isArray(el.geometry) && el.geometry.length >= 3)
+              .map(el => el.geometry.map(p => ({ lat: p.lat, lon: p.lon })))
+            const holePolys = matchPolygonsToHoles(holeGreens, greenPolygons, 40)
+            log('[OSM] green polygons:', greenPolygons.length, '→ matched holes:', Object.keys(holePolys).length)
+
             log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens,', Object.keys(holeGeoms).length, 'geoms — gap-fills:', gapFills)
             setHolePositions(holeTees)
             setGreenPositions(holeGreens)
             setHoleGeometries(holeGeoms)
-            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms }
+            setGreenPolys(holePolys)
+            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms, polys: holePolys }
             osmPositionCache.set(cacheKey, cachePayload)
             lsSaveOsm(cacheKey, cachePayload) // persist across page reloads
           })
@@ -1645,7 +1794,9 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     // Avoid calling onCourseSelected from within handleCourseSelect here —
     // we already have this ctx FROM sharedCourse. Inline the body instead.
     setCourseCtx(sharedCourse)
-    setCurrentHole(1)
+    // Resume the persisted hole for this course on reload; fall back to 1
+    // for a genuinely new course. (2026-06-06)
+    setCurrentHole(readEyeHole(sharedCourse.course.id) || 1)
     setTeeGps(gps)
     setShowPicker(false)
     setResult(null)
@@ -1660,6 +1811,29 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const displayYards = gpsToGreen ?? (distanceWalked > 10 && remainingYards != null
     ? remainingYards
     : (holeData?.yardage ?? null))
+
+  // "Plays like" on the live distance — only when we have a real GPS-to-green
+  // reading + weather (so the wind/temp/altitude model has real inputs). Uses
+  // the player→green bearing for the wind component. (2026-06-06)
+  const altFt = gps?.alt != null
+    ? Math.round(gps.alt * 3.281)
+    : estimateAltFromPressure(weather?.surface_pressure)
+  const shotBearing = (gps && greenCoord) ? calcBearing({ lat: gps.lat, lon: gps.lon }, greenCoord) : null
+  const playsLike = (gpsToGreen != null && weather)
+    ? computePlaysLike(gpsToGreen, {
+        windSpeed: wind?.speed ?? 0,
+        windFromDeg: wind?.dir ?? null,
+        shotBearing,
+        tempF: temp,
+        altFt,
+      })
+    : null
+
+  // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
+  // when available, else the tee. Null → single number, unchanged. (2026-06-06)
+  const greenPolygon = greenPolys[currentHole]
+  const fcbPlayer = (gps?.lat != null) ? { lat: gps.lat, lon: gps.lon } : (holePositions[currentHole] ?? null)
+  const fcb = (ENABLE_FCB && greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
 
@@ -1749,15 +1923,26 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           </div>
           {/* Conditions pills */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              background: gps ? 'rgba(42,122,56,0.18)' : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${gps ? 'rgba(42,122,56,0.35)' : 'rgba(255,255,255,0.1)'}`,
-              borderRadius: 20, padding: '4px 8px',
-            }}>
+            {/* Tap to enable GPS when off, or refresh the exact location when
+                on — requestLocation() re-requests a fresh fix and (re)starts
+                the watch either way. (2026-06-06) */}
+            <button
+              onClick={requestLocation}
+              title={gps ? 'Tap to refresh your location' : 'Tap to turn on GPS'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                background: gps ? 'rgba(42,122,56,0.18)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${gps ? 'rgba(42,122,56,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 20, padding: '4px 8px', cursor: 'pointer',
+                fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
+              }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: gps ? '#5ED47A' : 'rgba(255,255,255,0.2)' }} />
               <span style={{ fontSize: 10, fontWeight: 700, color: gps ? '#5ED47A' : 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>GPS</span>
-            </div>
+              {/* refresh glyph — signals the pill is tappable */}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gps ? '#5ED47A' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+                <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+            </button>
             {wind && (
               <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>
@@ -1967,6 +2152,31 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', paddingBottom: 3 }}>YDS</span>
               </div>
+              {/* Front / Center / Back green — the big number above is center;
+                  these flank it with the near + far edge. Only when a green
+                  polygon matched (else the single number stands). (2026-06-06) */}
+              {fcb && fcb.front != null && fcb.back != null && (
+                <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(94,212,122,0.9)' }}>
+                    F <span style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{fcb.front}</span>
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.55)' }}>
+                    B <span style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{fcb.back}</span>
+                  </span>
+                </div>
+              )}
+              {/* Plays-like — wind/temp/altitude-adjusted live distance.
+                  Shown only when it actually differs from the raw GPS yardage.
+                  (2026-06-06) */}
+              {playsLike && playsLike.adj !== 0 && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
+                  <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(245,215,138,0.7)' }}>PLAYS</span>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{playsLike.plays}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: playsLike.adj > 0 ? '#F0A868' : '#5ED47A' }}>
+                    {playsLike.adj > 0 ? `+${playsLike.adj}` : playsLike.adj}
+                  </span>
+                </div>
+              )}
               {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
               <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-start' }}>
                 <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 4, padding: '1px 6px' }}>
