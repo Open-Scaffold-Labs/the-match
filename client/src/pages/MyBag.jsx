@@ -128,6 +128,7 @@ export default function MyBag({ user }) {
         <BagCompleteOverlay
           clubs={clubs}
           totalSlots={SLOTS.length}
+          user={user}
           onClose={() => setCompleting(false)}
         />
       )}
@@ -152,7 +153,7 @@ export default function MyBag({ user }) {
 // animation, gold checkmark, club count, and a Done CTA. Doesn't lock
 // the bag — user can still edit afterward, this is a UX "you're set"
 // signal. (2026-05-01)
-function BagCompleteOverlay({ clubs, totalSlots, onClose }) {
+function BagCompleteOverlay({ clubs, totalSlots, onClose, user }) {
   return createPortal(
     <div
       onClick={onClose}
