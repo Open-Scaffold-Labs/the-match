@@ -92,13 +92,17 @@ npm run dev            # starts both client (:5173) and server (:3010)
 
 ## Push & branch discipline
 
-`main` auto-deploys to production on push (Vercel). That single fact governs where work lands:
+`main` auto-deploys via Vercel on push. **The rule depends on the launch phase — and the only question that matters is: where does the team actually test?**
 
-- **Docs / wiki / marketing / plan files → commit straight to `main` and push.** They carry zero deploy risk (not part of the client build), so there is no reason to withhold them. Parking safe docs on a branch — or committing them to `main` locally and never pushing — leaves `main` stale, makes the repo look dead to the next session, and hides decisions. Push them.
-- **Untested app/feature code (`client/` or `server/`) → feature branch** until Matt has tested it AND Matt triggers the deploy. Never push unproven runtime code to `main`; that ships it to live golfers. Branch it, build-verify, hand Matt the branch — he merges and deploys. Guard not-yet-tested features behind a flag so a merge can ship them dark.
-- **Unsure if a change is "docs" or "code"?** If it changes `client/` or `server/` runtime behavior, it's code → branch. Everything else is docs → `main`.
+**CURRENT PHASE: BETA — the team tests through the deployed `main`, not through branches.** So right now:
 
-Why this is written down: a 2026-06-06 session parked a full day's work — including deploy-safe docs and a local-only log commit — on branches, leaving `main` stale all day. The feature-branch call was correct; withholding the safe docs was the mistake. Don't repeat it. (Cross-referenced in the OpenScaffold wiki's `claude-anti-patterns.md`.)
+- **Build-verified work → commit to `main` and push. This includes app/feature code (`client/`, `server/`).** `main` IS the beta test environment, so the code has to be on `main` for Matt to test it on his phone. **Holding features on a branch blocks testing** — don't do it. Docs / wiki / marketing go to `main` too, always.
+- **The one gate: it must build clean** — run `npm --prefix client run build` + `node --check` on changed server files before pushing. Never push broken code; that breaks the beta env for everyone. Build-verify, then push.
+- Branches are only for genuinely experimental/risky spikes you explicitly want to stage separately — not the default for normal feature work.
+
+**AT LAUNCH (when `main` = live users), flip to the strict rule:** untested runtime code goes on a feature branch until Matt has tested it AND triggers the deploy; only docs and proven code go straight to `main`; guard not-yet-tested features behind a flag so a merge can ship them dark.
+
+Why this is written down: a 2026-06-06 session first left `main` stale (parked deploy-safe docs on branches), then **over-corrected** by holding build-verified beta features on a branch — which blocked Matt's testing, because the team tests through `main`. Both were wrong reads of the same question: *where does the team test?* In beta that's `main`, so build-verified code belongs on `main`. (Cross-referenced in the OpenScaffold wiki's `claude-anti-patterns.md`.)
 
 ## DB setup
 
