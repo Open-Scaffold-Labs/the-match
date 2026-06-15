@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
-import { greenFCB, matchPolygonsToHoles } from '../lib/geo.js'
+import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:

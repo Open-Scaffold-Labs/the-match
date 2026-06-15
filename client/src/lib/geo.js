@@ -45,6 +45,14 @@ export function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, s
   return { plays: Math.max(0, Math.round(baseYds + adj)), adj: Math.round(adj) }
 }
 
+// Estimate altitude (feet) from barometric surface pressure (hPa), standard
+// barometric formula. Fallback for the plays-like altitude term when GPS gives
+// no altitude. Mirrors the server analyze route exactly. (2026-06-06)
+export function estimateAltFromPressure(hPa) {
+  if (!hPa) return 0
+  return Math.round(44330 * (1 - Math.pow(hPa / 1013.25, 1 / 5.255)) * 3.281)
+}
+
 // Average-of-vertices centroid for a polygon ([{lat,lon}, ...]). Good enough
 // for nearest-green association; not an area-weighted centroid. Returns null
 // for an empty polygon.

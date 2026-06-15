@@ -7,7 +7,7 @@
 // Dependency-free (matches side-bets.test.mjs / handicap-milestone.test.mjs).
 // (2026-06-06 — Eagle Eye next-level: proven math core for F/C/B + plays-like.)
 
-import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles } from './geo.js'
+import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from './geo.js'
 
 let passed = 0, failed = 0
 const fails = []
@@ -41,6 +41,11 @@ near(computePlaysLike(150, { tempF: 50, altFt: 0 }).adj, 3, 1, 'plays-like cold 
 // Altitude: 5000 ft → -150*5*0.02 = -15.
 near(computePlaysLike(150, { tempF: 70, altFt: 5000 }).adj, -15, 1, 'plays-like altitude -15')
 assert(computePlaysLike(0).adj === 0, 'plays-like zero base → 0 adj')
+
+// ── estimateAltFromPressure ──
+near(estimateAltFromPressure(1013.25), 0, 5, 'altitude at sea-level pressure ≈ 0')
+assert(estimateAltFromPressure(null) === 0, 'altitude no pressure → 0')
+near(estimateAltFromPressure(845), 4950, 250, 'altitude ~845 hPa ≈ 5000 ft (Denver)')
 
 // ── polygonCentroid ──
 const square = [{ lat: 0, lon: 0 }, { lat: 0, lon: 0.001 }, { lat: 0.001, lon: 0.001 }, { lat: 0.001, lon: 0 }]
