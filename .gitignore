@@ -22,3 +22,7 @@ build/
 
 # WIP design scratch — kept local, not tracked
 icons-wip/
+
+# Generated scoring-capability exports — kept local, not tracked
+/The-Match-Scoring-Capabilities.docx
+/The-Match-Scoring-Capabilities.pdf
