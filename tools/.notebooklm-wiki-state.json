@@ -5,14 +5,14 @@
     "verified_at": 1778130608.233875
   },
   "wiki/log.md": {
-    "mtime": 1778348499.2159228,
-    "source_id": "8d13f681-0e5c-426c-a399-99f19100f9f6",
-    "verified_at": 1778348529.218675
+    "mtime": 1781496379.64543,
+    "source_id": "92e451d6-075c-4713-a994-8757579b1770",
+    "verified_at": 1782247852.991176
   },
   "wiki/index.md": {
-    "mtime": 1778133334.5596929,
-    "source_id": "dfb4f9bb-9161-4cc7-b7d8-c9f1740bd3e1",
-    "verified_at": 1778133405.234347
+    "mtime": 1782247807.0939448,
+    "source_id": "36a46a91-9dd7-4444-aeaa-6688031b0faa",
+    "verified_at": 1782247870.9145222
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -53,13 +53,23 @@
     "verified_at": 1777683687.3069088
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1778203635.3300104,
-    "source_id": "fbafc274-3724-4ab8-874c-50f795bfbd39",
-    "verified_at": 1778203703.095797
+    "mtime": 1780785329.2551355,
+    "source_id": "cb4d60af-294c-452a-b989-225242f48025",
+    "verified_at": 1782247837.938771
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1778180654.29875,
     "source_id": "0e31c096-9d77-40a0-8602-1586c2fade8d",
     "verified_at": 1778180852.917377
+  },
+  "wiki/synthesis/eagle-eye-next-level-plan-2026-06-06.md": {
+    "mtime": 1781496379.645966,
+    "source_id": "e8017ffe-33fc-412b-ab0a-4425ea409ac2",
+    "verified_at": 1782247877.2479239
+  },
+  "wiki/synthesis/session-report-2026-06-06.md": {
+    "mtime": 1780788282.9288797,
+    "source_id": "5b4ae0f9-e876-4913-a7cc-82dcc02d3b2c",
+    "verified_at": 1782247883.452485
   }
 }

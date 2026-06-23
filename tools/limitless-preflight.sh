@@ -484,6 +484,13 @@ if ! command -v notebooklm >/dev/null 2>&1; then
   bad "notebooklm CLI not installed" "pip install \"notebooklm-py[browser]\" && playwright install chromium && notebooklm login"
 else
   AUTH_OUT=$(notebooklm auth check --test 2>&1)
+  # Transient token-fetch failures happen (observed 2026-06-10: BLOCK at 04:40,
+  # auth valid on the next check) — retry once before declaring a blocker.
+  # See anti-pattern #24.
+  if echo "$AUTH_OUT" | grep -q "fail"; then
+    sleep 5
+    AUTH_OUT=$(notebooklm auth check --test 2>&1)
+  fi
   if echo "$AUTH_OUT" | grep -q "Authentication Check" && ! echo "$AUTH_OUT" | grep -q "fail"; then
     ok "auth OK (storage_state.json valid, token fetch works)"
   elif echo "$AUTH_OUT" | grep -q "fail"; then
@@ -835,6 +842,62 @@ print(json.dumps({"verdict": verdict, "tools": tools, "reported_by": reported_by
       -H "Content-Type: application/json" \
       -d "$STACK_PAYLOAD" \
       "$HUB_URL" > /dev/null 2>&1 || true
+  fi
+
+  # Also report this preflight run as an activity row (canary producer for the
+  # /api/agent-activity endpoint). Shares the same Keychain token as the stack
+  # health POST above; same best-effort semantics — failures must not affect
+  # the Roll Call verdict. See tools/report-activity.sh for details.
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  if [ -x "$SCRIPT_DIR/report-activity.sh" ]; then
+    if [ "$RED" -gt 0 ]; then
+      ACT_VERDICT="block"
+      ACT_TITLE="preflight BLOCK — $RED blocker(s)"
+    elif [ "$YELLOW" -gt 0 ]; then
+      ACT_VERDICT="warn"
+      ACT_TITLE="preflight WARN — $YELLOW drift finding(s)"
+    else
+      ACT_VERDICT="ready"
+      ACT_TITLE="preflight READY — $GREEN green"
+    fi
+    ACT_PAYLOAD=$(python3 -c '
+import json, sys
+print(json.dumps({
+  "verdict": sys.argv[1],
+  "green":   int(sys.argv[2]),
+  "yellow":  int(sys.argv[3]),
+  "red":     int(sys.argv[4]),
+  "warnings": [w for w in sys.argv[5].split("\x1f") if w],
+  "blockers": [b for b in sys.argv[6].split("\x1f") if b],
+  "reported_by": sys.argv[7],
+}))
+' "$ACT_VERDICT" "$GREEN" "$YELLOW" "$RED" \
+   "$(IFS=$'\x1f'; echo "${WARNINGS[*]:-}")" \
+   "$(IFS=$'\x1f'; echo "${BLOCKERS[*]:-}")" \
+   "$(whoami)@$(hostname -s 2>/dev/null || echo unknown)")
+    "$SCRIPT_DIR/report-activity.sh" \
+      --source     agent \
+      --event-type preflight \
+      --actor      roll-call \
+      --repo       openscaffold-wiki \
+      --title      "$ACT_TITLE" \
+      --payload    "$ACT_PAYLOAD" || true
+  fi
+fi
+
+# ── Per-user capability snapshot ────────────────────────
+# Run scan-capabilities.py best-effort so every Roll Call refreshes the
+# CURRENT MAC'S snapshot in the Hub. Each user gets tagged with their own
+# GitHub login (via gh CLI inside scan-capabilities.py), so Dale's Hub view
+# starts showing HIS plugin set the moment he greets Claude and Roll Call
+# fires — no manual setup on his side. Failure here can't affect the
+# Roll Call verdict — same best-effort contract as the activity POST above.
+SCANNER="$SCRIPT_DIR/scan-capabilities.py"
+if [ -x "$SCANNER" ] || [ -r "$SCANNER" ]; then
+  if command -v python3.11 >/dev/null 2>&1; then
+    python3.11 "$SCANNER" > /dev/null 2>&1 || true
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 "$SCANNER" > /dev/null 2>&1 || true
   fi
 fi
 

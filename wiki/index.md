@@ -35,6 +35,7 @@ Content catalog — every page listed here. The preflight's index-completeness c
 ## Synthesis
 
 - [[synthesis/session-report-2026-06-06]] — full session record: GolfNow affiliate (Dale applied), Eagle Eye OSM-mirror regression fix + 5 next-level features on `feat/eagle-eye-upgrades` (undeployed), course-data provider research, push/branch discipline rule + anti-patterns #21/#22 · created 2026-06-06
+- [[synthesis/eagle-eye-next-level-plan-2026-06-06]] — Eagle Eye build plan: tap-to-measure + front/center/back green distances, risk anticipation + fallbacks, branch `feat/eagle-eye-upgrades` · created 2026-06-06
 - [[synthesis/audit-2026-05-07]] — E2E auth walk + visual sweep + bug list + improvement backlog + new-ideas brainstorm. Found 11 bugs (2 high: no logout, no /settings route; 4 medium; 5 low) + 13 improvements + ~25 new ideas across engagement loops, Eagle Eye depth, social, platform, AI · created 2026-05-07
 - [[synthesis/audit-2026-04-29]] — full static audit + runtime click-through findings: 12 bugs + 8 runtime bugs + 11 UX issues + 10 tech-debt + 14 missing-feature candidates. Priority list re-marked 2026-05-01 to show what's shipped vs still open · created 2026-04-29
 - [[synthesis/audit-fixes-proposal-2026-04-29]] — **CLOSED 2026-05-01** — every item in the original approval queue shipped (commits `1fa6ee4`, `8d74a76`, `93053ba` on 2026-04-29). Page preserved as historical record · created 2026-04-29
