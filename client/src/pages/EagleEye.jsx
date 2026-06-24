@@ -2013,6 +2013,33 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           top: 50% !important;
           transform: translateY(-50%);
         }
+        /* Glass map controls (Phase 2.4) — replace Leaflet's default white
+           squares + grey attribution with the dark-glass HUD language so the
+           map reads as a premium instrument, not a stock embed. */
+        .leaflet-control-zoom {
+          border: none !important;
+          border-radius: 14px !important;
+          overflow: hidden;
+          box-shadow: 0 6px 18px rgba(0,0,0,0.45) !important;
+        }
+        .leaflet-control-zoom a {
+          background: rgba(7,12,9,0.66) !important;
+          -webkit-backdrop-filter: blur(14px) saturate(150%);
+          backdrop-filter: blur(14px) saturate(150%);
+          color: #F5D78A !important;
+          border-color: rgba(245,215,138,0.22) !important;
+          width: 34px !important; height: 34px !important; line-height: 32px !important;
+          font-size: 18px !important; font-weight: 700;
+        }
+        .leaflet-control-zoom a:hover { background: rgba(22,30,24,0.92) !important; }
+        .leaflet-control-attribution {
+          background: rgba(7,12,9,0.50) !important;
+          -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+          color: rgba(255,255,255,0.45) !important;
+          font-size: 9px !important; padding: 2px 6px !important;
+          border-radius: 8px 0 0 0;
+        }
+        .leaflet-control-attribution a { color: rgba(245,215,138,0.65) !important; }
         /* Force GPU compositing on the tile pane + slightly oversize
            each tile so adjacent tiles physically overlap by ~1 pixel
            after the rotate plugin's transform. Together these kill
@@ -2426,12 +2453,13 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           bottom: 16, left: 16,
           background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
           border: '1px solid rgba(245,215,138,0.85)',
-          borderRadius: 999, padding: '8px 12px',
+          borderRadius: 999, padding: '10px 16px',
           color: '#070C09',
-          fontSize: 11, fontWeight: 900, letterSpacing: '0.06em',
+          fontSize: 12, fontWeight: 900, letterSpacing: '0.06em',
           cursor: 'pointer',
-          boxShadow: '0 6px 18px rgba(201,160,64,0.45)',
-          display: 'inline-flex', alignItems: 'center', gap: 6,
+          // inset top-rim highlight = the detail that reads as real glass/metal
+          boxShadow: '0 8px 22px rgba(201,160,64,0.45), inset 0 1px 0 rgba(255,255,255,0.5)',
+          display: 'inline-flex', alignItems: 'center', gap: 7,
           fontFamily: 'inherit',
           zIndex: 1000,
         }}>
@@ -2518,13 +2546,14 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         // at the same point. (2026-05-01 — Matt)
         top: 'calc(50% + 22px)', right: 16,
         transform: 'translateY(-50%)',
-        background: 'rgba(7,12,9,0.85)',
+        background: 'rgba(7,12,9,0.62)',
+        backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
         border: '1px solid rgba(245,215,138,0.40)',
         borderRadius: 999, padding: '10px 14px',
         color: '#F5D78A',
         fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
         cursor: 'pointer',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.50)',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
         display: 'inline-flex', alignItems: 'center', gap: 8,
         fontFamily: 'inherit',
         zIndex: 1000,
@@ -2550,7 +2579,8 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
       disabled={disabled}
       onClick={() => club && onSelect?.(club)}
       style={{
-        background: disabled ? 'rgba(7,12,9,0.55)' : 'rgba(7,12,9,0.85)',
+        background: disabled ? 'rgba(7,12,9,0.42)' : 'rgba(7,12,9,0.62)',
+        backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
         border: disabled ? '1px solid rgba(245,215,138,0.18)' : '1px solid rgba(245,215,138,0.55)',
         color: disabled ? 'rgba(245,215,138,0.30)' : '#F5D78A',
         borderRadius: 12, padding: '6px 10px',
@@ -2558,7 +2588,7 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         cursor: disabled ? 'default' : 'pointer',
         fontFamily: 'inherit', minWidth: 96,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.45)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
       }}
     >
       <span>{label}</span>
