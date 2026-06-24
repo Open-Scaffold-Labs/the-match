@@ -17,17 +17,6 @@
 // running a stale cached bundle. (2026-06-23 — Matt's iPhone stuck pre-fix.)
 self.SW_BUILD = '__SW_BUILD__'
 
-// ─── Offline tile cache (NAIP satellite imagery) ─────────────────────
-// Golf courses are notorious for terrible cell coverage. We cache NAIP map
-// tiles as they're viewed so a hole you've already loaded keeps working with
-// NO signal mid-round. Tiles are immutable per (z,y,x) → safe to serve
-// cache-first. This is scoped ONLY to the NAIP host: every other request
-// (app bundle, index.html, /api, sw.js itself) is left completely untouched,
-// so the PWA-update mechanism below is unaffected. (2026-06-24)
-const TILE_CACHE = 'naip-tiles-v1'
-const TILE_HOST = 'gis.apfo.usda.gov'
-const TILE_CACHE_MAX = 2000   // FIFO-trim beyond this so it can't grow unbounded
-
 self.addEventListener('install', () => {
   // Activate the new SW immediately rather than waiting for all
   // controlled tabs to close. Push-event-handler updates need to be
@@ -37,12 +26,10 @@ self.addEventListener('install', () => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    // Sweep stale caches — but PRESERVE the NAIP tile cache. App bundles must
-    // refresh each deploy; satellite tiles are version-independent imagery and
-    // should survive (that's what makes a previously-loaded course work offline
-    // after an update). Vercel handles edge caching of static assets.
+    // Sweep stale caches. We don't pre-cache anything ourselves;
+    // Vercel handles edge caching of static assets.
     const keys = await caches.keys()
-    await Promise.all(keys.filter(k => k !== TILE_CACHE).map(k => caches.delete(k)))
+    await Promise.all(keys.map(k => caches.delete(k)))
     // Take control of pages that were already open when this SW
     // activated (otherwise they'd keep using the old SW until reload).
     await self.clients.claim()
@@ -61,41 +48,6 @@ self.addEventListener('activate', (e) => {
     clients.forEach(c => {
       try { c.postMessage({ kind: 'sw-activated' }) } catch { /* ignore */ }
     })
-  })())
-})
-
-// ─── Fetch: cache-first for NAIP tiles ONLY ──────────────────────────
-// Everything that isn't a NAIP tile returns early (no respondWith) → the
-// browser handles it exactly as before. So app assets / index.html / API /
-// sw.js are untouched and the update mechanism above is unaffected.
-self.addEventListener('fetch', (event) => {
-  const req = event.request
-  if (req.method !== 'GET') return
-  let url
-  try { url = new URL(req.url) } catch { return }
-  if (url.hostname !== TILE_HOST) return   // not a satellite tile — leave it alone
-
-  event.respondWith((async () => {
-    const cache = await caches.open(TILE_CACHE)
-    const cached = await cache.match(req)
-    if (cached) return cached                 // already have this tile → instant, works offline
-    try {
-      const res = await fetch(req)
-      if (res && res.ok) {
-        cache.put(req, res.clone())
-        // FIFO trim so many rounds can't grow the cache without bound. keys()
-        // returns in insertion order, so the front entries are the oldest.
-        cache.keys().then(keys => {
-          const excess = keys.length - TILE_CACHE_MAX
-          for (let i = 0; i < excess; i++) cache.delete(keys[i])
-        })
-      }
-      return res
-    } catch {
-      // Offline and not cached → let MapLibre render the hole without this
-      // tile (the vector overlays + already-cached tiles still draw).
-      return Response.error()
-    }
   })())
 })
 
