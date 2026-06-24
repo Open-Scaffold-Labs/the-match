@@ -255,7 +255,93 @@ function WindArrow({ deg }) {
   )
 }
 
-// ─── Satellite hole map (Leaflet + ESRI tiles + OSM hole positions) ──────────
+// ─── Distance instrument (Phase 2.3) ─────────────────────────────────────────
+// The hero readout as a real rangefinder dial: a 270° SVG arc gauge wrapping
+// an odometer-style number roll, both driven by the SAME rAF tween so they
+// move in lockstep. The tween (ease-out toward the target) gives the "roll"
+// without a heavyweight dependency and is reduced-motion aware. Angle θ is
+// measured clockwise from 12 o'clock; the 270° track runs 225°→495° (a 90°
+// gap centred on the bottom). (2026-06-24)
+function useTween(target, ms = 480) {
+  const [, force] = useState(0)
+  const valRef = useRef(typeof target === 'number' ? target : 0)
+  const rafRef = useRef(0)
+  useEffect(() => {
+    if (typeof target !== 'number') return
+    const reduce = typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce) { valRef.current = target; force(n => n + 1); return }
+    const from = valRef.current
+    const start = performance.now()
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / ms)
+      const e = 1 - Math.pow(1 - t, 3)            // easeOutCubic
+      valRef.current = from + (target - from) * e
+      force(n => n + 1)
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [target, ms])
+  return valRef.current
+}
+
+// Arc path: θ clockwise from top. x = cx + r·sinθ, y = cy − r·cosθ.
+function gaugeArc(cx, cy, r, startDeg, sweepDeg) {
+  const a0 = startDeg * Math.PI / 180
+  const a1 = (startDeg + sweepDeg) * Math.PI / 180
+  const x0 = cx + r * Math.sin(a0), y0 = cy - r * Math.cos(a0)
+  const x1 = cx + r * Math.sin(a1), y1 = cy - r * Math.cos(a1)
+  const large = Math.abs(sweepDeg) > 180 ? 1 : 0
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`
+}
+
+function DistanceInstrument({ yards, label, accent = '#5ED47A' }) {
+  const RANGE = 320                               // yds at full 270° sweep
+  const has = typeof yards === 'number'
+  const shown = useTween(has ? yards : null)
+  const sweep = Math.max(0, Math.min(1, (has ? shown : 0) / RANGE))
+  const SZ = 132, C = SZ / 2, R = 56, GAP = 90, TRACK = 360 - GAP
+  const display = has ? Math.round(shown) : '—'
+  return (
+    <div style={{ position: 'relative', width: SZ, height: SZ }}>
+      <svg width={SZ} height={SZ} viewBox={`0 0 ${SZ} ${SZ}`} style={{ display: 'block' }}>
+        <defs>
+          <linearGradient id="ee-gauge-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#F5E070" />
+            <stop offset="55%" stopColor={accent} />
+            <stop offset="100%" stopColor="#2A7A38" />
+          </linearGradient>
+        </defs>
+        {/* track */}
+        <path d={gaugeArc(C, C, R, 225, TRACK)} fill="none" stroke="rgba(255,255,255,0.12)"
+          strokeWidth="7" strokeLinecap="round" />
+        {/* value */}
+        {has && sweep > 0 && (
+          <path d={gaugeArc(C, C, R, 225, TRACK * sweep)} fill="none" stroke="url(#ee-gauge-grad)"
+            strokeWidth="7" strokeLinecap="round"
+            style={{ filter: 'drop-shadow(0 0 5px rgba(245,224,112,0.45))' }} />
+        )}
+      </svg>
+      {/* number + unit, centred */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
+          color: has ? accent : 'rgba(255,255,255,0.45)', marginBottom: -2 }}>{label}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+          <span style={{ fontSize: 46, fontWeight: 900, letterSpacing: '-2px', color: '#fff',
+            lineHeight: 0.9, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"',
+            textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>{display}</span>
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+          color: 'rgba(255,255,255,0.5)', marginTop: 1 }}>YDS</div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Satellite hole map (Leaflet + USDA NAIP tiles + OSM hole positions) ─────
 // geocoded, holePositions, greenPositions fetched by parent EagleEye and passed as props
 // Walk a polyline geometry from its first point and return the
 // {lat, lon} that's `targetYards` along it. Used to place the aim-point
@@ -1846,6 +1932,15 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     ? remainingYards
     : (holeData?.yardage ?? null))
 
+  // Hero-instrument label + accent (Phase 2.3). Green when the number is a
+  // trusted live GPS-to-green read; amber while acquiring; muted for the
+  // static tee/remaining fallback.
+  const distLabel = gpsToGreen != null ? 'TO GREEN'
+    : gpsAcquiring ? 'ACQUIRING'
+    : (gpsTrusted && distanceWalked > 10 && remainingYards != null) ? 'REMAINING'
+    : 'FROM TEE'
+  const distAccent = gpsToGreen != null ? '#5ED47A' : gpsAcquiring ? '#F0A868' : '#C9A040'
+
   // "Plays like" on the live distance — only when we have a real GPS-to-green
   // reading + weather (so the wind/temp/altitude model has real inputs). Uses
   // the player→green bearing for the wind component. (2026-06-06)
@@ -2179,41 +2274,35 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 tabular numeral with a soft shadow so it stays legible over
                 bright satellite imagery. Compact enough not to occlude the
                 map/markers. (2026-06-23 — premium pass, first visual slice.) */}
-            <div style={{ alignSelf: 'flex-start', pointerEvents: 'auto', textAlign: 'left',
+            <div style={{ alignSelf: 'flex-start', pointerEvents: 'auto', textAlign: 'center',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'rgba(8,12,10,0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
-              borderRadius: 18, border: '1px solid rgba(255,255,255,0.14)',
-              padding: '10px 16px 12px',
+              borderRadius: 20, border: '1px solid rgba(255,255,255,0.14)',
+              padding: '10px 14px 12px',
               boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20)',
               minWidth: 124,
               marginTop: 12,
               zIndex: 800,
             }}>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.16em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.45)', marginBottom: 2 }}>
-                {gpsToGreen != null ? 'TO GREEN · GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', lineHeight: 1, gap: 4 }}>
-                <span style={{ fontSize: 54, fontWeight: 900, letterSpacing: '-2.5px', color: '#fff', lineHeight: 0.86, fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
-                  {displayYards ?? '—'}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.45)', paddingBottom: 5, letterSpacing: '0.04em' }}>YDS</span>
-              </div>
+              {/* Hero distance instrument — arc gauge + number roll in lockstep */}
+              <DistanceInstrument yards={displayYards} label={distLabel} accent={distAccent} />
               {/* GPS accuracy / acquiring chip (Phase 1.1) — the honesty
                   signal that earns trust on hole 1. Trusted: green "±Xm".
                   Acquiring: amber + pulsing, so the golfer knows the live
                   number isn't ready and the shown figure is the static tee
                   yardage, not a confident GPS read. */}
               {gpsTrusted ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#5ED47A', boxShadow: '0 0 6px rgba(94,212,122,0.8)' }} />
                   <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(94,212,122,0.85)', fontVariantNumeric: 'tabular-nums' }}>
                     ±{Math.round(gpsAcc)} m
                   </span>
                 </div>
               ) : gpsAcquiring ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F0A868', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
                   <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(240,168,104,0.95)', fontVariantNumeric: 'tabular-nums' }}>
-                    ACQUIRING GPS · ±{Math.round(gpsAcc)} m
+                    ACQUIRING · ±{Math.round(gpsAcc)} m
                   </span>
                 </div>
               ) : null}
