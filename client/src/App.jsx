@@ -404,7 +404,7 @@ export default function App() {
           </TabPanel>
         )}
         {mountedTabs.has(TABS.TOUR) && (
-          <TabPanel active={tab === TABS.TOUR}>
+          <TabPanel active={tab === TABS.TOUR} opaque={false}>
             <PGAScores user={user} />
           </TabPanel>
         )}
@@ -554,10 +554,11 @@ function TabPanel({ active, children, opaque = true }) {
         WebkitOverflowScrolling: 'touch',
         display: active ? 'block' : 'none',
         // Opaque base so the App-shell grass photo doesn't bleed through
-        // behind page content. Home opts out (opaque={false}) to keep the
-        // photo as its hero; every other tab sits on the parchment scorecard
-        // base (dark-themed pages like Leagues/EagleEye paint over it).
-        // (2026-06-23 — Matt: home background showing behind other pages.)
+        // behind page content. Home and Tour opt out (opaque={false}) to keep
+        // the photo as their hero; every other tab sits on the parchment
+        // scorecard base (dark-themed pages like Leagues/EagleEye paint over
+        // it). (2026-06-23 — Matt: home background showing behind other pages;
+        // Tour is meant to share the home background.)
         background: opaque ? 'var(--tm-bg)' : 'transparent',
       }}>
       <PullIndicator distance={pullDistance} triggerAt={TRIGGER} refreshing={refreshing} />
