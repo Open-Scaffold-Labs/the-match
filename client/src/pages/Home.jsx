@@ -3644,7 +3644,7 @@ function NotificationsModal({
   )
 }
 
-export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt }) {
+export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onHomeViewChange }) {
   const [profile, setProfile] = useState(null)
   // outgoing: [] was missing here — caused the REQUESTS box to crash
   // on first render (friends.outgoing.length on undefined) before the
@@ -3686,6 +3686,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt }) {
   useEffect(() => {
     try { localStorage.setItem(VIEW_STORAGE_KEY, view) } catch { /* ignore */ }
   }, [view])
+
+  // Report the current sub-view up to App so it can drop the grass photo when
+  // we're on My Profile (a solid screen). Without this, on phones wider than
+  // the 430px app frame the grass bleeds into the side borders of My Profile
+  // (the Home tab keeps grass for its dashboard hero). (2026-06-23 — Matt 16e.)
+  useEffect(() => { onHomeViewChange?.(view) }, [view, onHomeViewChange])
 
   // Reset back to the home view whenever the user taps a bottom-nav tab —
   // including a tap on the Home tab itself when they're already inside

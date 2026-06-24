@@ -91,6 +91,11 @@ export default function App() {
   // profile sub-view doesn't stay sticky when the user taps Home again.
   // (2026-05-07 PM3.)
   const [tabPressedAt, setTabPressedAt] = useState(0)
+  // Home's current sub-view ('home' dashboard vs 'profile'), reported up by
+  // Home so the outer wrapper can drop the grass photo on My Profile — which
+  // otherwise bleeds into the side borders on phones wider than the 430px
+  // frame. (2026-06-23) Default 'home' so the grass hero shows on first paint.
+  const [homeView, setHomeView] = useState('home')
   // Cross-tab "next hole" nudge from the live match's score modal to Eagle
   // Eye. When set, EagleEye picks it up via useEffect, calls setCurrentHole,
   // and clears the nudge via onConsumeEyeHoleNudge. Tight loop:
@@ -326,7 +331,7 @@ export default function App() {
   // perfectly tile. Eagle Eye's edges go dark to match its theme; everything
   // else uses the parchment base. (2026-06-23 — Matt: grass showing at the
   // borders because pages don't fill the screen edge-to-edge.)
-  const grassTab = tab === TABS.HOME || tab === TABS.TOUR
+  const grassTab = (tab === TABS.HOME && homeView !== 'profile') || tab === TABS.TOUR
   const outerBg = grassTab
     ? {
         backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
@@ -366,6 +371,7 @@ export default function App() {
               onNavigate={setTab}
               onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }}
               tabPressedAt={tabPressedAt}
+              onHomeViewChange={setHomeView}
             />
           </TabPanel>
         )}
