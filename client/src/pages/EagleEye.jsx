@@ -2135,22 +2135,29 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 live GPS distance to green, so the previous duplicate
                 was deleted. (2026-05-01 — Matt: consolidate top-left
                 hole/distance and top-right GPS card into one box.) */}
+            {/* Premium glass HUD — frosted panel with an inset top-rim
+                highlight (the detail that reads as real glass) + layered
+                depth shadow. The hero yardage is the instrument: large
+                tabular numeral with a soft shadow so it stays legible over
+                bright satellite imagery. Compact enough not to occlude the
+                map/markers. (2026-06-23 — premium pass, first visual slice.) */}
             <div style={{ alignSelf: 'flex-start', pointerEvents: 'auto', textAlign: 'left',
-              background: 'rgba(4,8,6,0.82)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-              borderRadius: 14, border: '1px solid rgba(255,255,255,0.10)',
-              padding: '8px 12px 8px', boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
-              minWidth: 110,
+              background: 'rgba(8,12,10,0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
+              borderRadius: 18, border: '1px solid rgba(255,255,255,0.14)',
+              padding: '10px 16px 12px',
+              boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20)',
+              minWidth: 124,
               marginTop: 12,
               zIndex: 800,
             }}>
-              <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.14em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.40)', marginBottom: 1 }}>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.16em', color: gpsToGreen != null ? '#5ED47A' : 'rgba(255,255,255,0.45)', marginBottom: 2 }}>
                 {gpsToGreen != null ? 'TO GREEN · GPS' : distanceWalked > 10 && remainingYards != null ? 'REMAINING' : 'FROM TEE'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', lineHeight: 1, gap: 3 }}>
-                <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1.5px', color: '#fff', lineHeight: 0.9, fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', lineHeight: 1, gap: 4 }}>
+                <span style={{ fontSize: 54, fontWeight: 900, letterSpacing: '-2.5px', color: '#fff', lineHeight: 0.86, fontVariantNumeric: 'tabular-nums', textShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
                   {displayYards ?? '—'}
                 </span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.40)', paddingBottom: 3 }}>YDS</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.45)', paddingBottom: 5, letterSpacing: '0.04em' }}>YDS</span>
               </div>
               {/* Front / Center / Back green — the big number above is center;
                   these flank it with the near + far edge. Only when a green

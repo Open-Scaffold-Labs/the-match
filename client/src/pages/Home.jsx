@@ -2472,7 +2472,12 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   const [yearRecapOpen, setYearRecapOpen] = useState(false)
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'transparent', paddingBottom: 100 }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--tm-bg)', paddingBottom: 100 }}>
+      {/* My Profile is a solid screen (not the grass dashboard hero), so it
+          paints the parchment base — without it, the grass-backed Home tab
+          shows through at the screen edges / safe-area bands where the
+          content doesn't reach. (2026-06-23 — Matt: profile borders showing
+          the home background.) */}
       {/* First-time coach mark on the Profile screen — explains the
           four major features the user lands on (handicap chart, follow
           counts, rivalries, availability calendar). Only shows once
