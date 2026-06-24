@@ -1,6 +1,7 @@
 const router     = require('express').Router()
 const Anthropic  = require('@anthropic-ai/sdk')
 const requireAuth = require('../middleware/auth')
+const db         = require('../db')
 
 const client = new Anthropic()
 
@@ -98,11 +99,18 @@ function estimateAltFromPressure(hPa) {
 // GET /api/eagle-eye/osm?bbox=south,west,north,east
 // Proxy for Overpass API — browser can't call overpass-api.de directly (CORS/CSP)
 
-// Server-side in-memory cache — Overpass responses cached for 60 min.
-// Within a warm Vercel instance this makes repeat fetches (same course, same session)
-// instant without hitting the Overpass mirrors again.
+// Two-tier cache so the public Overpass API is hit at most once per
+// (course, bbox), per its usage policy:
+//   L1 — in-memory Map, 60 min. Instant within a warm Vercel instance, but
+//        wiped on every cold start (which is why L2 exists).
+//   L2 — Supabase tm_osm_cache (migration 028). Durable across cold starts;
+//        a (osm_type, bbox) row is written once after the first Overpass
+//        fetch and reused for OSM_DB_TTL_MS. Course geometry is essentially
+//        static, so the TTL is long; a stale row is still served if every
+//        Overpass mirror is down (better stale geometry than none).
 const overpassCache = new Map()
 const OVERPASS_CACHE_TTL = 60 * 60 * 1000
+const OSM_DB_TTL_MS = 90 * 24 * 60 * 60 * 1000
 
 // Mirror order matters: a hung mirror at the front of the list delays
 // every fallback behind it. lz4 (CDN-fronted main instance) has been the
@@ -126,23 +134,51 @@ router.get('/osm', async (req, res) => {
     const { bbox, type } = req.query
     if (!bbox) return res.status(400).json({ error: 'bbox required' })
 
-    const cacheKey = `${type}|${bbox}`
+    // Allowlist the query kind up front — `osmType` is used only as a map key
+    // (never interpolated into the Overpass QL), so it can't inject. Unknown
+    // type → holes. Resolving it here keeps the cache key + DB key consistent
+    // with the query actually run. (2026-06-06; hardened 2026-06-24)
+    const osmType = ['holes', 'teegreen', 'greengeom'].includes(type) ? type : 'holes'
+    const cacheKey = `${osmType}|${bbox}`
+
+    // L1 — in-memory (instant within a warm Vercel instance)
     const hit = overpassCache.get(cacheKey)
     if (hit && Date.now() - hit.ts < OVERPASS_CACHE_TTL) {
       return res.json(hit.data)
     }
 
+    // L2 — durable Supabase cache. Survives cold starts, so the public
+    // Overpass API is hit at most once per (osm_type, bbox). Wrapped so a DB
+    // hiccup degrades to a live Overpass fetch rather than failing the request.
+    let staleRow = null
+    try {
+      const row = await db.one(
+        'SELECT data, fetched_at FROM tm_osm_cache WHERE osm_type = $1 AND bbox = $2',
+        [osmType, bbox]
+      )
+      if (row) {
+        const age = Date.now() - new Date(row.fetched_at).getTime()
+        if (age < OSM_DB_TTL_MS) {
+          overpassCache.set(cacheKey, { data: row.data, ts: Date.now() })
+          return res.json(row.data)
+        }
+        staleRow = row   // expired, but a usable last-resort if Overpass is down
+      }
+    } catch (e) {
+      console.error('[eagle-eye/osm] L2 cache read failed:', e.message)
+    }
+
+    // L3 — live Overpass. On success we persist to L1 + L2 so this is the
+    // only time this (osm_type, bbox) ever touches the public API.
     // 'holes'     = golf=hole ways (primary, authoritative) — out geom
     // 'teegreen'  = individual tee/green nodes/ways (gap-fill) — out center
     // 'greengeom' = golf=green polygons for Front/Center/Back distances — out geom
-    // `type` is used only as an allowlist key (never interpolated into the
-    // query), so it can't inject Overpass QL. Unknown type → holes. (2026-06-06)
     const queries = {
       teegreen:  `[out:json][timeout:25];(node["golf"="tee"](${bbox});way["golf"="tee"](${bbox});node["golf"="green"](${bbox});way["golf"="green"](${bbox}););out center;`,
       greengeom: `[out:json][timeout:20];(way["golf"="green"](${bbox}););out geom;`,
       holes:     `[out:json][timeout:15];(way["golf"="hole"](${bbox}););out geom;`,
     }
-    const query = queries[type] || queries.holes
+    const query = queries[osmType]
     const headers = {
       'Content-Type': 'application/x-www-form-urlencoded',
       'Accept': 'application/json',
@@ -158,6 +194,15 @@ router.get('/osm', async (req, res) => {
         if (!response.ok) { lastErr = `${mirror} → ${response.status}`; continue }
         const data = await response.json()
         overpassCache.set(cacheKey, { data, ts: Date.now() })
+        // Persist durably (fire-and-forget — a write failure must never break
+        // the response the client is waiting on).
+        db.query(
+          `INSERT INTO tm_osm_cache (osm_type, bbox, data, fetched_at)
+             VALUES ($1, $2, $3, now())
+           ON CONFLICT (osm_type, bbox)
+             DO UPDATE SET data = EXCLUDED.data, fetched_at = now()`,
+          [osmType, bbox, data]
+        ).catch(e => console.error('[eagle-eye/osm] L2 cache write failed:', e.message))
         return res.json(data)
       } catch (e) {
         lastErr = `${mirror} → ${e.name === 'AbortError' ? `timeout after ${MIRROR_TIMEOUT_MS}ms` : e.message}`
@@ -165,6 +210,13 @@ router.get('/osm', async (req, res) => {
       } finally {
         clearTimeout(timer)
       }
+    }
+    // Every mirror failed. Serve stale geometry if we have any — course
+    // geometry rarely changes, so an expired row beats a hard error.
+    if (staleRow) {
+      console.warn('[eagle-eye/osm] all mirrors failed; serving stale L2 cache for', cacheKey)
+      overpassCache.set(cacheKey, { data: staleRow.data, ts: Date.now() })
+      return res.json(staleRow.data)
     }
     console.error('[eagle-eye/osm] all mirrors failed:', lastErr)
     res.status(502).json({ error: 'OSM unavailable: ' + lastErr })
