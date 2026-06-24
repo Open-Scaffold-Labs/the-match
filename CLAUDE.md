@@ -9,7 +9,22 @@
 
 ## What this project is
 
-Golf companion app. Mobile-only PWA. React 19 + Vite + Tailwind v4 (client) · Express + Supabase (server) · Vercel.
+Golf companion app. React 19 + Vite + Tailwind v4 (client) · Express + Supabase (server) · Vercel.
+
+> **🎯 TARGET: NATIVE iOS APP — APP STORE SUBMISSION.**
+> The Match is being built to ship as a **native iOS app on the Apple App Store** and must be
+> ready for App Store **review and approval**. It is NOT "just a PWA." The web app is packaged
+> into a native iOS shell and runs inside **WKWebView** (Apple's WebKit engine) on a real user's
+> iPhone. Practical consequences every session must keep in mind:
+> - **Runtime is WKWebView on modern iOS (target iOS 15+ → WebGL2 guaranteed).** There is no
+>   user-controllable "browser." Never write browser-framed fallbacks/messages (e.g. "use a newer
+>   browser") — they're nonsensical in a native app and look broken to reviewers.
+> - **Every decision is an App Store decision:** native-feel UX, smooth 60fps, no broken/empty
+>   states, proper iOS permission prompts (location, camera) with usage strings, privacy policy,
+>   offline resilience, no dead links, and enough first-party functionality to clear Apple's
+>   "minimum functionality" guideline (4.2). Build like a reviewer will scrutinize it.
+> - The Vercel-hosted web app is still the dev/beta surface (Matt tests on his phone), but the
+>   bar is **App-Store-ready**, not "good enough for a web demo."
 
 ## Limitless Stack participation
 
@@ -55,13 +70,14 @@ Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or
 - **API entry**: `api/index.js` re-exports the Express app for Vercel serverless
 - **DB**: Supabase free tier. All tables prefixed `tm_`. Schema in `migrations/`.
 - **Auth**: email + 4-digit PIN. JWT (90-day). No OAuth for now.
-- **Deployment**: Vercel. `trust proxy: 1` is required (TLS terminated at edge).
+- **Deployment**: Vercel (dev/beta surface). `trust proxy: 1` is required (TLS terminated at edge).
+- **Shipping target**: packaged as a **native iOS app for the App Store** (WKWebView shell over the web app). Vercel is where it's developed/tested; the App Store build is the product. See the App Store callout at the top of this file.
 
 ## Design system
 
 - Tokens in `client/src/design/tokens.css`. All colors via CSS vars (`--tm-*`).
 - Palette: Augusta-at-night dark (`#070C09`), fairway green (`#2A7A38`), trophy gold (`#C9A040`).
-- Mobile-first. Bottom tab nav. Touch targets ≥ 44px. Safe-area insets handled via CSS vars.
+- Mobile-first, **iPhone-native feel** (this ships to the App Store). Bottom tab nav. Touch targets ≥ 44px. Safe-area insets handled via CSS vars. No desktop-isms; design for a hand-held iPhone in a WKWebView.
 - Score colors: eagle = gold, birdie = blue, par = muted, bogey = orange, double+ = red.
 
 ## Where to find current state
@@ -106,7 +122,7 @@ Why this is written down: a 2026-06-06 session first left `main` stale (parked d
 
 ## DB setup
 
-Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 27 of them — 024 relaxed FKs for user deletion, 025 added PIN-reset tokens, 026 added the referral schema + `tm_users.elite_until`, 027 added `tm_rounds.hole_pars` so solo rounds persist real per-hole pars). Apply in order on a fresh database:
+Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 28 of them — 024 relaxed FKs for user deletion, 025 added PIN-reset tokens, 026 added the referral schema + `tm_users.elite_until`, 027 added `tm_rounds.hole_pars` so solo rounds persist real per-hole pars, 028 added `tm_osm_cache` — durable Supabase cache of OSM/Overpass golf geometry so the public Overpass API is hit at most once per course). Apply in order on a fresh database:
 
 ```bash
 for f in migrations/*.sql; do

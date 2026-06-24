@@ -10,7 +10,7 @@ Top-level synthesis of the the-match wiki. This page is a map of the territory �
 
 ## What the-match is
 
-A golf companion app. Mobile-only PWA. React 19 + Vite + Tailwind v4 on the client; Express + Supabase on the server; Vercel for deployment. Auth is email + 4-digit PIN with a 90-day JWT. All DB tables prefix `tm_`.
+A golf companion app being built to ship as a **native iOS app on the Apple App Store** (must be ready for App Store review/approval). The web app — React 19 + Vite + Tailwind v4 on the client; Express + Supabase on the server; Vercel for deployment — is packaged into a native iOS shell and runs inside **WKWebView** on the device. Vercel is the dev/beta surface; the App Store build is the product. Auth is email + 4-digit PIN with a 90-day JWT. All DB tables prefix `tm_`. (See the App Store callout at the top of `CLAUDE.md` — every decision is an App-Store-readiness decision; never write browser-framed fallbacks.)
 
 The project is post-launch — friends are using it on real rounds. Most session work since 2026-04-29 has been live-fire bug-bash, polish, and feature additions driven by what users hit on the course.
 
