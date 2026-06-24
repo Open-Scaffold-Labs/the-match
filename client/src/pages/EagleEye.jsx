@@ -398,7 +398,10 @@ function getDefaultAim({ par, totalYards, teePt, greenPt, geometry }) {
 function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, greenPositions = {}, holeGeometries = {}, clubYards = null, clubLabel = null }) {
   const containerRef      = useRef(null)
   const mapRef            = useRef(null)
-  const markerRef         = useRef(null)   // GPS dot
+  const markerRef         = useRef(null)   // GPS dot (player puck)
+  const accHaloRef        = useRef(null)   // true-ground accuracy halo around the puck
+  const puckRafRef        = useRef(0)      // rAF id for the puck-glide animation
+  const puckPosRef        = useRef(null)   // last animated puck {lat, lon}
   const holeMarkerRef     = useRef(null)   // gold tee pin
   const greenMarkerRef    = useRef(null)   // red flag on green
   const lineRef           = useRef(null)   // white polyline tee → aim → green
@@ -470,14 +473,17 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
           attribution: 'Imagery: USDA NAIP' }
       ).addTo(map)
 
-      // GPS dot — only show if user is within ~5 miles of course
+      // GPS dot (player puck) — only show if user is within ~5 miles of
+      // course. White-ringed gold dot; the smooth-puck effect owns updates +
+      // the accuracy halo from here on. (Phase 2.5)
       if (gps && geocoded) {
         const dist = haversineYards(gps, { lat: geocoded.lat, lon: geocoded.lon })
         if (dist != null && dist < 8800) {
           markerRef.current = L.circleMarker([gps.lat, gps.lon], {
-            radius: 9, color: '#F5D78A', weight: 3,
+            radius: 9, color: '#fff', weight: 3,
             fillColor: '#F5D78A', fillOpacity: 0.95,
           }).addTo(map)
+          puckPosRef.current = { lat: gps.lat, lon: gps.lon }
         }
       }
 
@@ -576,7 +582,10 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
       window.removeEventListener('resize', onMapResize)
       window.removeEventListener('orientationchange', onMapResize)
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
+      cancelAnimationFrame(puckRafRef.current)
       markerRef.current = null
+      accHaloRef.current = null
+      puckPosRef.current = null
       holeMarkerRef.current = null
       greenMarkerRef.current = null
       lineRef.current = null
@@ -934,23 +943,71 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
     }
   }, [currentHole, holePositions, greenPositions, holeGeometries, mapReady, aimPoint])
 
-  // Update GPS marker position without panning away from the course
+  // Smooth player puck + true-ground accuracy halo (Phase 2.5).
+  // The dot rAF-glides from its current on-screen position to each new GPS
+  // fix (~700ms easeOut) instead of teleporting, and a translucent halo whose
+  // radius is coords.accuracy in METRES — a real geographic circle, not a
+  // fixed pixel ring — makes the GPS uncertainty honestly visible (ties into
+  // the Phase 1.1 accuracy gate). Reduced-motion snaps instead of gliding.
   useEffect(() => {
     if (!mapRef.current || !gps || !geocoded) return
     const L = window.L
     if (!L) return
-    // Only show/update the dot if user is actually on the course
+    // Only show/update the puck if the user is actually on the course
     const dist = haversineYards(gps, { lat: geocoded.lat, lon: geocoded.lon })
-    if (dist == null || dist > 8800) return // more than ~5 miles away — don't show dot
-    if (markerRef.current) {
-      markerRef.current.setLatLng([gps.lat, gps.lon])
-    } else {
-      markerRef.current = L.circleMarker([gps.lat, gps.lon], {
-        radius: 9, color: '#F5D78A', weight: 3,
+    if (dist == null || dist > 8800) return // > ~5 miles away — don't show
+    const target = { lat: gps.lat, lon: gps.lon }
+    const accM = typeof gps.acc === 'number' && gps.acc > 0 ? gps.acc : null
+
+    // Lazily create the puck (white-ringed gold dot) on first fix.
+    if (!markerRef.current) {
+      markerRef.current = L.circleMarker([target.lat, target.lon], {
+        radius: 9, color: '#fff', weight: 3,
         fillColor: '#F5D78A', fillOpacity: 0.95,
       }).addTo(mapRef.current)
+      puckPosRef.current = target
     }
-  }, [gps?.lat, gps?.lon, geocoded])
+    // Halo: create or resize to the live accuracy (metres).
+    if (accM != null) {
+      if (!accHaloRef.current) {
+        accHaloRef.current = L.circle([target.lat, target.lon], {
+          radius: accM, color: '#F5D78A', weight: 1, opacity: 0.30,
+          fillColor: '#F5D78A', fillOpacity: 0.08,
+        }).addTo(mapRef.current)
+      } else {
+        accHaloRef.current.setRadius(accM)
+      }
+    }
+
+    const from = puckPosRef.current || target
+    const reduce = typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const snap = () => {
+      try {
+        markerRef.current?.setLatLng([target.lat, target.lon])
+        accHaloRef.current?.setLatLng([target.lat, target.lon])
+      } catch { /* map gone */ }
+      puckPosRef.current = target
+    }
+    if (reduce || (from.lat === target.lat && from.lon === target.lon)) { snap(); return }
+
+    const start = performance.now(), DUR = 700
+    cancelAnimationFrame(puckRafRef.current)
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / DUR)
+      const e = 1 - Math.pow(1 - t, 3)            // easeOutCubic
+      const lat = from.lat + (target.lat - from.lat) * e
+      const lon = from.lon + (target.lon - from.lon) * e
+      puckPosRef.current = { lat, lon }
+      try {
+        markerRef.current?.setLatLng([lat, lon])
+        accHaloRef.current?.setLatLng([lat, lon])
+      } catch { /* map gone */ }
+      if (t < 1) puckRafRef.current = requestAnimationFrame(tick)
+    }
+    puckRafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(puckRafRef.current)
+  }, [gps?.lat, gps?.lon, gps?.acc, geocoded])
 
   if (mapErr) {
     return (
