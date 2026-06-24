@@ -1,12 +1,37 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-06-23
+updated: 2026-06-24
 ---
 
 # Activity Log
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
+
+## [2026-06-24] refactor | Premium-design pass + PWA update fix + profile/border + Matches↔Leagues consistency (beta)
+
+Continuation of the same long Cowork session. Strategy + research deliverables (zero-cost build plan, Eagle Eye premium plan) live in the Hub workspace, not this repo. All code shipped to `main` (beta), each build+lint verified, most verified live on the deployed app via Claude-in-Chrome + DOM inspection.
+
+**Strategy/decisions locked (Matt):**
+- Goal: build the world's best golf app; perfect usability/accuracy/visual flow; build (and host) for **$0 new spend** — the OpenScaffold org already pays for Vercel Pro + Supabase Pro, so the-match just **migrates off the free tiers** (no new cost). Verify the project is on the org's Pro plans before launch.
+- **Satellite imagery: US-only at launch on free public-domain NAIP**; worldwide photographic coverage is a future roadmap upgrade. Non-US gets the free vector hole view.
+- Full deliverables: `the-match-build-plan-bulletproof.md` + `the-match-eagle-eye-premium-plan.md` (Hub workspace folder).
+
+**PWA stale-bundle fix** (280d490) — root-cause: the SW's activate handler (cache sweep + reload broadcast) only re-runs when `sw.js`'s BYTES change, but `sw.js` was static → installed PWAs (Matt's iPhone 16e) ran stale bundles; *none* of the day's fixes were reaching the device. Fix: `client/scripts/stamp-sw.js` (postbuild) rewrites a `self.SW_BUILD` token in `dist/sw.js` with the commit SHA so it changes every deploy; vercel.json no-cache on `/` + `/index.html`. Deploys now propagate within seconds.
+
+**Premium token foundation** (d27f9ab, Phase 0) — additive design tokens: dark-mode elevation surfaces (`--tm-dark-0..3`), layered hue-tinted shadow, Material ease-out, `.tm-glass` HUD utility, app-wide tabular numerals. No element styles changed → no regression.
+
+**Grass-background / framing fixes** (b1a86f8, 8918711, f9b7353, 52fac2d, a21cdac) — the grass photo bled at screen edges on phones wider than the 430px app frame. Fixes: TabPanel opaque base for non-grass tabs; Tour kept grass; outer wrapper opaque (dark for Eagle Eye, parchment else) on non-grass tabs; Home reports its sub-view so the outer wrapper drops grass on My Profile; **My Profile re-mounted as a full-screen `position:fixed` portal on `#0E1F13`, identical to a friend's profile** (FriendProfile structure) so borders match edge-to-edge. Verified via DOM (grass element absent; edges = `#0E1F13`).
+
+**Eagle Eye hero — first visual slice** (55e0830) — distance HUD upgraded to premium frosted glass (blur+saturate+inset rim, layered shadow) with the hero yardage enlarged 36→54px + soft shadow. Visual-only. *Remaining hero work (MapLibre vector+NAIP map, cinematic flyTo, odometer number-roll, 270° arc gauge) NOT done.*
+
+**Matches ↔ Leagues consistency** (eb2c353, 45f6536, 13a74e9) — established the "Augusta tournament-board" card language and applied it to the Matches page: cream-gradient page background (Leagues `hubBase`); live-match card gets the gold accent strip + cream/gold board card + serif title (hero); friends + finished cards share the cream/gold surface without the strip (secondary). Matches + Leagues are now a matched pair = the standard for the app-wide rollout.
+
+**Design language (the standard):** surfaces = cream gradient `#FFFCF3→#F4E9C4`; cards = gold border + layered shadow, hero cards add the gold accent strip + serif (Georgia) title, secondary cards share surface w/o strip; accents = Augusta gold `#C9A040` + forest green; ink `#0D1F12`. Profile/Eagle-Eye dark surfaces use `#0E1F13`/`--tm-dark-*`.
+
+Pages touched: `App.jsx`, `Home.jsx` (ProfileView portal + homeView callback), `Outing/OutingHub.jsx` (cards + bg), `EagleEye.jsx` (HUD), `design/tokens.css`, `public/sw.js` + `scripts/stamp-sw.js` + `package.json` + `vercel.json`.
+
+**Open / next session:** app-wide consistency rollout is ONLY partway — Matches + Leagues done; Home dashboard cards, tee-time/inbox cards, Eagle Eye landing, and other surfaces still need the board language. The bulletproof build plan's Phase 1 (GPS accuracy gate, cache OSM geometry to stop live Overpass, replace keyless ESRI imagery) and Phase 2 (MapLibre map migration) are NOT started. See the session handoff for the pick-up order.
 
 ## [2026-06-23] refactor | Team assignment + background + one-active-match + /end tie fix (shipped to beta)
 
