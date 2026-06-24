@@ -1778,8 +1778,17 @@ router.post('/:code/end', async (req, res) => {
           // dbParticipants is ORDER BY total ASC, so a.total <= b.total.
           // Equal totals → tie; otherwise a (lower score) wins.
           const isTie = a.total === b.total
-          const winnerId = isTie ? null : a.user_id
-          const loserId  = isTie ? null : b.user_id
+          // Always record BOTH participant ids. The tm_update_h2h trigger's
+          // tie branch reads winner_id/loser_id as the two players
+          // (LEAST/GREATEST) — nulling them for ties violated
+          // tm_h2h_records.player_a_id NOT NULL and 500'd /end for ANY match
+          // with a tied pair, including matches ended before scoring (all
+          // totals 0 → every pair ties). is_tie disambiguates win vs tie;
+          // every reader (friends/profile aggregates, the rivalry list's
+          // `won = is_tie ? null : i_won`) checks is_tie before treating
+          // winner_id as a winner. (2026-06-23)
+          const winnerId = a.user_id
+          const loserId  = b.user_id
           await db.query(
             `INSERT INTO tm_match_history
                (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
