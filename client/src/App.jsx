@@ -347,7 +347,7 @@ export default function App() {
             tabs stay in the React tree (state preserved) but are visually
             hidden and not interactive. */}
         {mountedTabs.has(TABS.HOME) && (
-          <TabPanel active={tab === TABS.HOME}>
+          <TabPanel active={tab === TABS.HOME} opaque={false}>
             <Home
               user={user}
               onNavigate={setTab}
@@ -456,7 +456,7 @@ export default function App() {
 // gesture manually here: when the user touches at scrollTop=0 and drags
 // down past a threshold, reload the page. Augusta-themed indicator slides
 // in from the top edge with a damped pull. Available on every tab.
-function TabPanel({ active, children }) {
+function TabPanel({ active, children, opaque = true }) {
   const containerRef = useRef(null)
   const [pullDistance, setPullDistance] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
@@ -553,6 +553,12 @@ function TabPanel({ active, children }) {
         overflowY: 'auto', overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
         display: active ? 'block' : 'none',
+        // Opaque base so the App-shell grass photo doesn't bleed through
+        // behind page content. Home opts out (opaque={false}) to keep the
+        // photo as its hero; every other tab sits on the parchment scorecard
+        // base (dark-themed pages like Leagues/EagleEye paint over it).
+        // (2026-06-23 — Matt: home background showing behind other pages.)
+        background: opaque ? 'var(--tm-bg)' : 'transparent',
       }}>
       <PullIndicator distance={pullDistance} triggerAt={TRIGGER} refreshing={refreshing} />
       <div style={{
