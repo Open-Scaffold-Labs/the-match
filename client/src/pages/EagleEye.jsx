@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Component } from 'react'
 import { createPortal } from 'react-dom'
+import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
 
@@ -9,6 +10,10 @@ import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/
 // center number. (2026-06-06)
 const ENABLE_TAP_MEASURE = true
 const ENABLE_FCB = true
+// MapLibre GL renderer (Phase 2.1/2.2). ON in the beta so it gets tested, but
+// HoleMapSwitch auto-falls back to the proven Leaflet map if MapLibre fails to
+// load or init at runtime — so the beta can never hard-break on this path.
+const ENABLE_MAPLIBRE = true
 
 // GPS accuracy gate (Phase 1.1) — a live yardage is only quoted when the fix
 // is tight enough to be honest. coords.accuracy is the 68% horizontal radius
@@ -1043,6 +1048,29 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
         <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>Your position</span>
       </div>
     </div>
+  )
+}
+
+// ─── Hole-map renderer switch (Phase 2.1) ────────────────────────────────────
+// Renders the MapLibre <HoleMapGL> when ENABLE_MAPLIBRE is on, falling back to
+// the proven Leaflet <HoleMap> if MapLibre throws at render (error boundary) or
+// fails to load/init at runtime (onInitError). Two independent safety nets, so
+// the beta can never hard-break on the new renderer while Matt device-tests it.
+class GLBoundary extends Component {
+  constructor(props) { super(props); this.state = { err: false } }
+  static getDerivedStateFromError() { return { err: true } }
+  componentDidCatch(e) { console.error('[HoleMapGL boundary]', e?.message || e) }
+  render() { return this.state.err ? this.props.fallback : this.props.children }
+}
+
+function HoleMapSwitch(props) {
+  const [glFailed, setGlFailed] = useState(false)
+  if (!ENABLE_MAPLIBRE || glFailed) return <HoleMap {...props} />
+  const leaflet = <HoleMap {...props} />
+  return (
+    <GLBoundary fallback={leaflet}>
+      <HoleMapGL {...props} onInitError={() => setGlFailed(true)} />
+    </GLBoundary>
   )
 }
 
@@ -2327,8 +2355,8 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         /* ── Distance view — satellite map background + HUD overlay ── */
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-          {/* Full-screen satellite map */}
-          <HoleMap
+          {/* Full-screen satellite map — MapLibre (with Leaflet fallback) */}
+          <HoleMapSwitch
             courseCtx={courseCtx}
             currentHole={currentHole}
             gps={gps}
