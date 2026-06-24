@@ -16,48 +16,7 @@ import { useRef, useEffect, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { haversineYards, calcBearing } from '../lib/geo.js'
 
-// NAIP tiles are loaded through a custom 'naipc://' protocol (see
-// registerNaipCacheProtocol) so every tile request — including the ones
-// MapLibre issues from its worker thread — is routed through our main-thread
-// handler and cached. A service worker can't do this (it doesn't intercept the
-// worker's blob-origin fetches); addProtocol is the mechanism that does.
-const NAIP_TILES = 'naipc://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}'
-const TILE_CACHE = 'naip-tiles-v1'
-const TILE_CACHE_MAX = 2000
-
-// Offline tile cache (Phase: bad-coverage resilience). Cache-first via the
-// Cache API: a hole you've already loaded keeps rendering its imagery with
-// ZERO signal mid-round (golf courses are notorious dead zones). Tiles are
-// immutable per (z,y,x) → safe to serve cached forever; FIFO-trimmed so it
-// can't grow unbounded. Registered once, globally.
-let naipProtocolRegistered = false
-function registerNaipCacheProtocol(maplibregl) {
-  if (naipProtocolRegistered) return
-  naipProtocolRegistered = true
-  maplibregl.addProtocol('naipc', async (params, abortController) => {
-    const realUrl = 'https://' + params.url.replace(/^naipc:\/\//, '')
-    let cache = null
-    try { cache = await caches.open(TILE_CACHE) } catch { /* Cache API unavailable (rare) */ }
-    if (cache) {
-      const hit = await cache.match(realUrl)
-      if (hit) return { data: await hit.arrayBuffer() }   // works fully offline
-    }
-    const res = await fetch(realUrl, { signal: abortController.signal })
-    if (!res.ok) throw new Error('NAIP tile ' + res.status)
-    const buf = await res.arrayBuffer()
-    if (cache) {
-      // Cache a COPY (buf may be transferred to MapLibre's worker).
-      cache.put(realUrl, new Response(buf.slice(0), {
-        headers: { 'Content-Type': res.headers.get('Content-Type') || 'image/jpeg' },
-      })).catch(() => {})
-      cache.keys().then(keys => {
-        const excess = keys.length - TILE_CACHE_MAX
-        for (let i = 0; i < excess; i++) cache.delete(keys[i])
-      }).catch(() => {})
-    }
-    return { data: buf }
-  })
-}
+const NAIP_TILES = 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}'
 
 // Load the maplibre-gl chunk with a few retries + backoff so a transient
 // network blip (common on a course with spotty signal) self-heals instead of
@@ -190,7 +149,6 @@ export default function HoleMapGL({
       try { maplibregl = await importMaplibre() } catch (e) { return fail(e) }
       if (cancelled || !containerRef.current) return
       glRef.current = maplibregl
-      registerNaipCacheProtocol(maplibregl)   // offline-capable, worker-safe tile caching
       let map
       try {
         map = new maplibregl.Map({
