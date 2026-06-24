@@ -37,9 +37,62 @@ const fc = (features) => ({ type: 'FeatureCollection', features })
 const lineF = (coords) => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords } })
 const polyF = (ring) => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [ring] } })
 
+// Project a point `yards` along `bearingDeg` from a start {lat,lon}.
+function projectByYards(start, bearingDeg, yards) {
+  const R = 6371000, d = (yards * 0.9144) / R, br = bearingDeg * Math.PI / 180
+  const lat1 = start.lat * Math.PI / 180, lon1 = start.lon * Math.PI / 180
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(br))
+  const lon2 = lon1 + Math.atan2(Math.sin(br) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2))
+  return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI }
+}
+
+// Walk a polyline and return the {lat,lon} `targetYards` along it (doglegs).
+function pointAlongGeometryAtYards(geom, targetYards) {
+  if (!geom || geom.length < 2) return null
+  let accum = 0
+  for (let i = 0; i < geom.length - 1; i++) {
+    const a = geom[i], b = geom[i + 1]
+    const segLen = haversineYards(a, b) || 0
+    if (accum + segLen >= targetYards) {
+      const t = segLen > 0 ? (targetYards - accum) / segLen : 0
+      return { lat: a.lat + (b.lat - a.lat) * t, lon: a.lon + (b.lon - a.lon) * t }
+    }
+    accum += segLen
+  }
+  const last = geom[geom.length - 1]
+  return { lat: last.lat, lon: last.lon }
+}
+
+// Par-aware default aim: par 3 → the green; par 4/5 → ~250y drive zone (never
+// within 100y of the green), routed along the OSM fairway centreline when
+// present so doglegs don't aim out of bounds. Mirrors the Leaflet map.
+function getDefaultAim({ par, totalYards, teePt, greenPt, geometry }) {
+  if (!teePt || !greenPt) return null
+  if (par === 3) return { lat: greenPt.lat, lon: greenPt.lon }
+  const targetYards = Math.max(150, Math.min(250, (totalYards || 0) - 100))
+  if (geometry && geometry.length >= 2) {
+    const pt = pointAlongGeometryAtYards(geometry, targetYards)
+    if (pt) return pt
+  }
+  const t = totalYards > 0 ? Math.max(0, Math.min(1, targetYards / totalYards)) : 0.6
+  return { lat: teePt.lat + (greenPt.lat - teePt.lat) * t, lon: teePt.lon + (greenPt.lon - teePt.lon) * t }
+}
+
+// Small DOM helper for a glassy yardage pill used as a map marker.
+function pillEl(text, primary) {
+  const el = document.createElement('div')
+  el.style.cssText = `background:${primary ? 'rgba(7,12,9,0.95)' : 'rgba(7,12,9,0.82)'};color:#fff;`
+    + `font-weight:800;font-size:${primary ? 14 : 12}px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;`
+    + `padding:${primary ? '4px 11px' : '3px 9px'};border-radius:999px;white-space:nowrap;`
+    + `border:1px solid rgba(255,255,255,0.45);box-shadow:0 2px 8px rgba(0,0,0,0.5)`
+  el.textContent = text
+  return el
+}
+
 export default function HoleMapGL({
   courseCtx, currentHole, gps, geocoded,
   holePositions = {}, greenPositions = {}, holeGeometries = {},
+  clubYards = null, clubLabel = null,
   onInitError,
 }) {
   const containerRef = useRef(null)
@@ -48,16 +101,24 @@ export default function HoleMapGL({
   const readyRef = useRef(false)
   const teeMarkerRef = useRef(null)
   const greenMarkerRef = useRef(null)
+  const aimMarkerRef = useRef(null)   // draggable aim target
+  const teeAimLabelRef = useRef(null) // tee→aim yardage pill
+  const aimGreenLabelRef = useRef(null) // aim→green yardage pill
+  const landingLabelRef = useRef(null) // club landing-zone yardage pill
+  const aimRef = useRef(null)         // current aim {lat,lon} (null = default)
+  const redrawRef = useRef(() => {})  // latest redrawAim, so the once-attached drag handler never goes stale
   const puckRef = useRef(null)        // DOM marker for the player
   const puckRafRef = useRef(0)
   const puckPosRef = useRef(null)
   const lastHoleRef = useRef(null)
   const [failed, setFailed] = useState(false)
 
-  // live snapshots so the (once-attached) click handler reads fresh values
+  // live snapshots so once-attached handlers (click, drag) read fresh values
   const gpsRef = useRef(gps)
   const greenRef = useRef(null)
+  const clubRef = useRef({ yards: clubYards, label: clubLabel })
   useEffect(() => { gpsRef.current = gps }, [gps])
+  useEffect(() => { clubRef.current = { yards: clubYards, label: clubLabel } }, [clubYards, clubLabel])
 
   // ── Init the map once we know where the course is ──
   useEffect(() => {
@@ -117,6 +178,9 @@ export default function HoleMapGL({
         map.addLayer({ id: 'green-line', type: 'line', source: 'green', paint: { 'line-color': '#5ED47A', 'line-width': 2, 'line-opacity': 0.85 } })
         map.addLayer({ id: 'halo-fill', type: 'fill', source: 'halo', paint: { 'fill-color': '#F5D78A', 'fill-opacity': 0.08 } })
         map.addLayer({ id: 'halo-line', type: 'line', source: 'halo', paint: { 'line-color': '#F5D78A', 'line-width': 1, 'line-opacity': 0.30 } })
+        map.addSource('landing', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': '#F5E070', 'fill-opacity': 0.30 } })
+        map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': '#F5E070', 'line-width': 2.5, 'line-opacity': 0.95 } })
 
         // tap-to-measure: carry from player + distance to green at the tapped point
         map.on('click', (e) => {
@@ -147,24 +211,22 @@ export default function HoleMapGL({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geocoded])
 
+  const holeMeta = () => courseCtx?.tee?.holes?.find(h => h.hole === currentHole)
+
   // ── Draw / update the hole overlays + cinematic camera ──
   function drawHole(intro) {
-    const map = mapRef.current
-    if (!map || !readyRef.current) return
+    const map = mapRef.current, gl = glRef.current
+    if (!map || !readyRef.current || !gl) return
     const tee = holePositions[currentHole]
     const green = greenPositions[currentHole]
     greenRef.current = green || null
-    const geom = holeGeometries[currentHole]
+    const meta = holeMeta()
+    const par = meta?.par ?? 4
+    const totalYards = meta?.yardage ?? Math.round(haversineYards(tee, green) || 0)
 
-    // fairway / aim line: walk the OSM centreline when present, else tee→green
-    let line = null
-    if (Array.isArray(geom) && geom.length >= 2) line = geom.map(p => [p.lon, p.lat])
-    else if (tee && green) line = [[tee.lon, tee.lat], [green.lon, green.lat]]
-    map.getSource('fairway')?.setData(line ? fc([lineF(line)]) : fc([]))
     map.getSource('green')?.setData(green ? fc([polyF(ringCoords(green, 13))]) : fc([]))
 
     // tee + green DOM markers
-    const gl = glRef.current
     if (tee) {
       if (!teeMarkerRef.current) {
         const el = document.createElement('div')
@@ -180,6 +242,26 @@ export default function HoleMapGL({
       } else greenMarkerRef.current.setLngLat([green.lon, green.lat])
     } else if (greenMarkerRef.current) { greenMarkerRef.current.remove(); greenMarkerRef.current = null }
 
+    // draggable aim target (par-aware default, drag to re-plan the line)
+    const aim = aimRef.current || (tee && green
+      ? getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
+      : null)
+    if (tee && green && aim) {
+      if (!aimMarkerRef.current) {
+        const el = document.createElement('div')
+        el.style.cssText = 'width:26px;height:26px;border-radius:50%;background:rgba(245,224,112,0.16);border:2px solid #F5E070;box-shadow:0 0 10px rgba(245,224,112,0.7);cursor:grab;display:flex;align-items:center;justify-content:center'
+        el.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#F5E070"></div>'
+        aimMarkerRef.current = new gl.Marker({ element: el, draggable: true }).setLngLat([aim.lon, aim.lat]).addTo(map)
+        aimMarkerRef.current.on('drag', () => {
+          const ll = aimMarkerRef.current.getLngLat()
+          aimRef.current = { lat: ll.lat, lon: ll.lng }
+          redrawRef.current()
+        })
+      } else aimMarkerRef.current.setLngLat([aim.lon, aim.lat])
+    } else if (aimMarkerRef.current) { aimMarkerRef.current.remove(); aimMarkerRef.current = null }
+
+    redrawAim()
+
     // cinematic course-up camera: bearing tee→green, pitched down the fairway
     if (tee && green) {
       const brg = calcBearing(tee, green)
@@ -190,6 +272,61 @@ export default function HoleMapGL({
       else map.jumpTo(cam)
     }
   }
+
+  // ── Aim line (tee→aim→green) + split yardages + club landing-zone ring ──
+  // Split-proportional so the two pills always sum to the official hole
+  // yardage. Recomputed live as the aim target is dragged.
+  function redrawAim() {
+    const map = mapRef.current, gl = glRef.current
+    if (!map || !readyRef.current || !gl) return
+    const tee = holePositions[currentHole]
+    const green = greenPositions[currentHole]
+    const clearAll = () => {
+      map.getSource('fairway')?.setData(fc([]))
+      map.getSource('landing')?.setData(fc([]))
+      for (const r of [teeAimLabelRef, aimGreenLabelRef, landingLabelRef]) { if (r.current) { r.current.remove(); r.current = null } }
+    }
+    if (!tee || !green) return clearAll()
+    const meta = holeMeta()
+    const totalYards = meta?.yardage ?? Math.round(haversineYards(tee, green) || 0)
+    const par = meta?.par ?? 4
+    const aim = aimRef.current || getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
+      || { lat: (tee.lat + green.lat) / 2, lon: (tee.lon + green.lon) / 2 }
+
+    map.getSource('fairway')?.setData(fc([lineF([[tee.lon, tee.lat], [aim.lon, aim.lat], [green.lon, green.lat]])]))
+
+    const a = haversineYards(tee, aim) || 0
+    const b = haversineYards(aim, green) || 0
+    const tot = (a + b) || 1
+    const teeAim = Math.round((a / tot) * totalYards)
+    const aimGreen = Math.round((b / tot) * totalYards)
+    const mid = (p, q) => [(p.lon + q.lon) / 2, (p.lat + q.lat) / 2]
+    const setLabel = (ref, text, primary, lnglat) => {
+      if (!ref.current) ref.current = new gl.Marker({ element: pillEl(text, primary), anchor: 'center' }).setLngLat(lnglat).addTo(map)
+      else { ref.current.getElement().textContent = text; ref.current.setLngLat(lnglat) }
+    }
+    setLabel(teeAimLabelRef, `${teeAim}y`, false, mid(tee, aim))
+    setLabel(aimGreenLabelRef, `${aimGreen} to grn`, true, mid(aim, green))
+
+    // landing-zone ring: club distance from the player along player→aim
+    const club = clubRef.current
+    const g = gpsRef.current
+    const onCourse = g && g.lat != null && geocoded && haversineYards(g, geocoded) < 8800
+    const player = onCourse ? { lat: g.lat, lon: g.lon } : tee
+    const yards = Number(club?.yards)
+    if (Number.isFinite(yards) && yards > 0) {
+      const brng = calcBearing(player, aim)
+      if (Number.isFinite(brng)) {
+        const landing = projectByYards(player, brng, yards)
+        map.getSource('landing')?.setData(fc([polyF(ringCoords(landing, 11))]))
+        setLabel(landingLabelRef, `${yards}y`, false, [landing.lon, landing.lat])
+        return
+      }
+    }
+    map.getSource('landing')?.setData(fc([]))
+    if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
+  }
+  redrawRef.current = redrawAim
 
   // ── Smooth player puck + true-ground accuracy halo ──
   function syncPuck() {
@@ -232,9 +369,14 @@ export default function HoleMapGL({
   useEffect(() => {
     const isNewHole = lastHoleRef.current !== currentHole
     lastHoleRef.current = currentHole
+    if (isNewHole) aimRef.current = null   // each hole starts at its default aim
     drawHole(isNewHole)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole, holePositions, greenPositions, holeGeometries])
+
+  // refresh the aim line + landing ring when the selected club changes
+  useEffect(() => { redrawRef.current() // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clubYards, clubLabel])
 
   // move the puck on each GPS fix
   useEffect(() => { syncPuck() // eslint-disable-next-line react-hooks/exhaustive-deps
