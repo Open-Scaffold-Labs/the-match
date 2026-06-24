@@ -1389,13 +1389,27 @@ export function TeamSetup({ outing, onClose, onSaved, onRefreshOuting }) {
 
   function defaultTeams() {
     if (outing.state?.teams?.length > 0) return JSON.parse(JSON.stringify(outing.state.teams))
-    const big = outing.team_format === 'big_team'
-    const base = [
-      { id: '1', name: 'Team 1', color: TEAM_PALETTE[0], member_ids: [] },
-      { id: '2', name: 'Team 2', color: TEAM_PALETTE[1], member_ids: [] },
-    ]
-    if (big) base.push({ id: '3', name: 'Team 3', color: TEAM_PALETTE[2], member_ids: [] })
-    return base
+    // Seed the right number of empty teams so the host isn't forced to
+    // hand-add teams before assigning. For large outings the count comes
+    // from the expected field size ÷ the team size implied by the
+    // breakdown (doubles → 2, foursomes → 4); for small outings it's the
+    // legacy 2 (or 3 for 'big_team'). Example: a 6-player doubles match
+    // opens with 3 empty teams, matching "3 teams of 2". The host can
+    // still add/remove teams from the sheet.
+    const expected = (outing.state?.groups ?? []).reduce((s, g) => s + (g.capacity || 0), 0)
+      || participants.length
+    const breakdown = outing.state?.team_breakdown
+    let count
+    if (breakdown === 'doubles')        count = Math.max(2, Math.ceil(expected / 2))
+    else if (breakdown === 'foursomes') count = Math.max(2, Math.ceil(expected / 4))
+    else if (outing.team_format === 'big_team') count = 3
+    else                                count = 2
+    return Array.from({ length: count }, (_, i) => ({
+      id: String(i + 1),
+      name: `Team ${i + 1}`,
+      color: TEAM_PALETTE[i % TEAM_PALETTE.length],
+      member_ids: [],
+    }))
   }
 
   const [teams, setTeams]           = useState(defaultTeams)

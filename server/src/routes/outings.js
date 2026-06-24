@@ -918,10 +918,16 @@ router.post('/:code/guests', async (req, res) => {
     const holes   = outing.state?.holes ?? 18
     const state   = outing.state || { participants: [] }
     state.participants = state.participants || []
-    state.participants.push({
+    const participant = {
       user_id: guestId, name: name.trim(), is_guest: true,
       total: 0, holes_played: 0, scores: new Array(holes).fill(0),
-    })
+    }
+    // Slot the guest into the next open foursome (large outings) and let
+    // it pair into a team, exactly like /join and /bulk-join. Without
+    // this, hand-added players had no group_id/team_id and rendered as
+    // solo teams — the "2 teams of 2 + 2 solo players" bug. (2026-06-23)
+    assignParticipantToGroup(state, participant)
+    state.participants.push(participant)
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
 
     res.status(201).json({ ok: true, guest_id: guestId })
@@ -2043,7 +2049,22 @@ router.put('/:code/teams', async (req, res) => {
     const { teams } = req.body   // [{ id, name, color, member_ids: [user_id, ...] }]
     if (!Array.isArray(teams)) return res.status(400).json({ error: 'teams array required' })
 
-    const state = { ...(outing.state || {}), teams }
+    // Manual assignment is authoritative: mirror each player's team
+    // membership onto participant.team_id (and clear it for anyone left
+    // unassigned). Best-ball scoring keys off team_id, so without this
+    // the two systems diverge — a stale auto join-order team_id would
+    // keep winning over the host's choice, and players moved between
+    // teams wouldn't re-score. (2026-06-23 — Matt's 3-teams-of-2 match.)
+    const teamByUser = new Map()
+    for (const t of teams) {
+      for (const uid of (t.member_ids || [])) teamByUser.set(String(uid), t.id)
+    }
+    const participants = (outing.state?.participants || []).map(p => {
+      const tid = teamByUser.has(String(p.user_id)) ? teamByUser.get(String(p.user_id)) : null
+      return { ...p, team_id: tid }
+    })
+
+    const state = { ...(outing.state || {}), teams, participants }
     await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), outing.id])
     res.json({ ok: true, teams })
   } catch (err) {

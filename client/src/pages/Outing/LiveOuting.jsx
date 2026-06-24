@@ -1007,6 +1007,23 @@ function strokeHolesForPlayer(player, holePars, holeHandicaps, totalStrokes) {
   return out
 }
 
+// True when an outing is team-based and the host needs the Set Teams
+// surface. team_format only covers small outings (≤4); large outings
+// (>4) signal teams via state.team_breakdown, and best_ball is always
+// a team format regardless of size. Any saved teams also qualify.
+// Before this, both the "Set Teams" button and the auto-open effect
+// keyed off team_format alone, so a 6-player best-ball match (whose
+// team_format stays 'individual') showed no team UI at all. (Matt's
+// 3-teams-of-2 match.)
+function outingUsesTeams(outing) {
+  if (!outing) return false
+  if (outing.team_format && outing.team_format !== 'individual') return true
+  if ((outing.scoring_formats || []).includes('best_ball')) return true
+  if (outing.state?.team_breakdown) return true
+  if ((outing.state?.teams ?? []).length > 0) return true
+  return false
+}
+
 function computeBestBall(participants, holePars, getScores, netStrokes, holeHandicaps) {
   // Group participants by their team_id. Players with no team_id go
   // into a synthetic 'solo:user_id' bucket so the math doesn't crash;
@@ -1665,7 +1682,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   useEffect(() => {
     if (!outing) return
     const isHost      = String(outing.host_id) === String(user?.id)
-    const isTeamFmt   = outing.team_format && outing.team_format !== 'individual'
+    const isTeamFmt   = outingUsesTeams(outing)
     const hasTeams    = (outing.state?.teams ?? []).length > 0
     if (isHost && isTeamFmt && !hasTeams) {
       setShowTeams(true)
@@ -1936,8 +1953,15 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     .filter(p => !(p.no_show && noShowPolicy === 'dns'))
     .map(applyNoShowPolicy)
     .map(p => {
+      // Explicit Set Teams membership is authoritative: when the host
+      // has assigned this player to a team, it overrides any stale
+      // auto join-order team_id. Only fall back to the auto team_id
+      // when state.teams says nothing about this player. (Before, the
+      // `p.team_id ?? tid` coalescing let a stale auto pairing shadow
+      // a manual reassignment, and hand-added players with no team_id
+      // and no membership rendered as solo teams.)
       const tid = teamIdByUserId.get(String(p.user_id))
-      return tid != null ? { ...p, team_id: p.team_id ?? tid } : p
+      return tid != null ? { ...p, team_id: tid } : p
     })
   // DNS section roster — players excluded from ranking but still on
   // the roster. Empty when policy isn't DNS.
@@ -1945,7 +1969,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     ? allParticipants.filter(p => !p.withdrawn && p.no_show)
     : []
   const isHost       = String(outing.host_id) === String(user?.id)
-  const isTeamFormat = outing.team_format && outing.team_format !== 'individual'
+  const isTeamFormat = outingUsesTeams(outing)
 
   // Returns true if userId is an assigned marker responsible for
   // targetId's scores OR (in a large outing) they're in the same
