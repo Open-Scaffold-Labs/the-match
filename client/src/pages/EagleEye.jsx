@@ -9,6 +9,14 @@ import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/
 // center number. (2026-06-06)
 const ENABLE_TAP_MEASURE = true
 const ENABLE_FCB = true
+
+// GPS accuracy gate (Phase 1.1) — a live yardage is only quoted when the fix
+// is tight enough to be honest. coords.accuracy is the 68% horizontal radius
+// in metres; beyond this we show "Acquiring GPS…" instead of a confidently-
+// wrong number (the cold-start / tree-canopy / clubhouse failure mode that
+// destroys trust on hole 1). ~10 m ≈ ±11 yd — past that the number isn't
+// trustworthy to a golfer choosing a club. A null accuracy is untrusted.
+const GPS_ACCURACY_GATE_M = 10
 import { log } from '../lib/logger.js'
 import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
@@ -1501,7 +1509,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     watchIdRef.current = navigator.geolocation.watchPosition(
       pos => {
         setGpsError(null)
-        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude, acc: pos.coords.accuracy }
         setGps(coords)
         // Weather only — throttled. GPS position above is unthrottled.
         const now = Date.now()
@@ -1525,7 +1533,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     navigator.geolocation.getCurrentPosition(
       pos => {
         setGpsError(null)
-        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude }
+        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude, acc: pos.coords.accuracy }
         setGps(coords)
         // First fix on arrival → fetch weather once and seed the throttle.
         lastWeatherRef.current = Date.now()
@@ -1753,12 +1761,25 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const totalHoles = courseCtx?.tee?.holes?.length ?? 18
 
   // Real GPS distance to green center (OSM data)
-  const greenCoord = greenPositions[currentHole]
-  const gpsToGreen = (greenCoord && gps) ? haversineYards(gps, greenCoord) : null
+  // GPS accuracy gate (Phase 1.1) — only a fix tight enough to be honest is
+  // allowed to drive a quoted yardage. acc is the 68% horizontal radius in
+  // metres; cold-start / canopy fixes arrive coarse and tighten over a few
+  // seconds. Until trusted, we surface "Acquiring GPS…" rather than a wrong
+  // number. trustedGps is the only GPS value the distance math is allowed to
+  // see — everything downstream (green distance, plays-like, F/C/B, bearing)
+  // keys off it, so an untrusted fix can never produce a confident yardage.
+  const gpsAcc      = gps?.acc ?? null
+  const gpsTrusted  = gps != null && gpsAcc != null && gpsAcc <= GPS_ACCURACY_GATE_M
+  const gpsAcquiring = gps != null && !gpsTrusted   // have a fix, too loose to quote
+  const trustedGps  = gpsTrusted ? gps : null
 
-  // Fallback: distance walked from tee subtracted from DB yardage
-  const distanceWalked = haversineYards(teeGps, gps) ?? 0
-  const remainingYards = holeData
+  const greenCoord = greenPositions[currentHole]
+  const gpsToGreen = (greenCoord && trustedGps) ? haversineYards(trustedGps, greenCoord) : null
+
+  // Fallback: distance walked from tee subtracted from DB yardage — only when
+  // the current fix is trusted (a loose fix would invent a bogus "remaining").
+  const distanceWalked = gpsTrusted ? (haversineYards(teeGps, gps) ?? 0) : 0
+  const remainingYards = (holeData && gpsTrusted)
     ? Math.max(0, (holeData.yardage ?? 0) - distanceWalked)
     : null
 
@@ -1808,7 +1829,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     : null
   const temp = weather ? Math.round(weather.temperature_2m) : null
 
-  const displayYards = gpsToGreen ?? (distanceWalked > 10 && remainingYards != null
+  const displayYards = gpsToGreen ?? (gpsTrusted && distanceWalked > 10 && remainingYards != null
     ? remainingYards
     : (holeData?.yardage ?? null))
 
@@ -1818,7 +1839,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const altFt = gps?.alt != null
     ? Math.round(gps.alt * 3.281)
     : estimateAltFromPressure(weather?.surface_pressure)
-  const shotBearing = (gps && greenCoord) ? calcBearing({ lat: gps.lat, lon: gps.lon }, greenCoord) : null
+  const shotBearing = (trustedGps && greenCoord) ? calcBearing({ lat: trustedGps.lat, lon: trustedGps.lon }, greenCoord) : null
   const playsLike = (gpsToGreen != null && weather)
     ? computePlaysLike(gpsToGreen, {
         windSpeed: wind?.speed ?? 0,
@@ -1832,7 +1853,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
   const greenPolygon = greenPolys[currentHole]
-  const fcbPlayer = (gps?.lat != null) ? { lat: gps.lat, lon: gps.lon } : (holePositions[currentHole] ?? null)
+  const fcbPlayer = (trustedGps?.lat != null) ? { lat: trustedGps.lat, lon: trustedGps.lon } : (holePositions[currentHole] ?? null)
   const fcb = (ENABLE_FCB && greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
@@ -1849,6 +1870,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       <style>{`
         @keyframes ee-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ee-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes ee-acq-pulse { 0%,100% { opacity: 0.4; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
         .ee-hole-chip::-webkit-scrollbar { display: none; }
         /* Landing-zone marker — pulsing yellow disc shown along the
            aim line at the active club's distance. No background box. */
@@ -1928,18 +1950,21 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 the watch either way. (2026-06-06) */}
             <button
               onClick={requestLocation}
-              title={gps ? 'Tap to refresh your location' : 'Tap to turn on GPS'}
+              title={gpsTrusted ? 'GPS locked — tap to refresh' : gpsAcquiring ? 'Acquiring GPS — tap to refresh' : 'Tap to turn on GPS'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                background: gps ? 'rgba(42,122,56,0.18)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${gps ? 'rgba(42,122,56,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                background: gpsTrusted ? 'rgba(42,122,56,0.18)' : gpsAcquiring ? 'rgba(240,168,104,0.14)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${gpsTrusted ? 'rgba(42,122,56,0.35)' : gpsAcquiring ? 'rgba(240,168,104,0.35)' : 'rgba(255,255,255,0.1)'}`,
                 borderRadius: 20, padding: '4px 8px', cursor: 'pointer',
                 fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
               }}>
-              <div style={{ width: 5, height: 5, borderRadius: '50%', background: gps ? '#5ED47A' : 'rgba(255,255,255,0.2)' }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: gps ? '#5ED47A' : 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>GPS</span>
+              <div style={{ width: 5, height: 5, borderRadius: '50%',
+                background: gpsTrusted ? '#5ED47A' : gpsAcquiring ? '#F0A868' : 'rgba(255,255,255,0.2)',
+                animation: gpsAcquiring ? 'ee-acq-pulse 1.1s ease-in-out infinite' : 'none' }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
+                color: gpsTrusted ? '#5ED47A' : gpsAcquiring ? '#F0A868' : 'rgba(255,255,255,0.3)' }}>GPS</span>
               {/* refresh glyph — signals the pill is tappable */}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gps ? '#5ED47A' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? '#5ED47A' : gpsAcquiring ? '#F0A868' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
                 <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
@@ -2159,6 +2184,26 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 800, color: 'rgba(255,255,255,0.45)', paddingBottom: 5, letterSpacing: '0.04em' }}>YDS</span>
               </div>
+              {/* GPS accuracy / acquiring chip (Phase 1.1) — the honesty
+                  signal that earns trust on hole 1. Trusted: green "±Xm".
+                  Acquiring: amber + pulsing, so the golfer knows the live
+                  number isn't ready and the shown figure is the static tee
+                  yardage, not a confident GPS read. */}
+              {gpsTrusted ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#5ED47A', boxShadow: '0 0 6px rgba(94,212,122,0.8)' }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(94,212,122,0.85)', fontVariantNumeric: 'tabular-nums' }}>
+                    ±{Math.round(gpsAcc)} m
+                  </span>
+                </div>
+              ) : gpsAcquiring ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F0A868', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(240,168,104,0.95)', fontVariantNumeric: 'tabular-nums' }}>
+                    ACQUIRING GPS · ±{Math.round(gpsAcc)} m
+                  </span>
+                </div>
+              ) : null}
               {/* Front / Center / Back green — the big number above is center;
                   these flank it with the near + far edge. Only when a green
                   polygon matched (else the single number stands). (2026-06-06) */}
