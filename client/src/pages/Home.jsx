@@ -2471,13 +2471,23 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
   // 2026-05-06 (polish task #10) — Year-end recap share-card modal.
   const [yearRecapOpen, setYearRecapOpen] = useState(false)
 
-  return (
-    <div style={{ minHeight: '100dvh', background: 'var(--tm-bg)', paddingBottom: 100 }}>
-      {/* My Profile is a solid screen (not the grass dashboard hero), so it
-          paints the parchment base — without it, the grass-backed Home tab
-          shows through at the screen edges / safe-area bands where the
-          content doesn't reach. (2026-06-23 — Matt: profile borders showing
-          the home background.) */}
+  return createPortal(
+    // Render My Profile EXACTLY like a friend's profile (FriendProfile): a
+    // full-viewport fixed overlay portaled to <body> on the dark-green
+    // (#0E1F13) base, so the borders match a friend's profile edge-to-edge
+    // instead of being boxed in the Home tab's 430px frame (where the home
+    // background bled in at the borders on phones wider than 430px).
+    // (2026-06-23 — Matt: "look the same at the borders as a friend's profile.")
+    <div onClick={e => e.stopPropagation()} style={{
+      position: 'fixed', inset: 0, zIndex: 60,
+      background: '#0E1F13',
+      display: 'flex', justifyContent: 'center', overflow: 'hidden',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 430, height: '100%',
+        background: 'transparent', position: 'relative',
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+      }}>
       {/* First-time coach mark on the Profile screen — explains the
           four major features the user lands on (handicap chart, follow
           counts, rivalries, availability calendar). Only shows once
@@ -2495,6 +2505,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '56px 20px 6px', gap: 12,
+        background: 'rgba(255,255,253,0.96)',
+        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
       }}>
         <button onClick={onBack} aria-label="Back" style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
@@ -2522,7 +2534,9 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           this point shifts position. (2026-05-02) */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 10, padding: '0 20px',
+        gap: 10, padding: '6px 20px 8px',
+        background: 'rgba(255,255,253,0.96)',
+        backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
       }}>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45))' }} />
         <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" /></svg>
@@ -2536,7 +2550,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           (2026-05-01 — Matt: "follow the same color layout the friends
           cards use") */}
       <div style={{
-        padding: '16px 16px 8px',
+        padding: '16px 16px 100px',
+        minHeight: 'calc(100dvh - 88px)',
         background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
         borderTop: '1px solid rgba(255,255,255,0.06)',
       }}>
@@ -3152,7 +3167,9 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
       {yearRecapOpen && (
         <YearRecapModal onClose={() => setYearRecapOpen(false)} />
       )}
-    </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 
