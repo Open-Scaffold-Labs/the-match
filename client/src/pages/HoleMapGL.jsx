@@ -402,7 +402,25 @@ export default function HoleMapGL({
   useEffect(() => { syncPuck() // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gps?.lat, gps?.lon, gps?.acc])
 
-  if (failed) return null   // parent swaps in the Leaflet map
+  // Genuine init/load failure (no fallback renderer anymore) → a graceful,
+  // on-brand retry rather than a blank map. Almost never hit in the shipped
+  // iOS app (WKWebView on iOS 15+ has WebGL2); the realistic trigger is a
+  // transient network failure loading the map chunk or tiles.
+  if (failed) return (
+    <div style={{ position: 'absolute', inset: 0, background: '#0c1a10', display: 'flex',
+      flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
+      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
+        The course map didn’t load.<br />Check your connection and try again.
+      </div>
+      <button onClick={() => window.location.reload()} style={{
+        background: 'linear-gradient(135deg, #C9A040, #E8C05A)', border: '1px solid rgba(245,215,138,0.85)',
+        borderRadius: 999, padding: '10px 22px', color: '#070C09', fontWeight: 900, fontSize: 13,
+        letterSpacing: '0.04em', cursor: 'pointer',
+        boxShadow: '0 8px 22px rgba(201,160,64,0.45), inset 0 1px 0 rgba(255,255,255,0.5)' }}>
+        Retry
+      </button>
+    </div>
+  )
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
