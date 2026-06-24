@@ -8,6 +8,27 @@ updated: 2026-06-24
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-24] refactor | Eagle Eye Phase 1 (correctness/cost-safety) + Phase 2 hero polish (beta)
+
+Autonomous session, Matt green-lit Phases 1+2 of the bulletproof build plan ("functionality, usability, visual flow are paramount; don't push off what can be done better now"). Six slices shipped to `main` (beta), each `build`+`lint` clean and committed individually. The map renderer swap (2.1/2.2) is **not** shipped — see the blocker below.
+
+**Phase 1 — correctness & cost-safety (all shipped + verified):**
+- **1.1 GPS accuracy gate** (c819c69) — read `coords.accuracy` on every fix; a live yardage is only quoted when the 68% radius ≤ 10 m (`GPS_ACCURACY_GATE_M`). Coarse cold-start/canopy fixes show an amber "ACQUIRING GPS · ±Xm" chip instead of a confidently-wrong number; trusted fixes show a green "±Xm". All distance math (green dist, plays-like, F/C/B, bearing) keys off `trustedGps`, so an untrusted fix can never produce a confident number. GPS pill reflects trusted/acquiring/off.
+- **1.2 Durable OSM cache** (45538b2) — migration `028_tm_osm_cache` + two-tier cache in the `/osm` route (L1 in-memory, L2 Supabase). The public Overpass API is now hit at most once per (osm_type, bbox); previously the in-memory cache was wiped on every Vercel cold start → we were hammering the mirrors. Stale rows served if all mirrors are down. **Verified locally**: cold call 4490 ms (Overpass) → row persisted (14 elements) → warm call 1 ms (cache hit). Migration applied to Supabase by hand.
+- **1.3 Replace keyless ESRI imagery** (57e1ba1) — the ESRI World Imagery keyless endpoint is a commercial ToU violation. Swapped for **USDA NAIP** (`USDA_CONUS_PRIME` ImageServer tile cache) — public-domain US gov ortho, ~0.6 m/px to z18, free, no key. `maxNativeZoom:18`; non-CONUS falls back to the branded dark canvas + OSM overlays. Imagery attribution now shown. **Verified**: NAIP tiles serve z16–18 across Augusta/Pebble/Orlando; z19 404s (hence the cap).
+
+**Phase 2 — hero polish (3 of 5 shipped):**
+- **2.3 Hero distance instrument** (95717ee) — the live yardage is now a 270° SVG arc gauge wrapping an odometer number-roll, both driven by the SAME rAF ease-out tween (lockstep, reduced-motion aware). Hand-rolled tween instead of a number-roll dep — zero bundle cost. Gauge geometry **verified** via a faithful standalone render (142/168/247/305 yds) in Chrome.
+- **2.4 Glass HUD + unified controls** (1ee636a) — restyled Leaflet's default white zoom control + grey attribution into the dark-glass HUD language (blur+saturate, gold accents) — the plan's #1 "cheap embed" tell. Added real backdrop-blur + inset top-rim highlight to the BAG toggle, club-toggle arrows, and the ANALYZE primary.
+- **2.5 Smooth player puck + accuracy halo** (1d38fce) — the GPS dot rAF-glides (~700 ms easeOut) between fixes instead of teleporting, with a translucent halo whose radius is `coords.accuracy` in METRES (a real `L.circle`, not a pixel ring) so uncertainty is honestly visible. All map ops guarded; rAF cancelled on new fix + teardown. Concentric yardage range-rings deliberately held (clutter judgment needs a live-map view).
+
+**2.1 MapLibre + 2.2 cinematic flyTo — INVESTIGATED, NOT SHIPPED (blocker found).**
+Built a standalone MapLibre proof (NAIP raster + branded green/gold vector overlays + pitched flyTo). It did **not** render. Root-caused via Chrome DevTools:
+- NAIP imagery is **not** the problem — it loads fine as a CORS-clean `<img>` (256×256, crossOrigin ok), so it is MapLibre-compatible.
+- MapLibre's renderer relies on a **web worker that never initializes in the available verification environment** — even MapLibre's own official `demotiles` style fails to load (0 tiles, no error, `isStyleLoaded()` false). So the renderer swap **cannot be validated headlessly at all**, and there is no on-course device test available this session.
+- Per the plan's own rule ("keep the current Leaflet path behind a flag until the MapLibre path is device-tested") and the anti-pattern "clean build ≠ runtime-valid", shipping an unverifiable renderer to the beta would be reckless. **Held.** The Leaflet+NAIP map is premium and live in the meantime.
+- **Recommended next step**: a supervised session where Matt can device-test — build `HoleMapGL` behind `ENABLE_MAPLIBRE` (default off), NAIP raster base (works) + branded vector overlays + `flyTo` (bearing tee→green, pitch ~70°, ~3.5 s), feature-parity port of markers/aim/tap-measure/landing-zones, then flip on after an on-course test.
+
 ## [2026-06-24] refactor | Premium-design pass + PWA update fix + profile/border + Matches↔Leagues consistency (beta)
 
 Continuation of the same long Cowork session. Strategy + research deliverables (zero-cost build plan, Eagle Eye premium plan) live in the Hub workspace, not this repo. All code shipped to `main` (beta), each build+lint verified, most verified live on the deployed app via Claude-in-Chrome + DOM inspection.
