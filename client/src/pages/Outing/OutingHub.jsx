@@ -364,10 +364,12 @@ function FriendsLiveCard({ o, onTap }) {
         width: '100%',
         marginBottom: 8,
         padding: '12px 14px',
-        borderRadius: 12,
-        background: 'rgba(255,253,248,0.85)',
-        border: '1px solid rgba(46,158,69,0.30)',
-        boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+        borderRadius: 14,
+        // Same cream-gradient + gold-border surface as the board cards, kept
+        // compact (no gold header strip) so it reads as secondary. (2026-06-23)
+        background: 'linear-gradient(180deg, #FFFCF3 0%, #F4E9C4 100%)',
+        border: '1px solid rgba(201,160,64,0.40)',
+        boxShadow: '0 4px 14px rgba(13,31,18,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
         display: 'flex',
         alignItems: 'center',
         gap: 12,
@@ -380,7 +382,7 @@ function FriendsLiveCard({ o, onTap }) {
         name={o.host_name || 'Player'}
         avatar={o.host_avatar}
         size={36}
-        ringColor="rgba(46,158,69,0.40)"
+        ringColor="rgba(201,160,64,0.45)"
       />
       {/* Center: title + course/hole */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -727,12 +729,14 @@ function RecentMatchCard({ o, userId, onOpen, onCopyCode, copied }) {
   return (
     <button onClick={onOpen} style={{
       width: '100%', textAlign: 'left', cursor: 'pointer',
-      background: 'rgba(255,255,255,0.85)',
-      border: '1px solid rgba(27,94,59,0.10)',
+      // Same cream-gradient + gold-border surface as the rest of the Matches
+      // cards; muted (it's a finished match). (2026-06-23)
+      background: 'linear-gradient(180deg, #FFFCF3 0%, #F4E9C4 100%)',
+      border: '1px solid rgba(201,160,64,0.30)',
       borderRadius: 14, padding: '14px 16px',
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       marginBottom: 8,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+      boxShadow: '0 4px 14px rgba(13,31,18,0.07), inset 0 1px 0 rgba(255,255,255,0.55)',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
