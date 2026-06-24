@@ -358,17 +358,30 @@ function HoleMap({ courseCtx, currentHole, gps, geocoded, holePositions = {}, gr
         center: [courseCenter.lat, courseCenter.lon],
         zoom: 16,
         zoomControl: true,
-        attributionControl: false,
+        attributionControl: true,   // imagery attribution is a license obligation
         rotate: true,           // leaflet-rotate: enable bearing control
         touchRotate: false,     // disable confusing pinch-rotate gesture
         bearing: 0,
         zoomSnap: 0.5,          // allow fractional zoom levels (e.g. 16.5)
       })
+      // Drop the "Leaflet" prefix — keep just the imagery credit, compact.
+      try { map.attributionControl.setPrefix(false) } catch { /* older build */ }
 
-      // ESRI satellite imagery — keepBuffer:4 keeps more tiles in memory during pans
+      // USDA NAIP (National Agriculture Imagery Program) — public-domain US
+      // gov aerial orthoimagery, ~0.6 m/px (serves to z18), free for
+      // commercial use with no API key. Replaces the keyless ESRI World
+      // Imagery endpoint, whose Terms of Use bar commercial use without a paid
+      // license (Phase 1.3 licensing fix, 2026-06-24). CONUS coverage at
+      // launch; outside it the branded dark canvas (.leaflet-container bg) +
+      // OSM hole overlays show through — the free vector hole view.
+      // maxNativeZoom:18 = the deepest NAIP tile; Leaflet up-scales past it
+      // (UI maxZoom 20) instead of requesting 404s. Verified z16–18 serve
+      // imagery across Augusta/Pebble/Orlando, z19 404s. keepBuffer:4 keeps
+      // more tiles in memory during pans.
       L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 20, tileSize: 256, keepBuffer: 4, updateWhenZooming: false }
+        'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}',
+        { maxZoom: 20, maxNativeZoom: 18, tileSize: 256, keepBuffer: 4, updateWhenZooming: false,
+          attribution: 'Imagery: USDA NAIP' }
       ).addTo(map)
 
       // GPS dot — only show if user is within ~5 miles of course
