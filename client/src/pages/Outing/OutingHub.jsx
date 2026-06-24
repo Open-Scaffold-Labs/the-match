@@ -642,6 +642,10 @@ function LiveMatchCard({ o, userId, onResume, onCopyCode, copied, onDelete }) {
       )}
 
       {/* Card foreground — translates left when swiped. */}
+      {/* Tournament-board treatment — matches the Leagues league card:
+          cream-gradient card + gold border, a gold accent strip up top
+          (LIVE + join code), serif title, course/subtitle meta.
+          (2026-06-23 — Matt: bring the Matches cards in line with Leagues.) */}
       <div
         onClick={handleCardClick}
         onTouchStart={onTouchStart}
@@ -649,56 +653,66 @@ function LiveMatchCard({ o, userId, onResume, onCopyCode, copied, onDelete }) {
         onTouchEnd={onTouchEnd}
         style={{
           cursor: 'pointer',
-          background: 'linear-gradient(135deg, rgba(46,158,69,0.18), rgba(255,255,255,0.85))',
-          border: '1.5px solid rgba(46,158,69,0.45)',
-          borderRadius: 16, padding: '14px 16px',
-          boxShadow: '0 4px 20px rgba(46,158,69,0.18), inset 0 1px 0 rgba(255,255,255,0.5)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', gap: 12,
+          background: 'linear-gradient(180deg, #FFFCF3 0%, #F4E9C4 100%)',
+          border: '1px solid rgba(201,160,64,0.40)',
+          borderRadius: 16, padding: 0, overflow: 'hidden', position: 'relative',
+          boxShadow: '0 4px 14px rgba(13,31,18,0.08), inset 0 1px 0 rgba(255,255,255,0.6)',
           transform: `translateX(${swipeX}px)`,
           transition: startXRef.current == null ? 'transform 200ms ease' : 'none',
           touchAction: canDelete ? 'pan-y' : 'auto',
         }}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span className="tm-live-pulse" style={{
-              width: 8, height: 8, borderRadius: '50%', background: '#2E9E45',
-              boxShadow: '0 0 6px rgba(46,158,69,0.6)',
-            }} />
-            <span style={{ fontSize: 11, fontWeight: 800, color: '#1A6B28', letterSpacing: 1.2, textTransform: 'uppercase' }}>Live</span>
-            <span style={{ fontSize: 11, color: 'rgba(13,31,18,0.50)' }}>· {o.player_count}p</span>
+        {/* Gold accent strip — LIVE (left) + join code badge (right). */}
+        <div style={{
+          height: 32,
+          background: 'linear-gradient(90deg, #C9A040 0%, #E8C05A 50%, #C9A040 100%)',
+          padding: '0 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(13,31,18,0.18)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="tm-live-pulse" style={{ width: 7, height: 7, borderRadius: '50%', background: '#0E3B23' }} />
+            <span style={{
+              fontSize: 9, fontWeight: 900, letterSpacing: '0.18em', color: '#0E3B23',
+              textTransform: 'uppercase', fontFamily: '"Arial Black", Arial, sans-serif',
+              textShadow: '0 1px 0 rgba(255,255,255,0.30)',
+            }}>LIVE · {o.player_count}P</span>
           </div>
-          <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {title}
-          </div>
-          <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            {subtitle && (
-              <span style={{ color: '#7A5800', fontWeight: 700 }}>{subtitle}</span>
-            )}
-            {o.course_name && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-                </svg>
-                {o.course_name}
-              </span>
-            )}
-            <button onClick={(e) => { e.stopPropagation(); onCopyCode?.(e) }} style={{
-              border: 'none', cursor: 'pointer',
-              background: copied ? 'rgba(46,158,69,0.20)' : 'rgba(122,88,0,0.10)',
-              color: copied ? '#1A6B28' : '#7A5800',
-              fontWeight: 800, fontSize: 11, letterSpacing: 2,
-              padding: '2px 8px', borderRadius: 6,
-              transition: 'background 200ms',
-            }}>
-              {copied ? '✓ Copied' : o.code}
-            </button>
-          </div>
+          <button onClick={(e) => { e.stopPropagation(); onCopyCode?.(e) }} style={{
+            border: '1px solid rgba(14,59,35,0.30)', cursor: 'pointer',
+            background: copied ? 'rgba(14,59,35,0.22)' : 'rgba(14,59,35,0.12)',
+            color: '#0E3B23', fontWeight: 900, fontSize: 9, letterSpacing: '0.16em',
+            padding: '3px 10px', borderRadius: 999,
+            fontFamily: '"Arial Black", Arial, sans-serif',
+          }}>{copied ? '✓ COPIED' : o.code}</button>
         </div>
-        <div style={{ color: '#1A6B28', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
-          Resume →
+        {/* Body */}
+        <div style={{ padding: '14px 16px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 18, fontWeight: 900, color: '#0E3B23',
+              fontFamily: '"Georgia", serif', letterSpacing: '-0.01em', lineHeight: 1.15,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {title}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {subtitle && (
+                <span style={{ color: '#7A5800', fontWeight: 700 }}>{subtitle}</span>
+              )}
+              {o.course_name && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(13,31,18,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                  </svg>
+                  {o.course_name}
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ color: '#1A6B28', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+            Resume →
+          </div>
         </div>
       </div>
     </div>
