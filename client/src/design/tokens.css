@@ -71,6 +71,30 @@
     --tm-duration-fast:   120ms;
     --tm-duration:        220ms;
     --tm-duration-slow:   350ms;
+    /* Premium easing — Material-standard ease-out; default for entrances
+       and button reactions (fast start, gentle settle). Animate transform
+       and opacity only. (2026-06-23 — premium pass) */
+    --tm-ease-out:        cubic-bezier(0.4, 0, 0.2, 1);
+    --tm-ease-in:         cubic-bezier(0.4, 0, 1, 1);
+
+    /* — Dark-mode elevation — for high-tech dark surfaces (Eagle Eye HUD,
+       future dark screens). On dark, elevation = a LIGHTER surface, never a
+       shadow. base → highest. Text is off-white, never pure #fff. */
+    --tm-dark-0:          #0A0E0C;
+    --tm-dark-1:          #121815;
+    --tm-dark-2:          #1A211D;
+    --tm-dark-3:          #232C27;
+    --tm-dark-text:       #E8EDEA;
+    --tm-dark-text-2:     rgba(232,237,234,0.62);
+
+    /* — Layered, hue-tinted depth shadow — stacked low-opacity shadows with
+       one consistent light direction (reads premium vs a single grey blur). */
+    --tm-shadow-layered:
+       0 1px 1px rgba(13,31,18,0.05),
+       0 2px 2px rgba(13,31,18,0.05),
+       0 4px 4px rgba(13,31,18,0.05),
+       0 8px 8px rgba(13,31,18,0.05),
+       0 16px 16px rgba(13,31,18,0.05);
 
     /* — Z-index — */
     --z-base:    0;
@@ -108,6 +132,12 @@
                  'Segoe UI', system-ui, sans-serif;
     font-size: 16px;
     line-height: 1.5;
+    /* Tabular numerals app-wide — equal-width digits so live numbers
+       (distances, scores, handicaps) don't reflow / "dance" as they update.
+       Highest-ratio premium-polish win; non-numeric text is unaffected.
+       (2026-06-23 — premium pass) */
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
   }
 
   /* Page scroll container — flex column so inline `gap: N` actually
@@ -274,4 +304,24 @@
   .tm-glow-gold   { box-shadow: var(--tm-glow-gold); }
   .tm-radius      { border-radius: var(--tm-radius); }
   .tm-radius-lg   { border-radius: var(--tm-radius-lg); }
+
+  /* Tabular numerals — for number readouts and stat columns. */
+  .tm-nums        { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  /* Layered depth shadow. */
+  .tm-shadow-layered { box-shadow: var(--tm-shadow-layered); }
+
+  /* Premium glassmorphism for HUD panels floating over the map/imagery.
+     The inset top-rim highlight is what reads as real glass. Solid fallback
+     where backdrop-filter is unsupported. (2026-06-23 — premium pass) */
+  .tm-glass {
+    background: rgba(18,24,21,0.55);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .tm-glass { background: rgba(18,24,21,0.92); }
+  }
 }
