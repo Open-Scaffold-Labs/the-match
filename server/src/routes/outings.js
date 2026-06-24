@@ -1597,7 +1597,13 @@ router.post('/:code/withdraw', async (req, res) => {
 
     const outing = await db.one('SELECT id, host_id, state FROM tm_outings WHERE code = $1', [code])
     if (!outing) return res.status(404).json({ error: 'Not found' })
-    if (String(outing.host_id) !== String(req.user.id))
+    // Host can withdraw any participant; a participant may withdraw
+    // THEMSELVES. Self-withdraw is how the one-active-match guard lets a
+    // user leave a match they only joined (they can't /end it — that's
+    // host-only) before starting/joining another. (2026-06-23)
+    const isHost = String(outing.host_id) === String(req.user.id)
+    const isSelf = String(user_id) === String(req.user.id)
+    if (!isHost && !isSelf)
       return res.status(403).json({ error: 'Host only' })
 
     // 33-round audit fix: block the host from withdrawing themselves.

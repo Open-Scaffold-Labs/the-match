@@ -1,20 +1,28 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { post } from '../../lib/api.js'
+import { useActiveMatchGuard } from './useActiveMatchGuard.jsx'
 
 // ─── Join Sheet ───────────────────────────────────────────────────────────────
 // Bottom-sheet modal for entering a 4-character match join code. Used
 // from OutingHub's "Enter a Code" CTA. On success, fires onJoined(outing)
 // so the parent can switch to the live scorecard view.
-export default function JoinSheet({ onClose, onJoined }) {
+export default function JoinSheet({ user, onClose, onJoined }) {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const { ensureSingleActive, modalEl: activeMatchModal } = useActiveMatchGuard(user)
 
   async function handleJoin() {
     const c = code.toUpperCase().trim()
     if (c.length !== 4) { setError('Enter a 4-digit code'); return }
-    setLoading(true); setError('')
+    setError('')
+    // One-active-match guard: if already in another active match, confirm
+    // ending/leaving it before joining this one (exclude this code so
+    // re-opening a match you're in doesn't flag itself). (2026-06-23)
+    const cleared = await ensureSingleActive(c)
+    if (!cleared) return
+    setLoading(true)
     try {
       const data = await post(`/api/outings/${c}/join`, {})
       onJoined(data.outing)
@@ -25,6 +33,7 @@ export default function JoinSheet({ onClose, onJoined }) {
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      {activeMatchModal}
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', padding: '24px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--tm-text)' }}>Enter a Code</div>

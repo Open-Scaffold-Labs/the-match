@@ -190,6 +190,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
       )}
       {showJoin && (
         <JoinSheet
+          user={user}
           onClose={() => setShowJoin(false)}
           onJoined={o => { setShowJoin(false); setActiveCode(o.code); setView('live') }}
         />

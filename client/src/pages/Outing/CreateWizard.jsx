@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { api, post } from '../../lib/api.js'
 import { warn } from '../../lib/logger.js'
 import { dedupeTees } from '../../lib/tees.js'
+import { useActiveMatchGuard } from './useActiveMatchGuard.jsx'
 
 // ─── Create Outing Wizard ─────────────────────────────────────────────────────
 const FORMATS = [
@@ -280,6 +281,7 @@ function deriveSlimFromSharedCourse(sc) {
 
 export default function CreateWizard({ user, onClose, onCreated, pendingPlayers = [], pendingLeagueId = null, sharedCourse = null, onCourseSelected }) {
   const [step, setStep] = useState(0)
+  const { ensureSingleActive, modalEl: activeMatchModal } = useActiveMatchGuard(user)
   const [form, setForm] = useState(() => {
     // Pre-fill from sharedCourse so the wizard opens with a course
     // already selected when the user got here via EagleEye -> Scorecard.
@@ -407,42 +409,15 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
         setError('Pick at least one scoring format.')
         return
       }
-      // 2026-05-06 — guard against multiple live matches per host. A
-      // human can only physically play one round at a time, but
-      // nothing prevented hosts from accumulating "active" outings
-      // they never ended (Matt's Live Now had 3 stale matches before
-      // the cleanup). Before creating a new one, check the host's
-      // recent outings for any still-active hosted match. If found,
-      // ask the host to confirm — accepting ends the old match and
-      // creates the new one; cancelling backs out of the wizard
-      // submit so they can find/end the old one their own way.
-      try {
-        const r = await api('/api/outings/recent')
-        const stale = (r?.outings || []).find(o =>
-          o && o.status === 'active' && String(o.host_id) === String(user?.id)
-        )
-        if (stale) {
-          const ok = window.confirm(
-            `You have an unfinished match (${stale.code}) at ${stale.course_name}. ` +
-            `Creating a new one will end it. Continue?`
-          )
-          if (!ok) {
-            setLoading(false)
-            return
-          }
-          try {
-            await post(`/api/outings/${stale.code}/end`, {})
-          } catch (err) {
-            warn('[create] could not auto-end stale match', err?.message)
-            // Don't block creation — the host explicitly chose to
-            // proceed; if the end call fails, the duplicate will
-            // surface in their list and they can clean it up.
-          }
-        }
-      } catch (e) {
-        // Network failure → don't block creation; the guard is a
-        // nice-to-have, not a hard correctness requirement.
-        warn('[create] stale-match check failed', e?.message)
+      // One-active-match guard. Detects any other active match the user
+      // is in — hosted OR merely joined (the old check was host-only) —
+      // and shows an in-app confirm sheet (no window.confirm). Accepting
+      // ends it (if host) or leaves it (if participant); cancelling backs
+      // out of this create. (2026-06-23 — Matt: one active match at a time.)
+      const cleared = await ensureSingleActive()
+      if (!cleared) {
+        setLoading(false)
+        return
       }
       // Validation: best_ball + match (= four-ball match play) require
       // team membership. Players are assigned a team_id either through
@@ -894,6 +869,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      {activeMatchModal}
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '24px 20px 0', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
