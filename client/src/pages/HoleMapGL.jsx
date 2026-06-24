@@ -248,9 +248,10 @@ export default function HoleMapGL({
       : null)
     if (tee && green && aim) {
       if (!aimMarkerRef.current) {
+        // 44px transparent hit area (touch-target min) wrapping a 26px visual.
         const el = document.createElement('div')
-        el.style.cssText = 'width:26px;height:26px;border-radius:50%;background:rgba(245,224,112,0.16);border:2px solid #F5E070;box-shadow:0 0 10px rgba(245,224,112,0.7);cursor:grab;display:flex;align-items:center;justify-content:center'
-        el.innerHTML = '<div style="width:8px;height:8px;border-radius:50%;background:#F5E070"></div>'
+        el.style.cssText = 'width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:grab'
+        el.innerHTML = '<div style="width:26px;height:26px;border-radius:50%;background:rgba(245,224,112,0.16);border:2px solid #F5E070;box-shadow:0 0 10px rgba(245,224,112,0.7);display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;border-radius:50%;background:#F5E070"></div></div>'
         aimMarkerRef.current = new gl.Marker({ element: el, draggable: true }).setLngLat([aim.lon, aim.lat]).addTo(map)
         aimMarkerRef.current.on('drag', () => {
           const ll = aimMarkerRef.current.getLngLat()
@@ -301,12 +302,15 @@ export default function HoleMapGL({
     const teeAim = Math.round((a / tot) * totalYards)
     const aimGreen = Math.round((b / tot) * totalYards)
     const mid = (p, q) => [(p.lon + q.lon) / 2, (p.lat + q.lat) / 2]
-    const setLabel = (ref, text, primary, lnglat) => {
-      if (!ref.current) ref.current = new gl.Marker({ element: pillEl(text, primary), anchor: 'center' }).setLngLat(lnglat).addTo(map)
+    // Labels are offset to the SIDES of the (course-up, ~vertical) line so they
+    // never sit on the line/markers, and the two segment pills go on opposite
+    // sides — the aim→green pill to the right so it clears the top-left HUD.
+    const setLabel = (ref, text, primary, lnglat, anchor = 'center', offset = [0, 0]) => {
+      if (!ref.current) ref.current = new gl.Marker({ element: pillEl(text, primary), anchor, offset }).setLngLat(lnglat).addTo(map)
       else { ref.current.getElement().textContent = text; ref.current.setLngLat(lnglat) }
     }
-    setLabel(teeAimLabelRef, `${teeAim}y`, false, mid(tee, aim))
-    setLabel(aimGreenLabelRef, `${aimGreen} to grn`, true, mid(aim, green))
+    setLabel(teeAimLabelRef, `${teeAim}y`, false, mid(tee, aim), 'right', [-10, 0])
+    setLabel(aimGreenLabelRef, `${aimGreen} to grn`, true, mid(aim, green), 'left', [10, 0])
 
     // landing-zone ring: club distance from the player along player→aim
     const club = clubRef.current
@@ -319,7 +323,7 @@ export default function HoleMapGL({
       if (Number.isFinite(brng)) {
         const landing = projectByYards(player, brng, yards)
         map.getSource('landing')?.setData(fc([polyF(ringCoords(landing, 11))]))
-        setLabel(landingLabelRef, `${yards}y`, false, [landing.lon, landing.lat])
+        setLabel(landingLabelRef, club.label ? `${club.label} · ${yards}y` : `${yards}y`, false, [landing.lon, landing.lat], 'left', [16, 0])
         return
       }
     }
