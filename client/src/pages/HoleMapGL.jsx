@@ -159,7 +159,11 @@ export default function HoleMapGL({
       // Silent-stall guard: if the style/tiles never reach 'load' (the failure
       // mode where MapLibre constructs but renders nothing, with no error
       // event), fall back to Leaflet rather than leave a black map.
-      loadTimer = setTimeout(() => { if (!readyRef.current) fail(new Error('map load timeout (9s)')) }, 9000)
+      // 20s, not 9s: a cold first load downloads the ~284KB maplibre chunk +
+      // NAIP tiles, which can exceed 9s on a slow link and was tripping a
+      // spurious fallback to Leaflet (then sticking for the session). 20s only
+      // fires on a genuine stall.
+      loadTimer = setTimeout(() => { if (!readyRef.current) fail(new Error('map load timeout (20s)')) }, 20000)
       map.on('error', (e) => { /* tile errors are non-fatal; only log */ if (e?.error) console.warn('[HoleMapGL]', e.error.message) })
       map.addControl(new maplibregl.AttributionControl({ compact: true }))
       map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left')
@@ -403,13 +407,12 @@ export default function HoleMapGL({
         .maplibregl-ctrl-attrib{background:rgba(7,12,9,0.50)!important;color:rgba(255,255,255,0.45)!important}
         .maplibregl-ctrl-attrib a{color:rgba(245,215,138,0.65)!important}
         .maplibregl-canvas{outline:none}
+        /* Push the zoom control to the mid-left so it clears the top-left
+           glass instrument card (was hidden behind it). Mirrors the Leaflet
+           map's mid-left zoom placement. */
+        .maplibregl-ctrl-top-left{top:42%!important}
       `}</style>
       <div ref={containerRef} style={{ width: '100%', height: '100%', background: '#0c1a10' }} />
-      <div style={{ position: 'absolute', bottom: 12, right: 12, zIndex: 5,
-        background: 'rgba(7,12,9,0.8)', borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#F5D78A', boxShadow: '0 0 6px #F5D78A' }} />
-        <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11 }}>Your position</span>
-      </div>
     </div>
   )
 }
