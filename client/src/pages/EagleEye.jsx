@@ -2058,7 +2058,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const teeHoles = courseCtx?.tee?.holes ?? []
 
   return (
-    <div style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    // data-no-pull-refresh: Eagle Eye is a full-screen map tool — the view
+    // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
+    // every downward map-pan and reloading the page (dropping GPS + re-
+    // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
+    <div data-no-pull-refresh="true" style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
       <CoachMark
         id="eagle_eye"
         user={user}
