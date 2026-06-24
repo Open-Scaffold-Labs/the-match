@@ -1,12 +1,33 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-05-09
+updated: 2026-06-23
 ---
 
 # Activity Log
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
+
+## [2026-06-23] refactor | Team assignment + background + one-active-match + /end tie fix (shipped to beta)
+
+Build-and-verify session (Cowork). Everything shipped to `main` (beta), each build+lint verified, most verified live on the deployed app via the Claude-in-Chrome browser.
+
+**Drift cleanup (session start)** — synced `tools/limitless-preflight.sh` + `tools/notebooklm-wiki-refresh.py` from the LimitlessStack canonical (canonical had gained activity-feed producers, a per-user capability snapshot, and a NotebookLM auth-retry guard); added the helper scripts the synced code calls (`report-activity.sh`, `scan-capabilities.py`); indexed `synthesis/eagle-eye-next-level-plan-2026-06-06.md`; gitignored generated scoring-capability exports. (5a64b7c, 81ae0a6)
+
+**Team assignment for best-ball / large outings** (628e173) — fixes a 6-player 3-teams-of-2 best-ball match that rendered "2 teams of 2 + 2 solo players":
+- `POST /:code/guests` now calls `assignParticipantToGroup` (hand-added players were team-less → solo teams).
+- `PUT /:code/teams` mirrors membership onto `participant.team_id` and clears unassigned → manual assignment is authoritative for best-ball scoring (was diverging from the auto join-order `team_id`).
+- New `outingUsesTeams()` gates the Set Teams button + auto-open on `best_ball`/`team_breakdown`/saved teams — was keyed on `team_format` alone, so it was OFF entirely for >4-player best-ball (no team UI at all).
+- Hydration prefers explicit `state.teams` membership over stale auto `team_id`; Set Teams seeds the right team count from field size ÷ breakdown (6-player doubles → 3 teams).
+- Verified live: create 6-player best-ball → Set Teams auto-opens with 3 teams; hand-added guest lands in roster (not solo); best-ball scores by the assigned team.
+
+**Home grass background bleed** (b1a86f8, 8918711) — non-Home pages showed the home grass photo around their content. `TabPanel` now paints an opaque `var(--tm-bg)` parchment base; Home AND Tour opt out (`opaque={false}`) to keep the grass hero. Verified via DOM + visual sweep across tabs.
+
+**One active match at a time** (f6f1edf) — new `useActiveMatchGuard` hook + `ActiveMatchModal` (in-app bottom sheet; replaces the host-only `window.confirm`). Detects any other active match via participant-scoped `/api/outings/recent` (catches joined matches too). On confirm: host → `/end`; participant → `/withdraw` (self). Broadened `POST /:code/withdraw` to allow self-withdraw (`isHost || isSelf`; host-self still blocked). Wired into create (CreateWizard) + join (JoinSheet, now receives `user`). Verified live: modal fires on join, correct host messaging, cancel aborts safely, confirm ends the old match → 0 active.
+
+**`/end` tie bug** (32cc700) — surfaced by the full-confirm test: ending a match with a tied pair 500'd. Root cause (Vercel runtime logs): `/end` wrote `tm_match_history` tie rows with `winner_id/loser_id = null`, but the `tm_update_h2h` trigger's tie branch reads them as the two players via LEAST/GREATEST → null `player_a_id` violated `tm_h2h_records` NOT NULL. Broke ending ANY individual match with ≥2 real users + a tied pair (incl. matches ended before scoring), and silently defeated the one-active-match guard. Fix: pass both participant ids for ties; `is_tie` disambiguates and every reader (friends/profile aggregates, rivalry list `won = is_tie ? null : i_won`) checks it. Verified live: 8G49 (500'd 3×) ended cleanly → 0 active. **Implication:** pre-fix, any tie-ending match would 500 and stay OPEN — other stuck-open matches may now be endable.
+
+Pages touched: server `routes/outings.js`; client `App.jsx`, `Outing.jsx`, `Outing/CreateWizard.jsx`, `Outing/JoinSheet.jsx`, `Outing/Commissioner.jsx`, new `Outing/useActiveMatchGuard.jsx`.
 
 ## [2026-06-06] refactor | Eagle Eye next-level build — 5 features on branch (NOT deployed)
 
