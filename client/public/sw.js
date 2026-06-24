@@ -9,6 +9,14 @@
 // Versioned filename suffix (date) so changes ship cleanly.
 // (2026-05-01 — Matt: web push for friend requests + invites.)
 
+// Per-deploy build id. `__SW_BUILD__` is replaced at build time by
+// scripts/stamp-sw.js with the commit SHA (or a timestamp locally) so this
+// file's BYTES change every deploy. Without it, sw.js is byte-identical
+// across deploys → the browser never sees a "new" SW → activate (which
+// sweeps caches + broadcasts the reload) never fires → installed PWAs keep
+// running a stale cached bundle. (2026-06-23 — Matt's iPhone stuck pre-fix.)
+self.SW_BUILD = '__SW_BUILD__'
+
 self.addEventListener('install', () => {
   // Activate the new SW immediately rather than waiting for all
   // controlled tabs to close. Push-event-handler updates need to be
