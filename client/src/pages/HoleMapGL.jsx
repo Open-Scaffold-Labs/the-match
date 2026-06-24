@@ -91,7 +91,7 @@ function pillEl(text, primary) {
 
 export default function HoleMapGL({
   courseCtx, currentHole, gps, geocoded,
-  holePositions = {}, greenPositions = {}, holeGeometries = {},
+  holePositions = {}, greenPositions = {}, holeGeometries = {}, greenPolys = {},
   clubYards = null, clubLabel = null,
   onInitError,
 }) {
@@ -228,7 +228,13 @@ export default function HoleMapGL({
     const par = meta?.par ?? 4
     const totalYards = meta?.yardage ?? Math.round(haversineYards(tee, green) || 0)
 
-    map.getSource('green')?.setData(green ? fc([polyF(ringCoords(green, 13))]) : fc([]))
+    // Green shape: the real OSM green polygon when we have it, else a ~13yd
+    // circle from the green centre as a fallback. (Parity with the Leaflet map.)
+    const gp = greenPolys[currentHole]
+    const greenFeature = (Array.isArray(gp) && gp.length >= 3)
+      ? polyF([...gp.map(p => [p.lon, p.lat]), [gp[0].lon, gp[0].lat]])
+      : (green ? polyF(ringCoords(green, 13)) : null)
+    map.getSource('green')?.setData(greenFeature ? fc([greenFeature]) : fc([]))
 
     // tee + green DOM markers
     if (tee) {
@@ -240,9 +246,11 @@ export default function HoleMapGL({
     } else if (teeMarkerRef.current) { teeMarkerRef.current.remove(); teeMarkerRef.current = null }
     if (green) {
       if (!greenMarkerRef.current) {
+        // Red pin-flag (matches the Leaflet map's flag), anchored at the pole base.
         const el = document.createElement('div')
-        el.style.cssText = 'width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:18px solid #E24B4A;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6))'
-        greenMarkerRef.current = new gl.Marker({ element: el, anchor: 'bottom' }).setLngLat([green.lon, green.lat]).addTo(map)
+        el.style.cssText = 'width:22px;height:28px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6))'
+        el.innerHTML = '<svg width="22" height="28" viewBox="0 0 22 28"><line x1="4" y1="2" x2="4" y2="27" stroke="white" stroke-width="1.8" stroke-linecap="round"/><polygon points="4,2 20,8 4,14" fill="#E53935" stroke="white" stroke-width="0.8"/><circle cx="4" cy="27" r="2.5" fill="#E53935" stroke="white" stroke-width="1.2"/></svg>'
+        greenMarkerRef.current = new gl.Marker({ element: el, anchor: 'bottom', offset: [7, 0] }).setLngLat([green.lon, green.lat]).addTo(map)
       } else greenMarkerRef.current.setLngLat([green.lon, green.lat])
     } else if (greenMarkerRef.current) { greenMarkerRef.current.remove(); greenMarkerRef.current = null }
 
@@ -267,12 +275,16 @@ export default function HoleMapGL({
 
     redrawAim()
 
-    // cinematic course-up camera: bearing tee→green, pitched down the fairway
+    // cinematic course-up camera: bearing tee→green, pitched down the fairway.
+    // Zoom adapts to hole length so the green stays on screen on long par 5s
+    // (mirrors the Leaflet map's length-based zoom; a touch looser for pitch).
     if (tee && green) {
       const brg = calcBearing(tee, green)
       const mid = [(tee.lon + green.lon) / 2, (tee.lat + green.lat) / 2]
+      const holeDist = haversineYards(tee, green) || 0
+      const zoom = holeDist > 550 ? 16.2 : holeDist > 220 ? 16.8 : 17.4
       const prefersReduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-      const cam = { center: mid, bearing: brg, pitch: prefersReduce ? 0 : 62, zoom: 17.2 }
+      const cam = { center: mid, bearing: brg, pitch: prefersReduce ? 0 : 62, zoom }
       if (intro && !prefersReduce) map.flyTo({ ...cam, duration: 3200, essential: true, curve: 1.4 })
       else map.jumpTo(cam)
     }
