@@ -2018,7 +2018,13 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
   const greenPolygon = greenPolys[currentHole]
-  const fcbPlayer = (trustedGps?.lat != null) ? { lat: trustedGps.lat, lon: trustedGps.lon } : (holePositions[currentHole] ?? null)
+  // Front/Center/Back only from a TRUSTED live fix. Measuring F/B from the OSM
+  // tee position is unreliable — patchy OSM tee geometry can sit 100+ yds off,
+  // producing front/back that contradict the authoritative DB hole yardage
+  // (the "502/534 on a 360-yd hole" bug). With no trusted GPS, the hero hole
+  // yardage stands alone rather than showing numbers we can't stand behind.
+  // (2026-06-24)
+  const fcbPlayer = (trustedGps?.lat != null) ? { lat: trustedGps.lat, lon: trustedGps.lon } : null
   const fcb = (ENABLE_FCB && greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
