@@ -18,6 +18,18 @@ import { haversineYards, calcBearing } from '../lib/geo.js'
 
 const NAIP_TILES = 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}'
 
+// Load the maplibre-gl chunk with a few retries + backoff so a transient
+// network blip (common on a course with spotty signal) self-heals instead of
+// dropping the user onto the retry card.
+async function importMaplibre(tries = 4) {
+  let lastErr
+  for (let i = 0; i < tries; i++) {
+    try { return (await import('maplibre-gl')).default }
+    catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 500 * (i + 1))) }
+  }
+  throw lastErr
+}
+
 const lngLat = (p) => (p && p.lat != null ? [p.lon, p.lat] : null)
 
 // True-ground circle as a GeoJSON ring (radius in yards). Used for the green
@@ -134,7 +146,7 @@ export default function HoleMapGL({
     }
     ;(async () => {
       let maplibregl
-      try { maplibregl = (await import('maplibre-gl')).default } catch (e) { return fail(e) }
+      try { maplibregl = await importMaplibre() } catch (e) { return fail(e) }
       if (cancelled || !containerRef.current) return
       glRef.current = maplibregl
       let map
