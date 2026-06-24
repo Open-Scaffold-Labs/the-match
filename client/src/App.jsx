@@ -319,13 +319,26 @@ export default function App() {
     )
   }
 
+  // Outermost background. The grass photo is the hero ONLY on tabs that use
+  // it (Home, Tour). On every other tab the outermost layer is opaque — so
+  // with viewport-fit=cover, the photo can't bleed at the screen edges /
+  // safe-area bands (notch, home indicator) even if an inner layer doesn't
+  // perfectly tile. Eagle Eye's edges go dark to match its theme; everything
+  // else uses the parchment base. (2026-06-23 — Matt: grass showing at the
+  // borders because pages don't fill the screen edge-to-edge.)
+  const grassTab = tab === TABS.HOME || tab === TABS.TOUR
+  const outerBg = grassTab
+    ? {
+        backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 40%',
+        backgroundAttachment: 'fixed',
+      }
+    : { background: tab === TABS.EYE ? 'var(--tm-dark-0)' : 'var(--tm-bg)' }
   return (
     <div style={{
       minHeight: '100dvh',
-      backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center 40%',
-      backgroundAttachment: 'fixed',
+      ...outerBg,
       display: 'flex',
       justifyContent: 'center',
     }}>
