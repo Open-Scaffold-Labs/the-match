@@ -1,12 +1,28 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-06-24
+updated: 2026-06-25
 ---
 
 # Activity Log
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
+
+## [2026-06-25] refactor | Eagle Eye Phase 3.1 SHIPPED — transparent, adjustable plays-like with real DEM elevation (beta)
+
+Greenlit by Matt. The category's biggest gap closed: a **transparent, adjustable plays-like** as the free default. Tap the live yardage's **PLAYS LIKE** chip → a glass bottom sheet breaks the number into Wind / Elevation / Temperature (+ a read-only Altitude row), each labeled auto/manual and each individually overridable. Shipped to `main` (beta), four commits, each `build`+`lint` clean; verified end-to-end by Claude in a real browser before push (Matt's "check it yourself now" rule).
+
+**The win that makes it best-in-class: elevation is auto-derived for real.** Earlier framing said uphill/downhill couldn't be done well (GPS vertical accuracy is poor) — wrong instrument. The fix is a terrain model: **USGS 3DEP EPQS** (US, ~1 m, public domain, keyless), queried at the player + green coords, delta → plays-like term. Verified live (foothills 5804 ft > downtown 5237 ft; correct uphill sign; mid-Pacific off-grid → null). Worldwide (open-meteo DEM) stubbed behind a provider abstraction — non-US gracefully shows wind+temp + manual elevation until wired.
+
+**Slices (each verified):**
+- **A — math** (`bc78e7e`, `client/src/lib/geo.js` + EagleEye mirror): `computePlaysLike` now returns `{plays, adj, base, factors:{wind,temp,alt,elevation}}` + a new elevation term (`PLAYSLIKE_K_ELEV` = 1/3 yd/ft, tunable). Byte-identical `plays/adj` for existing callers. 20 node assertions (sign/magnitude/zero/reconciliation/backward-compat) pass.
+- **B — DEM service** (`285b135`, `server/src/routes/eagle-eye.js`, `index.js`, `migrations/029_tm_elevation_cache.sql`): `GET /api/eagle-eye/elevation` with USGS provider, L1+L2 cache (mirrors the OSM-cache pattern, migration 028), absolute-range no-data gate, DB-gate skip like `/osm`. Migration 029 applied to Supabase by hand; L2 persistence verified (rows written, no "relation does not exist").
+- **C — wiring** (`615dd26`): throttled (~11 m moves) player+green elevation fetch feeds `elevDeltaFt` into the live model; distance never blocks on it.
+- **D — sheet + chip** (`615dd26`): tappable `PLAYS LIKE ▸` chip replaces the 8px row; bottom sheet with shot-relative wind dial (headwind at top, matching course-up map), steppers, MANUAL text badge (never colour-only), per-factor + reset-all, overrides reset on hole change. Reduced-motion aware, 44px targets, tabular-nums, grabber, scrim dismiss.
+
+**Bug caught in-browser before shipping (the value of verifying):** the breakdown didn't reconcile — rows summed to −2 but the total read −7. The hidden term was altitude-above-sea-level (air density), in the total but with no row. Fixed by surfacing a read-only **Altitude** row when non-zero, so rows ALWAYS sum to the chip total — the whole point of a transparent breakdown. Confirmed `reconciles: true` in the browser; dial drag flips headwind→tailwind and updates the total live.
+
+**Still on-course only:** `K_ELEV` calibration against real holes (A4), and the final iPhone/WKWebView touch-drag feel. **Follow-ups:** verify + wire the open-meteo worldwide DEM (W2). Full spec + risk register: [[synthesis/playslike-3.1-build-spec-2026-06-25]].
 
 ## [2026-06-24] refactor | Eagle Eye Phase 2.1/2.2 SHIPPED — MapLibre is the sole renderer; Leaflet removed; offline tiles (beta)
 
