@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782402038.2678387,
-    "source_id": "881d05f0-fcb4-4e6e-aa72-1beb2066366b",
-    "verified_at": 1782402208.435064
+    "mtime": 1782408061.496643,
+    "source_id": "6beb9bf0-2fc6-42cb-82b1-cc89cf581b17",
+    "verified_at": 1782408119.635956
   },
   "wiki/index.md": {
-    "mtime": 1782247807.0939448,
-    "source_id": "36a46a91-9dd7-4444-aeaa-6688031b0faa",
-    "verified_at": 1782247870.9145222
+    "mtime": 1782408075.406787,
+    "source_id": "f88d6274-1c4a-47d2-9aaa-370a990e4424",
+    "verified_at": 1782408133.2499342
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -71,5 +71,25 @@
     "mtime": 1780788282.9288797,
     "source_id": "5b4ae0f9-e876-4913-a7cc-82dcc02d3b2c",
     "verified_at": 1782247883.452485
+  },
+  "wiki/synthesis/eagle-eye-premium-plan-2026-06-23.md": {
+    "mtime": 1782402617.920231,
+    "source_id": "0510c1c2-fb6a-4d35-b23d-2f888b0b09e5",
+    "verified_at": 1782402697.910302
+  },
+  "wiki/synthesis/next-session-handoff-2026-06-24.md": {
+    "mtime": 1782402638.9567585,
+    "source_id": "d3011a38-31ad-4085-b5dc-1dd0ba6e477b",
+    "verified_at": 1782402704.9574468
+  },
+  "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
+    "mtime": 1782402617.9180048,
+    "source_id": "931b67a1-e67a-421d-9390-a1e4155f1102",
+    "verified_at": 1782402711.549174
+  },
+  "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
+    "mtime": 1782405889.2891493,
+    "source_id": "6d05c4a0-5ba5-4a87-9cce-1f0aa2759c22",
+    "verified_at": 1782408139.353857
   }
 }
