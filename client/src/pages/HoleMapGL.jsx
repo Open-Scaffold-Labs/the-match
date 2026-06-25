@@ -265,6 +265,24 @@ export default function HoleMapGL({
       cancelAnimationFrame(puckRafRef.current)
       readyRef.current = false
       if (mapRef.current) { try { mapRef.current.remove() } catch { /* gone */ } mapRef.current = null }
+      // map.remove() destroys every DOM marker too, so their refs are now
+      // dangling. Null them ALL — otherwise after a course switch (this effect
+      // re-runs on `geocoded` change) drawHole/redrawAim/syncPuck see a
+      // non-null ref and try to MOVE the old (destroyed) marker instead of
+      // creating a fresh one on the new map → tee/green/aim/puck/label markers
+      // silently never reappear until an app restart. (2026-06-24 — Matt:
+      // switched courses, markers vanished.)
+      teeMarkerRef.current = null
+      greenMarkerRef.current = null
+      aimMarkerRef.current = null
+      teeAimLabelRef.current = null
+      aimGreenLabelRef.current = null
+      landingLabelRef.current = null
+      puckRef.current = null
+      puckPosRef.current = null
+      aimRef.current = null
+      greenRef.current = null
+      lastHoleRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [geocoded])
