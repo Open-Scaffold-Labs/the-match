@@ -8,6 +8,31 @@ updated: 2026-06-24
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-24] refactor | Eagle Eye Phase 2.1/2.2 SHIPPED — MapLibre is the sole renderer; Leaflet removed; offline tiles (beta)
+
+Continuation of the same long Cowork session (supersedes the "MapLibre blocked" note in the entry below — that was a verification-environment artifact, not a real blocker). All shipped to `main` (beta), each `build`+`lint` clean, individually committed. Matt verified the key behaviours on his iPhone.
+
+**Project framing corrected (important for every future session):** The Match is a **native iOS app for the Apple App Store** (WKWebView shell over the web app), NOT "just a PWA". CLAUDE.md (top callout + Stack + Design) and `wiki/overview.md` updated. Consequence baked in: WebGL2 is guaranteed (iOS 15+), so **never write browser-framed fallbacks** ("use a newer browser"); every decision is an App-Store-readiness decision.
+
+**MapLibre GL is now the ONLY hole-map renderer (Leaflet fully removed):**
+- `b1d8535` first shipped MapLibre behind a flag with a Leaflet auto-fallback (3 nets: error boundary, init-error, load-timeout). It rendered on Matt's phone (cinematic flyTo, NAIP, branded overlays).
+- Discovered the renderer was **inconsistent** (cold load → Leaflet fallback, warm → MapLibre) and the fallback was the culprit. Matt's call: kill Leaflet entirely. Confirmed the legal issue was always **ESRI imagery, not Leaflet** (Leaflet is BSD; we'd already swapped to NAIP), so the fallback carried no legal benefit — only the inconsistency + two codepaths.
+- `f524a1a` removed ~800 lines: the Leaflet `HoleMap`, `HoleMapSwitch`, the error boundary, the leaflet/leaflet-rotate CDN preload+inject, all `.leaflet-*` CSS, the `ENABLE_MAPLIBRE`/`ENABLE_TAP_MEASURE` flags, and the orphaned `projectPoint`/`getDefaultAim`/`pointAlongGeometryAtYards` helpers. Verified in-browser: `window.L` undefined, 0 leaflet scripts, MapLibre sole renderer. **The tee/green/course-layout intelligence is untouched — it lives in EagleEye.jsx + lib/geo.js + the server, renderer-agnostic.** Parity hardened first: real OSM green polygons (`greenPolys`) passed through + rendered, hole-length-adaptive zoom, red pin-flag marker.
+- `7bba6da` graceful retry card on genuine load failure (replaces the now-gone fallback).
+
+**Eagle Eye `HoleMapGL` (new MapLibre component) — full feature surface:** NAIP raster base + branded green/gold vector overlays (tee dot, green polygon, dashed tee→aim→green line), course-up bearing, cinematic `flyTo` (pitch ~62°, reduced-motion aware), smooth rAF-lerped player puck + true-ground accuracy halo, **draggable aim point** with split-proportional yardage pills, **per-club landing-zone ring**, tap-to-measure. `66a0289` ported aim/landing; `81d220d`/`787c9b3` design-audit fixes (label declutter, 44px aim hit-area, zoom moved off the instrument card, attribution de-collided).
+
+**Offline tile caching (bad-coverage resilience) — SHIPPED, and the path to it is instructive:**
+- Tried a **service-worker** tile cache first (`2765868`): verified in-browser it does NOT work — MapLibre fetches raster tiles from its **worker thread**, which the SW doesn't intercept (only a manual main-thread fetch cached). Reverted the SW changes.
+- The correct mechanism is **MapLibre `addProtocol`** (`naipc://`), which routes EVERY tile load (worker included) through a main-thread handler doing cache-first Cache-API storage. First attempt looked like it "broke raster" and I reverted (`7564e3c`) — but **research corrected that**: per [maplibre-gl-js discussion #4480](https://github.com/maplibre/maplibre-gl-js/discussions/4480) the raster contract is `return { data: ArrayBuffer }` of the encoded JPEG file bytes (which mine did); the failure was actually **NAIP rate-limiting my test IP** (the plain-https build timed out in the same window). Re-shipped `addProtocol` (`479dd40`); Matt confirmed imagery renders on-device → offline tile caching is live (FIFO-capped at 2000 tiles, cache `naip-tiles-v1`). Also added `importMaplibre()` chunk-load auto-retry (self-heals transient blips).
+
+**Lifecycle + correctness fixes:**
+- `313387d` **markers vanished after a course switch** (Matt-reported, then fixed): switching courses re-runs the init effect → `map.remove()` destroys DOM markers, but the cleanup only nulled `mapRef`, leaving `teeMarkerRef`/`greenMarkerRef`/`aimMarkerRef`/`puckRef` + label refs dangling → drawHole called `setLngLat` on destroyed markers (no-op) instead of re-creating. Fix: null ALL marker/position refs on teardown (the Leaflet path did this; the GL path didn't). Verified by Matt (switch courses, markers persist).
+- `0ad8eb7` disabled the app pull-to-refresh on Eagle Eye (full-screen map never scrolls → every downward pan was reloading the page) via the existing `data-no-pull-refresh` hook.
+- `b3e832c` F/C/B only from a TRUSTED GPS fix (was measuring front/back from a misplaced OSM tee → "502/534 on a 360-yd hole").
+
+**Process notes for the next session:** (1) My Chrome-MCP test tab became unreliable late-session — lagging/stale screenshots, persisting console from old bundles, and NAIP throttling my IP after ~40 reloads. **DOM checks (canvas/leaflet/cache counts) are ground truth; screenshots are not.** (2) Two credibility misses this session: called the Leaflet *fallback* "striking MapLibre" off a screenshot, and prematurely blamed `addProtocol`. Both caught by Matt; both fixed by verifying via DOM/research instead of vibes. Audit-before-claim, hard. (3) Matt's standing bar: *don't push off what can be built better now; functionality must be flawless + feel expensive; verify, don't claim.*
+
 ## [2026-06-24] refactor | Eagle Eye Phase 1 (correctness/cost-safety) + Phase 2 hero polish (beta)
 
 Autonomous session, Matt green-lit Phases 1+2 of the bulletproof build plan ("functionality, usability, visual flow are paramount; don't push off what can be done better now"). Six slices shipped to `main` (beta), each `build`+`lint` clean and committed individually. The map renderer swap (2.1/2.2) is **not** shipped — see the blocker below.
