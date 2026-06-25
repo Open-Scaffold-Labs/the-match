@@ -22,6 +22,8 @@ Greenlit by Matt. The category's biggest gap closed: a **transparent, adjustable
 
 **Bug caught in-browser before shipping (the value of verifying):** the breakdown didn't reconcile — rows summed to −2 but the total read −7. The hidden term was altitude-above-sea-level (air density), in the total but with no row. Fixed by surfacing a read-only **Altitude** row when non-zero, so rows ALWAYS sum to the chip total — the whole point of a transparent breakdown. Confirmed `reconciles: true` in the browser; dial drag flips headwind→tailwind and updates the total live.
 
+**Follow-up fix (same session, `021ac18`):** Matt reported the chip wasn't visible on his phone. Root cause: the chip was gated on `gpsToGreen` (trusted fix + matched green), but the hero distance shows the tee/remaining fallback when GPS isn't pinpoint — so a distance showed with no chip. Fixed: base plays-like on `displayYards` (whatever the hero shows); wind/elevation factors read 0 until GPS tightens, temp/altitude always apply. Verified in-browser that the chip now renders on the FROM-TEE case and opens the reconciling sheet. (The chip itself was never visually verified in the real flow first time round — lesson: verify the trigger, not just the surface it opens.) Note for Matt: iOS PWA may serve a cached bundle — force-close + reopen to get the new build.
+
 **Still on-course only:** `K_ELEV` calibration against real holes (A4), and the final iPhone/WKWebView touch-drag feel. **Follow-ups:** verify + wire the open-meteo worldwide DEM (W2). Full spec + risk register: [[synthesis/playslike-3.1-build-spec-2026-06-25]].
 
 ## [2026-06-24] refactor | Eagle Eye Phase 2.1/2.2 SHIPPED — MapLibre is the sole renderer; Leaflet removed; offline tiles (beta)
