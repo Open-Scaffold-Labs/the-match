@@ -1437,6 +1437,18 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole, greenPositions, gpsLat4, gpsLon4])
 
+  // Seed weather from the course's own location as soon as the geometry loads,
+  // so plays-like (and its chip) appear without waiting for a GPS fix — a fix
+  // can be slow or absent when the app is opened off-course or indoors, which
+  // is exactly why the chip wasn't showing. A real GPS fix refines it later via
+  // the throttled fetch in the watch handler. (3.1 visibility fix 2026-06-25)
+  useEffect(() => {
+    if (weather) return
+    const c = greenPositions[currentHole] || holePositions[currentHole]
+    if (c && c.lat != null && c.lon != null) fetchWeather({ lat: c.lat, lon: c.lon })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [greenPositions, holePositions, currentHole, weather])
+
   // Plays-like sheet (Phase 3.1) — the transparent, adjustable breakdown.
   // `plOverrides` holds per-factor manual values; a present key = "manual"
   // (auto otherwise). Overrides RESET on hole change so a stale manual wind
