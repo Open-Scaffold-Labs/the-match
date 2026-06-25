@@ -21,6 +21,7 @@ app.get('/health', (req, res) => {
 app.use('/api', async (req, res, next) => {
   if (req.path.startsWith('/auth')) return next()
   if (req.path.startsWith('/eagle-eye/osm')) return next() // OSM proxy — no DB needed
+  if (req.path.startsWith('/eagle-eye/elevation')) return next() // DEM proxy — degrades to live USGS without DB
   try {
     await db.init()
     next()

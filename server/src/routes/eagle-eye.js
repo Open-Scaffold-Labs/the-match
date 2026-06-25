@@ -226,4 +226,87 @@ router.get('/osm', async (req, res) => {
   }
 })
 
+// ── Elevation (DEM) for the plays-like elevation term (Phase 3.1) ──────────
+// Resolves terrain elevation (feet) for the target (green/aim) and the player,
+// returns the uphill/downhill delta the plays-like model needs. Cached exactly
+// like /osm:
+//   L1 — in-memory Map (instant within a warm Vercel instance)
+//   L2 — Supabase tm_elevation_cache (migration 029; elevation is STATIC so no
+//        TTL — a coordinate cell is fetched from the public DEM at most once).
+// Provider: USGS 3DEP EPQS (US, ~1 m, public domain, keyless). Non-US / no-data
+// → null elevation; the client simply drops the elevation factor (wind + temp
+// still compute). The plays-like DISTANCE must never block on or break from
+// this — every failure path returns nulls, never an error the UI can't absorb.
+const elevCache = new Map()                 // "lat5,lon5" → ft (number)
+const EPQS_URL = 'https://epqs.nationalmap.gov/v1/json'
+const EPQS_TIMEOUT_MS = 6000
+// Absolute sanity range in feet — Dead Sea shore ≈ -1410 ft, highest land
+// ≈ 29032 ft. Anything outside is a no-data sentinel (EPQS returns a large
+// negative for off-grid/ocean) → treated as unknown, never a fabricated number.
+const ELEV_MIN_FT = -1500
+const ELEV_MAX_FT = 30000
+const round5 = (n) => Math.round(n * 1e5) / 1e5
+
+async function fetchUsgsElevationFt(lat, lon) {
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(), EPQS_TIMEOUT_MS)
+  try {
+    const url = `${EPQS_URL}?x=${lon}&y=${lat}&units=Feet&wkid=4326&includeDate=false`
+    const r = await fetch(url, { signal: ac.signal, headers: { Accept: 'application/json' } })
+    if (!r.ok) return null
+    const j = await r.json()
+    const ft = Number(j?.value)
+    if (!Number.isFinite(ft) || ft < ELEV_MIN_FT || ft > ELEV_MAX_FT) return null
+    return ft
+  } catch { return null } finally { clearTimeout(timer) }
+}
+
+// Provider abstraction — USGS today; open-meteo DEM is the intended worldwide
+// fallback but its contract is UNVERIFIED (timed out 2026-06-25), so it's not
+// wired here yet (non-US gracefully returns null until then).
+async function resolveElevationFt(lat, lon) {
+  if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) return null
+  const la = round5(lat), lo = round5(lon)
+  const key = `${la},${lo}`
+  if (elevCache.has(key)) return elevCache.get(key)            // L1
+  try {                                                         // L2 (durable)
+    const row = await db.one('SELECT elevation_ft FROM tm_elevation_cache WHERE lat_round = $1 AND lon_round = $2', [la, lo])
+    if (row) { const ft = Number(row.elevation_ft); elevCache.set(key, ft); return ft }
+  } catch (e) { console.error('[eagle-eye/elevation] L2 read failed:', e.message) }
+  const ft = await fetchUsgsElevationFt(la, lo)                 // L3 (live DEM)
+  if (ft == null) return null                                  // no-data → don't cache; client drops the term
+  elevCache.set(key, ft)
+  db.query(                                                     // persist (fire-and-forget)
+    `INSERT INTO tm_elevation_cache (lat_round, lon_round, elevation_ft, source, fetched_at)
+       VALUES ($1, $2, $3, 'usgs', now())
+     ON CONFLICT (lat_round, lon_round) DO UPDATE SET elevation_ft = EXCLUDED.elevation_ft, fetched_at = now()`,
+    [la, lo, ft]
+  ).catch(e => console.error('[eagle-eye/elevation] L2 write failed:', e.message))
+  return ft
+}
+
+// GET /api/eagle-eye/elevation?glat=&glon=[&plat=&plon=]
+//   glat/glon — target (green/aim), required · plat/plon — player, optional
+// → { greenFt, playerFt, deltaFt, source }; deltaFt = greenFt − playerFt
+//   (positive = target uphill from the player = plays longer). Any unknown → null.
+router.get('/elevation', async (req, res) => {
+  try {
+    const num = (v) => (v == null || v === '' ? null : Number(v))
+    const glat = num(req.query.glat), glon = num(req.query.glon)
+    const plat = num(req.query.plat), plon = num(req.query.plon)
+    if (glat == null || glon == null || !Number.isFinite(glat) || !Number.isFinite(glon)) {
+      return res.status(400).json({ error: 'glat,glon required' })
+    }
+    const [greenFt, playerFt] = await Promise.all([
+      resolveElevationFt(glat, glon),
+      (plat != null && plon != null) ? resolveElevationFt(plat, plon) : Promise.resolve(null),
+    ])
+    const deltaFt = (greenFt != null && playerFt != null) ? Math.round((greenFt - playerFt) * 10) / 10 : null
+    res.json({ greenFt, playerFt, deltaFt, source: 'usgs' })
+  } catch (err) {
+    console.error('[eagle-eye/elevation]', err.message)
+    res.json({ greenFt: null, playerFt: null, deltaFt: null, source: null }) // never 500 an optional factor
+  }
+})
+
 module.exports = router
