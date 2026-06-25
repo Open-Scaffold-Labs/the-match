@@ -1550,8 +1550,13 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     tempF:       plOverrides.tempF       ?? plAuto.tempF,
     elevDeltaFt: plOverrides.elevDeltaFt ?? plAuto.elevDeltaFt,
   }
-  const playsLike = (gpsToGreen != null && weather)
-    ? computePlaysLike(gpsToGreen, {
+  // Base the plays-like on whatever distance the hero is showing — live GPS-to-
+  // green when trusted, else the tee/remaining yardage — so the chip is present
+  // whenever there's a distance + conditions, not only on a pinpoint GPS fix.
+  // Factors needing a trusted fix (wind, elevation) just read 0 until GPS
+  // tightens; temperature/altitude always apply. (3.1 visibility fix 2026-06-25)
+  const playsLike = (displayYards != null && displayYards > 0 && weather)
+    ? computePlaysLike(displayYards, {
         windSpeed: plEff.windSpeed,
         windFromDeg: plEff.windDir,
         shotBearing,
