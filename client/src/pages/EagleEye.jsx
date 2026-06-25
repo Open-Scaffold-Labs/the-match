@@ -169,8 +169,16 @@ function haversineYards(a, b) {
 // uses (minus visual slope, which needs the photo) to the live GPS distance,
 // so every glance shows an adjusted "plays like" number — not just the
 // camera. Headwind + cold + low altitude all play longer. (2026-06-06)
-function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0 } = {}) {
-  if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0 }
+// Yards of plays-like adjustment per foot of shot elevation change. Mirror of
+// PLAYSLIKE_K_ELEV in lib/geo.js — keep in sync. (3.1, 2026-06-25)
+const PLAYSLIKE_K_ELEV = 1 / 3
+// Mirrors computePlaysLike in lib/geo.js EXACTLY — edit BOTH. `altFt` = absolute
+// height ASL (air density); `elevDeltaFt` = target-minus-ball delta (uphill/
+// downhill), a separate effect (not double-counted). Returns rounded plays/adj
+// (unchanged for existing callers) + base + precise factor floats for the
+// transparency UI. (elevation term added 3.1 2026-06-25)
+function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0, elevDeltaFt = null } = {}) {
+  if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0, base: baseYds || 0, factors: { wind: 0, temp: 0, alt: 0, elevation: 0 } }
   const per100 = baseYds / 100
   let wind = 0
   if (windSpeed && windFromDeg != null && shotBearing != null) {
@@ -178,9 +186,27 @@ function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBear
     wind = windSpeed * Math.cos(theta) * per100   // +headwind plays longer, -tailwind shorter
   }
   const temp = tempF != null ? ((70 - tempF) / 10) * per100 : 0  // colder plays longer
-  const alt  = -baseYds * ((altFt || 0) / 1000) * 0.02            // altitude plays shorter
-  const adj  = wind + temp + alt
-  return { plays: Math.max(0, Math.round(baseYds + adj)), adj: Math.round(adj) }
+  const alt  = -baseYds * ((altFt || 0) / 1000) * 0.02            // ASL air density: altitude plays shorter
+  const elevation = elevDeltaFt != null ? elevDeltaFt * PLAYSLIKE_K_ELEV : 0 // uphill (+) plays longer
+  const adj  = wind + temp + alt + elevation
+  return {
+    plays: Math.max(0, Math.round(baseYds + adj)),
+    adj: Math.round(adj),
+    base: Math.round(baseYds),
+    factors: { wind, temp, alt, elevation },
+  }
+}
+
+// Round the precise plays-like factors to signed integers and derive a total
+// that reconciles EXACTLY with them (total = base + Σ rounded factors), so the
+// sheet's rows always add up to the number on the chip — no off-by-one between
+// "the breakdown" and "the answer". (Phase 3.1, 2026-06-25)
+function playsLikeView(pl) {
+  if (!pl) return null
+  const f = pl.factors || { wind: 0, temp: 0, alt: 0, elevation: 0 }
+  const wind = Math.round(f.wind), temp = Math.round(f.temp), alt = Math.round(f.alt), elevation = Math.round(f.elevation)
+  const adj = wind + temp + alt + elevation
+  return { base: pl.base, wind, temp, alt, elevation, adj, total: Math.max(0, pl.base + adj) }
 }
 
 // ─── Pulsating Eagle Eye Button ───────────────────────────────────────────────
@@ -781,6 +807,226 @@ function CoursePicker({ onSelect, onClose, gps }) {
   )
 }
 
+// ─── Plays-Like Sheet (Phase 3.1) ────────────────────────────────────────────
+// The transparent, adjustable breakdown. Tap the chip → this glass bottom sheet
+// shows base → Wind / Elevation / Temp → total, each factor labeled auto/manual
+// and individually overridable. Design-audit fixes baked in: total is the hero,
+// wind dial is SHOT-RELATIVE (headwind at top, matching the course-up map),
+// "manual" uses a text badge (never colour alone), ≥44px controls, tabular-nums,
+// grabber handle, reduced-motion aware.
+const PL_SHEET_STYLE = `
+  @keyframes ee-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes ee-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ee-pl-panel { animation: none !important; }
+    .ee-pl-scrim { animation: none !important; }
+  }
+`
+const normDeg = (d) => ((d % 360) + 360) % 360
+const PL_LONGER = '#F0A868'   // plays longer (warm) — matches the existing PLAYS row
+const PL_SHORTER = '#5ED47A'  // plays shorter (green)
+const yardStr = (n) => (n > 0 ? `+${n}` : `${n}`)
+const factorColor = (n) => (n > 0 ? PL_LONGER : n < 0 ? PL_SHORTER : 'rgba(255,255,255,0.5)')
+
+function PlStepper({ label, value, suffix, onDec, onInc, onReset, isManual }) {
+  const btn = {
+    width: 44, height: 44, borderRadius: 12, border: '1px solid rgba(255,255,255,0.16)',
+    background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 22, fontWeight: 700,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button aria-label={`decrease ${label}`} style={btn} onClick={onDec}>−</button>
+        <span style={{ minWidth: 70, textAlign: 'center', fontSize: 18, fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{value}{suffix}</span>
+        <button aria-label={`increase ${label}`} style={btn} onClick={onInc}>+</button>
+        {isManual && (
+          <button onClick={onReset} style={{ ...btn, width: 'auto', height: 32, padding: '0 10px', fontSize: 12, fontWeight: 700, color: 'rgba(245,215,138,0.9)' }}>RESET</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Shot-relative wind dial. "Toward target" is up (12 o'clock); the marker sits
+// at the wind's FROM-direction relative to the shot, so a marker at the top is
+// a pure headwind. Drag the marker to set wind direction. (≥44px hit handle.)
+function WindDial({ windDir, windSpeed, shotBearing, onChange }) {
+  const ref = useRef(null)
+  const size = 150, c = size / 2, r = 56
+  const relFrom = shotBearing != null && windDir != null ? normDeg(windDir - shotBearing) : 0
+  const rad = (relFrom * Math.PI) / 180
+  const mx = c + r * Math.sin(rad)
+  const my = c - r * Math.cos(rad)
+  const setFromPointer = (clientX, clientY) => {
+    const box = ref.current?.getBoundingClientRect()
+    if (!box) return
+    const dx = clientX - (box.left + c), dy = clientY - (box.top + c)
+    const angleFromTop = normDeg((Math.atan2(dx, -dy) * 180) / Math.PI)
+    onChange(normDeg((shotBearing ?? 0) + angleFromTop))
+  }
+  const onDown = (e) => {
+    e.preventDefault()
+    const move = (ev) => { const t = ev.touches?.[0] ?? ev; setFromPointer(t.clientX, t.clientY) }
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
+    const t = e.touches?.[0] ?? e; setFromPointer(t.clientX, t.clientY)
+  }
+  const label = relFrom <= 22.5 || relFrom >= 337.5 ? 'Headwind'
+    : relFrom >= 157.5 && relFrom <= 202.5 ? 'Tailwind'
+    : relFrom < 180 ? 'Wind off the right' : 'Wind off the left'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 10 }}>
+      <svg ref={ref} width={size} height={size} onPointerDown={onDown} style={{ touchAction: 'none', cursor: 'grab' }}>
+        <circle cx={c} cy={c} r={r} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" />
+        {/* toward-target marker (top) */}
+        <path d={`M ${c} ${c - r - 8} l -5 9 l 10 0 z`} fill="rgba(94,212,122,0.9)" />
+        <text x={c} y={c - r - 12} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgba(94,212,122,0.9)" letterSpacing="0.5">TARGET</text>
+        <line x1={c} y1={c} x2={mx} y2={my} stroke={PL_LONGER} strokeWidth="2.5" strokeLinecap="round" />
+        {/* draggable handle — visual 18px, generous hit via the whole svg pointerdown */}
+        <circle cx={mx} cy={my} r="11" fill={PL_LONGER} stroke="#0A0A0A" strokeWidth="2" />
+        <text x={c} y={c + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#fff" style={{ fontVariantNumeric: 'tabular-nums' }}>{windSpeed}</text>
+        <text x={c} y={c + 18} textAnchor="middle" fontSize="8" fontWeight="600" fill="rgba(255,255,255,0.5)">MPH</text>
+      </svg>
+      <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{label}</span>
+    </div>
+  )
+}
+
+function PlRow({ name, sub, yds, isManual, expanded, onToggle, available = true, autoKnown = true, readOnly = false, children }) {
+  const showValue = isManual || autoKnown
+  const interactive = available && !readOnly
+  return (
+    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <button onClick={interactive ? onToggle : undefined} aria-expanded={readOnly ? undefined : expanded} style={{
+        width: '100%', minHeight: 52, padding: '12px 4px', display: 'flex', alignItems: 'center', gap: 10,
+        background: 'none', border: 'none', cursor: interactive ? 'pointer' : 'default', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
+      }}>
+        <span style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{name}</span>
+          {sub && <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{sub}</span>}
+        </span>
+        {isManual ? (
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: '#0A0A0A', background: 'rgba(245,215,138,0.95)', borderRadius: 4, padding: '2px 5px' }}>MANUAL</span>
+        ) : autoKnown && available ? (
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)' }}>AUTO</span>
+        ) : available && !autoKnown ? (
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(245,215,138,0.6)' }}>SET</span>
+        ) : null}
+        {!available ? (
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)' }}>—</span>
+        ) : showValue ? (
+          <span style={{ fontSize: 17, fontWeight: 800, color: factorColor(yds), fontVariantNumeric: 'tabular-nums', minWidth: 44, textAlign: 'right' }}>{yardStr(yds)}</span>
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.3)', minWidth: 44, textAlign: 'right' }}>—</span>
+        )}
+        {interactive && (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.18s' }}><polyline points="9 18 15 12 9 6"/></svg>
+        )}
+      </button>
+      {!readOnly && expanded && available && <div style={{ padding: '0 4px 14px' }}>{children}</div>}
+    </div>
+  )
+}
+
+function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, shotBearing, elevAvailable }) {
+  const [activeRow, setActiveRow] = useState(null)
+  if (!open || !view) return null
+  const set = (k, v) => setOverrides(o => ({ ...o, [k]: v }))
+  const clear = (...keys) => setOverrides(o => { const n = { ...o }; keys.forEach(k => delete n[k]); return n })
+  const anyManual = Object.keys(overrides).length > 0
+  const windManual = overrides.windSpeed != null || overrides.windDir != null
+  const toggle = (row) => setActiveRow(r => (r === row ? null : row))
+  const ftToYd = (ft) => Math.round(ft / 3) // display hint only
+
+  return createPortal(
+    <>
+      <style>{PL_SHEET_STYLE}</style>
+      <div className="ee-pl-scrim" onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 4000, animation: 'ee-scrim-in 0.2s ease-out',
+      }} />
+      <div className="ee-pl-panel" role="dialog" aria-label="Plays-like breakdown" style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 4001, maxWidth: 480, margin: '0 auto',
+        background: 'rgba(10,14,12,0.92)', backdropFilter: 'blur(28px) saturate(160%)', WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+        borderTopLeftRadius: 22, borderTopRightRadius: 22, border: '1px solid rgba(255,255,255,0.12)', borderBottom: 'none',
+        boxShadow: '0 -12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.16)',
+        padding: '8px 18px max(22px, env(safe-area-inset-bottom)) 18px', animation: 'ee-sheet-up 0.26s cubic-bezier(0.32,0.72,0,1)',
+      }}>
+        {/* grabber */}
+        <div onClick={onClose} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px', cursor: 'pointer' }}>
+          <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.22)' }} />
+        </div>
+
+        {/* hero total */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(245,215,138,0.8)' }}>PLAYS LIKE</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{view.total}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>yds</span>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', paddingBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>actual {view.base} yds</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: factorColor(view.adj), fontVariantNumeric: 'tabular-nums' }}>{yardStr(view.adj)} yds</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 8 }}>
+          <PlRow name="Wind" yds={view.wind} isManual={windManual} expanded={activeRow === 'wind'} onToggle={() => toggle('wind')} available={shotBearing != null}>
+            <WindDial windDir={eff.windDir} windSpeed={eff.windSpeed} shotBearing={shotBearing} onChange={(d) => set('windDir', d)} />
+            <PlStepper label="Wind speed" value={eff.windSpeed} suffix=" mph" isManual={windManual}
+              onDec={() => set('windSpeed', Math.max(0, (eff.windSpeed ?? 0) - 1))}
+              onInc={() => set('windSpeed', Math.min(60, (eff.windSpeed ?? 0) + 1))}
+              onReset={() => clear('windSpeed', 'windDir')} />
+          </PlRow>
+
+          <PlRow name="Elevation" yds={view.elevation} isManual={overrides.elevDeltaFt != null} expanded={activeRow === 'elev'} onToggle={() => toggle('elev')} autoKnown={elevAvailable}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
+              {(eff.elevDeltaFt ?? 0) >= 0 ? 'Uphill' : 'Downhill'} {Math.abs(Math.round(eff.elevDeltaFt ?? 0))} ft (~{Math.abs(ftToYd(eff.elevDeltaFt ?? 0))} yd)
+            </div>
+            <PlStepper label="Elevation change" value={Math.round(eff.elevDeltaFt ?? 0)} suffix=" ft" isManual={overrides.elevDeltaFt != null}
+              onDec={() => set('elevDeltaFt', (eff.elevDeltaFt ?? 0) - 3)}
+              onInc={() => set('elevDeltaFt', (eff.elevDeltaFt ?? 0) + 3)}
+              onReset={() => clear('elevDeltaFt')} />
+          </PlRow>
+
+          <PlRow name="Temperature" yds={view.temp} isManual={overrides.tempF != null} expanded={activeRow === 'temp'} onToggle={() => toggle('temp')}>
+            <PlStepper label="Temperature" value={Math.round(eff.tempF ?? 70)} suffix="°F" isManual={overrides.tempF != null}
+              onDec={() => set('tempF', Math.max(-20, Math.round(eff.tempF ?? 70) - 1))}
+              onInc={() => set('tempF', Math.min(130, Math.round(eff.tempF ?? 70) + 1))}
+              onReset={() => clear('tempF')} />
+          </PlRow>
+
+          {/* Altitude (air density) — auto, read-only. Shown only when it moves
+              the number, so the rows ALWAYS sum to the total. It's a fact of
+              where you're playing (thinner air at elevation), not a guess like
+              wind, so it isn't overridable. (Phase 3.1) */}
+          {view.alt !== 0 && (
+            <PlRow name="Altitude" sub="thinner air at elevation" yds={view.alt} readOnly autoKnown />
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          {anyManual && (
+            <button onClick={() => setOverrides({})} style={{
+              flex: 1, height: 46, borderRadius: 13, border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.05)',
+              color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}>Reset all to auto</button>
+          )}
+          <button onClick={onClose} style={{
+            flex: 1, height: 46, borderRadius: 13, border: '1px solid rgba(201,160,64,0.4)',
+            background: 'linear-gradient(180deg, rgba(201,160,64,0.28), rgba(201,160,64,0.16))',
+            color: '#F5D78A', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)',
+          }}>Done</button>
+        </div>
+      </div>
+    </>,
+    document.body
+  )
+}
+
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
 export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
   const [gps, setGps]               = useState(null)
@@ -1163,6 +1409,42 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     } catch {}
   }, [])
 
+  // Plays-like elevation (Phase 3.1) — uphill/downhill is auto-derived from a
+  // terrain model (USGS 3DEP) via /api/eagle-eye/elevation, keyed on the green
+  // (target) + the player's spot. Throttled to ~11 m player moves (toFixed(4))
+  // and hole changes; the server caches each coordinate so repeats are cheap.
+  // elevDelta = green − player FEET (null = unknown / non-US / fetch fail).
+  // This is an OPTIONAL factor — the distance and every other readout never
+  // block on or break from it; any failure simply leaves elevDelta null.
+  const [elevDelta, setElevDelta] = useState(null)
+  const gpsLat4 = gps ? gps.lat.toFixed(4) : null
+  const gpsLon4 = gps ? gps.lon.toFixed(4) : null
+  useEffect(() => {
+    const green = greenPositions[currentHole]
+    const acc = gps?.acc ?? null
+    const trusted = gps != null && acc != null && acc <= GPS_ACCURACY_GATE_M
+    if (!trusted || !green) { setElevDelta(null); return }   // reset stale elevation on hole/GPS change
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch(`/api/eagle-eye/elevation?glat=${green.lat}&glon=${green.lon}&plat=${gps.lat}&plon=${gps.lon}`)
+        if (!r.ok) return
+        const d = await r.json()
+        if (!cancelled) setElevDelta(typeof d.deltaFt === 'number' ? d.deltaFt : null)
+      } catch { /* optional factor — never break the screen */ }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentHole, greenPositions, gpsLat4, gpsLon4])
+
+  // Plays-like sheet (Phase 3.1) — the transparent, adjustable breakdown.
+  // `plOverrides` holds per-factor manual values; a present key = "manual"
+  // (auto otherwise). Overrides RESET on hole change so a stale manual wind
+  // from hole 3 can never silently corrupt hole 12. (build-spec risk U2)
+  const [plSheetOpen, setPlSheetOpen] = useState(false)
+  const [plOverrides, setPlOverrides] = useState({})
+  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false) }, [currentHole])
+
   const holeData = courseCtx
     ? courseCtx.tee.holes.find(h => h.hole === currentHole) ?? null
     : null
@@ -1258,15 +1540,28 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     ? Math.round(gps.alt * 3.281)
     : estimateAltFromPressure(weather?.surface_pressure)
   const shotBearing = (trustedGps && greenCoord) ? calcBearing({ lat: trustedGps.lat, lon: trustedGps.lon }, greenCoord) : null
+  // Auto-derived conditions (from weather + DEM) and the effective conditions
+  // after any manual overrides from the plays-like sheet. The chip + sheet both
+  // read `playsLike`, computed from the effective values. (Phase 3.1)
+  const plAuto = { windSpeed: wind?.speed ?? 0, windDir: wind?.dir ?? null, tempF: temp, elevDeltaFt: elevDelta }
+  const plEff = {
+    windSpeed:   plOverrides.windSpeed   ?? plAuto.windSpeed,
+    windDir:     plOverrides.windDir     ?? plAuto.windDir,
+    tempF:       plOverrides.tempF       ?? plAuto.tempF,
+    elevDeltaFt: plOverrides.elevDeltaFt ?? plAuto.elevDeltaFt,
+  }
   const playsLike = (gpsToGreen != null && weather)
     ? computePlaysLike(gpsToGreen, {
-        windSpeed: wind?.speed ?? 0,
-        windFromDeg: wind?.dir ?? null,
+        windSpeed: plEff.windSpeed,
+        windFromDeg: plEff.windDir,
         shotBearing,
-        tempF: temp,
+        tempF: plEff.tempF,
         altFt,
+        elevDeltaFt: plEff.elevDeltaFt,
       })
     : null
+  // Integer-reconciled view for the chip + sheet (rows always sum to total).
+  const plView = playsLikeView(playsLike)
 
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
@@ -1597,17 +1892,26 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
                   </span>
                 </div>
               )}
-              {/* Plays-like — wind/temp/altitude-adjusted live distance.
-                  Shown only when it actually differs from the raw GPS yardage.
-                  (2026-06-06) */}
-              {playsLike && playsLike.adj !== 0 && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 2 }}>
-                  <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(245,215,138,0.7)' }}>PLAYS</span>
-                  <span style={{ fontSize: 15, fontWeight: 900, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{playsLike.plays}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: playsLike.adj > 0 ? '#F0A868' : '#5ED47A' }}>
-                    {playsLike.adj > 0 ? `+${playsLike.adj}` : playsLike.adj}
-                  </span>
-                </div>
+              {/* Plays-like — now a legible, tappable chip (Phase 3.1). Coupled
+                  to the hero distance (not a 5th floating island); opens the
+                  transparent, adjustable breakdown sheet. Always shown on a
+                  trusted distance + conditions, including the +0 case (a tap
+                  target that vanishes is a bad tap target). */}
+              {plView && (
+                <button onClick={() => setPlSheetOpen(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, padding: '4px 9px',
+                  background: 'rgba(201,160,64,0.16)', border: '1px solid rgba(201,160,64,0.38)', borderRadius: 9,
+                  cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+                }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(245,215,138,0.8)' }}>PLAYS LIKE</span>
+                  <span style={{ fontSize: 17, fontWeight: 900, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{plView.total}</span>
+                  {plView.adj !== 0 && (
+                    <span style={{ fontSize: 10, fontWeight: 800, color: plView.adj > 0 ? '#F0A868' : '#5ED47A', fontVariantNumeric: 'tabular-nums' }}>
+                      {plView.adj > 0 ? `+${plView.adj}` : plView.adj}
+                    </span>
+                  )}
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(245,215,138,0.55)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
               )}
               {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
               <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-start' }}>
@@ -1662,6 +1966,16 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       )}
 
       {/* ── Modals ── */}
+      <PlaysLikeSheet
+        open={plSheetOpen}
+        onClose={() => setPlSheetOpen(false)}
+        view={plView}
+        eff={plEff}
+        overrides={plOverrides}
+        setOverrides={setPlOverrides}
+        shotBearing={shotBearing}
+        elevAvailable={elevDelta != null}
+      />
       {showCamera && (
         <CameraModal
           gps={gps}
