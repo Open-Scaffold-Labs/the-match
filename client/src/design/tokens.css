@@ -266,6 +266,14 @@
     100% { opacity: 0; transform: translateY(-4px) scale(1); }
   }
 
+  /* Sheet / full-screen panel entrance — a restrained slide-up + fade.
+     Distinct from tm-celebrate-pop (an achievement bounce) so panels enter
+     like a sheet, not a trophy. transform+opacity only. (2026-06-26) */
+  @keyframes tm-sheet-up {
+    0%   { opacity: 0; transform: translateY(12px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
   /* Legendary-tier achievement card animations. Slow shimmer drives
      the gold gradient bg horizontally; orbiting dashed ring around
      the badge sells "this is special". Combined with the standard

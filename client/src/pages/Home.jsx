@@ -2999,8 +2999,8 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
             <div style={{
               width: 38, height: 38, borderRadius: 10, flexShrink: 0,
               background: 'rgba(201,160,64,0.20)', border: '1px solid rgba(201,160,64,0.40)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-            }}>🎯</div>
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}><IconTarget size={20} color="#F5D78A" /></div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#F5D78A' }}>Practice Plan</div>
               <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
