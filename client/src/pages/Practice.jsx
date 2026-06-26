@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
 
 // Practice — the data → practice loop (Leapfrog 3.5).
@@ -73,9 +74,16 @@ export default function Practice({ onClose }) {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [load])
 
-  return (
+  // Portal to <body> with a high z-index — like every other full-screen overlay
+  // in the app (FriendProfile / PlayerCard / EditProfileModal). The tab content
+  // sits inside a pull-to-refresh container that has `transform` +
+  // `willChange: transform`, which makes it the containing block for any
+  // `position: fixed` descendant — so an INLINE fixed overlay gets trapped and
+  // clipped to nothing. The portal escapes that ancestor and covers the real
+  // viewport. (2026-06-26 — fixes "nothing opens when I tap Practice".)
+  return createPortal(
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 'var(--z-modal)',
+      position: 'fixed', inset: 0, zIndex: 9999,
       background: 'var(--tm-dark-0)', color: 'var(--tm-dark-text)',
       display: 'flex', flexDirection: 'column',
       animation: 'tm-sheet-up 320ms var(--tm-ease-out) both',
@@ -124,7 +132,8 @@ export default function Practice({ onClose }) {
         {!loading && !error && data && !data.ready && <BuildingState data={data} />}
         {!loading && !error && data && data.ready && <ReadyState data={data} />}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
