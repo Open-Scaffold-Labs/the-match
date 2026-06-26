@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
-import { effectiveBag, clubsForTarget } from '../lib/clubModel.js'
+import { realBag, clubsForTarget } from '../lib/clubModel.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -1583,13 +1583,15 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // Integer-reconciled view for the chip + sheet (rows always sum to total).
   const plView = playsLikeView(playsLike)
 
-  // Own-club distance arcs (Phase 3.3). Effective bag = real clubs + clubs
-  // seeded from the user's handicap (anchored to a real club when present),
-  // so the feature is useful from hole 1. When ON, declutter to the 1–2 clubs
-  // that bracket the displayed distance; highlight the one that reaches it.
-  const effBag = effectiveBag(myBag, user?.handicap)
+  // Own-club distance arcs (Phase 3.3). Uses ONLY the player's real entered bag
+  // distances — no handicap guessing (corrected 2026-06-25, Matt: handicap does
+  // not map to club distance; entered data is the accurate source). When ON,
+  // declutter to the 1–2 clubs that bracket the displayed distance; highlight
+  // the one that reaches it. Empty bag → prompt to set distances (handled at
+  // the toggle), never fabricate.
+  const playerBag = realBag(myBag)
   const bagArcsData = (bagArcsOn && displayYards != null)
-    ? clubsForTarget(effBag, displayYards).map((c, i) => ({ label: c.label, yards: c.yards, estimated: c.estimated, highlight: i === 0 }))
+    ? clubsForTarget(playerBag, displayYards).map((c, i) => ({ label: c.label, yards: c.yards, estimated: false, highlight: i === 0 }))
     : []
 
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
@@ -2088,7 +2090,11 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           Calm by default; mutually exclusive with single-club selection. */}
       {!showCamera && !showPicker && courseCtx && (
         <button
-          onClick={() => { setBagArcsOn(v => !v); setSelectedClub(null) }}
+          onClick={() => {
+            const turningOn = !bagArcsOn
+            setBagArcsOn(turningOn); setSelectedClub(null)
+            if (turningOn && playerBag.length === 0) setBagOpen(true) // no distances yet → prompt to set them, never guess
+          }}
           aria-pressed={bagArcsOn}
           style={{
             position: 'absolute', top: 'calc(50% + 70px)', right: 16, transform: 'translateY(-50%)',
