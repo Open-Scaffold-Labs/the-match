@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
+import { effectiveBag, clubsForTarget } from '../lib/clubModel.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -1058,6 +1059,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   const [myBag, setMyBag]           = useState([])
   const [bagOpen, setBagOpen]       = useState(false)
   const [selectedClub, setSelectedClub] = useState(null)
+  const [bagArcsOn, setBagArcsOn] = useState(false) // Phase 3.3 — show own-club zones
   useEffect(() => {
     let alive = true
     api('/api/clubs/bag').then(d => {
@@ -1069,6 +1071,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // starts fresh with the toggle in its idle BAG state, ready for a
   // new recommendation. (2026-05-01)
   useEffect(() => { setSelectedClub(null) }, [currentHole])
+  useEffect(() => { setBagArcsOn(false) }, [currentHole])
 
   // Persist the current hole per course so a reload resumes it. (2026-06-06)
   useEffect(() => {
@@ -1580,6 +1583,15 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // Integer-reconciled view for the chip + sheet (rows always sum to total).
   const plView = playsLikeView(playsLike)
 
+  // Own-club distance arcs (Phase 3.3). Effective bag = real clubs + clubs
+  // seeded from the user's handicap (anchored to a real club when present),
+  // so the feature is useful from hole 1. When ON, declutter to the 1–2 clubs
+  // that bracket the displayed distance; highlight the one that reaches it.
+  const effBag = effectiveBag(myBag, user?.handicap)
+  const bagArcsData = (bagArcsOn && displayYards != null)
+    ? clubsForTarget(effBag, displayYards).map((c, i) => ({ label: c.label, yards: c.yards, estimated: c.estimated, highlight: i === 0 }))
+    : []
+
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
   const greenPolygon = greenPolys[currentHole]
@@ -1843,6 +1855,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
             holeGeometries={holeGeometries}
             clubYards={selectedClub ? Number(selectedClub.avg_yards) : null}
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
+            bagArcs={bagArcsData}
           />
 
           {/* HUD overlay — the wrapper spans the full map (`inset: 0`) with
@@ -2065,17 +2078,41 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           bag={myBag}
           selected={selectedClub}
           targetYards={displayYards}
-          onSelect={setSelectedClub}
+          onSelect={(c) => { setSelectedClub(c); setBagArcsOn(false) }}
           onClear={() => setSelectedClub(null)}
           onOpenSheet={() => setBagOpen(true)}
         />
+      )}
+
+      {/* My-bag arcs toggle (Phase 3.3) — summon the own-club distance zones.
+          Calm by default; mutually exclusive with single-club selection. */}
+      {!showCamera && !showPicker && courseCtx && (
+        <button
+          onClick={() => { setBagArcsOn(v => !v); setSelectedClub(null) }}
+          aria-pressed={bagArcsOn}
+          style={{
+            position: 'absolute', top: 'calc(50% + 70px)', right: 16, transform: 'translateY(-50%)',
+            background: bagArcsOn ? 'rgba(201,160,64,0.30)' : 'rgba(7,12,9,0.62)',
+            backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+            border: bagArcsOn ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(245,215,138,0.40)',
+            borderRadius: 999, padding: '8px 12px', color: '#F5D78A',
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', cursor: 'pointer',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
+            display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', zIndex: 1000,
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.1" strokeLinecap="round">
+            <path d="M3 18a9 9 0 0 1 18 0"/><path d="M6.5 18a5.5 5.5 0 0 1 11 0"/>
+          </svg>
+          ARCS
+        </button>
       )}
 
       {bagOpen && (
         <BagSheet
           clubs={myBag}
           selectedSlot={selectedClub?.slot}
-          onPick={(c) => { setSelectedClub(c); setBagOpen(false) }}
+          onPick={(c) => { setSelectedClub(c); setBagArcsOn(false); setBagOpen(false) }}
           onClear={() => { setSelectedClub(null); setBagOpen(false) }}
           onClose={() => setBagOpen(false)}
         />
