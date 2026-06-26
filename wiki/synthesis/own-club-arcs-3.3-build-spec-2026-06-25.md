@@ -13,6 +13,8 @@ tags: [the-match, eagle-eye, club-arcs, dispersion, build-spec, phase-3]
 >
 > **Competitor-naming rule:** this committed doc refers to rival products **generically only** ("a leading shot-tracking platform," "the consensus-cleanest GPS app," "a mature sensor-based app"). Standards (USGA, Rule 4.3, Trackman as a data source) may be named.
 
+> **⚠ CORRECTION (2026-06-25, Matt) — supersedes the handicap-seeding thesis below.** Handicap does NOT map to how far a player hits each club; seeding distances from it (even anchored to one club) is a guess, and guessing breaks the accuracy promise that is this app's whole point. **We use ONLY the player's own entered bag distances** (`tm_user_clubs.avg_yards`) — far more accurate than any model. When the bag has no distances, the UI **prompts the player to set them** (opens My Bag); it never fabricates. `clubModel.js` was reduced to `realBag()` (entered data only) — the gapping-ratio / handicap-anchor seeding was removed. The "useful on hole 1 via seeding" wedge below is RETRACTED; the real wedge is making real-distance entry effortless + the visualization beautiful + honest. **Foundational follow-up Matt flagged: add a proper gender/tee-gender profile field and strengthen the club-distance entry flow — a top-tier app needs real player attributes, not workarounds.** Sections 1–2 below are kept for history but read them through this correction.
+
 ---
 
 ## 1. What we're building and why it wins
