@@ -51,6 +51,7 @@ const USER_PUBLIC_COLUMNS = [
   'handicap',
   'home_course',
   'bio',
+  'gender',          // male|female|null — drives tee handling + defaults (migration 030)
 ].join(', ')
 
 // Same as PUBLIC, plus pin_hash for the bcrypt compare in /login.
