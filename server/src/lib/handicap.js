@@ -39,26 +39,24 @@ function isRoundCompleted(r) {
   return scores.every(s => s != null && Number(s) > 0)
 }
 
-// During testing (and for free-tier users when paid-tier ships), the
-// handicap formula uses the simpler par-based differential — no course
-// rating / slope adjustments. Flip this flag to true once paid-tier
-// is wired up; rated rounds will then use the USGA-method formula and
-// unrated rounds keep falling back to par-based. (2026-05-01)
-const USE_USGA_DIFFERENTIAL = false
-
-// Per-round differential. With USGA mode on AND the round has both
-// course_rating and slope_rating, returns (score-rating)*113/slope.
-// Otherwise (free-tier or unrated), returns score-course_par.
-// Null when the round lacks the data needed to evaluate either path.
+// Per-round differential.
+//   • USGA-method when the round carries a valid course_rating + slope_rating:
+//       (score − rating) × 113 / slope
+//   • Par-based fallback (free tier / unrated course): score − course_par
+// Null when the round lacks the data for either path.
+//
+// USGA mode was previously gated OFF behind a flag while the captured ratings
+// weren't gender-correct (a woman on a shared tee captured the men's rating).
+// Now that tee selection is gender-aware (lib/tees.js dedupeTees), rated rounds
+// use the proper WHS differential and gender flows through correctly. Unrated
+// rounds are unaffected. (Enabled 2026-06-25.)
 function differentialFor(r) {
   const total = Number(r.total)
   if (!Number.isFinite(total)) return null
-  if (USE_USGA_DIFFERENTIAL) {
-    const rating = Number(r.course_rating)
-    const slope  = Number(r.slope_rating)
-    if (Number.isFinite(rating) && Number.isFinite(slope) && slope > 0) {
-      return ((total - rating) * 113) / slope
-    }
+  const rating = Number(r.course_rating)
+  const slope  = Number(r.slope_rating)
+  if (Number.isFinite(rating) && Number.isFinite(slope) && slope > 0) {
+    return ((total - rating) * 113) / slope
   }
   const par = Number(r.course_par)
   if (Number.isFinite(par)) return total - par
