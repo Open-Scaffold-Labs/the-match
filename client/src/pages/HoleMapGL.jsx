@@ -15,6 +15,7 @@
 import { useRef, useEffect, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { haversineYards, calcBearing } from '../lib/geo.js'
+import { dispersionEllipse } from '../lib/clubModel.js'
 
 // NAIP tiles load through a custom 'naipc://' protocol so EVERY tile request
 // (including the ones MapLibre issues from its worker thread, which a service
@@ -146,6 +147,7 @@ export default function HoleMapGL({
   courseCtx, currentHole, gps, geocoded,
   holePositions = {}, greenPositions = {}, holeGeometries = {}, greenPolys = {},
   clubYards = null, clubLabel = null,
+  bagArcs = [],
   onInitError,
 }) {
   const containerRef = useRef(null)
@@ -170,8 +172,12 @@ export default function HoleMapGL({
   const gpsRef = useRef(gps)
   const greenRef = useRef(null)
   const clubRef = useRef({ yards: clubYards, label: clubLabel })
+  const bagArcsRef = useRef(bagArcs)   // [{label, yards, estimated, highlight}] — Phase 3.3
+  const bagLabelsRef = useRef([])      // dynamic list of club-zone label markers
+  const lastAimRef = useRef(null)      // aim {lat,lon} from the last redrawAim, shared with drawBagArcs
   useEffect(() => { gpsRef.current = gps }, [gps])
   useEffect(() => { clubRef.current = { yards: clubYards, label: clubLabel } }, [clubYards, clubLabel])
+  useEffect(() => { bagArcsRef.current = bagArcs; redrawRef.current() }, [bagArcs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Init the map once we know where the course is ──
   useEffect(() => {
@@ -239,6 +245,25 @@ export default function HoleMapGL({
         map.addSource('landing', { type: 'geojson', data: fc([]) })
         map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': '#F5E070', 'fill-opacity': 0.30 } })
         map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': '#F5E070', 'line-width': 2.5, 'line-opacity': 0.95 } })
+        // Bag arcs (Phase 3.3): own-club distance ZONES. Data-driven styling —
+        // the bracket club (highlight) reads solid gold; others muted; estimated
+        // (seeded) clubs get a dashed outline. Low fill opacity so the hole
+        // reads through. Inserted BELOW the labels/markers (DOM) by z-order.
+        map.addSource('bagArcs', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'bagArcs-fill', type: 'fill', source: 'bagArcs', paint: {
+          'fill-color': ['case', ['get', 'highlight'], '#F5E070', '#C9A040'],
+          'fill-opacity': ['case', ['get', 'highlight'], 0.24, 0.10],
+        } })
+        map.addLayer({ id: 'bagArcs-line', type: 'line', source: 'bagArcs', filter: ['!', ['get', 'estimated']], paint: {
+          'line-color': ['case', ['get', 'highlight'], '#F5E070', '#C9A040'],
+          'line-width': ['case', ['get', 'highlight'], 2.5, 1.5],
+          'line-opacity': 0.9,
+        } })
+        map.addLayer({ id: 'bagArcs-line-est', type: 'line', source: 'bagArcs', filter: ['get', 'estimated'], paint: {
+          'line-color': ['case', ['get', 'highlight'], '#F5E070', '#C9A040'],
+          'line-width': ['case', ['get', 'highlight'], 2.2, 1.4],
+          'line-opacity': 0.8, 'line-dasharray': [2, 2],
+        } })
 
         // tap-to-measure: carry from player + distance to green at the tapped point
         map.on('click', (e) => {
@@ -278,6 +303,8 @@ export default function HoleMapGL({
       teeAimLabelRef.current = null
       aimGreenLabelRef.current = null
       landingLabelRef.current = null
+      bagLabelsRef.current = []   // markers destroyed with the map; drop the dangling refs
+      lastAimRef.current = null
       puckRef.current = null
       puckPosRef.current = null
       aimRef.current = null
@@ -381,6 +408,7 @@ export default function HoleMapGL({
     const par = meta?.par ?? 4
     const aim = aimRef.current || getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
       || { lat: (tee.lat + green.lat) / 2, lon: (tee.lon + green.lon) / 2 }
+    lastAimRef.current = aim   // shared with drawBagArcs (Phase 3.3)
 
     map.getSource('fairway')?.setData(fc([lineF([[tee.lon, tee.lat], [aim.lon, aim.lat], [green.lon, green.lat]])]))
 
@@ -400,25 +428,57 @@ export default function HoleMapGL({
     setLabel(teeAimLabelRef, `${teeAim}y`, false, mid(tee, aim), 'right', [-10, 0])
     setLabel(aimGreenLabelRef, `${aimGreen} to grn`, true, mid(aim, green), 'left', [10, 0])
 
-    // landing-zone ring: club distance from the player along player→aim
+    // landing-zone ring: single selected club from the player along player→aim.
+    // Suppressed while in bag-arcs mode (Phase 3.3) so the two never double up.
     const club = clubRef.current
     const g = gpsRef.current
     const onCourse = g && g.lat != null && geocoded && haversineYards(g, geocoded) < 8800
     const player = onCourse ? { lat: g.lat, lon: g.lon } : tee
     const yards = Number(club?.yards)
-    if (Number.isFinite(yards) && yards > 0) {
+    if (!bagArcsRef.current?.length && Number.isFinite(yards) && yards > 0) {
       const brng = calcBearing(player, aim)
       if (Number.isFinite(brng)) {
         const landing = projectByYards(player, brng, yards)
         map.getSource('landing')?.setData(fc([polyF(ringCoords(landing, 11))]))
         setLabel(landingLabelRef, club.label ? `${club.label} · ${yards}y` : `${yards}y`, false, [landing.lon, landing.lat], 'left', [16, 0])
-        return
       }
+    } else {
+      map.getSource('landing')?.setData(fc([]))
+      if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
     }
-    map.getSource('landing')?.setData(fc([]))
-    if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
+    drawBagArcs(player)
   }
   redrawRef.current = redrawAim
+
+  // ── Bag arcs (Phase 3.3): own-club distance ZONES along player→aim ──
+  // Each club is a dispersion-sized circle at its projected landing point.
+  // Honest "typical landing area," not a precise arc. Bracket club highlighted;
+  // estimated (seeded) clubs dashed. Labels are recreated each redraw (the set
+  // is small + decluttered upstream).
+  function drawBagArcs(player) {
+    const map = mapRef.current, gl = glRef.current
+    if (!map || !readyRef.current || !gl) return
+    for (const m of bagLabelsRef.current) { try { m.remove() } catch { /* gone */ } }
+    bagLabelsRef.current = []
+    const clubs = bagArcsRef.current
+    const aim = lastAimRef.current
+    if (!Array.isArray(clubs) || !clubs.length || !player || !aim) { map.getSource('bagArcs')?.setData(fc([])); return }
+    const brng = calcBearing(player, aim)
+    if (!Number.isFinite(brng)) { map.getSource('bagArcs')?.setData(fc([])); return }
+    const feats = []
+    for (const c of clubs) {
+      const y = Number(c?.yards)
+      if (!Number.isFinite(y) || y <= 0) continue
+      const landing = projectByYards(player, brng, y)
+      const r = dispersionEllipse(y).depthYds
+      feats.push({ type: 'Feature', properties: { highlight: !!c.highlight, estimated: !!c.estimated }, geometry: { type: 'Polygon', coordinates: [ringCoords(landing, r)] } })
+      const txt = `${c.label ? c.label + ' · ' : ''}${Math.round(y)}y${c.estimated ? ' est' : ''}`
+      const el = pillEl(txt, !!c.highlight)
+      if (c.estimated) el.style.opacity = '0.85'
+      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'left', offset: [14, 0] }).setLngLat([landing.lon, landing.lat]).addTo(map))
+    }
+    map.getSource('bagArcs')?.setData(fc(feats))
+  }
 
   // ── Smooth player puck + true-ground accuracy halo ──
   function syncPuck() {
