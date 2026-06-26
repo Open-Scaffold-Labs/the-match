@@ -8,6 +8,15 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Gender wired into handicapping — gender-correct tee ratings + USGA differential enabled (beta)
+
+Matt: "no point having genders if they aren't correctly wired." Recon found TWO gaps (both verified in code): (1) `dedupeTees` iterated men's tees first and dropped the women's-rated duplicate of a shared physical tee → a woman captured the **men's** course_rating/slope; (2) `handicap.js` forced the **par-based** differential (`USE_USGA_DIFFERENTIAL = false`), so ratings/slope — and therefore gender — never touched the index at all. Full spec + risk register: [[synthesis/gender-handicap-wiring-2026-06-25]].
+
+- **Gender-aware ratings (`0f11c60`):** `dedupeTees(teesObj, gender)` takes the player's-gender tee list as primary, so the captured CR/SR matches the player's gender. Threaded `user.gender` through the **CreateWizard** tee picker (the handicap-capture path → `tm_rounds`) and the EagleEye course picker. Default `'male'` = unchanged for null-gender users (no regression). 8 node assertions (female now gets women's 76.8 rating, not men's 71.5; suffix logic; null→male).
+- **USGA differential enabled (`0f11c60`):** removed the kill-switch; rated rounds (valid rating+slope) now use WHS `(score−rating)×113/slope`, unrated fall back to par-based. 7 node assertions (rated→USGA, unrated→par, women's rating → correct different differential, guards). **BEHAVIOR CHANGE flagged:** users with rated rounds recalc to the proper USGA method (reversible, gated on rating presence; unrated/free rounds unaffected).
+- **Verified:** node --check (handicap.js), client lint+build clean, 15 total node assertions pass. The math (`(score−rating)×113/slope`) matches the WHS formula.
+- **Deferred (flagged):** Course Handicap (slope-based) for *match strokes* — matches currently use the raw index + per-hole stroke index + allowance, not `Index×Slope/113+(CR−Par)`; implementing that is a bigger, separate change. Retro-fixing old rounds' captured ratings only matters for historical rated rounds.
+
 ## [2026-06-25] schema | Player-data foundation — gender field (migration 030) + profile/onboarding UI (beta)
 
 Greenlit by Matt after he (rightly) rejected guessing distances from handicap: a national-scale golf app needs real player attributes, not workarounds. Shipped the gender field end-to-end. Full spec + risk register: [[synthesis/player-data-foundation-2026-06-25]].

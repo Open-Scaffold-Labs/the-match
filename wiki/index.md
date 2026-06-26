@@ -34,6 +34,7 @@ Content catalog — every page listed here. The preflight's index-completeness c
 
 ## Synthesis
 
+- [[synthesis/gender-handicap-wiring-2026-06-25]] — **Gender → handicapping** — gender-correct tee CR/SR selection + USGA differential enabled so ratings/gender drive the index. SHIPPED to beta 2026-06-25 · created 2026-06-25
 - [[synthesis/player-data-foundation-2026-06-25]] — **Player-data foundation** — gender field (migration 030) + effortless distance entry: why it matters, slice sequence, risk register. Gender field SHIPPED to beta 2026-06-25 (verified `/me` carries it) · created 2026-06-25
 - [[synthesis/own-club-arcs-3.3-build-spec-2026-06-25]] — **Phase 3.3 build spec** — own-club distance arcs with handicap-seeded empty state: competitive research synthesis (UX + data/accuracy), slice sequence, risk register, checklist. SHIPPED to beta 2026-06-25 (on-map visual pending device verification) · created 2026-06-25
 - [[synthesis/playslike-3.1-build-spec-2026-06-25]] — **Phase 3.1 build spec** — transparent, adjustable plays-like + real USGS DEM elevation: slice sequence, full risk register, progress checklist. SHIPPED to beta 2026-06-25 · created 2026-06-25
