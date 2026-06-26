@@ -1,0 +1,12 @@
+-- 033_tm_rounds_hole_handicaps.sql
+-- Per-hole Stroke Index for solo rounds.
+--
+-- Outing rounds already carry per-hole Stroke Index via the linked tm_outings
+-- row (read through a COALESCE in the handicap query). Solo rounds, however,
+-- previously stored only pars (migration 027) — so the handicap engine's
+-- net-double-bogey Adjusted Gross Score fell back to a synthetic 1..18 Stroke
+-- Index for them. Capturing the real picked-tee Stroke Index makes a solo
+-- round handicap IDENTICALLY to any outing round.
+-- (2026-06-26 — Matt: "solo rounds need to function exactly the same as any
+-- other round".)
+ALTER TABLE tm_rounds ADD COLUMN IF NOT EXISTS hole_handicaps JSONB;

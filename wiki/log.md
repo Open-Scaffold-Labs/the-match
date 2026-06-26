@@ -1,12 +1,22 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-06-25
+updated: 2026-06-26
 ---
 
 # Activity Log
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
+
+## [2026-06-26] schema | Handicap: 9-hole corruption guard + solo rounds handicap like any round (migration 033, beta)
+
+Matt's two questions on the close-out's "data dependencies" exposed one real **bug** and one real **gap** — both fixed.
+
+**9-hole rounds were CORRUPTING the Index.** Matt asked *what happens to a handicap after a 9-hole round?* Tracing it: 9-hole rounds ARE creatable (ActiveRound slices to 9; CreateWizard `coursePar: holes===9 ? 36 : 72`) and passed `isRoundCompleted` (≥9 scores). `roundDifferential` then compared a ~9-hole gross (~40) against the 18-hole Course Rating (~70 → a hugely **negative** differential that **crashes** the Index toward a false plus-handicap) or 9-hole par (~36 → a too-low differential that **drags it down**). A single 9-hole round corrupted the Index downward. **Fix:** `roundDifferential` returns null for any sub-18 round (`scores.length` < 18, or `course_par` < 55 when scores absent). Proper WHS 9-hole *counting* (expected-9, needs 9-hole ratings) remains a follow-up — excluding is the safe do-no-harm.
+
+**Solo rounds now handicap IDENTICALLY to outing rounds.** Matt: *"solo rounds need to function exactly the same as any other round — i dont understand why they are currently different?"* They were degraded twice: the `/api/rounds` POST hardcoded `courseRating/slopeRating: null` (par-only differential, not USGA) AND never captured per-hole Stroke Index (AGS net-double-bogey fell back to a synthetic 1..18). The CoursePicker already returns `courseRating`/`slopeRating`/`holeHandicaps` — ActiveRound was dropping them. **Fix:** threaded all three `SetupSheet.handleStart` → `config` → POST; **migration 033** `tm_rounds.hole_handicaps` (applied + verified jsonb); `rounds.js` validates (1..18) + stores; handicap query `COALESCE(r.hole_handicaps, o.hole_handicaps)`. A solo round on a rated course now computes the same USGA Score Differential + real-SI net-double-bogey as an outing round. Impact: solo handicaps on rated courses shift from par-fallback to the proper USGA value (more accurate).
+
+Tests: `server/src/lib/__tests__/ninehole-solo-si.test.cjs` (6 assertions — 9-hole exclusion + SI consumption). Regression: AGS 18 / caps 10 / WHS-index 11 green. build + lint clean. Also refreshed the stale module-header comment in `handicap.js` (still said "× 0.96" / "5 completed rounds").
 
 ## [2026-06-25] refactor | Handicap: per-format WHS allowance + close-out of the audit (beta)
 

@@ -72,6 +72,7 @@ function SetupSheet({ onStart, onBack }) {
   function handleStart() {
     let pars
     let courseName
+    let courseRating = null, slopeRating = null, holeHandicaps = null
     if (courseSelection?.holePars?.length) {
       // Picked tee: use its real pars. Slice if user picked 9 holes
       // against an 18-hole course; pad with DEFAULT_PARS if (rare)
@@ -81,12 +82,23 @@ function SetupSheet({ onStart, onBack }) {
         ? apiPars.slice(0, holes)
         : [...apiPars, ...DEFAULT_PARS.slice(apiPars.length, holes)]
       courseName = courseSelection.courseName
+      // Carry the picked tee's USGA ratings + per-hole Stroke Index so a SOLO
+      // round is handicapped EXACTLY like an outing round: USGA Score
+      // Differential (not the par-only fallback) and net-double-bogey on the
+      // REAL Stroke Index (not a synthetic 1..18). The CoursePicker already
+      // hands these back — they were simply being dropped here.
+      // (2026-06-26 — Matt: "solo rounds need to function exactly the same as
+      // any other round".) Stroke Index sliced to the hole count like pars.
+      courseRating = courseSelection.courseRating ?? null
+      slopeRating  = courseSelection.slopeRating ?? null
+      const sIdx = Array.isArray(courseSelection.holeHandicaps) ? courseSelection.holeHandicaps : null
+      holeHandicaps = sIdx && sIdx.length >= holes ? sIdx.slice(0, holes) : sIdx
     } else {
-      // Free-form / unpicked: standard rotation of pars.
+      // Free-form / unpicked: standard rotation of pars. No ratings/SI to carry.
       pars = DEFAULT_PARS.slice(0, holes)
       courseName = typedName.trim() || 'Course'
     }
-    onStart({ courseName, pars })
+    onStart({ courseName, pars, courseRating, slopeRating, holeHandicaps })
   }
 
   return (
@@ -1005,7 +1017,7 @@ const SOLO_ROUND_STORAGE_KEY = SOLO_KEY_LIB
 
 export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'
-  const [config, setConfig] = useState(null)  // { courseName, pars[] }
+  const [config, setConfig] = useState(null)  // { courseName, pars[], courseRating, slopeRating, holeHandicaps[] }
   const [hole, setHole]     = useState(0)     // 0-indexed
   const [scores, setScores] = useState([])    // per-hole strokes
   const [shots, setShots]   = useState([])    // per-hole shot logs: [[{club,dist,gps}...]]
@@ -1062,8 +1074,8 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
     return () => navigator.geolocation.clearWatch(watchRef.current)
   }, [])
 
-  function handleStart({ courseName, pars }) {
-    setConfig({ courseName, pars })
+  function handleStart({ courseName, pars, courseRating = null, slopeRating = null, holeHandicaps = null }) {
+    setConfig({ courseName, pars, courseRating, slopeRating, holeHandicaps })
     setScores(new Array(pars.length).fill(0))
     setShots(new Array(pars.length).fill(null).map(() => []))
     setHole(0)
@@ -1093,8 +1105,12 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
       const res = await post('/api/rounds', {
         courseName:   config.courseName,
         coursePar:    totalPar,
-        courseRating: null,
-        slopeRating:  null,
+        // 2026-06-26 — carry the picked tee's USGA ratings (were hardcoded
+        // null, forcing the par-only differential fallback). With these a solo
+        // round computes the same USGA Score Differential as an outing round.
+        // Null when the user typed a free-form course (no rating available).
+        courseRating: config.courseRating ?? null,
+        slopeRating:  config.slopeRating ?? null,
         gameType:     'stroke',
         scores:       scores,
         // 2026-05-07 PM — include per-hole pars so the server can
@@ -1104,6 +1120,11 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
         // solo. Matt: 'players can receive achievements on solo rounds
         // as well'.
         holePars:     config.pars,
+        // 2026-06-26 — per-hole Stroke Index from the picked tee so the handicap
+        // engine applies net-double-bogey on the REAL SI, not a synthetic 1..18.
+        // Outing rounds already had this; solo rounds were missing it. Null for
+        // free-form courses. (Matt: solo must work exactly like any round.)
+        holeHandicaps: config.holeHandicaps ?? null,
         shots:        shots,
       })
       // 2026-05-06 (polish task #5) — fire the global achievement event

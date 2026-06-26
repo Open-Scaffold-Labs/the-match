@@ -8,11 +8,16 @@
 //   • Par-based fallback (free tier or course without ratings):
 //       differential = score − course_par
 //
-// In both cases: best 8 of last 20 differentials × 0.96 → handicap.
+// In both cases: the lowest N of the last 20 Score Differentials, selected per
+// the WHS sliding table (Rule 5.2a), averaged → Handicap Index. NO 0.96
+// multiplier (WHS removed the "bonus for excellence" in 2020). Net-double-bogey
+// Adjusted Gross Score, soft/hard caps, and a 54.0 max are applied (see below).
 //
 // A round counts only when it's **fully completed**:
 //   - scores array has at least 9 entries
 //   - every entry is a non-null, non-zero number
+//   - and (for the 18-hole Index) it is a full 18-hole round — 9-hole rounds
+//     are excluded by roundDifferential until proper WHS 9-hole support exists.
 //
 // Per Matt's 2026-05-01 requirement: a round in progress where some
 // holes haven't been entered must NOT pollute the index. Ratings are
@@ -155,6 +160,16 @@ function roundDifferential(r, index) {
   const ch = courseHandicapFor(r, index)
   let gross = Number(r.total)
   const scores = asArr(r.scores), holePars = asArr(r.hole_pars)
+  // Only FULL 18-hole rounds enter the 18-hole Handicap Index. A 9-hole round
+  // (scores ~9 / course_par ~36) otherwise computes a 9-hole gross against an
+  // 18-hole rating (→ a hugely NEGATIVE differential that crashes the index) or
+  // the 9-hole par (→ a too-low differential that drags it down). Excluded here
+  // — proper WHS 9-hole handling (9-hole ratings + the expected-9 method) is a
+  // follow-up needing 9-hole rating capture. (audit 2026-06-25 — Matt)
+  const holeCount = (Array.isArray(scores) && scores.length)
+    ? scores.length
+    : (Number.isFinite(Number(r.course_par)) && Number(r.course_par) > 0 && Number(r.course_par) < 55 ? 9 : 18)
+  if (holeCount < 18) return null
   if (scores && holePars) {
     const ags = adjustedGrossScore(scores, holePars, asArr(r.hole_handicaps), ch ?? 0, established)
     if (ags != null) gross = ags
@@ -214,12 +229,15 @@ async function maybeUpdateUserHandicap(userId) {
       const u = await db.one('SELECT handicap FROM tm_users WHERE id = $1', [userId])
       if (u && u.handicap != null && Number.isFinite(Number(u.handicap))) currentIndex = Number(u.handicap)
     } catch { /* no current index → pre-establishment caps (par+5) */ }
-    // Per-hole pars from the round (solo) or its outing; stroke index from the
-    // outing (solo rounds don't store it → AGS defaults SI to 1..18).
+    // Per-hole pars AND Stroke Index from the round (solo) or its outing. Solo
+    // rounds now capture the picked tee's Stroke Index too (migration 033), so a
+    // solo round handicaps identically to an outing round — the COALESCE falls
+    // through to the outing's values only for legacy solo rounds saved before
+    // 033. (2026-06-26 — Matt: solo rounds must work exactly the same.)
     const rounds = await db.many(
       `SELECT r.total, r.course_par, r.course_rating, r.slope_rating, r.scores,
               COALESCE(r.hole_pars, o.hole_pars) AS hole_pars,
-              o.hole_handicaps AS hole_handicaps
+              COALESCE(r.hole_handicaps, o.hole_handicaps) AS hole_handicaps
        FROM tm_rounds r
        LEFT JOIN tm_outings o ON o.id = r.outing_id
        WHERE r.user_id = $1
