@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782503976.1548667,
-    "source_id": "e86a5aed-5a5d-4698-b082-570e8ba1cfbc",
-    "verified_at": 1782504007.289614
+    "mtime": 1782504766.6987832,
+    "source_id": "0b581d89-316a-40f7-8c8f-ef62e7bbacf1",
+    "verified_at": 1782504805.9929652
   },
   "wiki/index.md": {
-    "mtime": 1782503983.0051754,
-    "source_id": "3ae7f4f6-7c6b-4627-82b5-f5cc2f0d480d",
-    "verified_at": 1782504021.0727592
+    "mtime": 1782504780.0389662,
+    "source_id": "85c08cb0-bf37-4740-b715-3cb8ea464f23",
+    "verified_at": 1782504819.6432111
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -111,5 +111,10 @@
     "mtime": 1782503664.025513,
     "source_id": "d79a6e60-3cf6-43b8-91ac-6218b17422e2",
     "verified_at": 1782504027.376468
+  },
+  "wiki/synthesis/per-player-gender-ratings-2026-06-25.md": {
+    "mtime": 1782504397.1284204,
+    "source_id": "d2906b04-1518-4bb1-aafd-23a3146e62b0",
+    "verified_at": 1782504825.846385
   }
 }
