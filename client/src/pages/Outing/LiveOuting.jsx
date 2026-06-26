@@ -1380,6 +1380,15 @@ function MatchScoreboard({
           const pos     = positions[idx] || '—'
           const isMe    = String(p.user_id) === String(user?.id)
           const numeric = diffNumeric(p)
+          // Course Handicap chip (NET mode, rated outings) — transparency for
+          // the strokes a player gets. Same basis as diffNumeric (raw index),
+          // and only shown when the outing actually has ratings so it's never a
+          // redundant "CH == index". Gender-correct via playerTeeRatings. (2026-06-25)
+          const idxVal   = !p.is_guest ? parseFloat(p.handicap) : NaN
+          const pr       = (netMode && Number.isFinite(idxVal)) ? playerTeeRatings(p?.gender, outingMeta) : null
+          const hasRtg   = pr && Number.isFinite(Number(pr.slope)) && Number.isFinite(Number(pr.rating))
+          const chVal    = hasRtg ? Math.round(courseHandicap(idxVal, pr)) : null
+          const chTitle  = chVal != null ? `Course Handicap ${chVal} — from ${idxVal.toFixed(1)} index · slope ${pr.slope} · CR ${pr.rating}` : undefined
           const skinsCount = isSkinsFormat ? (skinsByPlayer[p.user_id] || 0) : 0
           // For skins format, the headline TOT becomes 'N SK' so the
           // leaderboard reads at a glance — STP becomes the secondary
@@ -1464,7 +1473,15 @@ function MatchScoreboard({
                   color: '#0D1F12',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>{p.name}</div>
-                {(p.is_guest || (p.handicap != null && !p.is_guest)) && (
+                {chVal != null ? (
+                  <div title={chTitle} style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, whiteSpace: 'nowrap' }}>
+                    <span style={{
+                      padding: '0 5px', borderRadius: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.03em',
+                      background: 'rgba(201,160,64,0.18)', color: '#7A5800',
+                    }}>CH {chVal}</span>
+                    <span style={{ fontSize: 9, color: 'rgba(27,94,59,0.45)', fontWeight: 500 }}>{idxVal.toFixed(1)} idx</span>
+                  </div>
+                ) : (p.is_guest || (p.handicap != null && !p.is_guest)) ? (
                   <div style={{
                     fontSize: 9, color: 'rgba(27,94,59,0.45)', fontWeight: 500,
                     letterSpacing: '0.02em', marginTop: 1,
@@ -1472,7 +1489,7 @@ function MatchScoreboard({
                   }}>
                     {p.is_guest ? 'Guest' : `${parseFloat(p.handicap).toFixed(1)} hcp`}
                   </div>
-                )}
+                ) : null}
               </div>
 
               {/* TOT (or MATCH label for match-play) */}
