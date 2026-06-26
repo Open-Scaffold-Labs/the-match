@@ -8,6 +8,15 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Handicap Tier-3: WHS soft/hard caps + single-source index (beta)
+
+WHS soft/hard caps (Rule 5.8) shipped (`9d0c1c9`, migration 032 + `handicap.js` + `stats.js`). The handicap engine is now WHS-faithful end-to-end.
+- **Migration 032 `tm_handicap_history`** persists each index revision so we can derive the **Low Handicap Index** (Rule 5.7 — lowest index in the trailing 365 days). Applied + verified.
+- **`applyHandicapCaps`** (Rule 5.8): soft cap (increase >3.0 over Low HI → excess reduced to 50%), hard cap (max +5.0 over Low HI), downward uncapped. 10 node assertions. Applied in `maybeUpdateUserHandicap` **only after 20 scores** (Low HI established); each revision recorded to history.
+- **`stats.js` now READS the persisted `tm_users.handicap`** instead of recomputing — the displayed index can no longer diverge from the official (capped, AGS) calc. Single source of truth.
+- Regression: WHS (11) + AGS (18) suites still pass.
+- **WHS-faithful now:** no 0.96, sliding table, 0.1 rounding, 54.0 cap, 3-round min, net-double-bogey AGS, soft/hard caps + Low-HI history, Course Handicap (2024 CR−Par), rounded playing handicap, gender-correct + per-player ratings. **Remaining Tier-3 (flagged):** proper 9-hole handling, per-format allowance defaults, solo-round stroke-index capture.
+
 ## [2026-06-25] refactor | Handicap Tier-2: net-double-bogey Adjusted Gross Score in the index (beta)
 
 The biggest remaining handicap-accuracy item from the audit. Each hole is now capped at **net double bogey** (par+2+strokes received; par+5 before an established index) before the Score Differential — WHS Rule 3.1. (`2f171c0`, `server/src/lib/handicap.js` + `stats.js`.)
