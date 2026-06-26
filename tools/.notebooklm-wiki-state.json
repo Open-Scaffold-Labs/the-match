@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782409233.794134,
-    "source_id": "cbd036cd-03b8-4770-b8a3-19de802850e1",
-    "verified_at": 1782409267.1192682
+    "mtime": 1782500468.8436265,
+    "source_id": "3516021d-068d-439c-9917-9452a2a07154",
+    "verified_at": 1782500512.878844
   },
   "wiki/index.md": {
-    "mtime": 1782408075.406787,
-    "source_id": "f88d6274-1c4a-47d2-9aaa-370a990e4424",
-    "verified_at": 1782408133.2499342
+    "mtime": 1782500486.2547245,
+    "source_id": "af3dd610-6dae-4bd3-8c69-8341cfe46b88",
+    "verified_at": 1782500525.969414
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -91,5 +91,10 @@
     "mtime": 1782405889.2891493,
     "source_id": "6d05c4a0-5ba5-4a87-9cce-1f0aa2759c22",
     "verified_at": 1782408139.353857
+  },
+  "wiki/synthesis/own-club-arcs-3.3-build-spec-2026-06-25.md": {
+    "mtime": 1782500213.485835,
+    "source_id": "37add002-87d3-4050-87ca-9e30f140a2b9",
+    "verified_at": 1782500532.2078872
   }
 }
