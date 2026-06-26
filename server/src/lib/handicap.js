@@ -186,6 +186,20 @@ function computeHandicapFromRounds(rounds, currentIndex) {
   return Math.min(54.0, Math.max(-10.0, Math.round(index * 10) / 10))
 }
 
+// WHS soft + hard caps (Rule 5.8), measured against the Low Handicap Index
+// (the lowest Index in the trailing 365 days). SOFT CAP: the portion of an
+// increase beyond 3.0 over Low HI is reduced to 50%. HARD CAP: total increase
+// limited to 5.0 over Low HI. No limit on downward movement. lowHI null (player
+// has <20 scores / no established Low HI) → no caps. (audit Tier-3 2026-06-25)
+function applyHandicapCaps(rawIndex, lowHI) {
+  if (!Number.isFinite(rawIndex) || !Number.isFinite(lowHI)) return rawIndex
+  const increase = rawIndex - lowHI
+  if (increase <= 3.0) return rawIndex
+  const soft = lowHI + 3.0 + (increase - 3.0) * 0.5 // soft cap (50% of excess >3.0)
+  const capped = Math.min(soft, lowHI + 5.0)         // hard cap (max +5.0)
+  return Math.round(capped * 10) / 10
+}
+
 // Recompute and (if 3+ completed rounds exist) persist the handicap
 // to tm_users.handicap. WHS issues an index after 54 holes (≈3 18-hole
 // rounds; the sliding table starts at 3 differentials). Below that, the
@@ -215,9 +229,30 @@ async function maybeUpdateUserHandicap(userId) {
     )
     const completedCount = rounds.filter(isRoundCompleted).length
     if (completedCount < 3) return null
-    const hcp = computeHandicapFromRounds(rounds, currentIndex)
-    if (hcp == null) return null
+    const rawHcp = computeHandicapFromRounds(rounds, currentIndex)
+    if (rawHcp == null) return null
+
+    // WHS soft/hard caps (Rule 5.8) — only once the player has 20 acceptable
+    // scores (Low HI is established then). Low HI = lowest recorded index in
+    // the trailing 365 days; null on the first calc / sparse history → no cap.
+    let hcp = rawHcp
+    if (completedCount >= 20) {
+      let lowHI = null
+      try {
+        const row = await db.one(
+          `SELECT MIN(handicap_index) AS low FROM tm_handicap_history
+           WHERE user_id = $1 AND computed_at >= now() - interval '365 days'`,
+          [userId]
+        )
+        if (row && row.low != null && Number.isFinite(Number(row.low))) lowHI = Number(row.low)
+      } catch (e) { console.error('[handicap] low-HI read failed:', e.message) }
+      hcp = applyHandicapCaps(rawHcp, lowHI)
+    }
+
     await db.query('UPDATE tm_users SET handicap = $1 WHERE id = $2', [hcp, userId])
+    // Record this revision so future Low-HI windows can see it (fire-and-forget).
+    db.query('INSERT INTO tm_handicap_history (user_id, handicap_index) VALUES ($1, $2)', [userId, hcp])
+      .catch(e => console.error('[handicap] history write failed:', e.message))
     return hcp
   } catch (e) {
     console.error('[handicap] maybeUpdateUserHandicap failed:', e.message)
@@ -235,6 +270,7 @@ module.exports = {
   strokesOnHole,
   netDoubleBogey,
   adjustedGrossScore,
+  applyHandicapCaps,
   computeHandicapFromRounds,
   maybeUpdateUserHandicap,
 }
