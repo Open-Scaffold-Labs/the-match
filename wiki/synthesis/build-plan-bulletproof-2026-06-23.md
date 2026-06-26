@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-24
+updated: 2026-06-26
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -122,12 +122,21 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ◐ 2.5 Smooth player puck + accuracy halo — shipped (rAF-glide puck + true-ground metres halo). Concentric yardage range-rings still held pending a live-map clutter check.
 
 **Phase 3 — Leapfrog (pick order)**
-- ☐ 3.1 Transparent adjustable plays-like (free)
+- ☑ 3.1 Transparent adjustable plays-like (free) — **SHIPPED 2026-06-25.** Hero plays-like number expands into wind/elevation/temp rows, each overridable; real USGS 3DEP DEM elevation term (migration 029 cache); tappable bottom sheet (mobile-native, no dead tooltip). Spec: `playslike-3.1-build-spec-2026-06-25.md`.
 - ☐ 3.2 Ad-free generous free tier
-- ☐ 3.3 Own-club distance arcs
+- ☑ 3.3 Own-club distance arcs — **SHIPPED 2026-06-25.** Distance arcs from the player's *own* bag averages on the GL hole map; no handicap-based distance guessing (Matt's correction — real bag data only). Spec: `own-club-arcs-3.3-build-spec-2026-06-25.md`.
 - ☐ 3.4 Green slope + putt-line
 - ☐ 3.5 Data → practice loop
 - ☐ 3.6 Clean AR distance overlay
+
+**Track H — Handicap & scoring accuracy (ran alongside Phase 3; not in the original plan but foundational to "best-in-class")**
+- ☑ H.1 Gender field foundation (migration 030) + effortless bag-distance entry
+- ☑ H.2 Gender-correct tee ratings (gender-aware `dedupeTees`) + USGA differential enabled
+- ☑ H.3 Course Handicap for match strokes (2024 CR−Par form) + per-player gender ratings (migrations 031) + tappable CH chip on the scoreboard
+- ☑ H.4 WHS audit + rewrite: removed obsolete ×0.96, sliding table, 0.1 rounding, 54.0 max, 3-round min, net-double-bogey AGS, soft/hard caps + 365-day Low-HI history (migration 032), per-format allowances (Appendix C), single-source persisted index
+- ☑ H.5 9-hole corruption guard + solo rounds handicap identically to outing rounds (migration 033) — 2026-06-26
+- ☐ H.6 **Proper WHS 9-hole counting** (expected-9 method) — needs 9-hole tee Course/Slope ratings captured. *Data dependency, not yet built.*
+- Audit + status: `handicap-accuracy-audit-2026-06-25.md`
 
 **Phase 4 — Polish**
 - ☐ 4.1 Skeletons + view transitions

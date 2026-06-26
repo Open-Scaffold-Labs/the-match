@@ -8,6 +8,10 @@ updated: 2026-06-26
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-26] query | Session close-out: handoff + plan refresh
+
+Wrote `next-session-handoff-2026-06-26.md` (supersedes the 06-24 handoff) — ranked next-steps: (1) WHS expected-9 9-hole counting [the one open data dependency], (2) desktop leagues/commissioner layout [frame still capped at 430px], (3) next Phase-3 leapfrog (Matt's pick), (4) pre-launch ops. Refreshed the two living plans to current reality: `build-plan-bulletproof-2026-06-23.md` Phase 3.1 + 3.3 marked ☑ and a new **Track H** (handicap accuracy, H.1–H.5 ☑, H.6 expected-9 open); `eagle-eye-premium-plan-2026-06-23.md` Phase 2 status note (plays-like + own-club arcs shipped). index.md updated (new handoff = ACTIVE).
+
 ## [2026-06-26] schema | Handicap: 9-hole corruption guard + solo rounds handicap like any round (migration 033, beta)
 
 Matt's two questions on the close-out's "data dependencies" exposed one real **bug** and one real **gap** — both fixed.

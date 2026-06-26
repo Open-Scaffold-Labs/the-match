@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-24
+updated: 2026-06-26
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -76,6 +76,8 @@ The showcase. This is where we visibly pass rivals.
 6. **Skeletons instead of "Loading…"**, plus tasteful haptics where the platform allows (Android; iOS web has none — design so haptics are never the only feedback).
 
 ### Phase 2 — Signature features that *leapfrog* (not just match)
+
+> **Status (updated 2026-06-26):** #1 transparent adjustable plays-like and #3 own-club distance arcs are **SHIPPED** (build-plan Phase 3.1 + 3.3). A full **handicap & scoring-accuracy track** also shipped alongside (gender foundation, gender-correct ratings, Course Handicap, a WHS-faithful index rewrite, and the 9-hole/solo-round fixes) — see `handicap-accuracy-audit-2026-06-25.md`. Remaining leapfrogs below: #2 ad-free free tier, #4 green slope+putt-line, #5 data→practice loop, #6 AR.
 
 Each maps to a documented category gap. Sequence by appetite.
 
