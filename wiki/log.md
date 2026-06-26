@@ -8,6 +8,17 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] schema | Player-data foundation — gender field (migration 030) + profile/onboarding UI (beta)
+
+Greenlit by Matt after he (rightly) rejected guessing distances from handicap: a national-scale golf app needs real player attributes, not workarounds. Shipped the gender field end-to-end. Full spec + risk register: [[synthesis/player-data-foundation-2026-06-25]].
+
+- **Server (`2f60060`):** migration `030_tm_users_gender.sql` adds `gender TEXT` (nullable, app-constrained male|female) to `tm_users` — applied to Supabase by hand, column verified. Added `'gender'` to the shared `USER_PUBLIC_COLUMNS` (`server/src/lib/user.js`) so `/me` + `middleware/auth` + `profile` all carry it. `profile/update` accepts + allowlist-validates gender, COALESCE-guarded so an unrelated save never wipes it.
+- **UI (`2f60060`):** segmented Male/Female control in the Home profile-edit modal (reads `user.gender`, saves via `profile/update`), and folded into the onboarding handicap step (no step renumber — lower risk than a new STEP). Optional everywhere; null is valid; never gates onboarding.
+- **VERIFIED end-to-end on the live deployed app:** `/api/auth/me` now returns `gender` in the user object (`null` default for existing users) — migration + USER_PUBLIC_COLUMNS + propagation all confirmed in production. `node --check` clean, build+lint clean. The gender *control* rendering wasn't screenshotted (couldn't find the edit-modal trigger via clicks in-session) but is build-clean and uses the identical pattern to the working handicap/bio fields.
+- **Distance entry:** the prompt is already present (Home shows "N clubs · tap to manage distances"; the 3.3 ARCS empty-state opens the bag). Deeper "effortless entry" UX polish is a light follow-up, not built this session.
+
+**Why this happened (lesson):** in 3.3 I let a clever research finding ("no app seeds club distances from handicap") override the obvious truth that the finding's *absence* might be because seeding from handicap is a bad idea — it is (handicap ≠ club distance). Matt caught it; removed all guessing (own-club arcs now use entered distances only), and added the gender field that the audit had flagged but I'd worked around instead of recommending. **Follow-ups:** gender-aware tee defaults (wire the new field into tee selection), auto-derive distances from tracked shots (the zero-effort accurate long game), Tournament Mode (USGA legality, still open from 3.1/3.3).
+
 ## [2026-06-25] refactor | Eagle Eye Phase 3.3 SHIPPED to beta — own-club distance arcs with handicap-seeded empty state (on-map visual NOT yet device-verified)
 
 Greenlit by Matt with the full bulletproof treatment incl. competitive research via agents. The category's empty-state gap closed: a glanceable "which of MY clubs reaches here" overlay, decluttered and useful from hole 1. Shipped to `main` (beta), four commits, each `build`+`lint` clean. Full spec + risk register + research synthesis: [[synthesis/own-club-arcs-3.3-build-spec-2026-06-25]].
