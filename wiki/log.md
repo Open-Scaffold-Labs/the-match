@@ -8,6 +8,20 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Handicap accuracy audit vs WHS + Tier-1 fixes; desktop pass (beta)
+
+Matt: audit how player handicaps are calculated, make it 100% accurate / matching the major apps; and a desktop pass on commissioner/leagues. Full audit (research-sourced, USGA+R&A 2024): [[synthesis/handicap-accuracy-audit-2026-06-25]].
+
+**Handicap audit + Tier-1 fixes (`024cb9b`, `server/src/lib/handicap.js` + match net-stroke spots):**
+- **Removed the obsolete ×0.96** "bonus for excellence" — WHS dropped it in 2020; it was understating every index ~4%. The single clearest bug.
+- **WHS sliding table** (3→best1−2.0, 4→best1−1.0, 5→best1, 6→best2−1.0, 7–8→best2, 9–11→best3, …, 20→best8) replacing a flat best-8-of-20.
+- Round each Score Differential to **0.1**; clamp Index to the WHS max **54.0**; minimum scores **5→3** (WHS issues after 54 holes).
+- Match **Playing Handicap now ROUNDS** (was floor) per WHS, both net-stroke spots (lockstep). 11 node assertions vs worked WHS examples pass.
+- **Flagged Tier-2/3** (in the audit doc): net-double-bogey Adjusted Gross Score (needs hole plumbing — the biggest remaining accuracy item), soft/hard caps (need a persisted 365-day Low HI), proper 9-hole handling, per-format allowance defaults, PCC (set to 0, the consumer-app norm). Honest: an app-computed index is an *estimate*; only an authorized association issues an official one.
+- **⚠ IMPACT:** most indexes rise (0.96 removal + sliding table) and low-score-count indexes correct — more accurate, but a visible change to displayed handicaps + match net results.
+
+**Desktop pass (commissioner/leagues):** the app is wrapped in a **global `maxWidth: 430`** mobile frame (`App.jsx:351`), so leagues/commissioner **don't break** on desktop — they render as a functional but narrow 430px column. They're usable, **not desktop-optimized**. True desktop layouts (relax the frame for league/commissioner routes + responsive inner grids) is a scoped follow-up. The today-shipped CH breakdown sheet works on both (verified). Standing reminder remains: mobile-only/App-Store except leagues/commissioner, which also need desktop.
+
 ## [2026-06-25] refactor | Course Handicap transparency chip on the match scoreboard (beta)
 
 So the (now gender-correct) net result isn't a black box: each player's **Course Handicap** is shown on the `MatchScoreboard` in NET mode. Ran the design-critique skill + audit-before-claim; verified the look in an isolated render.
