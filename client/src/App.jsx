@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import BottomNav from './components/shell/BottomNav.jsx'
 import { TABS } from './constants.js'
+import { useIsDesktop } from './lib/useViewport.js'
 import Home from './pages/Home.jsx'
 
 import EagleEye from './pages/EagleEye.jsx'
@@ -55,6 +56,7 @@ function readPersistedCourse() {
 
 export default function App() {
   const [tab, setTab] = useState(readPersistedTab)
+  const isDesktop = useIsDesktop()
   // Save on every tab change. Cheap localStorage write, no debounce
   // needed since taps are rare relative to other render work.
   useEffect(() => {
@@ -332,6 +334,10 @@ export default function App() {
   // else uses the parchment base. (2026-06-23 — Matt: grass showing at the
   // borders because pages don't fill the screen edge-to-edge.)
   const grassTab = (tab === TABS.HOME && homeView !== 'profile') || tab === TABS.TOUR
+  // Desktop breakout: only the Leagues tab widens past the phone frame, and only
+  // on a real desktop viewport. Every other tab — and the entire iOS app — stays
+  // at 430px. (2026-06-26)
+  const desktopLeagues = isDesktop && tab === TABS.LEAGUES
   const outerBg = grassTab
     ? {
         backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
@@ -348,7 +354,7 @@ export default function App() {
       justifyContent: 'center',
     }}>
       <div style={{
-        width: '100%', maxWidth: 430,
+        width: '100%', maxWidth: desktopLeagues ? 1180 : 430,
         height: '100dvh',
         // Translucent Augusta cream — same tint that was on the
         // Home wrapper, lifted up one level so it covers the entire
@@ -415,6 +421,7 @@ export default function App() {
           <TabPanel active={tab === TABS.LEAGUES}>
             <Leagues
               user={user}
+              isDesktop={isDesktop}
               onCreateEventInLeague={(leagueId) => {
                 setPendingLeagueId(leagueId)
                 setTab(TABS.OUTING)

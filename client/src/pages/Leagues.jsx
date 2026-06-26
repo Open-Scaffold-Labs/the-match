@@ -19,7 +19,7 @@ const AUGUSTA_GOLD   = '#C9A040'
 const AUGUSTA_CREAM  = '#F1E7C8'
 
 // ─── Top-level decision: paywall vs hub ─────────────────────────────────
-export default function Leagues({ user, onCreateEventInLeague }) {
+export default function Leagues({ user, onCreateEventInLeague, isDesktop = false }) {
   // Round 7 audit fix — tier handling is more nuanced than "Elite=hub,
   // free=paywall". A free-tier user added to a paying commissioner's
   // league STILL needs to see standings + announcements + events for
@@ -54,6 +54,7 @@ export default function Leagues({ user, onCreateEventInLeague }) {
     return (
       <LeagueDetail
         leagueId={activeLeagueId}
+        isDesktop={isDesktop}
         onBack={() => { setActiveLeagueId(null); setView('hub') }}
         on402={(payload) => setPaywall(payload || { current: 'free' })}
         onCreateEvent={onCreateEventInLeague}
@@ -72,6 +73,7 @@ export default function Leagues({ user, onCreateEventInLeague }) {
   return (
     <LeaguesHub
       isElite={user?.tier === 'elite'}
+      isDesktop={isDesktop}
       onOpen={(id) => { setActiveLeagueId(id); setView('detail') }}
       onCreate={() => {
         // Free user tapping Create → flip to full paywall with the
@@ -381,7 +383,16 @@ function FlourishDivider() {
 }
 
 // ─── LeaguesHub — list of my leagues ────────────────────────────────────
-function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
+function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
+  // Desktop breakout: center the column and lay the league cards out in a
+  // responsive grid that uses the width, instead of one stretched phone-width
+  // column. Mobile is unchanged. (2026-06-26)
+  const centerCol = isDesktop
+    ? { maxWidth: 1120, marginLeft: 'auto', marginRight: 'auto', width: '100%', boxSizing: 'border-box' }
+    : null
+  const cardWrap = isDesktop
+    ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14, alignItems: 'start' }
+    : { display: 'flex', flexDirection: 'column', gap: 12 }
   const [leagues, setLeagues] = useState(null)
   const [error, setError]     = useState(null)
 
@@ -421,7 +432,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
           }
         }
       `}</style>
-      <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0' }}>
+      <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', ...centerCol }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
           background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
@@ -437,7 +448,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
         </div>
       </div>
 
-      <div className="page-scroll" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="page-scroll" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, ...centerCol }}>
         {/* Round 7 audit fix — Create button is gold-outlined "Upgrade
             to create" for free users, primary green for Elite. The
             actual paywall flip happens in the parent's onCreate. */}
@@ -520,7 +531,9 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
               </button>
             ))}
           </div>
-        ) : leagues.map(l => (
+        ) : (
+         <div style={cardWrap}>
+          {leagues.map(l => (
           /* Tournament-board card. Three-row anatomy:
               1. Top accent strip (gold gradient) → SEASON · FORMAT pills
               2. Middle: name + commissioner attribution
@@ -615,7 +628,9 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402 }) {
               </svg>
             </div>
           </button>
-        ))}
+          ))}
+         </div>
+        )}
       </div>
     </div>
   )
@@ -881,7 +896,13 @@ function Field({ label, hint, children }) {
 }
 
 // ─── LeagueDetail — standings + events + members + commissioner controls ─
-function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
+function LeagueDetail({ leagueId, onBack, on402, onCreateEvent, isDesktop = false }) {
+  // Desktop breakout: center hero + tabs + content in a readable column rather
+  // than stretching the standings table and roster across the full width. Keeps
+  // the existing tab structure; mobile is unchanged. (2026-06-26)
+  const detailCol = isDesktop
+    ? { maxWidth: 920, marginLeft: 'auto', marginRight: 'auto', width: '100%', boxSizing: 'border-box' }
+    : null
   const [data, setData]   = useState(null)   // { league, role }
   const [tab, setTab]     = useState('standings')   // 'standings' | 'events' | 'members'
   const [standings, setStandings] = useState(null)
@@ -955,7 +976,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
         background: 'linear-gradient(160deg, #0E3B23 0%, #1A6B28 55%, #0E3B23 100%)',
         borderBottom: '2px solid #C9A040',
         position: 'relative', overflow: 'hidden',
-        flexShrink: 0,
+        flexShrink: 0, ...detailCol,
       }}>
         {/* Subtle radial highlight in the top-right — adds depth. */}
         <div style={{
@@ -1027,7 +1048,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
       {/* Tab bar — Rules + Comms tabs only render for the commissioner.
           Round 19 audit fix: role=tablist + aria-selected so screen
           readers announce the tab state correctly. */}
-      <div role="tablist" aria-label="League sections" style={{ display: 'flex', gap: 6, padding: '0 20px', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div role="tablist" aria-label="League sections" style={{ display: 'flex', gap: 6, padding: '0 20px', flexShrink: 0, flexWrap: 'wrap', ...detailCol }}>
         {[
           { id: 'standings', label: 'Standings' },
           { id: 'events',    label: `Events (${league.event_count || 0})` },
@@ -1051,7 +1072,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent }) {
       </div>
 
       {/* Tab content */}
-      <div className="page-scroll" style={{ padding: '14px 20px', flex: 1 }}>
+      <div className="page-scroll" style={{ padding: '14px 20px', flex: 1, ...detailCol }}>
         {tab === 'standings' && (
           <StandingsView standings={standings} />
         )}
