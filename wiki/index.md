@@ -34,6 +34,7 @@ Content catalog — every page listed here. The preflight's index-completeness c
 
 ## Synthesis
 
+- [[synthesis/own-club-arcs-3.3-build-spec-2026-06-25]] — **Phase 3.3 build spec** — own-club distance arcs with handicap-seeded empty state: competitive research synthesis (UX + data/accuracy), slice sequence, risk register, checklist. SHIPPED to beta 2026-06-25 (on-map visual pending device verification) · created 2026-06-25
 - [[synthesis/playslike-3.1-build-spec-2026-06-25]] — **Phase 3.1 build spec** — transparent, adjustable plays-like + real USGS DEM elevation: slice sequence, full risk register, progress checklist. SHIPPED to beta 2026-06-25 · created 2026-06-25
 - [[synthesis/next-session-handoff-2026-06-24]] — **active handoff** — where to pick up after the 2026-06-24 session (MapLibre sole renderer / Leaflet removed / offline tiles shipped); Phase 3 leapfrog pick-up order, gotchas, key files · created 2026-06-24
 - [[synthesis/build-plan-bulletproof-2026-06-23]] — **the-match bulletproof build plan** — zero-cost stack, risk register, phased checklist (Phase 0–4). Phase 1 + 2 ☑. Moved here from the Hub workspace 2026-06-24 · created 2026-06-23
