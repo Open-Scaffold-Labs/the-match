@@ -4,6 +4,7 @@ import { api, post, put } from '../../lib/api.js'
 import { runWithQueue } from '../../lib/offline-queue.js'
 import { TEAM_PALETTE } from './LiveOuting.jsx'
 import GuestModal from './GuestModal.jsx'
+import { useIsDesktop } from '../../lib/useViewport.js'
 
 // ─── Outing/Commissioner.jsx ──────────────────────────────────────────────
 // Host-only "Manage" panel and its tabs. Extracted from the original
@@ -456,6 +457,10 @@ export function StablefordEditor({ code, outing, onSaved }) {
 // (2026-05-01 — league must-have B3.)
 export function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
   const code = outing.code
+  // Desktop: a commissioner running a live event from a laptop on the course
+  // gets a CENTERED modal with real width for the score-edit grid + roster,
+  // instead of a 430px phone bottom-sheet. Phone is unchanged. (2026-06-26)
+  const isDesktop = useIsDesktop()
   const [tab, setTab]               = useState('players')  // 'players' | 'scores' | 'audit'
   const [busyIds, setBusyIds]       = useState({})
   const [auditEntries, setAudit]    = useState(null)
@@ -666,19 +671,26 @@ export function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.55)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      display: 'flex',
+      // Bottom-sheet on phone; centered modal on desktop.
+      alignItems: isDesktop ? 'center' : 'flex-end',
+      justifyContent: 'center',
+      ...(isDesktop ? { padding: 24, boxSizing: 'border-box' } : null),
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        width: '100%', maxWidth: 430,
+        width: '100%', maxWidth: isDesktop ? 880 : 430,
         background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
-        borderRadius: '24px 24px 0 0',
-        maxHeight: '88vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 -10px 50px rgba(0,0,0,0.7)',
+        // Full radius when centered; top-only when it slides up from the bottom.
+        borderRadius: isDesktop ? 20 : '24px 24px 0 0',
+        maxHeight: isDesktop ? '90vh' : '88vh', display: 'flex', flexDirection: 'column',
+        boxShadow: isDesktop ? '0 24px 80px rgba(0,0,0,0.6)' : '0 -10px 50px rgba(0,0,0,0.7)',
       }}>
-        {/* Drag handle + header */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
-        </div>
+        {/* Drag handle — a bottom-sheet affordance; hidden on the desktop modal. */}
+        {!isDesktop && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)' }} />
+          </div>
+        )}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '4px 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)',
@@ -1175,6 +1187,7 @@ export function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
 }
 
 export function GroupSetup({ outing, onClose, onSaved }) {
+  const isDesktop = useIsDesktop() // centered modal on desktop; bottom sheet on phone
   const participants = outing.state?.participants ?? []
 
   function defaultGroups() {
@@ -1243,8 +1256,8 @@ export function GroupSetup({ outing, onClose, onSaved }) {
   const CHIP_COLORS = ['#C9A040', '#93C5FD', '#F5D78A', '#F87171', '#C4B5FD', '#FD8A4B']
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-      <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: isDesktop ? 'center' : undefined, justifyContent: isDesktop ? 'center' : 'flex-end', ...(isDesktop ? { padding: 24, boxSizing: 'border-box' } : null) }}>
+      <div style={{ background: 'var(--tm-surface)', borderRadius: isDesktop ? 20 : '24px 24px 0 0', maxHeight: isDesktop ? '90vh' : '85vh', width: isDesktop ? '100%' : undefined, maxWidth: isDesktop ? 720 : undefined, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div style={{ padding: '20px 20px 12px', borderBottom: '1px solid var(--tm-border)', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1385,6 +1398,7 @@ export function GroupSetup({ outing, onClose, onSaved }) {
 }
 
 export function TeamSetup({ outing, onClose, onSaved, onRefreshOuting }) {
+  const isDesktop = useIsDesktop() // centered modal on desktop; bottom sheet on phone
   const participants = outing.state?.participants ?? []
 
   function defaultTeams() {
@@ -1481,16 +1495,17 @@ export function TeamSetup({ outing, onClose, onSaved, onRefreshOuting }) {
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      display: 'flex', alignItems: isDesktop ? 'center' : 'flex-end', justifyContent: 'center',
+      ...(isDesktop ? { padding: 24, boxSizing: 'border-box' } : null),
     }} onClick={onClose}>
       <div style={{
-        width: '100%', maxWidth: 480,
+        width: '100%', maxWidth: isDesktop ? 640 : 480,
         background: 'linear-gradient(180deg, #0D1F12, #070C09)',
         border: '1px solid rgba(255,255,255,0.09)',
-        borderRadius: '22px 22px 0 0', padding: '20px 20px 48px',
+        borderRadius: isDesktop ? 20 : '22px 22px 0 0', padding: isDesktop ? '20px 24px 28px' : '20px 20px 48px',
         maxHeight: '92dvh', overflowY: 'auto',
       }} onClick={e => e.stopPropagation()}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', margin: '0 auto 20px' }} />
+        {!isDesktop && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)', margin: '0 auto 20px' }} />}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Set Teams</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 20, cursor: 'pointer' }}>✕</button>
