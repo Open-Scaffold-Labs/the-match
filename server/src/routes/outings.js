@@ -27,7 +27,7 @@ const db          = require('../db')
 router.get('/:code/public', async (req, res) => {
   try {
     const row = await db.one(
-      'SELECT id, code, name, course_name, course_par, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, league_id, state FROM tm_outings WHERE code = $1',
+      'SELECT id, code, name, course_name, course_par, course_rating, slope_rating, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, league_id, state FROM tm_outings WHERE code = $1',
       [req.params.code.toUpperCase()]
     )
     if (!row) return res.status(404).json({ error: 'Outing not found' })
@@ -94,6 +94,8 @@ router.get('/:code/public', async (req, res) => {
         name: row.name,
         course_name: row.course_name,
         course_par:  row.course_par,
+        course_rating: row.course_rating,   // for slope-based Course Handicap net strokes
+        slope_rating:  row.slope_rating,
         scoring_formats: row.scoring_formats,
         status: row.status,
         hole_pars: row.hole_pars,
