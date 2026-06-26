@@ -50,34 +50,67 @@ function isRoundCompleted(r) {
 // Now that tee selection is gender-aware (lib/tees.js dedupeTees), rated rounds
 // use the proper WHS differential and gender flows through correctly. Unrated
 // rounds are unaffected. (Enabled 2026-06-25.)
+// Score Differential, rounded to the nearest 0.1 per WHS Rule 5.1a. PCC is set
+// to 0 (a standalone app can't compute the field's same-day PCC; it's 0 on most
+// days anyway — the consumer-app norm). AGS (net-double-bogey adjusted gross) is
+// NOT yet applied — uses raw total; that's the Tier-2 follow-up. (audit 2026-06-25)
 function differentialFor(r) {
   const total = Number(r.total)
   if (!Number.isFinite(total)) return null
   const rating = Number(r.course_rating)
   const slope  = Number(r.slope_rating)
+  let d
   if (Number.isFinite(rating) && Number.isFinite(slope) && slope > 0) {
-    return ((total - rating) * 113) / slope
+    d = ((total - rating) * 113) / slope
+  } else {
+    const par = Number(r.course_par)
+    if (!Number.isFinite(par)) return null
+    d = total - par // par-based fallback (unrated/free)
   }
-  const par = Number(r.course_par)
-  if (Number.isFinite(par)) return total - par
-  return null
+  return Math.round(d * 10) / 10
 }
 
+// WHS Rule 5.2a sliding table: given the number of acceptable Score
+// Differentials in the record, how many of the LOWEST to average + the
+// low-count adjustment. (No ×0.96 — that "bonus for excellence" was REMOVED in
+// WHS 2020; the 8-of-20 selection replaced it.) (audit 2026-06-25)
+function whsSelection(n) {
+  if (n < 3) return null
+  if (n === 3) return { count: 1, adj: -2.0 }
+  if (n === 4) return { count: 1, adj: -1.0 }
+  if (n === 5) return { count: 1, adj: 0 }
+  if (n === 6) return { count: 2, adj: -1.0 }
+  if (n <= 8) return { count: 2, adj: 0 }
+  if (n <= 11) return { count: 3, adj: 0 }
+  if (n <= 14) return { count: 4, adj: 0 }
+  if (n <= 16) return { count: 5, adj: 0 }
+  if (n <= 18) return { count: 6, adj: 0 }
+  if (n === 19) return { count: 7, adj: 0 }
+  return { count: 8, adj: 0 } // 20+
+}
+
+// Handicap Index (WHS Rule 5.2). `rounds` must be most-recent-first (callers
+// pass ORDER BY date DESC). Uses the most recent 20 acceptable differentials,
+// averages the lowest N per the sliding table + low-count adjustment, rounds to
+// 0.1, clamps to the WHS maximum 54.0. No 0.96 multiplier.
 function computeHandicapFromRounds(rounds) {
-  const completed = (rounds || []).filter(isRoundCompleted)
-  if (!completed.length) return null
-  const diffs = completed
+  const diffs = (rounds || [])
+    .filter(isRoundCompleted)
     .map(differentialFor)
     .filter(d => d != null)
-    .sort((a, b) => a - b)
-    .slice(0, 8)
-  if (!diffs.length) return null
-  return parseFloat((diffs.reduce((s, d) => s + d, 0) / diffs.length * 0.96).toFixed(1))
+    .slice(0, 20) // most recent 20 (caller is date-DESC)
+  const sel = whsSelection(diffs.length)
+  if (!sel) return null // fewer than 3 acceptable scores → no index yet
+  const lowest = [...diffs].sort((a, b) => a - b).slice(0, sel.count)
+  const index = (lowest.reduce((s, d) => s + d, 0) / lowest.length) + sel.adj
+  return Math.min(54.0, Math.max(-10.0, Math.round(index * 10) / 10))
 }
 
-// Recompute and (if 5+ completed rounds exist) persist the handicap
-// to tm_users.handicap. Below the 5-round threshold, the manually-
-// seeded base value stays in place untouched.
+// Recompute and (if 3+ completed rounds exist) persist the handicap
+// to tm_users.handicap. WHS issues an index after 54 holes (≈3 18-hole
+// rounds; the sliding table starts at 3 differentials). Below that, the
+// manually-seeded base value stays in place untouched. (audit 2026-06-25 —
+// was 5; WHS minimum is 3.)
 async function maybeUpdateUserHandicap(userId) {
   try {
     const rounds = await db.many(
@@ -89,7 +122,7 @@ async function maybeUpdateUserHandicap(userId) {
       [userId]
     )
     const completedCount = rounds.filter(isRoundCompleted).length
-    if (completedCount < 5) return null
+    if (completedCount < 3) return null
     const hcp = computeHandicapFromRounds(rounds)
     if (hcp == null) return null
     await db.query('UPDATE tm_users SET handicap = $1 WHERE id = $2', [hcp, userId])

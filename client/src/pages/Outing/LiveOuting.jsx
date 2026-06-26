@@ -1328,11 +1328,9 @@ function MatchScoreboard({
     // Course Handicap (slope-based) — same conversion as netStrokes() so this
     // scoreboard mirror stays in lockstep. (2026-06-25)
     const rawH = netMode ? courseHandicap(parseFloat(p.handicap) || 0, playerTeeRatings(p?.gender, outingMeta)) : 0
-    const hcp  = rawH === 0
-      ? 0
-      : (rawH > 0
-        ? Math.floor(rawH * hcpAllowance / 100)
-        : -Math.ceil(Math.abs(rawH) * hcpAllowance / 100))
+    // WHS Playing Handicap = round(CH × allowance) — round, not floor. Mirror of
+    // netStrokes(); kept in lockstep. (handicap audit 2026-06-25)
+    const hcp  = rawH === 0 ? 0 : (rawH > 0 ? 1 : -1) * Math.round(Math.abs(rawH) * hcpAllowance / 100)
     return totalSoFar - hcp - parSoFar
   }
 
@@ -2229,8 +2227,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     // index when the outing is unrated. (2026-06-25)
     const raw = courseHandicap(effectiveHandicap(p), playerTeeRatings(p?.gender, outingMeta))
     if (!Number.isFinite(raw) || raw === 0) return 0
-    const mag = Math.abs(raw) * hcpAllowance / 100
-    return raw >= 0 ? Math.floor(mag) : -Math.ceil(mag)
+    // WHS Playing Handicap = round(Course Handicap × allowance) — ROUND to
+    // nearest, not floor. (handicap audit 2026-06-25)
+    const strokes = Math.round(Math.abs(raw) * hcpAllowance / 100)
+    return raw >= 0 ? strokes : -strokes
   }
   function netTotal(p) {
     const gross = getScores(p).reduce((s, v) => s + (v || 0), 0)
