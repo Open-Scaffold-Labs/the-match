@@ -8,6 +8,15 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Match net strokes now off slope-based Course Handicap (gender + slope flow into results)
+
+The final rating-correctness piece. Match NET strokes were allocated from the raw handicap index; now they're off the WHS **Course Handicap** = Index×Slope/113+(CR−Par), using the outing's (gender-correct) captured ratings — so slope and gender actually change the strokes a player gets. Spec + risk register: [[synthesis/course-handicap-match-strokes-2026-06-25]].
+
+- **Helper + server (`013e51f`):** shared pure `courseHandicap(index,{slope,rating,par})` in `client/src/lib/handicapClient.js` (9 node assertions; graceful fallback to raw index when unrated). Live-outing GET now returns `course_rating`/`slope_rating` (were stored on `tm_outings` but not selected).
+- **Wiring (`013e51f`):** both client net-stroke implementations — `netStrokes()` and the `MatchScoreboard` inline mirror — convert the index via the shared helper + `outingRatings` before the existing allowance×floor. Single helper keeps them in lockstep. **Lint caught a real scope bug** (`outingRatings` undefined in MatchScoreboard — the ReferenceError class) before it shipped; fixed by threading it as a prop.
+- **Bounded + safe:** NET-mode only (GROSS untouched); unrated/free outings unchanged (fallback). `node --check` + lint + build clean; 9 assertions pass.
+- **⚠ BEHAVIOR CHANGE flagged:** net results on RATED matches shift to the WHS-correct basis — **Matt should verify on a real net match.** **Limitation flagged:** the outing stores ONE tee rating (the picker's gender), so a mixed-gender match applies that gender's rating to everyone — a strict improvement over raw-index (slope-adjusted) but not per-player-gender-correct. Full correctness needs per-player gender ratings stored/fetched (deferred). Also deferred: strict WHS integer-rounding of CH before allowance.
+
 ## [2026-06-25] refactor | Gender wired into handicapping — gender-correct tee ratings + USGA differential enabled (beta)
 
 Matt: "no point having genders if they aren't correctly wired." Recon found TWO gaps (both verified in code): (1) `dedupeTees` iterated men's tees first and dropped the women's-rated duplicate of a shared physical tee → a woman captured the **men's** course_rating/slope; (2) `handicap.js` forced the **par-based** differential (`USE_USGA_DIFFERENTIAL = false`), so ratings/slope — and therefore gender — never touched the index at all. Full spec + risk register: [[synthesis/gender-handicap-wiring-2026-06-25]].
