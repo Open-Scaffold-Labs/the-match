@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782501164.2064483,
-    "source_id": "71fae8f7-ab3f-4b09-8bfc-4ae8d0a2d0c1",
-    "verified_at": 1782501188.946827
+    "mtime": 1782502249.6467886,
+    "source_id": "bbe9c9e4-4940-4116-8c15-255b013994aa",
+    "verified_at": 1782502301.557089
   },
   "wiki/index.md": {
-    "mtime": 1782500486.2547245,
-    "source_id": "af3dd610-6dae-4bd3-8c69-8341cfe46b88",
-    "verified_at": 1782500525.969414
+    "mtime": 1782502272.8439496,
+    "source_id": "479c82bf-e0fa-4aed-990d-a1a84f899d07",
+    "verified_at": 1782502314.943889
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -96,5 +96,10 @@
     "mtime": 1782501150.1152554,
     "source_id": "9c78e267-f2fb-4596-b5fb-e7faa17d81e9",
     "verified_at": 1782501202.127193
+  },
+  "wiki/synthesis/player-data-foundation-2026-06-25.md": {
+    "mtime": 1782502266.3276854,
+    "source_id": "5e06d92b-7be1-48df-b844-c8593f28ef2e",
+    "verified_at": 1782502321.425938
   }
 }
