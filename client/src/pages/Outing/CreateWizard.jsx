@@ -13,6 +13,23 @@ const FORMATS = [
   { id: 'skins',     label: 'Skins',          desc: 'Win each hole outright' },
   { id: 'best_ball', label: 'Best Ball',      desc: 'Best of each team per hole — pairs or foursomes' },
 ]
+// WHS Appendix C recommended handicap allowance by format. (audit 2026-06-25)
+//   singles match play 100% · four-ball match play 90% · four-ball stroke 85%
+//   individual stroke play / Stableford 95%
+function whsAllowance(formats = []) {
+  const f = Array.isArray(formats) ? formats : []
+  if (f.includes('best_ball')) return f.includes('match') ? 90 : 85
+  if (f.includes('match')) return 100
+  return 95 // individual stroke play / Stableford
+}
+const ALLOWANCE_LABEL = {
+  100: 'Full handicap — singles match play (WHS).',
+  95:  'Individual stroke play / Stableford (WHS).',
+  90:  'Four-ball match play (WHS).',
+  85:  'Four-ball stroke play (WHS).',
+  80:  'Member-guest / scramble.',
+  75:  'Scramble.',
+}
 const TEAMS = [
   { id: 'individual', label: 'Individual',     desc: 'Everyone scores for themselves — head-to-head records tracked' },
   { id: 'teams',      label: '2 Teams',        desc: 'Split your group into two teams — you assign players after' },
@@ -818,23 +835,22 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
           Handicap Allowance
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {[100, 95, 90, 85, 80, 75].map(pct => (
-            <button key={pct} onClick={() => set('handicapAllowance', pct)} style={{
-              padding: '6px 12px', borderRadius: 999, border: '1px solid',
-              borderColor: form.handicapAllowance === pct ? 'var(--tm-green)' : 'var(--tm-border)',
-              background:  form.handicapAllowance === pct ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
-              color:       form.handicapAllowance === pct ? 'var(--tm-green-text)' : 'var(--tm-text-2)',
-              fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>{pct}%</button>
-          ))}
+          {[100, 95, 90, 85, 80, 75].map(pct => {
+            const isRec = pct === whsAllowance(form.formats)
+            return (
+              <button key={pct} onClick={() => set('handicapAllowance', pct)} style={{
+                padding: '6px 12px', borderRadius: 999, border: '1px solid',
+                borderColor: form.handicapAllowance === pct ? 'var(--tm-green)' : isRec ? 'var(--tm-gold)' : 'var(--tm-border)',
+                background:  form.handicapAllowance === pct ? 'var(--tm-green-muted)' : 'var(--tm-surface-2)',
+                color:       form.handicapAllowance === pct ? 'var(--tm-green-text)' : 'var(--tm-text-2)',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>{pct}%{isRec ? ' ★' : ''}</button>
+            )
+          })}
         </div>
         <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 6 }}>
-          {form.handicapAllowance === 100 ? 'Full handicap.'
-           : form.handicapAllowance >= 95 ? 'Stroke-play tournament standard.'
-           : form.handicapAllowance >= 90 ? 'Singles match-play standard.'
-           : form.handicapAllowance >= 85 ? '4-ball stroke / better-ball.'
-           : form.handicapAllowance >= 80 ? 'Member-guest / scramble standard.'
-           : 'Scramble.'}
+          {ALLOWANCE_LABEL[form.handicapAllowance] || 'Custom allowance.'}
+          {' '}<span style={{ color: 'var(--tm-gold-text)', fontWeight: 700 }}>★ WHS recommends {whsAllowance(form.formats)}% here.</span>
         </div>
       </div>
     </div>,
