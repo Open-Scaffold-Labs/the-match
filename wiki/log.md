@@ -8,6 +8,17 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Mixed-gender matches: per-player gender ratings for Course Handicap (beta)
+
+Closes the limitation flagged with the Course-Handicap work: a mixed-gender match (couple, mixed foursome — common in friend golf) was applying ONE tee rating (the picker's gender) to everyone. Now each player's Course Handicap uses THEIR gender's rating. Spec: [[synthesis/per-player-gender-ratings-2026-06-25]].
+
+- **Store + capture (`011821b`):** migration 031 adds `tee_ratings JSONB` ({male:{cr,sr},female:{cr,sr}}) to `tm_outings` (applied by hand, verified). CreateWizard captures both genders' CR/SR for the picked physical tee (matched by total_yards) at match-create → create payload → INSERT. Live-outing GET returns `tee_ratings`, and the participant SELECT now carries `u.gender`.
+- **Per-player net math (`011821b`):** shared `playerTeeRatings(gender, meta)` in `handicapClient.js` returns the player's-gender rating (falls back to the single rating → then no-op). `netStrokes` + the `MatchScoreboard` mirror both compute each player's Course Handicap from their own gender. 17 node assertions (male→men's 71.5, female→women's 76.8, same index → different CH, all fallbacks).
+- **Bounded + verified:** NET-mode only; same-gender + unrated + old-outing matches unchanged (fallback); single shared helper keeps the two spots in lockstep; node --check + lint + build clean.
+- **⚠ Flag:** verify on a real MIXED-gender net match. **Deferred:** per-player Course Handicap transparency UI (show each player their CH); per-gender round-differential capture (the INDEX side).
+
+This completes the rating-correctness arc: gender field → gender-correct tee ratings → USGA differential (index) → Course Handicap (match strokes) → per-player gender ratings (mixed matches).
+
 ## [2026-06-25] refactor | Match net strokes now off slope-based Course Handicap (gender + slope flow into results)
 
 The final rating-correctness piece. Match NET strokes were allocated from the raw handicap index; now they're off the WHS **Course Handicap** = Index×Slope/113+(CR−Par), using the outing's (gender-correct) captured ratings — so slope and gender actually change the strokes a player gets. Spec + risk register: [[synthesis/course-handicap-match-strokes-2026-06-25]].
