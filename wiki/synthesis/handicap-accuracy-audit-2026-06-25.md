@@ -44,9 +44,9 @@ Our index is **systematically wrong** in a few specific, fixable ways — most i
 
 **Tier 3:**
 - **Soft/hard caps — ✅ SHIPPED (`9d0c1c9`):** migration 032 `tm_handicap_history` persists each index revision; Low HI = MIN over trailing 365 days; `applyHandicapCaps` (soft >3.0→50%, hard +5.0) applied after 20 scores. `stats.js` now reads the persisted index (single source of truth — no divergent recompute). 10 caps assertions; WHS+AGS regression green.
-- ☐ Proper 9-hole handling (expected-9 from current Index).
-- ☐ Per-format allowance defaults (Appendix C).
-- ☐ Capture real Stroke Index on solo rounds (AGS currently defaults SI 1..18 for them).
+- **Per-format allowance — ✅ SHIPPED (`730be0d`):** `whsAllowance(formats)` (Appendix C: singles match 100, four-ball match 90, four-ball stroke 85, individual stroke/Stableford 95) surfaced as a ★ recommendation on the CreateWizard picker; corrected the labels (it had called 90% "singles match" — wrong; singles match is 100%).
+- ☐ **Proper 9-hole handling** — **genuine data dependency:** needs 9-hole tee Course/Slope ratings captured (the WHS expected-9 method combines a 9-hole differential with an Index-based expected-9). We don't capture 9-hole ratings, so this can't be done correctly yet. Left unchanged (18-hole is the primary flow) rather than ship a half-correct version. Follow-up: capture 9-hole ratings → implement expected-9.
+- ☐ **Solo-round Stroke Index capture** — **data plumbing:** solo rounds store hole pars but not Stroke Index, so AGS defaults SI to 1..18 for them (a small second-order effect on the net-double-bogey cap — outing rounds use real SI). Follow-up: pass the course Stroke Index in the solo round POST + store it (migration) + COALESCE it into the handicap query.
 
 ## Honest scope note
 PCC and the soft/hard caps genuinely need data a standalone app doesn't have (the field's same-day scores; a persisted year of index history). The consumer-app norm — and what we'll do — is: implement everything else faithfully, **set PCC = 0** (correct on most days), and **label the index an estimate** (only an authorized association issues an official handicap). Tier 1 + Tier 2 gets us to a value that matches an official index for the large majority of golfers within ~0.1–0.2.

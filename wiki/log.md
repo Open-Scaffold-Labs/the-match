@@ -8,6 +8,12 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Handicap: per-format WHS allowance + close-out of the audit (beta)
+
+Per-format handicap **allowance** now follows WHS Appendix C (`730be0d`, `CreateWizard.jsx`). Fixed a real WHS error: the picker labelled **90% as "singles match-play standard"** — singles match play is **100%**; 90% is FOUR-BALL match. Added `whsAllowance(formats)` (singles match 100 / four-ball match 90 / four-ball stroke 85 / individual stroke+Stableford 95), surfaced as a ★ recommendation tied to the selected format, and corrected every label. build+lint clean.
+
+**Handicap audit — close-out status.** The engine is now WHS-faithful: no 0.96, sliding table, 0.1 rounding, 54.0 max, 3-round min, net-double-bogey AGS, soft/hard caps + 365-day Low-HI history, single-source persisted index, 2024 Course Handicap (CR−Par), rounded playing handicaps, per-format allowances, gender-correct + per-player ratings. **Two items remain as genuine DATA dependencies (not shipped, documented honestly rather than half-built):** (1) proper **9-hole** handling needs 9-hole tee ratings captured (WHS expected-9) — left as 18-hole-primary; (2) **solo-round Stroke Index** capture (AGS defaults SI 1..18 for solo rounds — a small second-order effect; outing rounds use real SI). Both in the audit doc.
+
 ## [2026-06-25] refactor | Handicap Tier-3: WHS soft/hard caps + single-source index (beta)
 
 WHS soft/hard caps (Rule 5.8) shipped (`9d0c1c9`, migration 032 + `handicap.js` + `stats.js`). The handicap engine is now WHS-faithful end-to-end.
