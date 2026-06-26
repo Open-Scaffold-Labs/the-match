@@ -5,14 +5,13 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782505964.0224745,
-    "source_id": "48b80381-3347-49ae-9d89-5cb561440704",
-    "verified_at": 1782505994.773952
+    "mtime": 1782506846.5366447,
+    "source_id": "67cdac84-f78e-4085-83a9-740b1bcac67a"
   },
   "wiki/index.md": {
-    "mtime": 1782504780.0389662,
-    "source_id": "85c08cb0-bf37-4740-b715-3cb8ea464f23",
-    "verified_at": 1782504819.6432111
+    "mtime": 1782506854.367327,
+    "source_id": "e748afc2-9dfb-4ab6-99ff-861eab0fdbd4",
+    "verified_at": 1782506923.9411242
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -116,5 +115,10 @@
     "mtime": 1782504397.1284204,
     "source_id": "d2906b04-1518-4bb1-aafd-23a3146e62b0",
     "verified_at": 1782504825.846385
+  },
+  "wiki/synthesis/handicap-accuracy-audit-2026-06-25.md": {
+    "mtime": 1782506581.1924586,
+    "source_id": "5bb08213-6a60-4ac7-8bc3-92028e8d06bc",
+    "verified_at": 1782506930.49423
   }
 }
