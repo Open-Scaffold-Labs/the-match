@@ -1258,6 +1258,8 @@ function MatchScoreboard({
   isSkinsFormat = false,   // when true, render per-row 'N SK' badge (B4c polish)
   skinsByPlayer = {},      // { user_id: skinsWonCount }
 }) {
+  // Tapped player's Course Handicap breakdown (mobile bottom sheet). null = closed.
+  const [chInfo, setChInfo] = useState(null)
   // Tiebreak hints — for each row that's tied on total with the row
   // below it, surface a tiny pill ('B9' / 'L6' / 'L3' / 'LH') so
   // players understand why the cleaner rank went to one over the
@@ -1388,7 +1390,6 @@ function MatchScoreboard({
           const pr       = (netMode && Number.isFinite(idxVal)) ? playerTeeRatings(p?.gender, outingMeta) : null
           const hasRtg   = pr && Number.isFinite(Number(pr.slope)) && Number.isFinite(Number(pr.rating))
           const chVal    = hasRtg ? Math.round(courseHandicap(idxVal, pr)) : null
-          const chTitle  = chVal != null ? `Course Handicap ${chVal} — from ${idxVal.toFixed(1)} index · slope ${pr.slope} · CR ${pr.rating}` : undefined
           const skinsCount = isSkinsFormat ? (skinsByPlayer[p.user_id] || 0) : 0
           // For skins format, the headline TOT becomes 'N SK' so the
           // leaderboard reads at a glance — STP becomes the secondary
@@ -1474,11 +1475,18 @@ function MatchScoreboard({
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>{p.name}</div>
                 {chVal != null ? (
-                  <div title={chTitle} style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, whiteSpace: 'nowrap' }}>
-                    <span style={{
-                      padding: '0 5px', borderRadius: 4, fontSize: 10, fontWeight: 800, letterSpacing: '0.03em',
-                      background: 'rgba(201,160,64,0.18)', color: '#7A5800',
-                    }}>CH {chVal}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, whiteSpace: 'nowrap' }}>
+                    {/* Tappable CH pill → bottom-sheet breakdown (mobile-native;
+                        stops the row's tap so it doesn't jump to the scorecard). */}
+                    <span
+                      role="button"
+                      aria-label={`Course Handicap ${chVal}, tap for details`}
+                      onClick={(e) => { e.stopPropagation(); setChInfo({ name: p.name, ch: chVal, idx: idxVal, slope: pr.slope, rating: pr.rating, par: outingMeta.coursePar, gender: p.gender }) }}
+                      style={{
+                        padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 800, letterSpacing: '0.03em',
+                        background: 'rgba(201,160,64,0.18)', color: '#7A5800', cursor: 'pointer',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}>CH {chVal} <span style={{ opacity: 0.6, fontWeight: 700 }}>ⓘ</span></span>
                     <span style={{ fontSize: 9, color: 'rgba(27,94,59,0.45)', fontWeight: 500 }}>{idxVal.toFixed(1)} idx</span>
                   </div>
                 ) : (p.is_guest || (p.handicap != null && !p.is_guest)) ? (
@@ -1549,6 +1557,56 @@ function MatchScoreboard({
           Tap a row to score{netMode ? ' · NET' : ''}
         </div>
       </div>
+
+      {/* Course Handicap breakdown — mobile bottom sheet (tap a CH chip). */}
+      {chInfo && createPortal(
+        <div onClick={() => setChInfo(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(13,31,18,0.45)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+            borderTopLeftRadius: 22, borderTopRightRadius: 22, border: '1px solid rgba(27,94,59,0.12)',
+            padding: '10px 22px max(24px, env(safe-area-inset-bottom))', boxShadow: '0 -10px 40px rgba(0,0,0,0.25)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0 14px' }}>
+              <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgba(27,94,59,0.18)' }} />
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(27,94,59,0.55)' }}>COURSE HANDICAP</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
+              <span style={{ fontSize: 46, fontWeight: 900, color: '#1B5E3B', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{chInfo.ch}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#0D1F12' }}>{chInfo.name}</span>
+            </div>
+            <div style={{ marginTop: 16, padding: '14px 16px', background: 'rgba(27,94,59,0.05)', border: '1px solid rgba(27,94,59,0.10)', borderRadius: 14 }}>
+              {[
+                ['Handicap index', chInfo.idx.toFixed(1)],
+                ['Slope rating', `${chInfo.slope} ÷ 113`],
+                ['Course rating − par', `${chInfo.rating} − ${chInfo.par}`],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 14 }}>
+                  <span style={{ color: 'var(--tm-text-2, #3D6B4F)' }}>{k}</span>
+                  <span style={{ fontWeight: 800, color: '#0D1F12', fontVariantNumeric: 'tabular-nums' }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ borderTop: '1px solid rgba(27,94,59,0.15)', marginTop: 6, paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#1B5E3B' }}>= Course Handicap</span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#1B5E3B', fontVariantNumeric: 'tabular-nums' }}>{chInfo.ch}</span>
+              </div>
+            </div>
+            {(chInfo.gender === 'male' || chInfo.gender === 'female') && (
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--tm-text-2, #3D6B4F)', textAlign: 'center' }}>
+                Uses the {chInfo.gender === 'female' ? "women's" : "men's"} rating for these tees.
+              </div>
+            )}
+            <button onClick={() => setChInfo(null)} style={{
+              width: '100%', marginTop: 18, height: 48, borderRadius: 14, border: 'none',
+              background: 'linear-gradient(135deg, #F5D78A, #C9A040)', color: '#070C09',
+              fontSize: 15, fontWeight: 800, cursor: 'pointer',
+            }}>Done</button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
