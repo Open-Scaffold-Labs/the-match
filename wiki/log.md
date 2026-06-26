@@ -8,6 +8,16 @@ updated: 2026-06-26
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-26] feature | Desktop breakout for the Leagues tab (commissioners on desktop, beta)
+
+The app is a fixed 430px phone frame; league commissioners run leagues from desktops (Matt). Added a desktop layout for the **Leagues tab only** — every other tab + the entire iOS app stay phone-only (`0d2045e`).
+
+- `client/src/lib/useViewport.js` — shared `useIsDesktop()` (`matchMedia(min-width:1024px)`, with the Safari<14 `addListener` fallback). iOS WKWebView is always <1024 → the phone frame is never touched on-device; desktop only applies on the Vercel/beta surface. One source of truth so App (frame width) + Leagues (inner layout) agree.
+- `App.jsx` — frame `maxWidth` 430 → 1180 only when `tab===LEAGUES && isDesktop`.
+- `Leagues.jsx` — `LeaguesHub` centers its column + lays league cards in a responsive `auto-fill minmax(300px,1fr)` grid (verified 3-col at 1180px via a fetch-stubbed harness screenshot; phone column unchanged side-by-side). `LeagueDetail` centers hero + tab bar + content in a ~920px readable column instead of stretching the standings table/roster. Mobile path provably unchanged (centerCol null, cardWrap falls back to the original flex column).
+
+Verified: build + lint clean; harness screenshot showed the desktop 3-col grid + the unchanged 390px phone column together; design-critique lens passed (hierarchy, even grid, brand language, centered margins). **Scope finding:** the live-outing `CommissionerPanel` is a portal-overlay modal under the Outing tab (not Leagues) and already renders as a centered modal on desktop — flagged as a separate optional follow-up, not rushed blind. The league-commissioner desktop workflow (browse/manage leagues, standings, roster, rules, comms, export) IS this LeagueDetail surface, now desktop-ready.
+
 ## [2026-06-26] query | Session close-out: handoff + plan refresh
 
 Wrote `next-session-handoff-2026-06-26.md` (supersedes the 06-24 handoff) — ranked next-steps: (1) WHS expected-9 9-hole counting [the one open data dependency], (2) desktop leagues/commissioner layout [frame still capped at 430px], (3) next Phase-3 leapfrog (Matt's pick), (4) pre-launch ops. Refreshed the two living plans to current reality: `build-plan-bulletproof-2026-06-23.md` Phase 3.1 + 3.3 marked ☑ and a new **Track H** (handicap accuracy, H.1–H.5 ☑, H.6 expected-9 open); `eagle-eye-premium-plan-2026-06-23.md` Phase 2 status note (plays-like + own-club arcs shipped). index.md updated (new handoff = ACTIVE).
