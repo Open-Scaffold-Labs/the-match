@@ -38,8 +38,9 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
   // Step 1 state — name (pre-filled from signup)
   const [name, setName] = useState(user?.name || '')
 
-  // Step 2 — handicap range
+  // Step 2 — handicap range (+ gender, folded into the same step; migration 030)
   const [hcpRange, setHcpRange] = useState(null)
+  const [obGender, setObGender] = useState(null) // male|female|null — optional
 
   // Step 3 — home course
   const [homeCourse, setHomeCourse] = useState('')
@@ -126,6 +127,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
         if (meta?.midpoint != null) {
           await saveProfile({ handicap: meta.midpoint })
         }
+        if (obGender) await saveProfile({ gender: obGender }) // optional — never blocks
         await markStep('handicap')
         setStep(2)
       } else if (step === 2) {
@@ -254,6 +256,24 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
                   {hcpRange === r.key && <span style={{ color: '#F5D78A', fontSize: 16 }}>✓</span>}
                 </button>
               ))}
+            </div>
+            {/* Gender (optional) — folded in here so it's captured at signup
+                without adding a whole step. Drives correct tees + rating math. */}
+            <div style={{ marginTop: 18 }}>
+              <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Gender <span style={{ opacity: 0.6 }}>(optional)</span></div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[{ v: 'male', t: 'Male' }, { v: 'female', t: 'Female' }].map(({ v, t }) => {
+                  const on = obGender === v
+                  return (
+                    <button key={v} type="button" onClick={() => setObGender(on ? null : v)} style={{
+                      flex: 1, padding: '12px', borderRadius: 12, cursor: 'pointer', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                      background: on ? 'rgba(245,215,138,0.10)' : 'rgba(255,255,255,0.04)',
+                      border: on ? '1px solid rgba(245,215,138,0.55)' : '1px solid rgba(255,255,255,0.10)',
+                      color: '#fff',
+                    }}>{t}</button>
+                  )
+                })}
+              </div>
             </div>
           </Step>
         )}

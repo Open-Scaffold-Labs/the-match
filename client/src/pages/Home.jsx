@@ -2294,6 +2294,7 @@ function EditProfileModal({ user, onSave, onClose }) {
       ? (user.handicap > 0 ? `+${user.handicap}` : String(user.handicap))
       : ''
   )
+  const [gender, setGender] = useState(user?.gender ?? null) // male|female|null (migration 030)
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -2304,9 +2305,10 @@ function EditProfileModal({ user, onSave, onClose }) {
         home_course: course.trim() || null,
         bio: bio.trim() || null,
         ...(hcpVal !== undefined ? { handicap: hcpVal } : {}),
+        ...(gender ? { gender } : {}),
       })
       const parsed = hcpVal ? parseFloat(hcpVal.replace(/^\+/, '')) : user?.handicap
-      onSave({ home_course: course.trim() || null, bio: bio.trim() || null, handicap: isNaN(parsed) ? user?.handicap : parsed })
+      onSave({ home_course: course.trim() || null, bio: bio.trim() || null, handicap: isNaN(parsed) ? user?.handicap : parsed, ...(gender ? { gender } : {}) })
       onClose()
     } catch { /* ignore */ }
     setSaving(false)
@@ -2341,6 +2343,24 @@ function EditProfileModal({ user, onSave, onClose }) {
               borderRadius: 10, color: '#0D1F12', padding: '11px 14px', fontSize: 14, outline: 'none',
             }}
           />
+        </div>
+        {/* Gender — drives correct tees + rating/handicap math (migration 030).
+            Optional; segmented, no forced default. */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 6, fontWeight: 600 }}>GENDER</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[{ v: 'male', t: 'Male' }, { v: 'female', t: 'Female' }].map(({ v, t }) => {
+              const on = gender === v
+              return (
+                <button key={v} type="button" onClick={() => setGender(on ? null : v)} aria-pressed={on} style={{
+                  flex: 1, minHeight: 44, borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                  background: on ? 'rgba(27,94,59,0.10)' : 'rgba(27,94,59,0.04)',
+                  border: on ? '1.5px solid #2A7A38' : '1px solid rgba(27,94,59,0.15)',
+                  color: on ? '#1B5E3B' : 'rgba(13,31,18,0.6)',
+                }}>{t}</button>
+              )
+            })}
+          </div>
         </div>
         {[
           { label: 'Home Course', value: course, set: setCourse, placeholder: 'e.g. Augusta National' },
