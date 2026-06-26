@@ -8,6 +8,15 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Course Handicap transparency chip on the match scoreboard (beta)
+
+So the (now gender-correct) net result isn't a black box: each player's **Course Handicap** is shown on the `MatchScoreboard` in NET mode. Ran the design-critique skill + audit-before-claim; verified the look in an isolated render.
+
+- **`9d88fa2`** (`LiveOuting.jsx`): per-player CH chip in the name subline — a gold `CH N` pill (reusing the existing tiebreak-pill visual language so it's native), CH leading with the source index muted behind it (`CH 11 · 10.2 idx`), + a `title` tooltip with the slope/CR derivation. Shown only in NET mode on **rated** outings (so it's never a redundant `CH == index`). Computed on the **same basis as the scoreboard's net column** (raw `p.handicap`), gender-correct via `playerTeeRatings`.
+- **Design-critique applied:** CH leads (correct hierarchy for net), reuses the gold-pill pattern (consistency), ≥10px bold numerals + not colour-only (a11y), zero added row height (no clutter), no competing tap target.
+- **Verified visually** in an isolated MatchScoreboard render: Matt (m, 10.2)→CH 11, Pat (m, 4.0)→CH 4, Mary (f, 18.0)→**CH 27** (women's 140/76.8 rating) — the mixed-match correctness is visible. Build+lint clean; scaffold removed.
+- **Deferred:** an expandable per-player CH breakdown (the tooltip covers desktop; a tap-sheet would help mobile).
+
 ## [2026-06-25] refactor | Mixed-gender matches: per-player gender ratings for Course Handicap (beta)
 
 Closes the limitation flagged with the Course-Handicap work: a mixed-gender match (couple, mixed foursome — common in friend golf) was applying ONE tee rating (the picker's gender) to everyone. Now each player's Course Handicap uses THEIR gender's rating. Spec: [[synthesis/per-player-gender-ratings-2026-06-25]].
