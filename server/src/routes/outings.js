@@ -27,7 +27,7 @@ const db          = require('../db')
 router.get('/:code/public', async (req, res) => {
   try {
     const row = await db.one(
-      'SELECT id, code, name, course_name, course_par, course_rating, slope_rating, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, league_id, state FROM tm_outings WHERE code = $1',
+      'SELECT id, code, name, course_name, course_par, course_rating, slope_rating, tee_ratings, scoring_formats, status, hole_pars, hole_handicaps, expected_players, team_breakdown, league_id, state FROM tm_outings WHERE code = $1',
       [req.params.code.toUpperCase()]
     )
     if (!row) return res.status(404).json({ error: 'Outing not found' })
@@ -49,7 +49,7 @@ router.get('/:code/public', async (req, res) => {
     // Enrich participants with live scores from tm_outing_participants
     // (same pattern as the authed GET) but trim to public fields only.
     const partRows = await db.many(
-      `SELECT op.user_id, op.scores, u.name, u.handle, u.handicap, u.avatar
+      `SELECT op.user_id, op.scores, u.name, u.handle, u.handicap, u.avatar, u.gender
        FROM tm_outing_participants op
        LEFT JOIN tm_users u ON u.id = op.user_id
        WHERE op.outing_id = $1`,
@@ -78,6 +78,7 @@ router.get('/:code/public', async (req, res) => {
         handle: dp?.handle || null,
         avatar: dp?.avatar ?? null,
         handicap: dp?.handicap ?? null,
+        gender: dp?.gender ?? null,   // per-player gender for mixed-match Course Handicap (2026-06-25)
         scores: dp?.scores || [],
         total: p.total ?? 0,
         holes_played: p.holes_played ?? 0,
@@ -96,6 +97,7 @@ router.get('/:code/public', async (req, res) => {
         course_par:  row.course_par,
         course_rating: row.course_rating,   // for slope-based Course Handicap net strokes
         slope_rating:  row.slope_rating,
+        tee_ratings:   row.tee_ratings,      // both genders' CR/SR for per-player (mixed-match) Course Handicap
         scoring_formats: row.scoring_formats,
         status: row.status,
         hole_pars: row.hole_pars,
@@ -227,6 +229,7 @@ router.post('/', async (req, res) => {
     // the tee carries them (paid tier / GolfCourseAPI-sourced courses);
     // null otherwise — handicap then falls back to par-based differentials.
     courseRating, slopeRating,
+    teeRatings, // New (2026-06-25): both genders' CR/SR for the picked tee (mixed-match Course Handicap)
     // New (2026-05-01): expected total golfers in the match. Used by the
     // Match page to show "Waiting for N more" until the field fills up.
     expectedPlayers,
@@ -395,9 +398,9 @@ router.post('/', async (req, res) => {
        team_format, point_method, scoring_formats, state,
        course_id, course_tee, hole_pars, hole_yardages, hole_handicaps,
        course_rating, slope_rating, expected_players, team_breakdown,
-       league_id
+       league_id, tee_ratings
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      RETURNING *`,
     [
       code, name, req.user.id,
@@ -414,6 +417,7 @@ router.post('/', async (req, res) => {
       expectedPlayersVal,
       teamBreakdownVal,
       validLeagueId,
+      (teeRatings && typeof teeRatings === 'object') ? JSON.stringify(teeRatings) : null, // both genders' CR/SR (2026-06-25)
     ]
   )
 
