@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782502249.6467886,
-    "source_id": "bbe9c9e4-4940-4116-8c15-255b013994aa",
-    "verified_at": 1782502301.557089
+    "mtime": 1782503176.7405157,
+    "source_id": "6790ff60-0fd1-405c-9675-83fc816f2b5d",
+    "verified_at": 1782503207.412937
   },
   "wiki/index.md": {
-    "mtime": 1782502272.8439496,
-    "source_id": "479c82bf-e0fa-4aed-990d-a1a84f899d07",
-    "verified_at": 1782502314.943889
+    "mtime": 1782503183.2521708,
+    "source_id": "593ff2fb-606f-4a94-a1a8-570484df22eb",
+    "verified_at": 1782503220.6354911
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -101,5 +101,10 @@
     "mtime": 1782502266.3276854,
     "source_id": "5e06d92b-7be1-48df-b844-c8593f28ef2e",
     "verified_at": 1782502321.425938
+  },
+  "wiki/synthesis/gender-handicap-wiring-2026-06-25.md": {
+    "mtime": 1782502847.5897746,
+    "source_id": "a1f4e163-6a29-47fa-b82b-0c6784dde403",
+    "verified_at": 1782503226.999428
   }
 }
