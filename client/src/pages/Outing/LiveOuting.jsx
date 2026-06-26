@@ -4,6 +4,7 @@ import { api, post } from '../../lib/api.js'
 import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/offline-queue.js'
 import { warn } from '../../lib/logger.js'
 import { scoreColor as scoreToParColor } from '../../lib/scoreColors.js'
+import { courseHandicap } from '../../lib/handicapClient.js'
 import GuestModal from './GuestModal.jsx'
 // 2026-05-06 Stage 5 — commissioner overlay components moved to their
 // own file. LiveOuting renders them as portals from inside the live
@@ -1247,6 +1248,7 @@ function MatchScoreboard({
   holeCount,
   netMode,
   hcpAllowance = 100,      // % of raw handicap to apply (B4a)
+  outingRatings = {},      // { slope, rating, par } for slope-based Course Handicap (2026-06-25)
   isMatchPlay,
   matchPlayData,
   diffStr,                 // gross score-to-par for holes played
@@ -1321,7 +1323,9 @@ function MatchScoreboard({
     // Handicap (sign-preserving for plus-handicap players). Mirror of
     // netStrokes() in LiveOuting — kept inline here so the scoreboard
     // doesn't have to import. Round 1 fix.
-    const rawH = netMode ? (parseFloat(p.handicap) || 0) : 0
+    // Course Handicap (slope-based) — same conversion as netStrokes() so this
+    // scoreboard mirror stays in lockstep. (2026-06-25)
+    const rawH = netMode ? courseHandicap(parseFloat(p.handicap) || 0, outingRatings) : 0
     const hcp  = rawH === 0
       ? 0
       : (rawH > 0
@@ -2120,6 +2124,12 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     const v = Number(outing.state?.handicap_allowance)
     return Number.isFinite(v) && v > 0 && v <= 100 ? v : 100
   })()
+  // Tee ratings for slope-based Course Handicap net strokes (2026-06-25). Net
+  // strokes are now allocated off Course Handicap = Index×Slope/113+(CR−Par),
+  // not the raw index — slope-adjusted, and (since the captured ratings are
+  // gender-correct) gender flows through. Falls back to the raw index when the
+  // outing has no ratings (free/unrated), so those matches are unchanged.
+  const outingRatings = { slope: outing.slope_rating, rating: outing.course_rating, par: outing.course_par }
   // 6.4 — Per-event handicap overrides. Commissioner-set, one-outing
   // adjustments stored in outing.state.handicap_overrides keyed by
   // user_id. If a player has an override, it takes precedence over
@@ -2139,7 +2149,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // For plus handicaps we ceil the magnitude (round up — more
   // strokes added, harder), matching USGA convention.
   function netStrokes(p) {
-    const raw = effectiveHandicap(p)
+    // Convert the index to a slope-based Course Handicap first (gender flows
+    // through via the gender-correct captured ratings); fall back to the raw
+    // index when the outing is unrated. (2026-06-25)
+    const raw = courseHandicap(effectiveHandicap(p), outingRatings)
     if (!Number.isFinite(raw) || raw === 0) return 0
     const mag = Math.abs(raw) * hcpAllowance / 100
     return raw >= 0 ? Math.floor(mag) : -Math.ceil(mag)
@@ -3051,6 +3064,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           holeCount={holeCount}
           netMode={netMode}
           hcpAllowance={hcpAllowance}
+          outingRatings={outingRatings}
           isMatchPlay={isMatchPlay}
           matchPlayData={matchPlayData}
           diffStr={diffStr}
