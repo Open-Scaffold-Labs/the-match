@@ -19,25 +19,46 @@ const eighteens = [round18(90), round18(88), round18(92)]
 const baseIndex = H.computeHandicapFromRounds(eighteens, 12.0)
 ok('three 18-hole rounds yield an index', Number.isFinite(baseIndex))
 
-// ── 9-hole guard ──────────────────────────────────────────────────────────
-// A "great" 9-hole round (40 gross) carrying an 18-hole rating — the exact
-// catastrophic case: a 9-hole gross differenced against an 18-hole CR/par would
-// produce a hugely negative differential and crash the index.
+// ── 9-hole expected-score method (H.6, WHS 2024) ───────────────────────────
+// expected9 ≈ 0.5214·HI + 1.2, anchored to the published USGA worked example.
+ok('expected-9 matches USGA example (HI 14.0 → 8.5)',
+   Math.abs(H.expectedNineDifferential(14.0) - 8.5) <= 0.05)
+// USGA worked example: a 9-hole differential of 7.2 for a 14.0 index → 18-hole 15.7.
+ok('9-hole 7.2 + expected(14.0) combines to 18-hole 15.7',
+   Math.round((7.2 + H.expectedNineDifferential(14.0)) * 10) / 10 === 15.7)
+// Expected-9 is monotonic in the index and never negative.
+ok('expected-9 monotonic & non-negative',
+   H.expectedNineDifferential(0) >= 0 && H.expectedNineDifferential(20) > H.expectedNineDifferential(5))
+
+// A "great" 9-hole round (40 gross, par 36) carrying an 18-hole CR/Slope. The
+// OLD bug differenced a 9-hole gross against the 18-hole CR → a hugely NEGATIVE
+// differential that crashed the index toward a false plus. The expected-score
+// method must instead yield a SANE, positive 18-hole differential.
 const nine = {
   total: 40, course_par: 36, course_rating: 70.0, slope_rating: 125,
-  scores: Array.from({ length: 9 }, () => 4), // 9 pars-ish, all > 0
+  scores: Array.from({ length: 9 }, () => 4), // all > 0
   hole_pars: par18.slice(0, 9), hole_handicaps: si18.slice(0, 9),
 }
+const d9 = H.nineHoleDifferential(nine, 12.0, nine.scores, nine.hole_pars)
+ok('9-hole differential is finite, positive, and not crashed', Number.isFinite(d9) && d9 > 0 && d9 < 30)
+
+// With an established index the 9-hole round now COUNTS (and never crashes).
 const withNine = H.computeHandicapFromRounds([...eighteens, nine], 12.0)
-ok('9-hole round does NOT change the index (excluded)', withNine === baseIndex)
+ok('established index: 9-hole round counts, index stays finite & sane',
+   Number.isFinite(withNine) && withNine > -5 && withNine < 30)
 
-const onlyNine = H.computeHandicapFromRounds([nine, nine, nine], 12.0)
-ok('three 9-hole rounds alone yield NO index (all excluded)', onlyNine === null)
+// Before establishment (no index), 9-hole scores are HELD (excluded) per WHS.
+const onlyNine = H.computeHandicapFromRounds([nine, nine, nine], null)
+ok('no established index: three 9-hole rounds yield NO index (held)', onlyNine === null)
+// Once established, three 9-hole rounds DO produce an index.
+const onlyNineEst = H.computeHandicapFromRounds([nine, nine, nine], 12.0)
+ok('established index: three 9-hole rounds produce an index', Number.isFinite(onlyNineEst))
 
-// A 9-hole round identified by course_par alone (scores absent) is also excluded.
+// A 9-hole round identified by course_par alone (scores absent) also converts.
 const nineByPar = { total: 40, course_par: 36, course_rating: 70.0, slope_rating: 125 }
-const mixByPar = H.computeHandicapFromRounds([...eighteens, nineByPar], 12.0)
-ok('9-hole-by-par (no scores) does not corrupt index', mixByPar === baseIndex)
+const dByPar = H.nineHoleDifferential(nineByPar, 12.0, null, null)
+ok('9-hole-by-par (no scores) converts to a finite 18-hole differential',
+   Number.isFinite(dByPar) && dByPar > 0 && dByPar < 30)
 
 // ── Solo Stroke Index parity ────────────────────────────────────────────────
 // Same 18-hole round, but with a blow-up hole. Net-double-bogey caps it using
