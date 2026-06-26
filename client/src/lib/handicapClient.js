@@ -20,3 +20,21 @@ export function courseHandicap(index, { slope, rating, par } = {}) {
   }
   return index // unrated → raw index (graceful fallback)
 }
+
+// The tee rating a given player should use for their Course Handicap — THEIR
+// gender's CR/SR from the outing's both-gender `teeRatings`, falling back to the
+// single captured rating when their gender's isn't available (one-gender tee,
+// gender unset, or an old outing without tee_ratings). This is what makes a
+// MIXED-gender match correct: each player's strokes use their own rating.
+//   gender: 'male' | 'female' | null
+//   meta:   { teeRatings:{male:{cr,sr},female:{cr,sr}}, courseRating, slopeRating, coursePar }
+// (2026-06-25)
+export function playerTeeRatings(gender, meta = {}) {
+  const g = (gender === 'male' || gender === 'female') ? gender : null
+  const byG = (g && meta.teeRatings && meta.teeRatings[g]) ? meta.teeRatings[g] : null
+  return {
+    slope: byG?.sr ?? meta.slopeRating,
+    rating: byG?.cr ?? meta.courseRating,
+    par: meta.coursePar,
+  }
+}

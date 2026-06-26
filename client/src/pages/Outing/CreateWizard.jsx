@@ -97,6 +97,16 @@ export function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeS
   function selectTee(tee) {
     if (!openCourse) return
     const holes = (tee.holes || []).map(h => h.par)
+    // Capture BOTH genders' ratings for this physical tee (matched by total
+    // yards) so each player's Course Handicap can use their gender's rating in
+    // a mixed match. Either side may be absent for a one-gender-only tee.
+    // (2026-06-25)
+    const findByYards = (list) => (list || []).find(t => t.total_yards === tee.total_yards)
+    const m = findByYards(openCourse.tees?.male)
+    const f = findByYards(openCourse.tees?.female)
+    const teeRatings = {}
+    if (m && (m.course_rating != null || m.slope_rating != null)) teeRatings.male = { cr: m.course_rating ?? null, sr: m.slope_rating ?? null }
+    if (f && (f.course_rating != null || f.slope_rating != null)) teeRatings.female = { cr: f.course_rating ?? null, sr: f.slope_rating ?? null }
     onPick({
       courseId:    openCourse.id,
       courseName:  openCourse.club_name || openCourse.course_name,
@@ -112,6 +122,7 @@ export function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeS
       // (2026-05-01)
       courseRating: tee.course_rating ?? null,
       slopeRating:  tee.slope_rating ?? null,
+      teeRatings:   (teeRatings.male || teeRatings.female) ? teeRatings : null, // both genders for mixed-match CH (2026-06-25)
     })
     // Parallel emission of the full {course, tee} pair so the App-level
     // sharedCourse can be updated for cross-tab sync with EagleEye.
@@ -462,6 +473,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
         // stores nulls when the picked tee didn't carry them.
         courseRating:  form.courseRating ?? null,
         slopeRating:   form.slopeRating  ?? null,
+        teeRatings:    form.teeRatings   ?? null, // both genders for mixed-match Course Handicap (2026-06-25)
         // Expected total golfers in the match (host + opponents). Used
         // by the Match page Live Now card to show "waiting for N more"
         // until the slots fill in.
@@ -564,6 +576,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
             coursePar:     picked.coursePar,
             courseRating:  picked.courseRating ?? null,
             slopeRating:   picked.slopeRating  ?? null,
+            teeRatings:    picked.teeRatings   ?? null,
           }))}
           onClear={() => setForm(f => ({
             ...f,
@@ -575,6 +588,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
             coursePar:     null,
             courseRating:  null,
             slopeRating:   null,
+            teeRatings:    null,
           }))}
           onTypedName={text => set('courseName', text)}
           onCourseTeeSelected={onCourseSelected}
