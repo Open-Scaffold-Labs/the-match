@@ -656,7 +656,7 @@ function ResultSheet({ result: r, holeData, onClose }) {
 }
 
 // ─── Course Picker ────────────────────────────────────────────────────────────
-function CoursePicker({ onSelect, onClose, gps }) {
+function CoursePicker({ onSelect, onClose, gps, gender }) {
   const [query, setQuery]     = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -723,7 +723,7 @@ function CoursePicker({ onSelect, onClose, gps }) {
   // genuinely separate forward tee. Hole-position logic (cache keys, GPS
   // matching, OSM lookups) is unchanged because tee_name and holes shape
   // are identical across the male/female sources.
-  const tees = course ? dedupeTees(course.tees) : []
+  const tees = course ? dedupeTees(course.tees, gender) : []
   const activeTee = tees[teeIdx]
 
   return createPortal(
@@ -2034,6 +2034,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           onClose={() => setShowPicker(false)}
           onSelect={handleCourseSelect}
           gps={gps}
+          gender={user?.gender}
         />
       )}
 

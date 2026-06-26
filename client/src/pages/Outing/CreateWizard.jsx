@@ -40,7 +40,7 @@ const TEAM_BREAKDOWNS = [
 // as the other just without the multiplayer questions'. Same component,
 // same API, same look — solo just doesn't pass onCourseTeeSelected since
 // it has no shared-course pipeline.
-export function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected }) {
+export function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected, gender }) {
   const [query, setQuery]       = useState('')
   const [results, setResults]   = useState([])
   const [searching, setSearching] = useState(false)
@@ -159,7 +159,7 @@ export function CoursePicker({ value, onPick, onClear, onTypedName, onCourseTeeS
     // ratings"). EagleEye's CoursePicker already used dedupeTees;
     // factored it into lib/tees.js so this picker shares the same
     // single-source-of-truth implementation.
-    const allTees = dedupeTees(openCourse.tees)
+    const allTees = dedupeTees(openCourse.tees, gender) // player's-gender ratings (handicap-correct)
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -578,6 +578,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
           }))}
           onTypedName={text => set('courseName', text)}
           onCourseTeeSelected={onCourseSelected}
+          gender={user?.gender}
         />
       </div>
       <div>

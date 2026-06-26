@@ -9,27 +9,36 @@
 // out 2026-05-06 so the CreateWizard tee picker can share it instead
 // of growing a parallel codepath):
 //
-//   1. Iterate male first, key by (tee_name + total_yards), keep all
-//      first-occurrences as-is.
-//   2. Iterate female, skip ones already keyed (these are dupes of a
-//      male-rated tee), keep the rest WITH a " (W)" suffix so any
-//      genuinely-female-only forward tees are still distinguishable.
+//   1. Iterate the PLAYER'S-GENDER list first, key by (tee_name +
+//      total_yards), keep all first-occurrences as-is — so the
+//      course_rating/slope_rating captured for a shared physical tee is the
+//      one rated for the player's gender (CRITICAL for correct handicapping:
+//      a woman on the Gold tees must get the women's CR/SR, not the men's).
+//   2. Iterate the OTHER gender, skip ones already keyed (dupes of a
+//      same-gender-rated tee), keep the rest WITH a suffix so any
+//      genuinely-one-gender-only forward/back tees stay distinguishable.
 //
-// Caller gets one entry per physical tee box.
-export function dedupeTees(teesObj) {
+// gender: 'male' | 'female' (default 'male' — null/unset users keep the
+// original behaviour exactly, so nothing changes until a player sets gender).
+// Caller gets one entry per physical tee box, rated for the player.
+export function dedupeTees(teesObj, gender = 'male') {
+  const female = gender === 'female'
+  const primary   = (female ? teesObj?.female : teesObj?.male) || []
+  const secondary = (female ? teesObj?.male   : teesObj?.female) || []
+  const otherSuffix = female ? ' (M)' : ' (W)'
   const out = []
   const seen = new Set()
-  for (const t of (teesObj?.male || [])) {
+  for (const t of primary) {
     const key = `${t.tee_name}|${t.total_yards}`
     if (seen.has(key)) continue
     seen.add(key)
-    out.push(t)
+    out.push(t) // player's-gender rating, no suffix
   }
-  for (const t of (teesObj?.female || [])) {
+  for (const t of secondary) {
     const key = `${t.tee_name}|${t.total_yards}`
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ ...t, tee_name: `${t.tee_name} (W)` })
+    out.push({ ...t, tee_name: `${t.tee_name}${otherSuffix}` })
   }
   return out
 }
