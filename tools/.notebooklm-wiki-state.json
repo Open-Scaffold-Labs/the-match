@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782503176.7405157,
-    "source_id": "6790ff60-0fd1-405c-9675-83fc816f2b5d",
-    "verified_at": 1782503207.412937
+    "mtime": 1782503976.1548667,
+    "source_id": "e86a5aed-5a5d-4698-b082-570e8ba1cfbc",
+    "verified_at": 1782504007.289614
   },
   "wiki/index.md": {
-    "mtime": 1782503183.2521708,
-    "source_id": "593ff2fb-606f-4a94-a1a8-570484df22eb",
-    "verified_at": 1782503220.6354911
+    "mtime": 1782503983.0051754,
+    "source_id": "3ae7f4f6-7c6b-4627-82b5-f5cc2f0d480d",
+    "verified_at": 1782504021.0727592
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -106,5 +106,10 @@
     "mtime": 1782502847.5897746,
     "source_id": "a1f4e163-6a29-47fa-b82b-0c6784dde403",
     "verified_at": 1782503226.999428
+  },
+  "wiki/synthesis/course-handicap-match-strokes-2026-06-25.md": {
+    "mtime": 1782503664.025513,
+    "source_id": "d79a6e60-3cf6-43b8-91ac-6218b17422e2",
+    "verified_at": 1782504027.376468
   }
 }
