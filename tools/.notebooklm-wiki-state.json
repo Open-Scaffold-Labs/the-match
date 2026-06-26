@@ -5,9 +5,9 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782511836.3081012,
-    "source_id": "29595b69-24b1-45aa-a2b6-c8eceb5af4a3",
-    "verified_at": 1782511876.051609
+    "mtime": 1782514192.5665808,
+    "source_id": "04754a1b-1b54-47d5-b43a-047f425f6a70",
+    "verified_at": 1782514350.47153
   },
   "wiki/index.md": {
     "mtime": 1782510527.1450987,
@@ -83,9 +83,9 @@
     "verified_at": 1782402704.9574468
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
-    "mtime": 1782510458.8126078,
-    "source_id": "22fb53f1-78fc-4639-8af8-2c77d2741e66",
-    "verified_at": 1782510604.732619
+    "mtime": 1782514227.1054742,
+    "source_id": "226421eb-fb07-45e4-bc07-596c233ff754",
+    "verified_at": 1782514365.775678
   },
   "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
     "mtime": 1782405889.2891493,
@@ -118,13 +118,13 @@
     "verified_at": 1782504825.846385
   },
   "wiki/synthesis/handicap-accuracy-audit-2026-06-25.md": {
-    "mtime": 1782509818.60677,
-    "source_id": "d7a64ea1-6792-428c-9dbc-d7fdbe303089",
-    "verified_at": 1782509937.058997
+    "mtime": 1782514210.697637,
+    "source_id": "cd617659-0dda-450a-b709-49445a5e367b",
+    "verified_at": 1782514397.263246
   },
   "wiki/synthesis/next-session-handoff-2026-06-26.md": {
-    "mtime": 1782511847.2537253,
-    "source_id": "75072d0e-c55d-4fd8-8c00-91568b1476da",
-    "verified_at": 1782511890.1877608
+    "mtime": 1782514257.0720057,
+    "source_id": "073fc5a0-45dd-4483-9be5-8f69883af9e6",
+    "verified_at": 1782514381.2972958
   }
 }
