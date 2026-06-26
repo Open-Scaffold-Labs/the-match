@@ -126,7 +126,7 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ☐ 3.2 Ad-free generous free tier
 - ☑ 3.3 Own-club distance arcs — **SHIPPED 2026-06-25.** Distance arcs from the player's *own* bag averages on the GL hole map; no handicap-based distance guessing (Matt's correction — real bag data only). Spec: `own-club-arcs-3.3-build-spec-2026-06-25.md`.
 - ☐ 3.4 Green slope + putt-line
-- ☐ 3.5 Data → practice loop
+- ☑ 3.5 Data → practice loop — **SHIPPED 2026-06-26 (`6e85608` server + `b574ee8` client).** `lib/practice.js` analyzes recent rounds + handicap → weaknesses (each with evidence + directional disclaimer) + a practice session (closed-loop re-measure note); `GET /api/practice`; `Practice.jsx` overlay opened from a profile "Practice Plan" card. 19 assertions. The biggest category-wide unmet need.
 - ☐ 3.6 Clean AR distance overlay
 
 **Track H — Handicap & scoring accuracy (ran alongside Phase 3; not in the original plan but foundational to "best-in-class")**
@@ -135,7 +135,7 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ☑ H.3 Course Handicap for match strokes (2024 CR−Par form) + per-player gender ratings (migrations 031) + tappable CH chip on the scoreboard
 - ☑ H.4 WHS audit + rewrite: removed obsolete ×0.96, sliding table, 0.1 rounding, 54.0 max, 3-round min, net-double-bogey AGS, soft/hard caps + 365-day Low-HI history (migration 032), per-format allowances (Appendix C), single-source persisted index
 - ☑ H.5 9-hole corruption guard + solo rounds handicap identically to outing rounds (migration 033) — 2026-06-26
-- ☐ H.6 **Proper WHS 9-hole counting** (expected-9 method) — needs 9-hole tee Course/Slope ratings captured. *Data dependency, not yet built.*
+- ☑ H.6 **Proper WHS 9-hole counting** (expected-score method, Rule 5.1b) — 9-hole rounds now COUNT, converted to one 18-hole differential via expected-9. 9-hole CR estimated as ½·18-hole CR (no new data dependency). 11 assertions. `6e85608` — 2026-06-26. **Handicap engine is now WHS-complete.**
 - Audit + status: `handicap-accuracy-audit-2026-06-25.md`
 
 **Phase 4 — Polish**

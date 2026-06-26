@@ -8,6 +8,16 @@ updated: 2026-06-26
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-26] feature | H.6 9-hole expected-score + desktop commissioner console + practice loop (beta)
+
+"We don't defer what can be built now" (Matt). Three deferred items closed:
+
+**H.6 — WHS 2024 9-hole expected-score method (`6e85608`).** 9-hole rounds now COUNT, not just "don't corrupt." A 9-hole round converts to one 18-hole Score Differential via Rule 5.1b: `18-hole diff = 9-hole diff + expectedNine(HI)`. Expected-9 is the HI-keyed table, approximated by a line fit anchored to the published USGA example (HI 14.0 → 8.5), isolated in two retunable constants. 9-hole CR estimated as ½·(18-hole CR) (feed exposes only 18-hole ratings); slope unchanged. Held (null) until an index is established, per WHS. `expectedNineDifferential` + `nineHoleDifferential` exported; `roundDifferential` routes 9-hole rounds to them; `computeHandicapFromRounds` preserves null (unestablished) so 9-hole rounds don't count pre-establishment. 11 assertions green. This supersedes the earlier exclusion guard — the handicap engine is now WHS-complete (no remaining 9-hole data dependency).
+
+**Desktop commissioner console (`981007d`).** `CommissionerPanel`, `GroupSetup`, `TeamSetup` switch from a 430px phone bottom-sheet to a CENTERED modal on desktop (≥1024px via the shared `useIsDesktop`), widen (880/720/640px), gain full radius, drop the drag handle. The win: the score-edit grid shows all 18 holes + total in one row per player instead of a cramped horizontal scroll — a commissioner correcting a live league event from a laptop sees/fixes any hole at a glance. Verified via harness screenshot (players tab + the 18-hole grid). Phone unchanged.
+
+**Data → practice loop, Phase 3.5 (`6e85608` server + `b574ee8` client).** `lib/practice.js` (`analyze`) over a player's recent rounds + handicap → weakness analysis + a practice session, each weakness carrying its evidence + a directional disclaimer, the session carrying a closed-loop re-measure note. `GET /api/practice` (reads only existing tables, no migration, was dormant until wired). `Practice.jsx` full-screen overlay opened from a new "Practice Plan" card in the profile view. 19 server assertions; build + lint clean.
+
 ## [2026-06-26] feature | Desktop breakout for the Leagues tab (commissioners on desktop, beta)
 
 The app is a fixed 430px phone frame; league commissioners run leagues from desktops (Matt). Added a desktop layout for the **Leagues tab only** — every other tab + the entire iOS app stay phone-only (`0d2045e`).
