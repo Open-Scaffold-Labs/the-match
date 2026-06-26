@@ -49,6 +49,7 @@ app.use('/api/admin',        require('./routes/admin'))
 app.use('/api/notifications', require('./routes/notifications'))
 app.use('/api/leagues',      require('./routes/leagues'))
 app.use('/api/referrals',    require('./routes/referrals'))
+app.use('/api/practice',     require('./routes/practice'))
 
 // — 404 fallback —
 app.use((req, res) => res.status(404).json({ error: 'Not found' }))
