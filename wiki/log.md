@@ -8,6 +8,16 @@ updated: 2026-06-25
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-25] refactor | Handicap Tier-2: net-double-bogey Adjusted Gross Score in the index (beta)
+
+The biggest remaining handicap-accuracy item from the audit. Each hole is now capped at **net double bogey** (par+2+strokes received; par+5 before an established index) before the Score Differential — WHS Rule 3.1. (`2f171c0`, `server/src/lib/handicap.js` + `stats.js`.)
+
+- Pure `strokesOnHole` (SI allocation incl. wrap for CH>18 + plus-handicap reverse), `netDoubleBogey`, `adjustedGrossScore` — 15 node assertions.
+- Wired via `roundDifferential(r, currentIndex)`: AGS when per-hole data is present (round/outing pars; outing stroke index), else raw total; uses the player's **current Index** for stroke allocation (the standard consumer-app approximation — we don't reconstruct historical per-round indexes). `computeHandicapFromRounds(rounds, currentIndex)`; `maybeUpdateUserHandicap` JOINs the outing for hole data.
+- **`stats.js` aligned** (same JOIN query, threshold 3, currentIndex) so the *displayed* index matches the *persisted* one — they'd otherwise diverge.
+- 18 assertions incl. an **integration proof** (a blow-up round → index 1.0 with AGS vs 6.0 without). No migration (reuses existing columns).
+- **Flagged:** solo rounds have no stored Stroke Index → AGS defaults SI to 1..18 (reasonable; capturing real SI on solo rounds is a precision follow-up). Remaining Tier-3: soft/hard caps (need persisted 365-day Low HI), proper 9-hole, per-format allowance defaults.
+
 ## [2026-06-25] refactor | Handicap accuracy audit vs WHS + Tier-1 fixes; desktop pass (beta)
 
 Matt: audit how player handicaps are calculated, make it 100% accurate / matching the major apps; and a desktop pass on commissioner/leagues. Full audit (research-sourced, USGA+R&A 2024): [[synthesis/handicap-accuracy-audit-2026-06-25]].

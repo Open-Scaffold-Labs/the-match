@@ -39,8 +39,8 @@ Our index is **systematically wrong** in a few specific, fixable ways — most i
 - Match playing handicap: **round, not floor**.
 → each with node assertions against worked WHS examples.
 
-**Tier 2 — Adjusted Gross Score / net double bogey (build next, needs hole plumbing):**
-- Cap each hole at net double bogey (par+2+strokes received, from the round's hole pars + stroke index + the player's rounded Course Handicap for that round); par+5 before an established index. We already store hole scores + pars + hole_handicaps, so it's doable — it's the single biggest remaining accuracy item.
+**Tier 2 — Adjusted Gross Score / net double bogey — ✅ SHIPPED (`2f171c0`):**
+- Each hole capped at net double bogey (par+2+strokes; par+5 pre-establishment) before the differential. Pure `strokesOnHole`/`netDoubleBogey`/`adjustedGrossScore` (15 assertions). Wired via `roundDifferential` using the player's current Index for stroke allocation + per-hole data (round/outing pars; outing stroke index; **solo rounds default SI to 1..18** — flagged, capturing real SI on solo rounds is a precision follow-up). `stats.js` aligned so the displayed index matches the persisted one. 18 assertions incl. an integration proof. No migration (reuses existing columns).
 
 **Tier 3 — flagged (need persisted state / nuance, mirror the consumer-app norm):**
 - Soft/hard caps (persist a 365-day Low HI).
