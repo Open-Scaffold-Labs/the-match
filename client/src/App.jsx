@@ -60,6 +60,16 @@ export default function App() {
   // is hidden there) returns the user to where they came from. (2026-06-26)
   const lastNonEyeTabRef = useRef(tab === TABS.EYE ? TABS.HOME : tab)
   useEffect(() => { if (tab !== TABS.EYE) lastNonEyeTabRef.current = tab }, [tab])
+  // The <body> is cream (#FFFDF8) to hide safe-area bleed behind the cream nav.
+  // Eagle Eye is a full-bleed dark map with no nav, so that cream shows as a
+  // white strip in the bottom/edge safe areas. Paint html+body dark while on
+  // Eagle Eye so the satellite map bleeds edge-to-edge with no white. (2026-06-26)
+  useEffect(() => {
+    const dark = tab === TABS.EYE
+    document.documentElement.style.backgroundColor = dark ? '#070C09' : ''
+    document.body.style.backgroundColor = dark ? '#070C09' : ''
+    return () => { document.documentElement.style.backgroundColor = ''; document.body.style.backgroundColor = '' }
+  }, [tab])
   const isDesktop = useIsDesktop()
   // Save on every tab change. Cheap localStorage write, no debounce
   // needed since taps are rare relative to other render work.
@@ -358,7 +368,10 @@ export default function App() {
       justifyContent: 'center',
     }}>
       <div style={{
-        width: '100%', maxWidth: desktopLeagues ? 1180 : 430,
+        // Eagle Eye is a full-bleed rangefinder — let it span the entire device
+        // width (no 430 phone-frame cap) so the satellite map reaches both edges
+        // like the leading apps. Every other tab keeps the centered phone frame.
+        width: '100%', maxWidth: tab === TABS.EYE ? '100%' : (desktopLeagues ? 1180 : 430),
         height: '100dvh',
         // Translucent Augusta cream — same tint that was on the
         // Home wrapper, lifted up one level so it covers the entire
