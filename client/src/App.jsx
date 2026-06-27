@@ -18,50 +18,6 @@ import PrintResults from './pages/PrintResults.jsx'
 import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
 
-// TEMP DIAGNOSTIC (2026-06-27) — measures the real safe-area + viewport
-// numbers on-device so we can see whether viewport-fit=cover is actually
-// bleeding (ih≈sh) or not (ih<sh by the inset), instead of guessing.
-// Remove once the full-screen issue is resolved.
-function SafeAreaProbe() {
-  const [info, setInfo] = useState('measuring…')
-  useEffect(() => {
-    const measure = () => {
-      const mk = (prop) => {
-        const d = document.createElement('div')
-        d.style.cssText = `position:fixed;left:0;bottom:0;width:1px;height:${prop};`
-        document.body.appendChild(d)
-        const h = Math.round(d.getBoundingClientRect().height)
-        document.body.removeChild(d)
-        return h
-      }
-      const sab = mk('env(safe-area-inset-bottom,0px)')
-      const sat = mk('env(safe-area-inset-top,0px)')
-      const de = document.documentElement
-      const iw = window.innerWidth
-      const dsw = de.scrollWidth
-      const bsw = document.body.scrollWidth
-      setInfo(
-        `sab=${sab} sat=${sat} ih=${window.innerHeight} sh=${window.screen.height} dpr=${window.devicePixelRatio} | ` +
-        `iw=${iw} dsw=${dsw} bsw=${bsw} ${dsw > iw ? '⚠OVERFLOW' : 'fit✓'}`
-      )
-    }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-  }, [])
-  return (
-    <div style={{
-      position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 99999,
-      background: 'rgba(190,0,40,0.92)', color: '#fff', fontSize: 10,
-      fontFamily: 'ui-monospace, Menlo, monospace', textAlign: 'center',
-      padding: '3px 4px', lineHeight: 1.3, pointerEvents: 'none',
-      letterSpacing: '0.02em',
-    }}>
-      {info}
-    </div>
-  )
-}
-
 
 // Active-tab persistence — restores the tab the user was on across
 // pull-to-refresh and any other window.location.reload() (Matt:
@@ -411,7 +367,6 @@ export default function App() {
       display: 'flex',
       justifyContent: 'center',
     }}>
-      <SafeAreaProbe />
       <div style={{
         // Eagle Eye is a full-bleed rangefinder — let it span the entire device
         // width (no 430 phone-frame cap) so the satellite map reaches both edges

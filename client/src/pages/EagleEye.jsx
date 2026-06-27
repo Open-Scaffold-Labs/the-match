@@ -1614,21 +1614,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
     // every downward map-pan and reloading the page (dropping GPS + re-
     // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
-    <div data-no-pull-refresh="true" style={{
-      position: 'fixed',
-      // Top is already perfect: the black-translucent status bar OVERLAYS
-      // the map, so the satellite shows under it for free. Leave top/left/
-      // right at 0 (don't touch what works). The ONLY real gap is the
-      // bottom home-indicator inset — it's reserved space below the safe
-      // viewport that shows the body, not an overlay. Push ONLY the bottom
-      // edge down into it so the map reaches the literal bottom of the
-      // glass. The ANALYZE button pads by env(safe-area-inset-bottom), so
-      // it stays above the indicator. (2026-06-27 — Matt: kill the bottom
-      // dark strip; the top was already fine.)
-      top: 0, left: 0, right: 0,
-      bottom: 'calc(0px - env(safe-area-inset-bottom, 0px))',
-      background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-    }}>
+    <div data-no-pull-refresh="true" style={{ position: 'fixed', inset: 0, background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <CoachMark
         id="eagle_eye"
         user={user}
