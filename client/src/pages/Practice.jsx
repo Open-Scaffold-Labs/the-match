@@ -155,8 +155,7 @@ export default function Practice({ onClose }) {
       {runner && (
         <SessionRunner
           steps={runnerSteps}
-          onLog={logDrill}
-          onDone={() => { setRunner(false); load() }}
+          onFinish={(results) => { results.forEach(r => logDrill(r.weaknessId, r.drill, r.passed)); setRunner(false); load() }}
           onClose={() => setRunner(false)}
         />
       )}
@@ -259,8 +258,8 @@ function ReadyState({ data, logged, onOpenDrill, onStartSession }) {
 
       {data.session && data.session.blocks.length > 0 && (
         <Section title={`This week · ${data.session.totalMinutes} min`}>
-          {data.session.blocks.map((b, i) => <SessionBlock key={i} block={b} />)}
-          <div style={{ marginTop: 4, padding: '12px 14px', borderRadius: 'var(--tm-radius)', background: 'rgba(27,94,59,0.20)', border: '1px solid rgba(46,158,69,0.32)', fontSize: 12.5, color: 'var(--tm-dark-text)', lineHeight: 1.5, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <SessionPlan blocks={data.session.blocks} total={data.session.totalMinutes} />
+          <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 'var(--tm-radius)', background: 'rgba(27,94,59,0.20)', border: '1px solid rgba(46,158,69,0.32)', fontSize: 12.5, color: 'var(--tm-dark-text)', lineHeight: 1.5, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <span style={{ color: 'var(--tm-green-bright)', flexShrink: 0, marginTop: 1 }}><LoopGlyph size={15} /></span>
             <span>{data.session.note}</span>
           </div>
@@ -347,16 +346,29 @@ function WeaknessCard({ focus, rank, logged, onOpenDrill }) {
   )
 }
 
-function SessionBlock({ block }) {
+// Session time-allocation plan — a stacked bar + legend showing how the week's
+// minutes split across focus areas. Additive to the focus cards above (it shows
+// the TIME plan); deliberately does NOT re-list drill titles (those live, tappable,
+// in the focus cards) to avoid redundancy.
+const PLAN_COLORS = ['#E8A13C', 'var(--tm-gold)', '#9A864F']
+const planColor = (block, idx) => block.category === 'maintenance' ? 'rgba(255,255,255,0.16)' : PLAN_COLORS[idx % PLAN_COLORS.length]
+
+function SessionPlan({ blocks, total }) {
+  const sum = total || blocks.reduce((s, b) => s + b.minutes, 0) || 1
   return (
-    <div style={{ padding: '12px 14px', borderRadius: 'var(--tm-radius)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12, ...CARD() }}>
-      <div style={{ minWidth: 48, textAlign: 'center', padding: '6px 8px', borderRadius: 'var(--tm-radius-sm)', background: 'var(--tm-dark-3)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)', fontSize: 16, fontWeight: 900, color: 'var(--tm-gold-bright)', lineHeight: 1 }}>
-        {block.minutes}<span style={{ fontSize: 9, fontWeight: 600, color: 'var(--tm-dark-text-2)', display: 'block', marginTop: 2 }}>MIN</span>
+    <div style={{ padding: 16, borderRadius: 'var(--tm-radius-lg)', ...CARD() }}>
+      <div style={{ display: 'flex', height: 14, borderRadius: 'var(--tm-radius-full)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', marginBottom: 14 }}>
+        {blocks.map((b, idx) => (
+          <div key={idx} title={`${b.label} · ${b.minutes} min`} style={{ width: `${(b.minutes / sum) * 100}%`, background: planColor(b, idx) }} />
+        ))}
       </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700 }}>{block.label}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--tm-dark-text-2)', marginTop: 2, lineHeight: 1.4 }}>{block.drills.map(d => d.title).join(' · ')}</div>
-      </div>
+      {blocks.map((b, idx) => (
+        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderTop: idx === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: 'var(--tm-radius-full)', background: planColor(b, idx), flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600 }}>{b.label}</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--tm-gold-bright)' }}>{b.minutes}<span style={{ fontSize: 10, fontWeight: 600, color: 'var(--tm-dark-text-2)', marginLeft: 2 }}>min</span></span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -403,13 +415,25 @@ function Meta({ label, value }) {
   )
 }
 
-function LogButtons({ onLog, primaryLabel = 'Hit the target' }) {
+function LogButtons({ onLog, selected = null, primaryLabel = 'Hit the target' }) {
+  const hit = selected === true, miss = selected === false
   return (
     <div style={{ display: 'flex', gap: 10 }}>
-      <button onClick={() => onLog(true)} className="touch-press" style={{ flex: 1, padding: '13px', borderRadius: 'var(--tm-radius)', border: 'none', cursor: 'pointer', background: 'var(--tm-green-bright)', color: '#fff', fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+      <button onClick={() => onLog(true)} className="touch-press" style={{
+        flex: 1, padding: '13px', borderRadius: 'var(--tm-radius)', cursor: 'pointer',
+        background: 'var(--tm-green-bright)', color: '#fff', fontSize: 14, fontWeight: 800,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        border: hit ? '2px solid #fff' : '2px solid transparent',
+        opacity: miss ? 0.55 : 1, transition: 'opacity 160ms var(--tm-ease-out)',
+      }}>
         <CheckGlyph size={16} color="#fff" /> {primaryLabel}
       </button>
-      <button onClick={() => onLog(false)} className="touch-press" style={{ flex: 1, padding: '13px', borderRadius: 'var(--tm-radius)', cursor: 'pointer', background: 'var(--tm-dark-2)', color: 'var(--tm-dark-text)', border: '1px solid rgba(255,255,255,0.10)', fontSize: 14, fontWeight: 700 }}>
+      <button onClick={() => onLog(false)} className="touch-press" style={{
+        flex: 1, padding: '13px', borderRadius: 'var(--tm-radius)', cursor: 'pointer',
+        background: miss ? 'var(--tm-dark-3)' : 'var(--tm-dark-2)', color: 'var(--tm-dark-text)',
+        border: miss ? '2px solid rgba(255,255,255,0.5)' : '2px solid rgba(255,255,255,0.10)',
+        fontSize: 14, fontWeight: 700, opacity: hit ? 0.55 : 1, transition: 'opacity 160ms var(--tm-ease-out)',
+      }}>
         Not yet
       </button>
     </div>
@@ -441,47 +465,60 @@ function DrillDetailSheet({ step, logged, onLog, onClose }) {
   )
 }
 
-// Guided session runner — step through every drill with check-off.
-function SessionRunner({ steps, onLog, onDone, onClose }) {
-  const [i, setI] = useState(0)
-  const [hits, setHits] = useState(0)
+// Guided session runner — step through every drill with check-off. Answers are
+// held locally (so Back can revisit and CHANGE a step without creating duplicate
+// or contradictory log rows) and committed in one batch on completion.
+function SessionRunner({ steps, onFinish, onClose }) {
   const total = steps.length
+  const [i, setI] = useState(0)
+  const [answers, setAnswers] = useState(() => steps.map(() => null))
   const finished = i >= total
-
-  const handle = (passed) => {
-    const s = steps[i]
-    onLog(s.weaknessId, s.drill, passed)
-    if (passed) setHits(h => h + 1)
-    setI(n => n + 1)
-  }
+  const hits = answers.filter(a => a === true).length
 
   if (total === 0) { onClose(); return null }
+
+  const answer = (passed) => {
+    setAnswers(prev => { const n = [...prev]; n[i] = passed; return n })
+    setI(n => Math.min(total, n + 1))
+  }
+  const back = () => setI(n => Math.max(0, (finished ? total : n) - 1))
+  const commit = () => onFinish(steps.map((s, idx) => ({ weaknessId: s.weaknessId, drill: s.drill, passed: answers[idx] === true })))
+
+  const cur = finished ? null : steps[i]
+  const shown = finished ? total : i
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--tm-dark-0)', display: 'flex', flexDirection: 'column', animation: 'tm-sheet-up 240ms var(--tm-ease-out) both' }}>
       <div style={{ flexShrink: 0, padding: 'calc(var(--safe-top) + 12px) 18px 12px', borderBottom: '1px solid var(--tm-dark-2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <button onClick={onClose} aria-label="Close session" className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><XGlyph size={18} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <button onClick={i > 0 || finished ? back : onClose} aria-label={i > 0 || finished ? 'Previous drill' : 'Close session'} className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {i > 0 || finished ? <ChevronLeft size={20} /> : <XGlyph size={18} />}
+          </button>
           <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--tm-dark-text)' }}>
             {finished ? 'Session complete' : `Drill ${i + 1} of ${total}`}
           </div>
+          {!finished && (
+            <button onClick={onClose} aria-label="Close session" className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'transparent', border: 'none', color: 'var(--tm-dark-text-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <XGlyph size={18} />
+            </button>
+          )}
         </div>
         <div style={{ height: 6, borderRadius: 'var(--tm-radius-full)', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-          <div style={{ width: `${Math.round((Math.min(i, total) / total) * 100)}%`, height: '100%', background: 'var(--tm-green-bright)', transition: 'width 320ms var(--tm-ease-out)' }} />
+          <div style={{ width: `${Math.round((shown / total) * 100)}%`, height: '100%', background: 'var(--tm-green-bright)', transition: 'width 320ms var(--tm-ease-out)' }} />
         </div>
       </div>
 
       {!finished ? (
         <>
           <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: '18px 18px 8px' }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--tm-gold)', fontWeight: 700 }}>{steps[i].categoryLabel}</div>
-            <div style={{ fontSize: 21, fontWeight: 800, marginTop: 3, lineHeight: 1.2 }}>{steps[i].drill.title}</div>
-            <div style={{ fontSize: 13, color: 'var(--tm-dark-text-2)', marginTop: 6, lineHeight: 1.5 }}>{steps[i].drill.why}</div>
-            <DrillHowTo drill={steps[i].drill} />
+            <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--tm-gold)', fontWeight: 700 }}>{cur.categoryLabel}</div>
+            <div style={{ fontSize: 21, fontWeight: 800, marginTop: 3, lineHeight: 1.2 }}>{cur.drill.title}</div>
+            <div style={{ fontSize: 13, color: 'var(--tm-dark-text-2)', marginTop: 6, lineHeight: 1.5 }}>{cur.drill.why}</div>
+            <DrillHowTo drill={cur.drill} />
           </div>
           <div style={{ flexShrink: 0, padding: '14px 18px calc(var(--safe-bottom) + 16px)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ fontSize: 12, color: 'var(--tm-dark-text-2)', marginBottom: 10, textAlign: 'center' }}>Did you hit the target?</div>
-            <LogButtons onLog={handle} primaryLabel="Hit it" />
+            <LogButtons onLog={answer} selected={answers[i]} primaryLabel="Hit it" />
           </div>
         </>
       ) : (
@@ -491,9 +528,9 @@ function SessionRunner({ steps, onLog, onDone, onClose }) {
           </div>
           <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>Session done</div>
           <div style={{ fontSize: 15, color: 'var(--tm-dark-text-2)', marginTop: 8, lineHeight: 1.5, maxWidth: 280 }}>
-            You hit <b style={{ color: 'var(--tm-gold-bright)', fontWeight: 800 }}>{hits} of {total}</b> targets. Logged to your record — play a few rounds and we’ll show whether your focus areas moved.
+            You hit <b style={{ color: 'var(--tm-gold-bright)', fontWeight: 800 }}>{hits} of {total}</b> targets. Tap done to log it — play a few rounds and we’ll show whether your focus areas moved.
           </div>
-          <button onClick={onDone} className="touch-press" style={{ marginTop: 26, padding: '13px 28px', borderRadius: 'var(--tm-radius-full)', border: 'none', cursor: 'pointer', background: 'var(--tm-green-bright)', color: '#fff', fontSize: 15, fontWeight: 800 }}>Done</button>
+          <button onClick={commit} className="touch-press" style={{ marginTop: 26, padding: '13px 28px', borderRadius: 'var(--tm-radius-full)', border: 'none', cursor: 'pointer', background: 'var(--tm-green-bright)', color: '#fff', fontSize: 15, fontWeight: 800 }}>Log session &amp; finish</button>
         </div>
       )}
     </div>
