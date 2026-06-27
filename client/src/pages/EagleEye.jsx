@@ -1029,7 +1029,7 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
+export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -1614,7 +1614,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
     // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
     // every downward map-pan and reloading the page (dropping GPS + re-
     // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
-    <div data-no-pull-refresh="true" style={{ height: 'calc(100dvh - var(--nav-height))', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    <div data-no-pull-refresh="true" style={{ height: '100dvh', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
       <CoachMark
         id="eagle_eye"
         user={user}
@@ -1657,17 +1657,25 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         }),
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 10px', pointerEvents: 'auto' }}>
-          {/* Title */}
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, #F5D78A, #C9A040)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              EAGLE EYE
-            </div>
-            {courseCtx && (
-              <button onClick={() => setShowPicker(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+          {/* Back + Title — the tab bar is hidden on Eagle Eye (full-immersion),
+              so this back chevron is the way out, returning to the prior tab. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {onExit && (
+              <button onClick={onExit} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgba(8,12,10,0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', color: '#F5D78A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
             )}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, #F5D78A, #C9A040)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                EAGLE EYE
+              </div>
+              {courseCtx && (
+                <button onClick={() => setShowPicker(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              )}
+            </div>
           </div>
           {/* Conditions pills */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -2089,7 +2097,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
       {!showCamera && !showPicker && (
         <button onClick={() => setShowCamera(true)} style={{
           position: 'absolute',
-          bottom: 16, left: 16,
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', left: 16,
           background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
           border: '1px solid rgba(245,215,138,0.85)',
           borderRadius: 999, padding: '10px 16px',

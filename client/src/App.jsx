@@ -56,6 +56,10 @@ function readPersistedCourse() {
 
 export default function App() {
   const [tab, setTab] = useState(readPersistedTab)
+  // Remember the last non-Eagle-Eye tab so Eagle Eye's back control (the tab bar
+  // is hidden there) returns the user to where they came from. (2026-06-26)
+  const lastNonEyeTabRef = useRef(tab === TABS.EYE ? TABS.HOME : tab)
+  useEffect(() => { if (tab !== TABS.EYE) lastNonEyeTabRef.current = tab }, [tab])
   const isDesktop = useIsDesktop()
   // Save on every tab change. Cheap localStorage write, no debounce
   // needed since taps are rare relative to other render work.
@@ -382,10 +386,11 @@ export default function App() {
           </TabPanel>
         )}
         {mountedTabs.has(TABS.EYE) && (
-          <TabPanel active={tab === TABS.EYE}>
+          <TabPanel active={tab === TABS.EYE} fullHeight>
             <EagleEye
               user={user}
               onGoToScorecard={() => setTab(TABS.OUTING)}
+              onExit={() => setTab(lastNonEyeTabRef.current || TABS.HOME)}
               eyeHoleNudge={eyeHoleNudge}
               onConsumeEyeHoleNudge={() => setEyeHoleNudge(null)}
               sharedCourse={sharedCourse}
@@ -445,10 +450,16 @@ export default function App() {
             having to use the back button. (2026-05-07 PM3 — Matt:
             'when pressing any icon at the bottom of the page it should
             bring you to that icons home page'.) */}
-        <BottomNav active={tab} onChange={(nextTab) => {
-          setTabPressedAt(Date.now())
-          if (nextTab !== tab) setTab(nextTab)
-        }} />
+        {/* Hide the tab bar on Eagle Eye — it's a full-immersion rangefinder
+            screen (like the leading golf apps), so the map runs edge-to-edge to
+            the very bottom and Eagle Eye provides its own back control.
+            (2026-06-26 — Matt) */}
+        {tab !== TABS.EYE && (
+          <BottomNav active={tab} onChange={(nextTab) => {
+            setTabPressedAt(Date.now())
+            if (nextTab !== tab) setTab(nextTab)
+          }} />
+        )}
       </div>
 
       {/* First-signin permissions prompt. Renders outside the maxWidth
@@ -482,7 +493,7 @@ export default function App() {
 // gesture manually here: when the user touches at scrollTop=0 and drags
 // down past a threshold, reload the page. Augusta-themed indicator slides
 // in from the top edge with a damped pull. Available on every tab.
-function TabPanel({ active, children, opaque = true }) {
+function TabPanel({ active, children, opaque = true, fullHeight = false }) {
   const containerRef = useRef(null)
   const [pullDistance, setPullDistance] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
@@ -575,7 +586,7 @@ function TabPanel({ active, children, opaque = true }) {
       onTouchEnd={onTouchEnd}
       style={{
         position: 'absolute',
-        top: 0, left: 0, right: 0, bottom: '56px',
+        top: 0, left: 0, right: 0, bottom: fullHeight ? 0 : '56px',
         overflowY: 'auto', overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
         display: active ? 'block' : 'none',
