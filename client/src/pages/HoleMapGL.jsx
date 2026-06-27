@@ -222,7 +222,7 @@ export default function HoleMapGL({
       // NAIP tiles, which can exceed 9s on a slow link and was tripping a
       // spurious fallback to Leaflet (then sticking for the session). 20s only
       // fires on a genuine stall.
-      loadTimer = setTimeout(() => { if (!readyRef.current) fail(new Error('map load timeout (20s)')) }, 20000)
+      loadTimer = setTimeout(() => { if (!readyRef.current) fail(new Error('map load timeout (35s)')) }, 35000)
       map.on('error', (e) => { /* tile errors are non-fatal; only log */ if (e?.error) console.warn('[HoleMapGL]', e.error.message) })
       map.addControl(new maplibregl.AttributionControl({ compact: true }))
       map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left')

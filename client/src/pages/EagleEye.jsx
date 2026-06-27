@@ -1725,26 +1725,48 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           </div>
         </div>
 
-        {/* ── Hole strip ── */}
-        {courseCtx && (
-          <div className="ee-hole-chip" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 20px 12px', scrollbarWidth: 'none', pointerEvents: 'auto' }}>
-            {teeHoles.map(h => {
-              const active = h.hole === currentHole
-              return (
-                <button key={h.hole} onClick={() => { setCurrentHole(h.hole); setTeeGps(gps); setResult(null) }}
-                  style={{
-                    flexShrink: 0, padding: '6px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                    background: active ? 'rgba(201,160,64,0.2)' : 'rgba(255,255,255,0.05)',
-                    outline: active ? '1px solid rgba(201,160,64,0.5)' : '1px solid transparent',
-                    transition: 'all 0.15s',
-                  }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: active ? '#F5D78A' : 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{h.hole}</div>
-                  <div style={{ fontSize: 9, color: active ? 'rgba(245,215,138,0.6)' : 'rgba(255,255,255,0.25)', marginTop: 2, fontWeight: 600 }}>P{h.par}</div>
-                </button>
-              )
-            })}
-          </div>
-        )}
+        {/* ── Hole selector ── one clean glass pill with ‹ › navigation, instead
+            of the old cluttered 10-chip strip (the biggest "cheap" tell). The
+            number+par read as a single elegant control. (2026-06-26 premium pass) */}
+        {courseCtx && (() => {
+          const idx = teeHoles.findIndex(h => h.hole === currentHole)
+          const cur = teeHoles[idx] || teeHoles[0]
+          const go = (delta) => {
+            const ni = Math.max(0, Math.min(teeHoles.length - 1, idx + delta))
+            const nh = teeHoles[ni]
+            if (nh && nh.hole !== currentHole) { setCurrentHole(nh.hole); setTeeGps(gps); setResult(null) }
+          }
+          const NavBtn = ({ dir, disabled }) => (
+            <button onClick={() => go(dir)} disabled={disabled} aria-label={dir < 0 ? 'Previous hole' : 'Next hole'} style={{
+              width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'transparent',
+              color: disabled ? 'rgba(245,215,138,0.22)' : 'rgba(245,215,138,0.9)',
+              cursor: disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              WebkitTapHighlightColor: 'transparent',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points={dir < 0 ? '15 18 9 12 15 6' : '9 18 15 12 9 6'} />
+              </svg>
+            </button>
+          )
+          return (
+            <div style={{ padding: '0 20px 12px', pointerEvents: 'auto' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 2,
+                background: 'rgba(8,12,10,0.55)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+                border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '3px 5px',
+                boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}>
+                <NavBtn dir={-1} disabled={idx <= 0} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px' }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>Hole {cur?.hole}</span>
+                  <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.35)' }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.62)' }}>Par {cur?.par}</span>
+                </div>
+                <NavBtn dir={1} disabled={idx >= teeHoles.length - 1} />
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* ── GPS error banner ── floats below the header on a course (map is
