@@ -1857,8 +1857,12 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         </div>
       ) : (
         /* ── Distance view — satellite map background + HUD overlay. Full-bleed:
-            fills the whole screen as the base layer; the header floats over it. ── */
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
+            the header floats (absolute, out of normal flow), so this flex:1 child
+            fills the WHOLE container = fullscreen map. Kept flex:1 (NOT absolute)
+            so the map container has a definite size at MapLibre init — making it
+            absolute caused a 0-height mount race that broke the map render.
+            (2026-06-26 — fix for the black map) ── */
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
           {/* Full-screen satellite hole map — MapLibre GL (NAIP + branded overlays) */}
           <HoleMapGL
