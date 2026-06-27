@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782514192.5665808,
-    "source_id": "04754a1b-1b54-47d5-b43a-047f425f6a70",
-    "verified_at": 1782514350.47153
+    "mtime": 1782542773.8159,
+    "source_id": "33bcf0b9-4ec4-43d6-985a-25f5618032d6",
+    "verified_at": 1782543005.152383
   },
   "wiki/index.md": {
-    "mtime": 1782510527.1450987,
-    "source_id": "f4a87d63-33ff-4143-b63b-5cb74379b8d4",
-    "verified_at": 1782510577.390069
+    "mtime": 1782542880.4268308,
+    "source_id": "2b934de1-956c-4c24-9127-e09574bc3fdc",
+    "verified_at": 1782543018.866621
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -53,9 +53,9 @@
     "verified_at": 1777683687.3069088
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1780785329.2551355,
-    "source_id": "cb4d60af-294c-452a-b989-225242f48025",
-    "verified_at": 1782247837.938771
+    "mtime": 1782542433.7384074,
+    "source_id": "84ba5cbe-ac26-41b7-9059-7664d4daef7e",
+    "verified_at": 1782542986.433336
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1778180654.29875,
@@ -83,9 +83,9 @@
     "verified_at": 1782402704.9574468
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
-    "mtime": 1782514227.1054742,
-    "source_id": "226421eb-fb07-45e4-bc07-596c233ff754",
-    "verified_at": 1782514365.775678
+    "mtime": 1782542843.0881264,
+    "source_id": "07aaf415-1c4d-43c3-bd9f-3951711eee26",
+    "verified_at": 1782543032.7257018
   },
   "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
     "mtime": 1782405889.2891493,
@@ -126,5 +126,10 @@
     "mtime": 1782514257.0720057,
     "source_id": "073fc5a0-45dd-4483-9be5-8f69883af9e6",
     "verified_at": 1782514381.2972958
+  },
+  "wiki/synthesis/next-session-handoff-2026-06-27.md": {
+    "mtime": 1782542715.3662984,
+    "source_id": "b3b21410-96e9-4097-b2bb-311f4a23a6e7",
+    "verified_at": 1782543039.147903
   }
 }
