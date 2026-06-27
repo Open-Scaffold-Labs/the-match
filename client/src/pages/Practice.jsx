@@ -247,7 +247,10 @@ function ReadyState({ data, logged, onOpenDrill, onStartSession }) {
           {tracked.map(w => (
             <div key={w.id} style={{ padding: '12px 14px', borderRadius: 'var(--tm-radius)', marginBottom: 8, ...CARD() }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--tm-dark-text)' }}>{w.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--tm-dark-text)' }}>
+                  {w.area || w.label}
+                  {w.severity < 0.15 && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--tm-green-bright)', marginLeft: 8 }}>solid</span>}
+                </div>
                 <SeverityDot severity={w.severity} />
               </div>
               <div style={{ fontSize: 12, color: 'var(--tm-dark-text-2)', marginTop: 4, lineHeight: 1.45 }}>{w.explanation}</div>

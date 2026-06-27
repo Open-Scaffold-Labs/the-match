@@ -86,6 +86,7 @@ function signalParType(rounds) {
   return {
     id: 'par_type',
     label: `${label} are your weakest`,
+    area: `Par-${worstPar} play`,
     severity,
     evidence: { overall: round1(overall), byPar, worstPar, worstOver },
     explanation: `You average ${worstOver > 0 ? '+' : ''}${worstOver} on ${label.toLowerCase()} vs ${round1(overall) > 0 ? '+' : ''}${round1(overall)} across all holes.`,
@@ -103,6 +104,7 @@ function signalBlowups(rounds) {
   return {
     id: 'blowups',
     label: 'Blow-up holes are costing you',
+    area: 'Blow-up holes',
     severity: clamp01(rate / 0.20), // 20%+ of holes at double+ = max severity
     evidence: { rate: round1(rate * 100), count: blow, holes: holes.length },
     explanation: `${Math.round(rate * 100)}% of your holes are double bogey or worse — recovery and smart-miss decisions are the fastest strokes back.`,
@@ -125,6 +127,7 @@ function signalToughHoles(rounds) {
   return {
     id: 'tough_holes',
     label: 'The hardest holes hurt most',
+    area: 'The hardest holes',
     severity,
     evidence: { hardOver: round1(hardOver), easyOver: round1(easyOver), overall: round1(overall) },
     explanation: `On the 6 hardest holes you average +${round1(hardOver)} — length off the tee and long approaches are where your card slips.`,
@@ -145,6 +148,7 @@ function signalBackNine(rounds) {
   return {
     id: 'back_nine',
     label: 'Your back nine fades',
+    area: 'Front-to-back balance',
     severity: clamp01(avgFade / 2.0), // +2 strokes/9 of fade = max severity
     evidence: { avgFade: round1(avgFade), rounds: eighteens.length },
     explanation: `Your back nine averages ${round1(avgFade) > 0 ? '+' : ''}${round1(avgFade)} strokes vs your front — a focus/conditioning pattern, not a swing one.`,
@@ -165,6 +169,7 @@ function signalConsistency(rounds) {
   return {
     id: 'consistency',
     label: 'Your scoring swings round to round',
+    area: 'Round-to-round consistency',
     severity: clamp01((stdev - 2) / 6), // stdev ~2 = tight; ~8 = very swingy
     evidence: { stdev: round1(stdev), parOrBetterPct: Math.round(parOrBetter * 100), rounds: rounds.length },
     explanation: `Your round-to-round scoring swings by ±${round1(stdev)} strokes — a steady pre-shot routine and pressure reps compress the bad days.`,
