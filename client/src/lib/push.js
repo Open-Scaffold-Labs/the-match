@@ -101,3 +101,18 @@ export function isIosSafari() {
   const ua = navigator.userAgent || ''
   return /iP(hone|od|ad)/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)
 }
+
+// Native-shell sentinel (Track F.10 / audit N2). When The Match runs inside
+// the native iOS WKWebView shell (the App Store build), the shell injects
+// `window.__TM_NATIVE__ = true` (or appends a "TheMatchNative" token to the
+// UA). Inside WKWebView `navigator.standalone` is false and the UA still says
+// "Safari", so isIosSafari() && !isStandalonePwa() would otherwise be TRUE and
+// we'd show a nonsensical "Add to Home Screen" instruction to a native-app
+// user (an App Store review red flag). Push in the native build comes via
+// APNs, so the web-push install nudges are suppressed entirely there.
+export function isNativeShell() {
+  if (typeof window === 'undefined') return false
+  if (window.__TM_NATIVE__ === true) return true
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || ''
+  return /TheMatchNative/i.test(ua)
+}

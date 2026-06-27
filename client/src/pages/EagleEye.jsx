@@ -402,7 +402,16 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
       })
       streamRef.current = stream
       if (videoRef.current) videoRef.current.srcObject = stream
-    } catch (e) { setError('Camera unavailable: ' + e.message) }
+    } catch (e) {
+      // Friendly, actionable message instead of raw "NotAllowedError" text
+      // (Track F.13 / audit N12). Branch on the DOMException name.
+      const msg = e?.name === 'NotAllowedError'
+        ? 'Camera access is off. Turn it on in Settings → The Match → Camera.'
+        : e?.name === 'NotFoundError'
+          ? 'No camera found on this device.'
+          : 'Camera unavailable. Please try again.'
+      setError(msg)
+    }
   }, [facingBack])
 
   const closeCamera = () => {
@@ -1788,10 +1797,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#F87171' }}>
-                {gpsError === 'denied' ? 'Location access blocked' : gpsError === 'timeout' ? 'GPS signal lost' : 'Location unavailable'}
+                {gpsError === 'denied-hard' ? 'Location access blocked' : gpsError === 'timeout' ? 'GPS signal lost' : 'Location unavailable'}
               </div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
-                {gpsError === 'denied' ? 'Tap below to enable, or go to Settings manually' : 'Move to an open area and try again'}
+                {gpsError === 'denied-hard' ? 'Tap below to enable, or go to Settings manually' : 'Move to an open area and try again'}
               </div>
             </div>
             <button onClick={requestLocation}

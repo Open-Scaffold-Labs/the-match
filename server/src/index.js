@@ -17,8 +17,18 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: '1.0.0', db: db.ready !== null })
 })
 
-// — DB gate: await init per-request so serverless cold starts work —
-app.use('/api', async (req, res, next) => {
+// — API router (Track F.1 / audit N5: version the API) —
+// All resource routes live on ONE router, mounted at BOTH /api/v1 (the
+// canonical, versioned path the client now calls) AND /api (a legacy alias
+// kept so any not-yet-migrated caller — and old installed app binaries once
+// we ship native — keep working). This is what lets us introduce /api/v2
+// later without breaking apps frozen on phones. The db-gate lives INSIDE the
+// router so its req.path checks ('/auth', '/eagle-eye/...') are relative to
+// the mount and work identically under both prefixes.
+const apiRouter = express.Router()
+
+// DB gate: await init per-request so serverless cold starts work.
+apiRouter.use(async (req, res, next) => {
   if (req.path.startsWith('/auth')) return next()
   if (req.path.startsWith('/eagle-eye/osm')) return next() // OSM proxy — no DB needed
   if (req.path.startsWith('/eagle-eye/elevation')) return next() // DEM proxy — degrades to live USGS without DB
@@ -31,25 +41,28 @@ app.use('/api', async (req, res, next) => {
   }
 })
 
-// — Routes —
-app.use('/api/auth',         require('./routes/auth'))
-app.use('/api/rounds',       require('./routes/rounds'))
-app.use('/api/stats',        require('./routes/stats'))
-app.use('/api/outings',      require('./routes/outings'))
-app.use('/api/eagle-eye',    require('./routes/eagle-eye'))
-app.use('/api/profile',      require('./routes/profile'))
-app.use('/api/friends',      require('./routes/friends'))
-app.use('/api/follows',      require('./routes/follows'))
-app.use('/api/games',        require('./routes/games'))
-app.use('/api/availability', require('./routes/availability'))
-app.use('/api/courses',     require('./routes/courses'))
-app.use('/api/clubs',        require('./routes/clubs'))
-app.use('/api/onboarding',   require('./routes/onboarding'))
-app.use('/api/admin',        require('./routes/admin'))
-app.use('/api/notifications', require('./routes/notifications'))
-app.use('/api/leagues',      require('./routes/leagues'))
-app.use('/api/referrals',    require('./routes/referrals'))
-app.use('/api/practice',     require('./routes/practice'))
+apiRouter.use('/auth',          require('./routes/auth'))
+apiRouter.use('/rounds',        require('./routes/rounds'))
+apiRouter.use('/stats',         require('./routes/stats'))
+apiRouter.use('/outings',       require('./routes/outings'))
+apiRouter.use('/eagle-eye',     require('./routes/eagle-eye'))
+apiRouter.use('/profile',       require('./routes/profile'))
+apiRouter.use('/friends',       require('./routes/friends'))
+apiRouter.use('/follows',       require('./routes/follows'))
+apiRouter.use('/games',         require('./routes/games'))
+apiRouter.use('/availability',  require('./routes/availability'))
+apiRouter.use('/courses',       require('./routes/courses'))
+apiRouter.use('/clubs',         require('./routes/clubs'))
+apiRouter.use('/onboarding',    require('./routes/onboarding'))
+apiRouter.use('/admin',         require('./routes/admin'))
+apiRouter.use('/notifications', require('./routes/notifications'))
+apiRouter.use('/leagues',       require('./routes/leagues'))
+apiRouter.use('/referrals',     require('./routes/referrals'))
+apiRouter.use('/practice',      require('./routes/practice'))
+
+// Versioned path first, legacy alias second (order matters for prefix match).
+app.use('/api/v1', apiRouter)
+app.use('/api',    apiRouter)
 
 // — 404 fallback —
 app.use((req, res) => res.status(404).json({ error: 'Not found' }))

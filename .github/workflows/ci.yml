@@ -22,9 +22,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Hard gate (Track F.4 / audit N8). The single ESLint rule is `no-undef`
+      # set to error — it exists specifically to catch the ReferenceError class
+      # that white-screened the beta on 2026-06-06 (a server-only fn called from
+      # client code). A clean `vite build` does NOT catch that; lint does. So
+      # lint MUST be able to fail the build — no `continue-on-error`.
       - name: Lint client
         run: npm run lint --workspace=client
-        continue-on-error: true  # ESLint warnings shouldn't block until we triage them
 
       - name: Build client
         run: npm run build --workspace=client
@@ -34,4 +38,29 @@ jobs:
           cd server
           NODE_ENV=production node -e "require('./src/routes/auth.js'); require('./src/routes/games.js'); require('./src/routes/outings.js'); require('./src/routes/eagle-eye.js'); require('./src/routes/profile.js'); require('./src/routes/friends.js'); require('./src/routes/availability.js'); require('./src/routes/courses.js'); require('./src/routes/rounds.js'); require('./src/routes/stats.js'); console.log('all routes load ok')"
 
-  # Future: when F-T1 lands, add a 'test' job here that runs Playwright + Vitest.
+  test:
+    name: Tests (unit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Real vitest suites (response-shape contract guard, etc.)
+      - name: Server suites (vitest)
+        run: npm test --workspace=server
+
+      # Hand-rolled bare-assert math scripts run via Node's built-in runner.
+      - name: Server math checks (node --test)
+        run: node --test server/src/lib/__tests__/ninehole-solo-si.test.cjs server/src/lib/__tests__/practice.test.cjs
+
+      # Client pure-logic unit tests (handicap, side-bets, geo, club model).
+      - name: Client unit tests (node --test)
+        run: npm test --workspace=client

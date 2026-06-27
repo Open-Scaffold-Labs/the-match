@@ -23,7 +23,7 @@
 // missed the OS-level alert.)
 
 import { useEffect, useState } from 'react'
-import { ensurePushSubscription, pushSupported, isStandalonePwa, isIosSafari } from '../lib/push.js'
+import { ensurePushSubscription, pushSupported, isStandalonePwa, isIosSafari, isNativeShell } from '../lib/push.js'
 
 export default function PushNudgeBanner({ user }) {
   const dismissKey = user?.id ? `tm-push-nudge-dismissed-${user.id}` : null
@@ -39,6 +39,9 @@ export default function PushNudgeBanner({ user }) {
 
   function computeState() {
     if (typeof window === 'undefined') return 'hidden'
+    // Native shell (Track F.10): push arrives via APNs, not web push — never
+    // show the "Add to Home Screen" nudge inside the native app.
+    if (isNativeShell()) return 'hidden'
     // iOS Safari outside a home-screen install — push is impossible
     // here. Show the "Add to Home Screen" variant first; the
     // permission state doesn't matter until they install.

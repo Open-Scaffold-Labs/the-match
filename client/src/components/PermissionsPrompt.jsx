@@ -15,15 +15,16 @@
 
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ensurePushSubscription, pushSupported, isStandalonePwa, isIosSafari } from '../lib/push.js'
+import { ensurePushSubscription, pushSupported, isStandalonePwa, isIosSafari, isNativeShell } from '../lib/push.js'
 
 export default function PermissionsPrompt({ user, onClose }) {
   const [busy, setBusy]   = useState(false)
   const [stage, setStage] = useState('intro')  // 'intro' | 'install-hint' | 'done'
   const firstName = (user?.name || '').trim().split(/\s+/)[0]
 
-  // Detect the iOS-Safari-outside-PWA case once.
-  const needsPwaInstall = isIosSafari() && !isStandalonePwa()
+  // Detect the iOS-Safari-outside-PWA case once. Never in the native shell
+  // (Track F.10) — a native-app user has no Safari Share sheet to tap.
+  const needsPwaInstall = isIosSafari() && !isStandalonePwa() && !isNativeShell()
 
   function dismiss() {
     try { localStorage.setItem('tm-perms-asked', String(Date.now())) } catch { /* ignore */ }

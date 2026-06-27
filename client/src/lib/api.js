@@ -1,5 +1,21 @@
 const RETRY_DELAYS = [500, 1000, 2000, 3000]
 
+// API version (Track F.1 / audit N5). Every call site still passes "/api/..."
+// paths; we rewrite the leading "/api/" to "/api/v1/" centrally here so the
+// whole client moves to the versioned API in one place, with zero churn at the
+// hundreds of call sites. The server keeps a "/api" legacy alias as a safety
+// net, so anything that bypasses this helper keeps working. To cut over to a
+// future API, change this one constant.
+const API_VERSION = 'v1'
+function versioned(url) {
+  if (typeof url !== 'string') return url
+  // Only rewrite a leading "/api/" that isn't already versioned.
+  if (url.startsWith('/api/') && !url.startsWith(`/api/${API_VERSION}/`)) {
+    return `/api/${API_VERSION}/` + url.slice('/api/'.length)
+  }
+  return url
+}
+
 export function getToken() {
   return localStorage.getItem('tm_token')
 }
@@ -9,6 +25,7 @@ export function clearToken() {
 }
 
 async function fetchWithRetry(url, opts = {}, attempt = 0) {
+  url = versioned(url)
   const token = getToken()
   const res = await fetch(url, {
     ...opts,
