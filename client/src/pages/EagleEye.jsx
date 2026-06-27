@@ -1614,7 +1614,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
     // every downward map-pan and reloading the page (dropping GPS + re-
     // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
-    <div data-no-pull-refresh="true" style={{ height: '100dvh', background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    <div data-no-pull-refresh="true" style={{ position: 'fixed', inset: 0, background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <CoachMark
         id="eagle_eye"
         user={user}

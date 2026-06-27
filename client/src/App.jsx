@@ -611,17 +611,26 @@ function TabPanel({ active, children, opaque = true, fullHeight = false }) {
         // Tour is meant to share the home background.)
         background: opaque ? 'var(--tm-bg)' : 'transparent',
       }}>
-      <PullIndicator distance={pullDistance} triggerAt={TRIGGER} refreshing={refreshing} />
-      <div style={{
-        transform: `translateY(${pullDistance}px)`,
-        // Animate back to 0 only when the user releases (pullDistance
-        // becomes 0 in onTouchEnd). During an active drag we want
-        // the translate to track the finger 1:1 (no transition).
-        transition: pullDistance === 0 || refreshing ? 'transform 220ms ease-out' : 'none',
-        willChange: 'transform',
-      }}>
-        {children}
-      </div>
+      {/* Full-height panels (Eagle Eye) opt out of the pull-to-refresh transform
+          wrapper. A `transform` ancestor becomes the containing block for any
+          `position: fixed` child, which would trap Eagle Eye's fixed full-screen
+          container. No transform → the fixed map covers the true physical screen,
+          edge to edge. (2026-06-26) */}
+      {fullHeight ? children : (
+        <>
+          <PullIndicator distance={pullDistance} triggerAt={TRIGGER} refreshing={refreshing} />
+          <div style={{
+            transform: `translateY(${pullDistance}px)`,
+            // Animate back to 0 only when the user releases (pullDistance
+            // becomes 0 in onTouchEnd). During an active drag we want
+            // the translate to track the finger 1:1 (no transition).
+            transition: pullDistance === 0 || refreshing ? 'transform 220ms ease-out' : 'none',
+            willChange: 'transform',
+          }}>
+            {children}
+          </div>
+        </>
+      )}
     </div>
   )
 }
