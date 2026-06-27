@@ -36,7 +36,14 @@ function SafeAreaProbe() {
       }
       const sab = mk('env(safe-area-inset-bottom,0px)')
       const sat = mk('env(safe-area-inset-top,0px)')
-      setInfo(`sab=${sab} sat=${sat} ih=${window.innerHeight} sh=${window.screen.height} vv=${Math.round(window.visualViewport?.height || 0)} standalone=${window.navigator.standalone === true ? 'Y' : 'N'}`)
+      const de = document.documentElement
+      const iw = window.innerWidth
+      const dsw = de.scrollWidth
+      const bsw = document.body.scrollWidth
+      setInfo(
+        `sab=${sab} sat=${sat} ih=${window.innerHeight} sh=${window.screen.height} | ` +
+        `iw=${iw} dsw=${dsw} bsw=${bsw} ${dsw > iw ? '⚠OVERFLOW' : 'fit✓'}`
+      )
     }
     measure()
     window.addEventListener('resize', measure)
