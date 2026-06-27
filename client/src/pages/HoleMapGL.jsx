@@ -480,12 +480,13 @@ export default function HoleMapGL({
       const y = Number(c?.yards)
       if (!Number.isFinite(y) || y <= 0) continue
       feats.push({ type: 'Feature', properties: { highlight: !!c.highlight }, geometry: { type: 'LineString', coordinates: arcCoords(player, brng, y) } })
-      // Label at the arc's RIGHT end (not the apex) so the labels spread along a
-      // diagonal up the right side instead of stacking on the centre line — keeps
-      // them from overlapping each other and the distance card. (2026-06-26)
-      const labelPt = projectByYards(player, brng + (ARC_HALF_DEG - 3), y)
+      // Label at the arc's LEFT end (the open fairway side) so labels spread
+      // diagonally up the left, clear of the right-edge ARCS/BAG buttons and the
+      // map edge. Anchored to the right so the pill extends left into open space.
+      // (2026-06-26)
+      const labelPt = projectByYards(player, brng - (ARC_HALF_DEG - 3), y)
       const el = pillEl(`${c.label ? c.label + ' · ' : ''}${Math.round(y)}y`, !!c.highlight)
-      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'left', offset: [6, 0] }).setLngLat([labelPt.lon, labelPt.lat]).addTo(map))
+      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'right', offset: [-6, 0] }).setLngLat([labelPt.lon, labelPt.lat]).addTo(map))
     }
     map.getSource('bagArcs')?.setData(fc(feats))
   }

@@ -48,6 +48,7 @@ export function dispersionEllipse(yards) {
 // and thin to <=6 for a clean, premium read. remaining null/unknown → the whole
 // bag (thinned). `bag` is the realBag() output ([{slot,label,yards}]).
 const ARC_MAX = 6
+const ARC_MIN_GAP = 12 // yards — arcs closer than this overlap, so declutter
 export function arcClubs(bag = [], remainingYards = null) {
   const clubs = (bag || [])
     .filter(c => Number.isFinite(c?.yards) && c.yards > 0)
@@ -67,6 +68,16 @@ export function arcClubs(bag = [], remainingYards = null) {
   } else {
     set = clubs.slice()
   }
+
+  // Min-gap declutter: drop any club within ARC_MIN_GAP yards of the previous
+  // (longer) kept club — their arcs would visually overlap. The highlight is
+  // always kept. Keeps a clean, readable spread instead of a cluster of irons.
+  const gapped = []
+  for (const c of set) {
+    const last = gapped[gapped.length - 1]
+    if (!last || (last.yards - c.yards) >= ARC_MIN_GAP || c.yards === highlightYards) gapped.push(c)
+  }
+  set = gapped
 
   // Thin to <=ARC_MAX, always keeping the longest, shortest, and highlight.
   if (set.length > ARC_MAX) {
