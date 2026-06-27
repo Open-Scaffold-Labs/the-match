@@ -43,6 +43,14 @@ router.get('/', async (req, res) => {
       [uid]
     )
     const payload = analyze(rounds, { handicap, minutes: req.query.minutes, priorLogs })
+    // Drills logged in the last 7 days → the client pre-checks them so the
+    // check-offs persist across reopens.
+    const recent = await db.many(
+      `SELECT DISTINCT drill_id FROM tm_practice_logs
+       WHERE user_id = $1 AND logged_at >= now() - interval '7 days'`,
+      [uid]
+    )
+    payload.recentDrillIds = recent.map(r => r.drill_id)
     res.json(payload)
   } catch (e) {
     console.error('[practice] analyze failed:', e.message)

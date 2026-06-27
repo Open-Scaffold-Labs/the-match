@@ -40,6 +40,12 @@ function PlayGlyph({ size = 16, color = 'currentColor' }) {
 function TrendGlyph({ size = 14, color = 'currentColor' }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
 }
+function XGlyph({ size = 18, color = 'currentColor' }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+}
+function ChevronRight({ size = 18, color = 'currentColor' }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+}
 
 const CARD = (bg = 'var(--tm-dark-1)') => ({
   background: bg, border: '1px solid rgba(255,255,255,0.07)',
@@ -55,8 +61,16 @@ export default function Practice({ onClose }) {
   const [logged, setLogged]   = useState(() => new Set()) // drillIds logged this visit
 
   const load = useCallback(async () => {
-    try { setError(null); const d = await api('/api/practice'); setData(d) }
-    catch { setError('We couldn’t load your practice plan. Tap to retry.') }
+    try {
+      setError(null)
+      const d = await api('/api/practice')
+      setData(d)
+      // Pre-check drills already logged recently so the checkmarks persist across
+      // reopens (the data is saved server-side; reflect it in the UI).
+      if (Array.isArray(d.recentDrillIds) && d.recentDrillIds.length) {
+        setLogged(prev => new Set([...prev, ...d.recentDrillIds]))
+      }
+    } catch { setError('We couldn’t load your practice plan. Tap to retry.') }
     finally { setLoading(false) }
   }, [])
 
@@ -322,7 +336,7 @@ function WeaknessCard({ focus, rank, logged, onOpenDrill }) {
               </div>
               {done
                 ? <span style={{ color: 'var(--tm-green-bright)', flexShrink: 0 }}><CheckGlyph size={18} /></span>
-                : <span style={{ color: 'var(--tm-dark-text-2)', flexShrink: 0, fontSize: 18 }}>›</span>}
+                : <span style={{ color: 'var(--tm-dark-text-2)', flexShrink: 0 }}><ChevronRight size={18} /></span>}
             </button>
           )
         })}
@@ -447,7 +461,7 @@ function SessionRunner({ steps, onLog, onDone, onClose }) {
     <div style={{ position: 'absolute', inset: 0, background: 'var(--tm-dark-0)', display: 'flex', flexDirection: 'column', animation: 'tm-sheet-up 240ms var(--tm-ease-out) both' }}>
       <div style={{ flexShrink: 0, padding: 'calc(var(--safe-top) + 12px) 18px 12px', borderBottom: '1px solid var(--tm-dark-2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <button onClick={onClose} aria-label="Close session" className="touch-press" style={{ width: 36, height: 36, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <button onClick={onClose} aria-label="Close session" className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><XGlyph size={18} /></button>
           <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--tm-dark-text)' }}>
             {finished ? 'Session complete' : `Drill ${i + 1} of ${total}`}
           </div>
