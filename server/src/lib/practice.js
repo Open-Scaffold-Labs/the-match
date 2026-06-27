@@ -127,8 +127,8 @@ function signalToughHoles(rounds) {
     label: 'The hardest holes hurt most',
     severity,
     evidence: { hardOver: round1(hardOver), easyOver: round1(easyOver), overall: round1(overall) },
-    explanation: `On the 6 hardest holes you average +${round1(hardOver)} — long approaches and trouble holes are where your card slips.`,
-    category: 'approach',
+    explanation: `On the 6 hardest holes you average +${round1(hardOver)} — length off the tee and long approaches are where your card slips.`,
+    category: 'longgame',
   }
 }
 
@@ -167,8 +167,8 @@ function signalConsistency(rounds) {
     label: 'Your scoring swings round to round',
     severity: clamp01((stdev - 2) / 6), // stdev ~2 = tight; ~8 = very swingy
     evidence: { stdev: round1(stdev), parOrBetterPct: Math.round(parOrBetter * 100), rounds: rounds.length },
-    explanation: `Your round-to-round scoring swings by ±${round1(stdev)} strokes — steadier course management compresses the bad days.`,
-    category: 'management',
+    explanation: `Your round-to-round scoring swings by ±${round1(stdev)} strokes — a steady pre-shot routine and pressure reps compress the bad days.`,
+    category: 'pressure',
   }
 }
 
@@ -337,6 +337,54 @@ const DRILLS = {
       scoring: 'Compare simulated back-9 quality to your front-9 baseline.',
       target: { low: 'match front-9 avg', mid: 'within +1 of front', high: 'within +2 of front' } },
   ],
+  longgame: [
+    { id: 'driver_fairway', title: 'Fairway finder (15-yd corridor)', durationMin: 20,
+      why: 'Finding the short grass on long holes is the cheapest way to tame them.',
+      where: 'Driving range',
+      setup: 'Pick two distant markers ~15 yds apart as an imaginary fairway. 10 drives.',
+      steps: [
+        'Full routine on each drive; pick the corridor, not just “far”.',
+        'A drive that finishes between the two markers = a fairway.',
+        'Count fairways out of 10 — distance is secondary to finding the corridor.',
+      ],
+      scoring: 'Count drives that finish in the corridor, out of 10.',
+      target: { low: '7/10 fairways', mid: '6/10 fairways', high: '5/10 fairways' } },
+    { id: 'hybrid_stinger', title: 'Long-iron / hybrid carry control', durationMin: 15,
+      why: 'A reliable long club turns a hard par into a putt at par.',
+      where: 'Driving range',
+      setup: 'One far target. 10 balls with your longest iron or hybrid.',
+      steps: [
+        'Prioritise solid, airborne contact over crushing it.',
+        'Note carry consistency — tight grouping beats one big one.',
+        'Count solid strikes that reach your target zone.',
+      ],
+      scoring: 'Count solid strikes reaching the target zone, out of 10.',
+      target: { low: '7/10 solid', mid: '6/10 solid', high: '5/10 airborne' } },
+  ],
+  pressure: [
+    { id: 'one_ball_game', title: 'One-ball pressure game (9 shots)', durationMin: 20,
+      why: 'Reps that count train the steadiness that compresses your bad days.',
+      where: 'Range or course',
+      setup: '9 different shots (driver, irons, wedges, a putt). ONE ball — every shot counts.',
+      steps: [
+        'Pick a target + a pass/fail for each of the 9 shots before you hit.',
+        'Full routine, full consequence — no mulligans, no rakes.',
+        'Score 1 point per shot that meets its goal; total out of 9.',
+      ],
+      scoring: 'Total points out of 9 (each shot has its own pass/fail).',
+      target: { low: '6/9', mid: '5/9', high: '4/9' } },
+    { id: 'warmup_routine', title: 'Repeatable warm-up + first-tee routine', durationMin: 15,
+      why: 'A fixed warm-up and first-tee routine removes the “cold start” bad round.',
+      where: 'Range before a round',
+      setup: 'Build a fixed 9-ball warm-up ladder: wedge → mid-iron → driver → one “first-tee” shot.',
+      steps: [
+        'Run the same ladder, same order, every time.',
+        'Finish with your exact first-tee routine on one committed shot.',
+        'Rate how ready you felt 1–10; aim to repeat it identically next time.',
+      ],
+      scoring: 'Self-rate readiness; the goal is a repeatable routine, not a score.',
+      target: { low: 'same routine every time', mid: 'same routine every time', high: 'build the routine' } },
+  ],
   maintenance: [
     { id: 'maintain', title: 'Maintenance — keep your strength sharp', durationMin: 10,
       why: 'A small slice on what you do well stops it slipping.',
@@ -369,6 +417,7 @@ const CATEGORY_LABEL = {
   approach: 'Approach & long irons', wedge: 'Wedge / scoring zone',
   ballstriking: 'Ball-striking', management: 'Course management',
   shortgame: 'Short game', putting: 'Putting', focus: 'Focus & routine',
+  longgame: 'Long game (driver & long irons)', pressure: 'Pressure & consistency',
   maintenance: 'Maintenance',
 }
 

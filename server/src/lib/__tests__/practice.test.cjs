@@ -111,4 +111,12 @@ ok('progress flags improvement when metric fell', prog.improved === true && prog
 ok('progressFor returns null when no matching prior log',
    P.progressFor('blowups', { value: 5, unit: '%', label: 'x' }, [{ weakness_id: 'par_type', metric_value: 1, logged_at: '2026-06-01' }]) === null)
 
+// ── distinct drills across focus areas (no two areas show identical drills) ──
+ok('blow-up scenario yields 2+ focus areas', blowOut.focus.length >= 2)
+const allFocusDrillIds = blowOut.focus.flatMap(f => f.drills.map(d => d.id))
+ok('focus areas have fully distinct drills (no repeats across areas)',
+   new Set(allFocusDrillIds).size === allFocusDrillIds.length)
+ok('each focus area maps to a distinct drill category',
+   new Set(blowOut.focus.map(f => f.category)).size === blowOut.focus.length)
+
 console.log(`\nALL ${pass} PRACTICE-LOOP ASSERTIONS PASSED`)
