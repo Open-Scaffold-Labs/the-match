@@ -1,7 +1,7 @@
 ---
 type: overview
 created: 2026-04-29
-updated: 2026-05-07
+updated: 2026-06-27
 ---
 
 # Wiki Index
@@ -41,9 +41,10 @@ Content catalog — every page listed here. The preflight's index-completeness c
 - [[synthesis/player-data-foundation-2026-06-25]] — **Player-data foundation** — gender field (migration 030) + effortless distance entry: why it matters, slice sequence, risk register. Gender field SHIPPED to beta 2026-06-25 (verified `/me` carries it) · created 2026-06-25
 - [[synthesis/own-club-arcs-3.3-build-spec-2026-06-25]] — **Phase 3.3 build spec** — own-club distance arcs with handicap-seeded empty state: competitive research synthesis (UX + data/accuracy), slice sequence, risk register, checklist. SHIPPED to beta 2026-06-25 (on-map visual pending device verification) · created 2026-06-25
 - [[synthesis/playslike-3.1-build-spec-2026-06-25]] — **Phase 3.1 build spec** — transparent, adjustable plays-like + real USGS DEM elevation: slice sequence, full risk register, progress checklist. SHIPPED to beta 2026-06-25 · created 2026-06-25
-- [[synthesis/next-session-handoff-2026-06-26]] — **ACTIVE handoff** — pick up after the 2026-06-26 session (9-hole corruption guard + solo rounds handicap like any round); ranked next-steps (WHS expected-9, desktop leagues, next leapfrog), standing rules, key files · created 2026-06-26
+- [[synthesis/next-session-handoff-2026-06-27]] — **ACTIVE handoff** — pick up after the 2026-06-27 session (practice loop finished to full interactivity + whole-bag arcs + Eagle Eye full-bleed deferred to native shell, POST-LAUNCH #24); ranked next-steps (EE Phase-0 polish, next leapfrog, native packaging), standing rules, key files · created 2026-06-27
+- [[synthesis/next-session-handoff-2026-06-26]] — superseded handoff (9-hole corruption guard + solo rounds handicap like any round) · created 2026-06-26
 - [[synthesis/next-session-handoff-2026-06-24]] — superseded handoff (MapLibre sole renderer / Leaflet removed / offline tiles shipped) · created 2026-06-24
-- [[synthesis/build-plan-bulletproof-2026-06-23]] — **the-match bulletproof build plan** — zero-cost stack, risk register, phased checklist (Phase 0–4). Phase 1 + 2 ☑; Phase 3.1 + 3.3 ☑; Track H (handicap accuracy) ☑ through H.5. Updated 2026-06-26 · created 2026-06-23
+- [[synthesis/build-plan-bulletproof-2026-06-23]] — **the-match bulletproof build plan** — zero-cost stack, risk register, phased checklist (Phase 0–4). Phase 1 + 2 ☑; Phase 3.1 + 3.3 + 3.5 ☑; Track H (handicap accuracy) ☑ through H.6 (WHS-complete). Eagle Eye full-bleed deferred to native shell (POST-LAUNCH #24). Updated 2026-06-27 · created 2026-06-23
 - [[synthesis/eagle-eye-premium-plan-2026-06-23]] — **Eagle Eye premium design plan** — competitive thesis + design audit + phased upgrade roadmap. Phase 2 status note added 2026-06-26 · created 2026-06-23
 - [[synthesis/session-report-2026-06-06]] — full session record: GolfNow affiliate (Dale applied), Eagle Eye OSM-mirror regression fix + 5 next-level features on `feat/eagle-eye-upgrades` (undeployed), course-data provider research, push/branch discipline rule + anti-patterns #21/#22 · created 2026-06-06
 - [[synthesis/eagle-eye-next-level-plan-2026-06-06]] — Eagle Eye build plan: tap-to-measure + front/center/back green distances, risk anticipation + fallbacks, branch `feat/eagle-eye-upgrades` · created 2026-06-06

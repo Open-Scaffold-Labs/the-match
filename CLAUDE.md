@@ -122,7 +122,7 @@ Why this is written down: a 2026-06-06 session first left `main` stale (parked d
 
 ## DB setup
 
-Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 28 of them — 024 relaxed FKs for user deletion, 025 added PIN-reset tokens, 026 added the referral schema + `tm_users.elite_until`, 027 added `tm_rounds.hole_pars` so solo rounds persist real per-hole pars, 028 added `tm_osm_cache` — durable Supabase cache of OSM/Overpass golf geometry so the public Overpass API is hit at most once per course). Apply in order on a fresh database:
+Migrations live in `migrations/` as numbered SQL files (`001_*.sql` through `NNN_*.sql`, currently 34 of them — 028 added `tm_osm_cache` (durable Supabase cache of OSM/Overpass golf geometry, public Overpass hit at most once per course), 029 added `tm_elevation_cache` (USGS 3DEP DEM for plays-like), 030 added `tm_users.gender`, 031 added `tm_outings` per-player tee ratings, 032 added `tm_handicap_history` (365-day Low-HI), 033 added `tm_rounds.hole_handicaps` (solo rounds handicap like outing rounds), 034 added `tm_practice_logs` (data→practice loop)). Apply in order on a fresh database:
 
 ```bash
 for f in migrations/*.sql; do

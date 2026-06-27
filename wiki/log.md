@@ -1,12 +1,28 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-06-26
+updated: 2026-06-27
 ---
 
 # Activity Log
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
+
+## [2026-06-27] refactor | Practice loop finished + whole-bag arcs + Eagle Eye full-bleed (deferred to native)
+
+Continuation of the 2026-06-26 session. Three threads; beta `main` green and back to known-good at the end.
+
+**Practice loop finished to full quality (Phase 3.5 polish).** The v1 surface was read-only and "basically useless" (Matt). Rebuilt fully interactive: portal the overlay to `document.body` so it opens above the transformed tab shell (`5755ee4`); tappable drill detail sheets with how-to + a guided **Start-Session runner** + a **closed-loop** re-measure display (`49e0290`, `9eeaa3f`); distinct drills per focus area — fixed a bug where two areas showed identical drill sets, by mapping tough_holes→longgame and consistency→pressure (`264943f`); single close button on runner step 1 (`27e178c`); neutral labels for low-severity tracked areas (`75dc64b`); premium + design-audit visual passes (`bb355a5`, `25af026`). Accuracy independently reverified by recompute (blow-up %, par-type splits, hard-hole splits all matched the engine). Migration 034 (`tm_practice_logs`) applied to beta.
+
+**Eagle Eye distance arcs rebuilt as whole-bag arcs (`20da4f3` + label passes).** Real whole-bag distance arcs on the GL hole map (not own-club-only), with collision-aware labels that flip out of the distance-card zone and spread to the arc end so they don't overlap (`86165fa`, `7264a75`, `3c9f3e1`). `client/src/lib/clubModel.js` + `__tests__/clubModel.test.mjs`.
+
+**Eagle Eye full-bleed — attempted, deferred to the native shell (POST-LAUNCH-TODO #24).** A long sequence trying to kill the bottom home-indicator strip (fullscreen restructure, tab-bar removal on Eagle Eye, `position:fixed` shell, a GL-canvas `ResizeObserver`, safe-area inset expansion, viewport-meta experiments). **Root cause measured on-device:** the iOS **standalone PWA shrink-fits the `100dvh` layout** (`innerWidth=459` vs Safari's correct `390` on the same device), which produces the bottom strip, the Safari-vs-app zoom mismatch, AND the sign-in keyboard not popping on first tap — one root cause. No web-side lever fixes it without knocking the bottom nav off-screen. It **does not exist in the native WKWebView shell** (the App Store target), so it's parked there (`#24`). Beta reverted to known-good (`aa02212`), on-screen diagnostic removed (`4b15d9f` doc).
+- **Kept (benign/correct):** `HoleMapGL` `ResizeObserver` (`f3cb393`), bottom-nav safe-area padding + `--nav-height` inset, Login fairway photo → own fixed layer.
+- **Reverted:** viewport-meta experiments → original; Eagle Eye inset expansion → `inset:0`; `SafeAreaProbe` removed.
+
+**Lesson (logged in the handoff):** don't pixel-chase iOS-standalone PWA safe-area/viewport quirks by blind-deploying to the device — measure on-device first, and defer standalone-only rendering issues to the native shell. Cost most of the session.
+
+Handoff: `next-session-handoff-2026-06-27.md`. Commits `bb355a5`→`4b15d9f`. build + lint + `node --check` clean throughout.
 
 ## [2026-06-26] feature | H.6 9-hole expected-score + desktop commissioner console + practice loop (beta)
 

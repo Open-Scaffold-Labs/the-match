@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-26
+updated: 2026-06-27
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -115,6 +115,7 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ☑ 1.3 Replace keyless ESRI imagery — shipped as **USDA NAIP** (CONUS, ~0.6m/px to z18, free/keyless), not the generic vector hybrid (57e1ba1); non-CONUS falls back to branded canvas + OSM overlays
 
 **Phase 2 — Hero instrument** — SHIPPED. **MapLibre GL is now the SOLE hole-map renderer; Leaflet fully removed.** Device-verified by Matt.
+> **Full-bleed / true edge-to-edge (2026-06-27): DEFERRED to the native shell.** The bottom home-indicator strip, the Safari-vs-installed-app zoom mismatch, and the first-tap keyboard miss are all one root cause — the iOS standalone PWA shrink-fits the `100dvh` layout (`innerWidth=459` vs Safari `390` on-device). No web-side lever fixes it without knocking the bottom nav off-screen. It does not exist in the native WKWebView build (the App Store target). Tracked as **POST-LAUNCH-TODO #24**; **no further PWA viewport changes.**
 - ☑ 2.1 MapLibre vector + branded style — shipped; Leaflet removed entirely (`f524a1a`). NAIP raster base + branded green/gold vector overlays (tee, green polygon, dashed tee→aim→green line), course-up bearing, draggable aim point + split yardage pills, per-club landing-zone ring, tap-to-measure. (The earlier "blocked" note was a headless-test-env artifact — MapLibre renders fine on a real device.) **+ Offline tile caching** via `addProtocol` (`naipc://`) → Cache API, FIFO-capped 2000 (`479dd40`); a loaded hole keeps imagery with zero signal. Chunk-load auto-retry too.
 - ☑ 2.2 Cinematic flyTo intro — shipped (pitch ~62°, bearing tee→green, reduced-motion aware).
 - ☑ 2.3 Distance instrument — shipped: 270° SVG arc gauge + odometer number-roll, lockstep rAF tween (hand-rolled, no NumberFlow dep) (95717ee).
@@ -126,7 +127,7 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ☐ 3.2 Ad-free generous free tier
 - ☑ 3.3 Own-club distance arcs — **SHIPPED 2026-06-25.** Distance arcs from the player's *own* bag averages on the GL hole map; no handicap-based distance guessing (Matt's correction — real bag data only). Spec: `own-club-arcs-3.3-build-spec-2026-06-25.md`.
 - ☐ 3.4 Green slope + putt-line
-- ☑ 3.5 Data → practice loop — **SHIPPED 2026-06-26 (`6e85608` server + `b574ee8` client).** `lib/practice.js` analyzes recent rounds + handicap → weaknesses (each with evidence + directional disclaimer) + a practice session (closed-loop re-measure note); `GET /api/practice`; `Practice.jsx` overlay opened from a profile "Practice Plan" card. 19 assertions. The biggest category-wide unmet need.
+- ☑ 3.5 Data → practice loop — **SHIPPED 2026-06-26, finished to full interactivity 2026-06-27.** `lib/practice.js` analyzes recent rounds + handicap → weaknesses (each with evidence + directional disclaimer) + a practice session (closed-loop re-measure note); `GET /api/practice`; `Practice.jsx` overlay opened from a profile "Practice Plan" card. **2026-06-27:** rebuilt from read-only v1 to fully interactive — tappable drill detail sheets with how-to, a guided Start-Session runner, a closed-loop re-measure display; distinct drills per focus area; migration **034** `tm_practice_logs`. Accuracy reverified by independent recompute. The biggest category-wide unmet need.
 - ☐ 3.6 Clean AR distance overlay
 
 **Track H — Handicap & scoring accuracy (ran alongside Phase 3; not in the original plan but foundational to "best-in-class")**
