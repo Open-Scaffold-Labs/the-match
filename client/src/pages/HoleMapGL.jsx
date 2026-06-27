@@ -165,6 +165,7 @@ export default function HoleMapGL({
   const puckRafRef = useRef(0)
   const puckPosRef = useRef(null)
   const lastHoleRef = useRef(null)
+  const resizeObsRef = useRef(null)   // keeps the map canvas matched to its container
   const [failed, setFailed] = useState(false)
 
   // live snapshots so once-attached handlers (click, drag) read fresh values
@@ -215,6 +216,17 @@ export default function HoleMapGL({
         })
       } catch (e) { return fail(e) }
       mapRef.current = map
+      // Keep the GL canvas exactly matched to its container. Without this the
+      // canvas keeps its INIT size; when the fixed full-screen container's true
+      // height settles (device safe-area insets resolving after first paint),
+      // the map leaves dark strips at the top/bottom instead of bleeding fully
+      // edge-to-edge. A ResizeObserver re-fits the canvas on any size change.
+      // (2026-06-26 — the black-bars-at-top/bottom fix)
+      try {
+        const ro = new ResizeObserver(() => { try { map.resize() } catch { /* gone */ } })
+        ro.observe(containerRef.current)
+        resizeObsRef.current = ro
+      } catch { /* ResizeObserver unsupported (ancient engines) — no-op */ }
       // Silent-stall guard: if the style/tiles never reach 'load' (the failure
       // mode where MapLibre constructs but renders nothing, with no error
       // event), fall back to Leaflet rather than leave a black map.
@@ -231,6 +243,10 @@ export default function HoleMapGL({
         if (cancelled) return
         clearTimeout(loadTimer)
         readyRef.current = true
+        // Re-fit the canvas to the container now that the first frame is up —
+        // catches any size the container settled to after init (safe-area insets).
+        try { map.resize() } catch { /* noop */ }
+        requestAnimationFrame(() => { try { map.resize() } catch { /* noop */ } })
         // overlay sources
         map.addSource('fairway', { type: 'geojson', data: fc([]) })
         map.addSource('green', { type: 'geojson', data: fc([]) })
@@ -286,6 +302,7 @@ export default function HoleMapGL({
       clearTimeout(loadTimer)
       cancelAnimationFrame(puckRafRef.current)
       readyRef.current = false
+      if (resizeObsRef.current) { try { resizeObsRef.current.disconnect() } catch { /* noop */ } resizeObsRef.current = null }
       if (mapRef.current) { try { mapRef.current.remove() } catch { /* gone */ } mapRef.current = null }
       // map.remove() destroys every DOM marker too, so their refs are now
       // dangling. Null them ALL — otherwise after a course switch (this effect
