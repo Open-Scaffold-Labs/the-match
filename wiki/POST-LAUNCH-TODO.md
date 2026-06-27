@@ -1,7 +1,7 @@
 ---
 type: todo
 created: 2026-05-06
-updated: 2026-05-07
+updated: 2026-06-27
 priority: high
 ---
 
@@ -244,3 +244,37 @@ Pieces to wire when the page is built:
 - Use this URL in all social bios, share-card CTAs, and the GolfNow
   affiliate materials (the social-media strategy docs reference the app
   origin today — swap to the marketing URL once it's live).
+
+## 24. Native shell safe-area / full-bleed (defer to TestFlight)
+
+**Diagnosed 2026-06-27 (Matt + Claude), deferred to the native build.**
+In the home-screen **PWA** on iOS, the standalone web view shrink-fits the
+`100dvh`-based layout, rendering the page zoomed (`innerWidth=459` vs
+Safari's correct `390` on the same device). Three symptoms all trace to
+that single root cause:
+- a dark/cream **strip** in the bottom home-indicator safe area (the body
+  background shows through a region web content can't paint into),
+- the **zoom mismatch** between Safari and the installed app,
+- the login **keyboard not popping on first tap** (a zoomed WKWebView eats
+  the first tap zooming-to-field instead of focusing).
+
+Every web-side lever was tried and rejected: `viewport-fit=cover` is
+already set; `minimum-scale=1.0` un-zooms but then pushes the bottom nav
+off-screen (the `100dvh` layout is taller than the visible viewport);
+negative-inset expansion can't reach below the viewport; re-adding the PWA
+doesn't reset the standalone zoom. **This is a PWA-only artifact — not the
+product.**
+
+**Fix in the native WKWebView shell (the App Store target), not the PWA:**
+- Set `webView.scrollView.contentInsetAdjustmentBehavior = .never` and
+  drive safe-area insets from native code (or let the web view own the
+  full screen so content bleeds to the glass).
+- Confirm the standalone viewport renders 1:1 (no shrink-fit) so the
+  keyboard raises on first tap.
+- Verify on a real device in TestFlight: Eagle Eye map edge-to-edge top
+  AND bottom, bottom nav fully visible on cream pages, sign-in keyboard
+  on first tap.
+
+**Next step:** address during the native packaging pass. No further PWA
+viewport-meta changes — they destabilize the beta nav for zero product
+benefit.
