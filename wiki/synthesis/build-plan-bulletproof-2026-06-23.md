@@ -146,28 +146,28 @@ Principle: **every step ships independently, builds + lints clean, and is device
 
 **Track F — Scale & Foundations Hardening** (added 2026-06-27 from `synthesis/audit-2026-06-27.md` — the "expensive to change after the App Store freezes clients" class. Sequence: cheap foundationals → data model → security → native shell.)
 
-*F-cheap — do first (small, independent, expensive-later):*
-- ☐ F.1 Add `/api/v1` route prefix before native clients ship (un-versioned API = forced-update trap once apps are on phones) — audit N5
-- ☐ F.2 Serverless DB pool: `max: 1–2` per instance + confirm `DATABASE_URL` uses the transaction-mode pooler (6543), not session mode — audit N6
-- ☐ F.3 Index `tm_outings(status)` + `(host_id)` (new migration) — audit N9
-- ☐ F.4 CI enforcement: remove lint `continue-on-error`, add a client `"test"` script, add a CI `test` job covering both workspaces — audit N8
+*F-cheap — do first (small, independent, expensive-later):* — **SHIPPED 2026-06-27 (`d282074`)**
+- ☑ F.1 `/api/v1` route prefix — one router dual-mounted at `/api/v1` + `/api` (legacy alias); client rewrites `/api/*`→`/api/v1/*` centrally. Server-smoke verified both mounts. — audit N5
+- ☑ F.2 Serverless DB pool `max 5→2` in prod + `allowExitOnIdle` — audit N6. ☐ *still TODO (Matt):* confirm `DATABASE_URL` is the transaction-mode pooler (6543).
+- ◐ F.3 Migration `035_tm_outings_indexes.sql` written (status partial+full, host_id; `CONCURRENTLY`) — **NOT applied; Matt applies by hand** — audit N9
+- ☑ F.4 CI enforcement: lint hard gate (removed `continue-on-error`); new `test` job (vitest suites + `node --test` math + client units) — audit N8
 
-*F-data-model — must precede App Store client-freeze:*
-- ☐ F.5 Make `tm_outing_participants` the single source of truth for live scores; demote `tm_outings.state` JSONB to config-only; move guests to a real row; version-guard/`jsonb_set` any remaining state writes (fixes concurrent last-write-wins score loss + write amplification) — audit N3
-- ☐ F.6 Batch the `/end` O(N²) pair inserts (one multi-row INSERT) + move handicap/referral fan-out off the request path (avoids Vercel-timeout half-close on 150-player league events) — audit N4
+*F-data-model — must precede App Store client-freeze:* — ◐ **SPECCED, not executed** (staged plan in `synthesis/foundation-lock-build-spec-2026-06-27.md`; cutover needs a real-match device test)
+- ◐ F.5 Participants single source of truth + `score_version` optimistic-concurrency + non-destructive conflict + durable idempotent offline queue + guests→real rows. The "never lose your round" wedge (no competitor ships true optimistic-concurrency) — audit N3
+- ◐ F.6 Batch the `/end` O(N²) pair inserts + move handicap/referral fan-out off the request path (avoids Vercel-timeout half-close on big league events) — audit N4
 
-*F-security — greenlit in the handoff; spec it:*
+*F-security — greenlit in the handoff; spec it:* — ◐ specced in foundation-lock build spec
 - ☐ F.7 JWT revocation: add `tm_users.token_version`, embed + check it, bump on `reset-pin`/logout; consider shorter TTL + refresh — audit N7
 - ☐ F.8 PIN brute-force: account-keyed rate limit + exponential lockout in a shared store (`tm_login_attempts` or Upstash); consider 6-digit PINs — audit N7
 
 *F-native-shell — verify together in TestFlight (alongside #24):*
 - ☐ F.9 iOS Info.plist `NSLocationWhenInUseUsageDescription` + `NSCameraUsageDescription` (crash + hard rejection without them) — audit N1 / POST-LAUNCH #25
-- ☐ F.10 Native-shell sentinel flag (`window.__TM_NATIVE__`) to suppress PWA "Add to Home Screen" / push-nudge UI inside WKWebView — audit N2 / POST-LAUNCH #26
+- ◐ F.10 Native-shell sentinel — **web side SHIPPED** (`isNativeShell()` + gated PWA prompts off); ☐ native side: inject `window.__TM_NATIVE__` + `WKUIDelegate` link handling — audit N2 / POST-LAUNCH #26
 
 *F-opportunistic — fold in between features:*
 - ☐ F.11 Decide + enforce scorecard privacy on `GET /rounds/:id` (currently enumerable by sequential ID) — audit N10
-- ☐ F.12 Wrap all 8 test files as real vitest suites — audit N11
-- ☐ F.13 Three small defects: dead GPS `denied` branch (`EagleEye.jsx:1791/1794`), camera-denied raw error text, privacy-link `target="_blank"` in WKWebView — audit N12
+- ◐ F.12 Server vitest scoped to real suites + client `test` script added; bare-assert files run via `node --test` in CI. ☐ remaining: convert them to real suites over time — audit N11
+- ◐ F.13 ☑ dead GPS `denied` branch fixed (→`denied-hard`); ☑ friendly camera-denied error; ☐ privacy-link `target="_blank"` (native-shell `WKUIDelegate`) — audit N12
 - ☐ F.14 Maintainability slices: split `Home.jsx`/`LiveOuting.jsx` god-files; light client state pattern (`UserContext`); add engineer-facing `README.md` — audit N13–N15
 
 **Operational / cost decisions (not code)**

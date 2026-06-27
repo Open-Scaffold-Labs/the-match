@@ -8,6 +8,14 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-27] refactor | Foundation-Lock slice 1 SHIPPED + research-backed master build spec
+
+- Greenlit autonomous Foundation-Lock work. Filed [[synthesis/foundation-lock-build-spec-2026-06-27]] — strategic, failure-mode-hardened master checklist across the 3 pillars (usability/accuracy/visual-flow), backed by a 3-agent competitive research pass on the most-used golf apps (kept generic per the no-competitor-names rule).
+- **Key competitive finding:** no major golf app reliably avoids losing rounds (tournament platforms force one scorer per group; social apps do last-write-wins + a conflict toast; forums full of "lost my round"). Nobody ships true optimistic-concurrency → **"we never lose your round" is an ownable promise**, exactly what F.5/F.6 deliver. Rangefinder leaders ship a graded GPS-confidence state (beat our binary gate); club-arc leader uses a naive mean (beat with a distribution band); battery + "wrong hole" + paywall-clawback are the loudest unowned complaints.
+- **SHIPPED to beta `main` (`d282074`, all build+lint+`node --check`+test-runners+live-server-smoke verified):** F.1 `/api/v1` versioning (router dual-mounted `/api/v1` + `/api` legacy alias; client rewrites centrally; both mounts smoke-verified) · F.4 CI hard lint gate + new test job (vitest + `node --test` math + client units) · F.2 pool `max 5→2` prod + `allowExitOnIdle` · F.3 migration `035_tm_outings_indexes.sql` (NOT applied) · F.10 web-side `isNativeShell()` sentinel gating PWA install prompts · F.12 server vitest scoped + client test script · F.13 friendly camera error + fixed dead GPS `denied`→`denied-hard` banner branch.
+- **Specced, NOT executed (need real-match device test / Matt sign-off):** F.5 participants-single-source + `score_version` optimistic-concurrency + non-destructive conflict + durable idempotent offline queue + guests→rows (staged, reversible); F.6 `/end` batch inserts + off-request fan-out; F.7/F.8 security.
+- Operational left for Matt: apply migration 035; confirm transaction-mode pooler (6543); org Vercel/Supabase Pro; Anthropic spend cap (#13).
+
 ## [2026-06-27] query | Full-stack build-it-right audit → Track F + POST-LAUNCH #25/#26
 
 - Commissioned a 4-dimension parallel audit (architecture/scalability/data-model · security/data-integrity · code-quality/testing · App-Store-readiness/UX), each reading the real code at `/Users/matthewlavin/the-match` with file:line evidence. Goal: maximize chance of building correctly the first time before the App Store freezes old clients.
