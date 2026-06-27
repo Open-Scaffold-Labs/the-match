@@ -447,9 +447,10 @@ export default function HoleMapGL({
   }
   redrawRef.current = redrawAim
 
-  // A curved arc of `radiusYards` from `center`, swept ±halfAngleDeg around
+  const ARC_HALF_DEG = 26
+  // A curved arc of `radiusYards` from `center`, swept ±ARC_HALF_DEG around
   // `bearingDeg`. Returns LineString coords [[lon,lat],…].
-  function arcCoords(center, bearingDeg, radiusYards, halfAngleDeg = 26, n = 28) {
+  function arcCoords(center, bearingDeg, radiusYards, halfAngleDeg = ARC_HALF_DEG, n = 28) {
     const pts = []
     for (let i = 0; i <= n; i++) {
       const b = bearingDeg - halfAngleDeg + (2 * halfAngleDeg) * (i / n)
@@ -479,9 +480,12 @@ export default function HoleMapGL({
       const y = Number(c?.yards)
       if (!Number.isFinite(y) || y <= 0) continue
       feats.push({ type: 'Feature', properties: { highlight: !!c.highlight }, geometry: { type: 'LineString', coordinates: arcCoords(player, brng, y) } })
-      const apex = projectByYards(player, brng, y)
+      // Label at the arc's RIGHT end (not the apex) so the labels spread along a
+      // diagonal up the right side instead of stacking on the centre line — keeps
+      // them from overlapping each other and the distance card. (2026-06-26)
+      const labelPt = projectByYards(player, brng + (ARC_HALF_DEG - 3), y)
       const el = pillEl(`${c.label ? c.label + ' · ' : ''}${Math.round(y)}y`, !!c.highlight)
-      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'center', offset: [0, 0] }).setLngLat([apex.lon, apex.lat]).addTo(map))
+      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'left', offset: [6, 0] }).setLngLat([labelPt.lon, labelPt.lat]).addTo(map))
     }
     map.getSource('bagArcs')?.setData(fc(feats))
   }
