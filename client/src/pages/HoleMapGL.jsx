@@ -480,13 +480,19 @@ export default function HoleMapGL({
       const y = Number(c?.yards)
       if (!Number.isFinite(y) || y <= 0) continue
       feats.push({ type: 'Feature', properties: { highlight: !!c.highlight }, geometry: { type: 'LineString', coordinates: arcCoords(player, brng, y) } })
-      // Label at the arc's LEFT end (the open fairway side) so labels spread
-      // diagonally up the left, clear of the right-edge ARCS/BAG buttons and the
-      // map edge. Anchored to the right so the pill extends left into open space.
-      // (2026-06-26)
-      const labelPt = projectByYards(player, brng - (ARC_HALF_DEG - 3), y)
+      // Collision-aware label side: default to the LEFT end of the arc (open
+      // fairway, clear of the right-edge ARCS/BAG buttons). But if that apex
+      // projects into the top-left distance-card zone, flip the label to the
+      // RIGHT end so it isn't hidden behind the card. (2026-06-26)
+      let side = -1 // -1 = left, +1 = right
+      try {
+        const sp = map.project([projectByYards(player, brng, y).lon, projectByYards(player, brng, y).lat])
+        const cw = map.getContainer().clientWidth, ch = map.getContainer().clientHeight
+        if (sp && sp.y < ch * 0.50 && sp.x < cw * 0.50) side = +1 // would sit under the card → go right
+      } catch { /* projection unavailable → keep left */ }
+      const labelPt = projectByYards(player, brng + side * (ARC_HALF_DEG - 3), y)
       const el = pillEl(`${c.label ? c.label + ' · ' : ''}${Math.round(y)}y`, !!c.highlight)
-      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'right', offset: [-6, 0] }).setLngLat([labelPt.lon, labelPt.lat]).addTo(map))
+      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: side > 0 ? 'left' : 'right', offset: [side > 0 ? 6 : -6, 0] }).setLngLat([labelPt.lon, labelPt.lat]).addTo(map))
     }
     map.getSource('bagArcs')?.setData(fc(feats))
   }
