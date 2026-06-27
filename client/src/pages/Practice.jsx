@@ -491,14 +491,18 @@ function SessionRunner({ steps, onFinish, onClose }) {
     <div style={{ position: 'absolute', inset: 0, background: 'var(--tm-dark-0)', display: 'flex', flexDirection: 'column', animation: 'tm-sheet-up 240ms var(--tm-ease-out) both' }}>
       <div style={{ flexShrink: 0, padding: 'calc(var(--safe-top) + 12px) 18px 12px', borderBottom: '1px solid var(--tm-dark-2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <button onClick={i > 0 || finished ? back : onClose} aria-label={i > 0 || finished ? 'Previous drill' : 'Close session'} className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {i > 0 || finished ? <ChevronLeft size={20} /> : <XGlyph size={18} />}
-          </button>
+          {(i > 0 || finished) ? (
+            <button onClick={back} aria-label="Previous drill" className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <ChevronLeft size={20} />
+            </button>
+          ) : (
+            <div style={{ width: 40, height: 40, flexShrink: 0 }} aria-hidden="true" />
+          )}
           <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--tm-dark-text)' }}>
             {finished ? 'Session complete' : `Drill ${i + 1} of ${total}`}
           </div>
           {!finished && (
-            <button onClick={onClose} aria-label="Close session" className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'transparent', border: 'none', color: 'var(--tm-dark-text-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <button onClick={onClose} aria-label="Close session" className="touch-press" style={{ width: 40, height: 40, borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-dark-2)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--tm-dark-text-2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <XGlyph size={18} />
             </button>
           )}
