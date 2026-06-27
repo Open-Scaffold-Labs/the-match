@@ -8,6 +8,16 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-27] query | Full-stack build-it-right audit → Track F + POST-LAUNCH #25/#26
+
+- Commissioned a 4-dimension parallel audit (architecture/scalability/data-model · security/data-integrity · code-quality/testing · App-Store-readiness/UX), each reading the real code at `/Users/matthewlavin/the-match` with file:line evidence. Goal: maximize chance of building correctly the first time before the App Store freezes old clients.
+- Filed: [[synthesis/audit-2026-06-27]] — consolidated, de-duplicated roadmap.
+- **Audit confirmed the existing checklists reflect reality** — independently re-derived imagery/Overpass/GPS-gate (Phase 1 ✓), safe-area (#24), Anthropic cap (#13), Sentry (#12), billing stub (#18), Forgot-PIN email (#14), hosting migration. No new tracking needed for those.
+- **Net-new findings (N1–N15)** folded into [[synthesis/build-plan-bulletproof-2026-06-23]] as **Track F — Scale & Foundations Hardening** (F.1–F.14): `/api/v1` versioning, serverless pool `max:5`→1-2 + transaction-mode pooler, `tm_outings(status/host_id)` indexes, CI lint+test enforcement (lint is `continue-on-error`, no client test job), `tm_outings.state` JSONB lost-update/write-amplification → participants single-source, `/end` O(N²) insert loop → Vercel-timeout risk on 150-player closes, JWT revocation (`token_version`), account-keyed PIN lockout, `GET /rounds/:id` IDOR, vitest-wrap the 8 tests, 3 small defects, god-file splits.
+- Two native-shell App-Store blockers added to POST-LAUNCH: **#25** iOS Info.plist usage strings (location+camera; crash + 5.1.1 rejection without them) and **#26** native-shell sentinel flag to suppress PWA "Add to Home Screen" / push-nudge UI inside WKWebView.
+- Verified-done-right (do NOT touch): single-source handicap engine, `api.js` 503-retry wrapper, external-API L1/L2 cache w/ stale fallback, lazy-init `/health` gate, append-only migrations, bcrypt PINs + no JWT-secret fallback, ErrorBoundary, `offline-queue.js`, privacy policy + in-app account deletion.
+- Pre-audit: cleared NotebookLM drift (cdaa7a43 wiki mirror + ab4b7ccb reminder layer, both `verify_failed:0`). Pinecone left as-is (monthly quota wall).
+
 ## [2026-06-27] refactor | Practice loop finished + whole-bag arcs + Eagle Eye full-bleed (deferred to native)
 
 Continuation of the 2026-06-26 session. Three threads; beta `main` green and back to known-good at the end.

@@ -278,3 +278,51 @@ product.**
 **Next step:** address during the native packaging pass. No further PWA
 viewport-meta changes — they destabilize the beta nav for zero product
 benefit.
+
+## 25. iOS Info.plist usage strings (location + camera) — App Store blocker
+
+**Found 2026-06-27 (full-stack audit, `synthesis/audit-2026-06-27.md` N1).**
+The web app requests `navigator.geolocation` in 9 components (`EagleEye.jsx`,
+`Home.jsx`, `ActiveRound.jsx`, `OnboardingWizard.jsx`, `SettingsModal.jsx`,
+`PermissionsPrompt.jsx`, `NewTeeTimeSheet.jsx`, `FriendProfile.jsx`,
+`Outing/CreateWizard.jsx`) and the camera in `EagleEye.jsx` + `PlayerCard.jsx`.
+There is no Info.plist in this repo (it's a web project), so no usage-description
+strings exist. On iOS, accessing location or camera **without** the matching
+`NSLocationWhenInUseUsageDescription` / `NSCameraUsageDescription` causes an
+**immediate crash** and a **guaranteed App Store rejection** (Guideline 5.1.1).
+This is invisible from the web repo and easy to forget — distinct from #24
+(safe-area only).
+
+**Fix (native WKWebView shell, not this repo):** add to Info.plist, with
+human-readable purpose strings, e.g.:
+- `NSLocationWhenInUseUsageDescription` — "The Match uses your location to show
+  live yardages on the Eagle Eye rangefinder."
+- `NSCameraUsageDescription` — "The Match uses the camera for the Eagle Eye shot
+  view and player photos."
+- (`NSPhotoLibraryUsageDescription` if `PlayerCard` reads the library.)
+
+**Next step:** add during the native packaging pass; verify on a real device
+that permission prompts appear with the correct copy. Launch-gating.
+
+## 26. Native-shell sentinel flag — suppress PWA install/push-nudge UI in WKWebView
+
+**Found 2026-06-27 (full-stack audit, `synthesis/audit-2026-06-27.md` N2).**
+`PermissionsPrompt.jsx:107-131` and `PushNudgeBanner.jsx:97-105` render an
+"Add to Home Screen" coach mark / banner, gated on
+`isIosSafari() && !isStandalonePwa()` (`lib/push.js:93-99`). Inside the native
+WKWebView shell, `navigator.standalone` is typically `false` and the UA still
+contains "Safari", so this condition can evaluate **true** — the native app would
+instruct the user to "tap Share → Add to Home Screen" (there is no Safari Share
+chrome in a native app). A reviewer reads this as broken/un-native (Guideline
+4.0 / 2.1). In the native build, push comes through APNs, so the web-push install
+nudge should be suppressed entirely.
+
+**Fix:** have the WKWebView inject a sentinel (e.g. `window.__TM_NATIVE__ = true`
+via `WKWebView.configuration.userContentController` or a custom UA token). Gate
+`needsPwaInstall` / `isIosSafari` install paths and the push-nudge banner on
+`!isNativeShell`. Also handle `target="_blank"` + `mailto:` links via the native
+`WKUIDelegate` so the in-app Privacy Policy link (`SettingsModal.jsx:379`) and
+external links actually open (audit N12).
+
+**Next step:** implement alongside #25 during the native packaging pass; verify a
+reviewer never sees a "Add to Home Screen" instruction in the native app.

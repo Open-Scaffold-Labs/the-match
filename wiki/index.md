@@ -34,6 +34,7 @@ Content catalog — every page listed here. The preflight's index-completeness c
 
 ## Synthesis
 
+- [[synthesis/audit-2026-06-27]] — **Full-stack build-it-right audit** — 4-dimension parallel audit (architecture/scale · security · code-quality/testing · App-Store/UX). Confirms existing checklists; surfaces net-new foundational findings (N1–N15) folded into the build plan as **Track F** + POST-LAUNCH #25/#26. The "expensive to change after the App Store freezes clients" class · created 2026-06-27
 - [[synthesis/handicap-accuracy-audit-2026-06-25]] — **Handicap accuracy audit vs WHS** — gap table (our calc vs USGA/R&A 2024) + tiered fix plan. Tier-1 (0.96 removed, sliding table, clamp, min-3, round) SHIPPED 2026-06-25 · created 2026-06-25
 - [[synthesis/per-player-gender-ratings-2026-06-25]] — **Per-player gender ratings (mixed matches)** — each player's Course Handicap uses their own gender's tee rating (tee_ratings JSONB, migration 031). SHIPPED to beta 2026-06-25 · created 2026-06-25
 - [[synthesis/course-handicap-match-strokes-2026-06-25]] — **Course Handicap → match strokes** — net strokes off slope-based Course Handicap (Index×Slope/113+CR−Par) so gender/slope drive results. SHIPPED to beta 2026-06-25 (NET-mode only; verify on a real match) · created 2026-06-25
