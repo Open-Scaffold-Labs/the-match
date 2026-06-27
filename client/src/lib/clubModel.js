@@ -41,6 +41,46 @@ export function dispersionEllipse(yards) {
   return { depthYds: semi, widthYds: semi, shortSkew: DISP_SHORT_SKEW }
 }
 
+// Clubs to draw as DISTANCE ARCS across the hole (Phase 3.3, rebuilt 2026-06-26).
+// Honest: the player's real entered clubs only. Given the distance remaining to
+// the target, show the clubs that land within the hole (at/short of the target)
+// PLUS the shortest club that covers it, highlight the best match for the shot,
+// and thin to <=6 for a clean, premium read. remaining null/unknown → the whole
+// bag (thinned). `bag` is the realBag() output ([{slot,label,yards}]).
+const ARC_MAX = 6
+export function arcClubs(bag = [], remainingYards = null) {
+  const clubs = (bag || [])
+    .filter(c => Number.isFinite(c?.yards) && c.yards > 0)
+    .sort((a, b) => b.yards - a.yards) // long → short
+  if (!clubs.length) return []
+
+  const t = Number(remainingYards)
+  let set, highlightYards = null
+  if (Number.isFinite(t) && t > 0) {
+    set = clubs.filter(c => c.yards <= t * 1.05) // land at/short of the target
+    const cover = [...clubs].reverse().find(c => c.yards >= t) // shortest that covers it
+    if (cover && !set.some(c => c.slot === cover.slot)) set.push(cover)
+    set.sort((a, b) => b.yards - a.yards)
+    let best = set[0], bd = Infinity
+    for (const c of set) { const d = Math.abs(c.yards - t); if (d < bd) { bd = d; best = c } }
+    highlightYards = best ? best.yards : null
+  } else {
+    set = clubs.slice()
+  }
+
+  // Thin to <=ARC_MAX, always keeping the longest, shortest, and highlight.
+  if (set.length > ARC_MAX) {
+    const keepIdx = new Set([0, set.length - 1])
+    const hi = set.findIndex(c => c.yards === highlightYards)
+    if (hi >= 0) keepIdx.add(hi)
+    const step = (set.length - 1) / (ARC_MAX - 1)
+    for (let i = 0; i < ARC_MAX; i++) keepIdx.add(Math.round(i * step))
+    set = set.filter((_, i) => keepIdx.has(i)).sort((a, b) => b.yards - a.yards).slice(0, ARC_MAX)
+  }
+
+  return set.map(c => ({ slot: c.slot, label: c.label, yards: c.yards, highlight: c.yards === highlightYards }))
+}
+
 // The 1–2 clubs that bracket a target distance (declutter selector): the
 // shortest club that still reaches at/over the target, plus the next one under
 // it. Returns the nearest single club at the extremes.

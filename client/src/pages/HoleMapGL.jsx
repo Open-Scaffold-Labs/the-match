@@ -15,7 +15,6 @@
 import { useRef, useEffect, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { haversineYards, calcBearing } from '../lib/geo.js'
-import { dispersionEllipse } from '../lib/clubModel.js'
 
 // NAIP tiles load through a custom 'naipc://' protocol so EVERY tile request
 // (including the ones MapLibre issues from its worker thread, which a service
@@ -245,25 +244,23 @@ export default function HoleMapGL({
         map.addSource('landing', { type: 'geojson', data: fc([]) })
         map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': '#F5E070', 'fill-opacity': 0.30 } })
         map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': '#F5E070', 'line-width': 2.5, 'line-opacity': 0.95 } })
-        // Bag arcs (Phase 3.3): own-club distance ZONES. Data-driven styling —
-        // the bracket club (highlight) reads solid gold; others muted; estimated
-        // (seeded) clubs get a dashed outline. Low fill opacity so the hole
-        // reads through. Inserted BELOW the labels/markers (DOM) by z-order.
+        // Bag arcs (Phase 3.3, rebuilt 2026-06-26): own-club distance ARCS — a
+        // curved band per club at its true-ground yardage, swept across the line
+        // of play. Drawn as LineStrings. A wide low-opacity glow under a crisp
+        // line reads premium; the best-match club (highlight) is brighter +
+        // thicker. Data-driven from the player's REAL bag only.
         map.addSource('bagArcs', { type: 'geojson', data: fc([]) })
-        map.addLayer({ id: 'bagArcs-fill', type: 'fill', source: 'bagArcs', paint: {
-          'fill-color': ['case', ['get', 'highlight'], '#F5E070', '#C9A040'],
-          'fill-opacity': ['case', ['get', 'highlight'], 0.24, 0.10],
-        } })
-        map.addLayer({ id: 'bagArcs-line', type: 'line', source: 'bagArcs', filter: ['!', ['get', 'estimated']], paint: {
-          'line-color': ['case', ['get', 'highlight'], '#F5E070', '#C9A040'],
-          'line-width': ['case', ['get', 'highlight'], 2.5, 1.5],
-          'line-opacity': 0.9,
-        } })
-        map.addLayer({ id: 'bagArcs-line-est', type: 'line', source: 'bagArcs', filter: ['get', 'estimated'], paint: {
-          'line-color': ['case', ['get', 'highlight'], '#F5E070', '#C9A040'],
-          'line-width': ['case', ['get', 'highlight'], 2.2, 1.4],
-          'line-opacity': 0.8, 'line-dasharray': [2, 2],
-        } })
+        map.addLayer({ id: 'bagArcs-glow', type: 'line', source: 'bagArcs', paint: {
+          'line-color': ['case', ['get', 'highlight'], '#F5E070', '#F5D78A'],
+          'line-width': ['case', ['get', 'highlight'], 9, 6],
+          'line-opacity': ['case', ['get', 'highlight'], 0.28, 0.14],
+          'line-blur': 4,
+        }, layout: { 'line-cap': 'round' } })
+        map.addLayer({ id: 'bagArcs-line', type: 'line', source: 'bagArcs', paint: {
+          'line-color': ['case', ['get', 'highlight'], '#F5E070', 'rgba(245,224,112,0.62)'],
+          'line-width': ['case', ['get', 'highlight'], 3.5, 2],
+          'line-opacity': 0.95,
+        }, layout: { 'line-cap': 'round' } })
 
         // tap-to-measure: carry from player + distance to green at the tapped point
         map.on('click', (e) => {
@@ -450,32 +447,41 @@ export default function HoleMapGL({
   }
   redrawRef.current = redrawAim
 
-  // ── Bag arcs (Phase 3.3): own-club distance ZONES along player→aim ──
-  // Each club is a dispersion-sized circle at its projected landing point.
-  // Honest "typical landing area," not a precise arc. Bracket club highlighted;
-  // estimated (seeded) clubs dashed. Labels are recreated each redraw (the set
-  // is small + decluttered upstream).
+  // A curved arc of `radiusYards` from `center`, swept ±halfAngleDeg around
+  // `bearingDeg`. Returns LineString coords [[lon,lat],…].
+  function arcCoords(center, bearingDeg, radiusYards, halfAngleDeg = 26, n = 28) {
+    const pts = []
+    for (let i = 0; i <= n; i++) {
+      const b = bearingDeg - halfAngleDeg + (2 * halfAngleDeg) * (i / n)
+      const p = projectByYards(center, b, radiusYards)
+      pts.push([p.lon, p.lat])
+    }
+    return pts
+  }
+
+  // ── Bag arcs (Phase 3.3, rebuilt 2026-06-26): the player's real clubs as
+  // labeled DISTANCE ARCS swept across the line of play (player→green). Anchored
+  // at the player on course, else the tee — so the arcs render reliably whether
+  // or not GPS has locked. The best-match club is highlighted. Labels recreated
+  // each redraw (the set is ≤6, decluttered upstream by arcClubs). ──
   function drawBagArcs(player) {
     const map = mapRef.current, gl = glRef.current
     if (!map || !readyRef.current || !gl) return
     for (const m of bagLabelsRef.current) { try { m.remove() } catch { /* gone */ } }
     bagLabelsRef.current = []
     const clubs = bagArcsRef.current
-    const aim = lastAimRef.current
-    if (!Array.isArray(clubs) || !clubs.length || !player || !aim) { map.getSource('bagArcs')?.setData(fc([])); return }
-    const brng = calcBearing(player, aim)
+    const target = greenPositions[currentHole] || lastAimRef.current
+    if (!Array.isArray(clubs) || !clubs.length || !player || !target) { map.getSource('bagArcs')?.setData(fc([])); return }
+    const brng = calcBearing(player, target)
     if (!Number.isFinite(brng)) { map.getSource('bagArcs')?.setData(fc([])); return }
     const feats = []
     for (const c of clubs) {
       const y = Number(c?.yards)
       if (!Number.isFinite(y) || y <= 0) continue
-      const landing = projectByYards(player, brng, y)
-      const r = dispersionEllipse(y).depthYds
-      feats.push({ type: 'Feature', properties: { highlight: !!c.highlight, estimated: !!c.estimated }, geometry: { type: 'Polygon', coordinates: [ringCoords(landing, r)] } })
-      const txt = `${c.label ? c.label + ' · ' : ''}${Math.round(y)}y${c.estimated ? ' est' : ''}`
-      const el = pillEl(txt, !!c.highlight)
-      if (c.estimated) el.style.opacity = '0.85'
-      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'left', offset: [14, 0] }).setLngLat([landing.lon, landing.lat]).addTo(map))
+      feats.push({ type: 'Feature', properties: { highlight: !!c.highlight }, geometry: { type: 'LineString', coordinates: arcCoords(player, brng, y) } })
+      const apex = projectByYards(player, brng, y)
+      const el = pillEl(`${c.label ? c.label + ' · ' : ''}${Math.round(y)}y`, !!c.highlight)
+      bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'center', offset: [0, 0] }).setLngLat([apex.lon, apex.lat]).addTo(map))
     }
     map.getSource('bagArcs')?.setData(fc(feats))
   }

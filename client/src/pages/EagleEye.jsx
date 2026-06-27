@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
-import { realBag, clubsForTarget } from '../lib/clubModel.js'
+import { realBag, arcClubs } from '../lib/clubModel.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -1590,9 +1590,10 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
   // the one that reaches it. Empty bag → prompt to set distances (handled at
   // the toggle), never fabricate.
   const playerBag = realBag(myBag)
-  const bagArcsData = (bagArcsOn && displayYards != null)
-    ? clubsForTarget(playerBag, displayYards).map((c, i) => ({ label: c.label, yards: c.yards, estimated: false, highlight: i === 0 }))
-    : []
+  // Own-club distance ARCS: the player's relevant clubs swept across the hole.
+  // arcClubs handles a null distance (→ whole bag), so the arcs render whenever
+  // the toggle is on — they don't wait for a live GPS-to-green lock. (rebuilt 2026-06-26)
+  const bagArcsData = bagArcsOn ? arcClubs(playerBag, displayYards) : []
 
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
@@ -2098,7 +2099,10 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           }}
           aria-pressed={bagArcsOn}
           style={{
-            position: 'absolute', top: 'calc(50% + 70px)', right: 16, transform: 'translateY(-50%)',
+            // Sits clearly ABOVE the club/BAG toggle (which is centred at 50%+22px
+            // and grows downward into a tall ▲/club/▼ pill when a club is picked).
+            // 50%−72px keeps a comfortable gap so the two never collide. (2026-06-26)
+            position: 'absolute', top: 'calc(50% - 72px)', right: 16, transform: 'translateY(-50%)',
             background: bagArcsOn ? 'rgba(201,160,64,0.30)' : 'rgba(7,12,9,0.62)',
             backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
             border: bagArcsOn ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(245,215,138,0.40)',
