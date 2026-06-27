@@ -1616,17 +1616,17 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
     <div data-no-pull-refresh="true" style={{
       position: 'fixed',
-      // On iOS standalone the fixed viewport == the SAFE area; the notch
-      // and home-indicator insets sit OUTSIDE it. inset:0 therefore leaves
-      // dark strips at top/bottom. Pull each edge PAST the safe viewport by
-      // its inset so the satellite reaches the literal device edges. The
-      // header + ANALYZE button already pad by env(safe-area-inset-*), so
-      // they stay clear of the notch/indicator. env(...,0px) → 0 (=inset:0)
-      // where there are no insets. (2026-06-27 — Matt: full-screen map.)
-      top: 'calc(0px - env(safe-area-inset-top, 0px))',
-      right: 'calc(0px - env(safe-area-inset-right, 0px))',
+      // Top is already perfect: the black-translucent status bar OVERLAYS
+      // the map, so the satellite shows under it for free. Leave top/left/
+      // right at 0 (don't touch what works). The ONLY real gap is the
+      // bottom home-indicator inset — it's reserved space below the safe
+      // viewport that shows the body, not an overlay. Push ONLY the bottom
+      // edge down into it so the map reaches the literal bottom of the
+      // glass. The ANALYZE button pads by env(safe-area-inset-bottom), so
+      // it stays above the indicator. (2026-06-27 — Matt: kill the bottom
+      // dark strip; the top was already fine.)
+      top: 0, left: 0, right: 0,
       bottom: 'calc(0px - env(safe-area-inset-bottom, 0px))',
-      left: 'calc(0px - env(safe-area-inset-left, 0px))',
       background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden',
     }}>
       <CoachMark
