@@ -41,7 +41,7 @@ function SafeAreaProbe() {
       const dsw = de.scrollWidth
       const bsw = document.body.scrollWidth
       setInfo(
-        `sab=${sab} sat=${sat} ih=${window.innerHeight} sh=${window.screen.height} | ` +
+        `sab=${sab} sat=${sat} ih=${window.innerHeight} sh=${window.screen.height} dpr=${window.devicePixelRatio} | ` +
         `iw=${iw} dsw=${dsw} bsw=${bsw} ${dsw > iw ? '⚠OVERFLOW' : 'fit✓'}`
       )
     }
