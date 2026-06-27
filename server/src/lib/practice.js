@@ -181,68 +181,186 @@ const DRILLS = {
   approach: [
     { id: 'ladder_150', title: 'Distance ladder — 130/150/170 yds', durationMin: 20,
       why: 'Dialing approach distances is where amateurs gain the most strokes.',
+      where: 'Driving range with yardage markers',
+      setup: 'Pick a target green or flag at ~130, then 150, then 170 yards. 3 balls to each, 9 total.',
+      steps: [
+        'Hit 3 balls to the 130 target — full routine on each, like it counts.',
+        'Move up to 150, then 170. Don’t rake-and-rake; reset between shots.',
+        'Note how close each finishes to the target (paces or a marker).',
+        'Count how many of the 9 finish inside your target distance.',
+      ],
+      scoring: 'Count balls that finish inside the target proximity for your level.',
       target: { low: '6/9 inside 25 ft', mid: '5/9 inside 35 ft', high: '4/9 on the green' } },
     { id: 'long_iron_gate', title: 'Long-iron start-line gate', durationMin: 15,
       why: 'Cleaner long-iron contact tames the hardest holes.',
+      where: 'Driving range',
+      setup: 'Stick two tees ~3 ft ahead of the ball, a clubhead-width apart, on your target line.',
+      steps: [
+        'Hit your longest comfortable iron through the gate at a far target.',
+        'A ball that starts through the gate = on your start line.',
+        'Reset and repeat 10 balls; track gate hits AND solid contact.',
+      ],
+      scoring: 'Count balls that start through the gate (airborne & on line).',
       target: { low: '7/10 through the gate', mid: '6/10 through the gate', high: '5/10 airborne & online' } },
   ],
   wedge: [
     { id: 'wedge_clock', title: 'Wedge clock — 40/70/100 yds', durationMin: 20,
       why: 'Par-5 scoring lives in the 40–110 yd wedge zone.',
+      where: 'Range or short-game area with distance markers',
+      setup: '3 balls each to 40, 70 and 100 yard targets — 9 total. Same wedge or step through your wedges.',
+      steps: [
+        'Match a swing length to each distance (e.g. 40 = half, 70 = 3/4, 100 = full).',
+        'Hit 3 to each target with a full pre-shot routine.',
+        'Judge finish distance from the flag, not just direction.',
+        'Tally how many finish inside the proximity target.',
+      ],
+      scoring: 'Count balls inside the proximity target for your level.',
       target: { low: '6/9 inside 12 ft', mid: '5/9 inside 20 ft', high: '4/9 inside 30 ft' } },
     { id: 'scoring_zone', title: 'Scoring-zone proximity (sub-110)', durationMin: 15,
       why: 'Tighter wedges turn par-5s into birdie chances.',
+      where: 'Short-game area or range',
+      setup: 'Pick one flag inside 110 yds. 10 balls, one target.',
+      steps: [
+        'Full routine on every ball — treat each like a real approach.',
+        'Pace off (or eyeball) each finish distance from the flag.',
+        'Average the 10 finish distances.',
+      ],
+      scoring: 'Average proximity across 10 balls.',
       target: { low: 'avg < 15 ft', mid: 'avg < 24 ft', high: 'avg < 35 ft' } },
   ],
   ballstriking: [
     { id: 'center_face', title: 'Center-face strike (foot-spray)', durationMin: 15,
       why: 'Center contact is the root of par-4 ball-striking.',
+      where: 'Range',
+      setup: 'Lightly mist your iron face with foot-spray or dry-shampoo so strikes leave a mark.',
+      steps: [
+        'Hit a ball, read the strike mark on the face, wipe, repeat.',
+        'Aim for center — not toe, not heel, not thin.',
+        '10 balls; count the ones that mark dead center.',
+      ],
+      scoring: 'Count center strikes out of 10.',
       target: { low: '8/10 center', mid: '6/10 center', high: '5/10 center' } },
     { id: 'tempo_3to1', title: '3:1 tempo iron block', durationMin: 15,
       why: 'A repeatable tempo steadies full swings under pressure.',
+      where: 'Range',
+      setup: 'Count a 3:1 ratio — backswing “one-two-three”, downswing “one”.',
+      steps: [
+        'Swing to that count on every ball; no rush from the top.',
+        'Prioritise a balanced, held finish over distance.',
+        '10 balls; count solid, balanced strikes.',
+      ],
+      scoring: 'Count solid + balanced finishes out of 10.',
       target: { low: '9/10 solid', mid: '7/10 solid', high: '6/10 solid' } },
   ],
   management: [
     { id: 'bailout_punch', title: 'Punch-out & recovery routine', durationMin: 15,
       why: 'A disciplined recovery turns a double into a bogey.',
+      where: 'Range (or a quiet hole)',
+      setup: 'Imagine you’re behind a tree / in trouble. Pick the SAFE gap, not the hero shot.',
+      steps: [
+        'Choose a low punch club and a wide bail-out target back in play.',
+        'Commit fully to the safe shot — no half-hearted hero swing.',
+        'Run 8–10 “escape” reps to different safe targets.',
+      ],
+      scoring: 'Count escapes that finish safely back in play, worst-hole capped.',
       target: { low: 'cap worst hole at +1', mid: 'cap worst hole at +2', high: 'no triples' } },
     { id: 'center_green', title: 'Play-to-center decision reps', durationMin: 10,
       why: 'Aiming center, not at flags, slashes blow-up holes.',
+      where: 'Range',
+      setup: 'For every approach, pick the FAT center of the green, never the tucked pin.',
+      steps: [
+        'State your center target out loud before each ball.',
+        'Hit to center; a tucked-pin miss that finds the green still “passes”.',
+        '10 balls; count committed center swings.',
+      ],
+      scoring: 'Count balls you committed to center (and found the green).',
       target: { low: '9/10 center commit', mid: '8/10 center commit', high: '7/10 center commit' } },
   ],
   shortgame: [
     { id: 'up_and_down', title: 'Up-and-down challenge (9 balls)', durationMin: 20,
       why: 'Getting up-and-down erases approach misses.',
+      where: 'Chipping green',
+      setup: 'Drop 9 balls in different lies around one green — short, long, rough, bunker if you can.',
+      steps: [
+        'Play each ball out: chip/pitch on, then putt out.',
+        'Count it “up-and-down” only if you hole within 2 shots.',
+        'Move to a new lie each ball — never repeat the same chip.',
+      ],
+      scoring: 'Count up-and-downs out of 9.',
       target: { low: '5/9 up-and-down', mid: '4/9 up-and-down', high: '3/9 up-and-down' } },
   ],
   putting: [
     { id: 'lag_ladder', title: 'Lag-putt speed ladder (30→40 ft)', durationMin: 15,
       why: 'Speed control kills three-putts on the easy holes.',
+      where: 'Putting green',
+      setup: 'Find a 30–40 ft putt. Lay a tee 3 ft past the hole as your “safe zone”.',
+      steps: [
+        'Roll 10 lag putts focused on SPEED, not the line.',
+        'A putt that stops inside a 3 ft circle (hole-high to 3 ft past) passes.',
+        'Reset to the same start each time.',
+      ],
+      scoring: 'Count putts finishing inside 3 ft, out of 10.',
       target: { low: '8/10 inside 3 ft', mid: '7/10 inside 3 ft', high: '6/10 inside 3 ft' } },
     { id: 'gate_5ft', title: '5-foot gate drill', durationMin: 10,
       why: 'Short putts holed protect every good hole.',
+      where: 'Putting green',
+      setup: 'Two tees just wider than the ball, ~6 inches in front of a 5 ft putt.',
+      steps: [
+        'Roll the ball through the gate into the hole.',
+        'Through the gate AND holed = a make.',
+        '10 putts; count makes.',
+      ],
+      scoring: 'Count makes out of 10.',
       target: { low: '9/10 holed', mid: '8/10 holed', high: '7/10 holed' } },
   ],
   focus: [
     { id: 'routine_reset', title: 'Pre-shot routine + breath reset', durationMin: 10,
       why: 'A consistent routine resists back-nine focus drop.',
+      where: 'Range',
+      setup: 'Define a fixed routine: 1 look, 1 breath, 1 rehearsal, go. Same every time.',
+      steps: [
+        'Run your exact routine before all 10 balls — no skipping steps when tired.',
+        'One slow exhale right before you start back.',
+        'Count balls where you nailed the full routine.',
+      ],
+      scoring: 'Count full, unhurried routines out of 10.',
       target: { low: 'routine on 10/10', mid: 'routine on 9/10', high: 'routine on 8/10' } },
     { id: 'finish_strong', title: 'Back-nine simulation (last 9 first)', durationMin: 15,
       why: 'Practising tired-focus holes trains the fade away.',
+      where: 'Range or a quick 9',
+      setup: 'Warm up minimally, then play your “back nine” shots first — when you’re least sharp.',
+      steps: [
+        'Simulate the closing holes you usually fade on.',
+        'Hold your standards: full routine, center targets.',
+        'Score it vs how you’d normally play your front nine.',
+      ],
+      scoring: 'Compare simulated back-9 quality to your front-9 baseline.',
       target: { low: 'match front-9 avg', mid: 'within +1 of front', high: 'within +2 of front' } },
   ],
   maintenance: [
     { id: 'maintain', title: 'Maintenance — keep your strength sharp', durationMin: 10,
       why: 'A small slice on what you do well stops it slipping.',
+      where: 'Wherever your strength lives',
+      setup: 'Spend a few minutes on the part of your game that’s already good.',
+      steps: [
+        'Pick your strongest area (your best stat).',
+        'Do a light, enjoyable set of reps — keep the groove.',
+      ],
+      scoring: 'Quick check-in — did it still feel sharp?',
       target: { low: 'light reps', mid: 'light reps', high: 'light reps' } },
   ],
 }
 
-// Map a weakness category to its drill block, applying the player's banded target.
+// Set of valid drill ids (for validating POST /api/practice/log).
+const DRILL_IDS = new Set(Object.values(DRILLS).flat().map(d => d.id))
+
+// Map a weakness category to its drill block, applying the player's banded target
+// and passing the full how-to content through to the client.
 function drillsFor(category, hcpBand) {
   const list = DRILLS[category] || DRILLS.management
   return list.map(d => ({
     id: d.id, title: d.title, durationMin: d.durationMin, why: d.why,
+    where: d.where, setup: d.setup, steps: d.steps, scoring: d.scoring,
     target: d.target[hcpBand],
   }))
 }
@@ -254,8 +372,46 @@ const CATEGORY_LABEL = {
   maintenance: 'Maintenance',
 }
 
+// The single comparable number behind each weakness — lower is always better.
+// Used to snapshot a weakness when the player practises it, then re-measure
+// later (the closed loop). Returns { value, unit, label } or null.
+function primaryMetric(w) {
+  if (!w || !w.evidence) return null
+  switch (w.id) {
+    case 'par_type': {
+      const p = w.evidence.worstPar
+      const lbl = p === 3 ? 'Par 3 scoring' : p === 5 ? 'Par 5 scoring' : 'Par 4 scoring'
+      return { value: w.evidence.worstOver, unit: 'over par', label: lbl }
+    }
+    case 'blowups':     return { value: w.evidence.rate,    unit: '%',       label: 'Blow-up rate' }
+    case 'tough_holes': return { value: w.evidence.hardOver, unit: 'over par', label: 'Hard-hole scoring' }
+    case 'back_nine':   return { value: w.evidence.avgFade,  unit: 'strokes', label: 'Back-nine fade' }
+    case 'consistency': return { value: w.evidence.stdev,    unit: 'strokes', label: 'Scoring spread' }
+    default: return null
+  }
+}
+
+// Closed-loop progress for a focus area: compare the metric snapshot from the
+// player's most recent PRIOR practice of this weakness against where it sits now.
+// priorLogs: [{ weakness_id, metric_value, logged_at }]. Lower = better.
+function progressFor(weaknessId, metricNow, priorLogs) {
+  if (!metricNow || !Array.isArray(priorLogs)) return null
+  const prior = priorLogs
+    .filter(l => l.weakness_id === weaknessId && l.metric_value != null && Number.isFinite(Number(l.metric_value)))
+    .sort((a, b) => new Date(b.logged_at) - new Date(a.logged_at))[0]
+  if (!prior) return null
+  const before = Number(prior.metric_value)
+  const after = metricNow.value
+  return {
+    before: round1(before), after: round1(after),
+    delta: round1(before - after), // positive = improved (metric fell)
+    improved: after < before, unchanged: after === before,
+    since: prior.logged_at, unit: metricNow.unit, label: metricNow.label,
+  }
+}
+
 // ── public API ───────────────────────────────────────────────────────────────
-// analyze(rawRounds, { handicap, minutes }) → full practice payload.
+// analyze(rawRounds, { handicap, minutes, priorLogs }) → full practice payload.
 function analyze(rawRounds, opts = {}) {
   const rounds = normalizeRounds(rawRounds)
   const minutes = Number.isFinite(Number(opts.minutes)) ? Math.max(20, Math.min(120, Number(opts.minutes))) : 60
@@ -289,13 +445,20 @@ function analyze(rawRounds, opts = {}) {
   const weaknesses = SIGNALS.map(fn => fn(rounds)).filter(Boolean)
     .sort((a, b) => b.severity - a.severity)
 
-  // Focus = signals that are a REAL signal (severity ≥ 0.33), top 3.
-  const focusSignals = weaknesses.filter(w => w.severity >= 0.33).slice(0, 3)
+  // Focus = signals that are a REAL signal (severity ≥ 0.33), top 3. If NOTHING
+  // clears the bar the player is well-rounded — but we still surface their single
+  // thinnest area so the screen is ALWAYS actionable (never "data with no
+  // action"). Framed as "sharpen", not "fix".
+  let focusSignals = weaknesses.filter(w => w.severity >= 0.33).slice(0, 3)
+  const wellRounded = focusSignals.length === 0
+  if (wellRounded && weaknesses.length) focusSignals = weaknesses.slice(0, 1)
 
   // Headline = the single biggest insight, glanceable (avoids post-round overload).
-  const headline = focusSignals.length
-    ? { title: focusSignals[0].label, detail: focusSignals[0].explanation }
-    : { title: 'Your game is well-rounded', detail: 'No single area is bleeding strokes — keep your strengths sharp and chase consistency.' }
+  const headline = wellRounded
+    ? { title: 'Your game is well-rounded', detail: 'No single area is bleeding strokes — here’s the thinnest edge to sharpen and keep improving.' }
+    : (focusSignals.length
+        ? { title: focusSignals[0].label, detail: focusSignals[0].explanation }
+        : { title: 'Building your game profile', detail: 'Keep logging rounds and we’ll pinpoint your focus areas.' })
 
   // Build the session: allocate minutes across focus areas by severity weight,
   // reserve ~15% for maintenance. Each block carries its drills + the metric that
@@ -309,12 +472,15 @@ function analyze(rawRounds, opts = {}) {
     for (const w of focusSignals) {
       const alloc = Math.max(10, Math.round(workMinutes * (w.severity / sevSum)))
       const drills = drillsFor(w.category, hcpBand)
+      const metricNow = primaryMetric(w)
       focus.push({
         weaknessId: w.id, label: w.label, category: w.category,
         categoryLabel: CATEGORY_LABEL[w.category] || w.category,
         allocationMinutes: alloc, severity: round1(w.severity),
-        // closed-loop anchor: the exact metric + value behind the flag
-        metric: w.evidence, drills,
+        // closed-loop anchors: the exact evidence + the single comparable metric,
+        // plus before→after progress vs the last time this was practised.
+        metric: w.evidence, metricNow, drills,
+        progress: progressFor(w.id, metricNow, opts.priorLogs),
       })
       session.blocks.push({
         category: w.category, label: CATEGORY_LABEL[w.category] || w.category,
@@ -338,7 +504,8 @@ const CLOSED_LOOP_NOTE =
   "Keep logging rounds — after a few more we'll re-measure these exact numbers and show whether your focus areas improved."
 
 module.exports = {
-  normalizeRounds, band, analyze,
+  normalizeRounds, band, analyze, primaryMetric, progressFor,
+  DRILL_IDS,
   // exported for unit tests
   signalParType, signalBlowups, signalToughHoles, signalBackNine, signalConsistency,
   DRILLS, drillsFor,

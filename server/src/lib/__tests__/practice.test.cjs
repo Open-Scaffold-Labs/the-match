@@ -64,10 +64,12 @@ const tight = Array.from({ length: 4 }, () => mk(parsAll4, flat(0)))
 const swingySig = P.analyze([...swingy, mk(parsAll4, flat(2))], { handicap: 16 }).weaknesses.find(w => w.id === 'consistency')
 ok('consistency signal present and bounded', !!swingySig && swingySig.severity >= 0 && swingySig.severity <= 1)
 
-// ── well-rounded game → no false focus areas ────────────────────────────────
+// ── well-rounded game → still always actionable (thinnest area surfaced) ─────
 const balanced = P.analyze(tight.concat(mk(parsAll4, flat(0))), { handicap: 10 })
-ok('a level game produces no high-severity focus areas', balanced.focus.length === 0)
-ok('well-rounded headline is encouraging, not alarmist', /well-rounded|consistency/i.test(balanced.headline.title))
+ok('a level game still surfaces ONE thinnest area (never data-with-no-action)',
+   balanced.focus.length === 1 && !!balanced.session && balanced.session.blocks.length > 0)
+ok('well-rounded headline is encouraging, not alarmist', /well-rounded/i.test(balanced.headline.title))
+ok('well-rounded session still has drills to do', balanced.focus[0].drills.length > 0)
 
 // ── normalize drops unusable rounds ─────────────────────────────────────────
 const dirty = [
@@ -81,5 +83,32 @@ ok('normalizeRounds keeps only usable rounds', P.normalizeRounds(dirty).length =
 ok('every analysis carries the directional disclaimer', /directional/i.test(blowOut.disclaimer))
 ok('session carries the closed-loop re-measure note', /re-measure|improve/i.test(blowOut.session.note))
 ok('every weakness carries its evidence', blowOut.weaknesses.every(w => w.evidence && typeof w.explanation === 'string'))
+
+// ── drills carry real how-to content ────────────────────────────────────────
+const drill0 = parOut.focus[0].drills[0]
+ok('drill carries setup + how-to steps + scoring',
+   typeof drill0.setup === 'string' && Array.isArray(drill0.steps) && drill0.steps.length >= 2 && typeof drill0.scoring === 'string')
+ok('drill carries a where + banded target', typeof drill0.where === 'string' && typeof drill0.target === 'string')
+ok('DRILL_IDS is populated and includes a known drill', P.DRILL_IDS.size >= 8 && P.DRILL_IDS.has('ladder_150'))
+
+// ── primaryMetric: single comparable number per weakness (lower=better) ──────
+const pm = P.primaryMetric(parSig)
+ok('primaryMetric returns value + unit + label for par-type', pm && Number.isFinite(pm.value) && /Par 3/.test(pm.label))
+ok('focus carries metricNow + (null) progress with no prior logs',
+   parOut.focus[0].metricNow && Number.isFinite(parOut.focus[0].metricNow.value) && parOut.focus[0].progress === null)
+
+// ── closed loop: before→after from a prior log snapshot ─────────────────────
+// Same par-3-weak player, but pretend they practised earlier when par-3 scoring
+// was WORSE (a higher snapshot). progress should read as improved.
+const worseSnapshot = pm.value + 0.9
+const withPrior = P.analyze(par3Rounds, {
+  handicap: 8,
+  priorLogs: [{ weakness_id: 'par_type', metric_value: worseSnapshot, logged_at: '2026-06-01T00:00:00Z' }],
+})
+const prog = withPrior.focus.find(f => f.weaknessId === 'par_type').progress
+ok('progress computed from prior log', !!prog && prog.before === Math.round(worseSnapshot * 10) / 10)
+ok('progress flags improvement when metric fell', prog.improved === true && prog.delta > 0)
+ok('progressFor returns null when no matching prior log',
+   P.progressFor('blowups', { value: 5, unit: '%', label: 'x' }, [{ weakness_id: 'par_type', metric_value: 1, logged_at: '2026-06-01' }]) === null)
 
 console.log(`\nALL ${pass} PRACTICE-LOOP ASSERTIONS PASSED`)
