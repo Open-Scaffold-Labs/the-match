@@ -1641,13 +1641,22 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         }
       `}</style>
 
-      {/* ── Status bar ── */}
+      {/* ── Status bar ── On a course the map is full-bleed: this header FLOATS
+          over it as a gradient scrim (pointer-events pass through to the map
+          except on the actual buttons) so the satellite view fills the whole
+          screen, like the leading rangefinder apps. Off-course (welcome hero)
+          it stays a normal solid band. (2026-06-26 — Matt: make it all map) */}
       <div style={{
         paddingTop: 'env(safe-area-inset-top, 44px)',
-        background: '#070C09',
-        borderBottom: courseCtx ? '1px solid rgba(255,255,255,0.05)' : 'none',
+        ...(courseCtx ? {
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
+          background: 'linear-gradient(to bottom, rgba(7,12,9,0.92) 0%, rgba(7,12,9,0.55) 58%, rgba(7,12,9,0) 100%)',
+          pointerEvents: 'none',
+        } : {
+          background: '#070C09',
+        }),
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 10px', pointerEvents: 'auto' }}>
           {/* Title */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, #F5D78A, #C9A040)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -1718,7 +1727,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
 
         {/* ── Hole strip ── */}
         {courseCtx && (
-          <div className="ee-hole-chip" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 20px 12px', scrollbarWidth: 'none' }}>
+          <div className="ee-hole-chip" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '0 20px 12px', scrollbarWidth: 'none', pointerEvents: 'auto' }}>
             {teeHoles.map(h => {
               const active = h.hole === currentHole
               return (
@@ -1738,9 +1747,13 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
         )}
       </div>
 
-      {/* ── GPS error banner ── */}
+      {/* ── GPS error banner ── floats below the header on a course (map is
+          full-bleed underneath), else normal flow on the welcome screen. */}
       {gpsError && (
-        <div style={{ margin: '8px 16px 0', padding: '12px 14px', borderRadius: 12, background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)' }}>
+        <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)',
+          ...(courseCtx
+            ? { position: 'absolute', top: 'calc(env(safe-area-inset-top, 44px) + 100px)', left: 16, right: 16, zIndex: 21, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
+            : { margin: '8px 16px 0' }) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <div style={{ flex: 1 }}>
@@ -1843,8 +1856,9 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
           </div>
         </div>
       ) : (
-        /* ── Distance view — satellite map background + HUD overlay ── */
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        /* ── Distance view — satellite map background + HUD overlay. Full-bleed:
+            fills the whole screen as the base layer; the header floats over it. ── */
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
 
           {/* Full-screen satellite hole map — MapLibre GL (NAIP + branded overlays) */}
           <HoleMapGL
@@ -1866,7 +1880,7 @@ export default function EagleEye({ user, onGoToScorecard, eyeHoleNudge = null, o
               its own zIndex: 800 so the yardage card + Analyze paint above
               the map while the empty middle stays click-through to the map
               (pan/tap-to-measure). Floating BAG sits at 1000. */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px 16px 20px', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top, 44px) + 96px) 16px 20px', pointerEvents: 'none' }}>
 
             {/* ── Top yardage card — top-LEFT corner. Replaces the
                 standalone HOLE badge that used to live in HoleMap;
