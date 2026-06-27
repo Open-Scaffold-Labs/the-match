@@ -133,15 +133,23 @@ export default function Login({ onLogin }) {
       position: 'fixed', inset: 0,
       overflowY: 'auto', WebkitOverflowScrolling: 'touch',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      // Fairway grass photo with cream tint — matches App.jsx home wrapper exactly
-      backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
-      backgroundSize: 'cover',
-      backgroundPosition: 'center 40%',
-      backgroundAttachment: 'fixed',
       padding: '40px 0 40px',
     }}>
-      {/* Cream tint REMOVED — Matt wanted to see the raw fairway photo
-          showing through. (2026-05-03 — preview, may revert.) */}
+      {/* Fairway grass photo as its OWN fixed layer behind the content.
+          It used to be a `background-attachment: fixed` on this scroll
+          container — a documented iOS/WKWebView bug where the first tap
+          into an input is consumed priming the fixed-background
+          compositing layer instead of focusing the field, so the
+          keyboard only appeared on the SECOND tap. Splitting the photo
+          into a plain fixed div removes that bug while keeping the exact
+          look. (2026-06-27 — Matt: "click username, keyboard didn't pop
+          up, then I clicked password and it did.") */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+        backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center 40%',
+      }} />
 
       {/* Soft warm radial glow — same vocabulary as ProfileHeroCard's gold radial */}
       <div style={{

@@ -106,7 +106,13 @@
     /* — Layout — */
     --safe-top:    env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --nav-height:  56px;
+    /* Nav reserves the 56px bar PLUS the home-indicator inset so page
+       content sits above the bar AND the bar's background bleeds to the
+       physical bottom edge (no cream "safe-area strip" on any page).
+       env(..., 0px) → 0 on devices without an indicator, so desktop /
+       older devices are unaffected. (2026-06-27 — Matt: "I want the
+       whole app to fit the entire screen.") */
+    --nav-height:  calc(56px + env(safe-area-inset-bottom, 0px));
   }
 }
 

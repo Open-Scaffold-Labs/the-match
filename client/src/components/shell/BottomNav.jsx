@@ -28,7 +28,13 @@ export default function BottomNav({ active, onChange }) {
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: 430,
-      height: '56px',
+      // 56px bar + the home-indicator inset. paddingBottom pushes the
+      // icons up into the top 56px while the cream background fills all
+      // the way to the physical bottom edge — so no cream "safe-area
+      // strip" shows below the bar on any page. env(..., 0px) → 0 where
+      // there's no indicator. (2026-06-27 — Matt: full-screen.)
+      height: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       background: 'rgba(255, 253, 248, 0.96)',
       backdropFilter: 'blur(24px)',
       WebkitBackdropFilter: 'blur(24px)',
