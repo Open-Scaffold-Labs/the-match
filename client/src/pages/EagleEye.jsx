@@ -1614,7 +1614,21 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
     // every downward map-pan and reloading the page (dropping GPS + re-
     // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
-    <div data-no-pull-refresh="true" style={{ position: 'fixed', inset: 0, background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div data-no-pull-refresh="true" style={{
+      position: 'fixed',
+      // On iOS standalone the fixed viewport == the SAFE area; the notch
+      // and home-indicator insets sit OUTSIDE it. inset:0 therefore leaves
+      // dark strips at top/bottom. Pull each edge PAST the safe viewport by
+      // its inset so the satellite reaches the literal device edges. The
+      // header + ANALYZE button already pad by env(safe-area-inset-*), so
+      // they stay clear of the notch/indicator. env(...,0px) → 0 (=inset:0)
+      // where there are no insets. (2026-06-27 — Matt: full-screen map.)
+      top: 'calc(0px - env(safe-area-inset-top, 0px))',
+      right: 'calc(0px - env(safe-area-inset-right, 0px))',
+      bottom: 'calc(0px - env(safe-area-inset-bottom, 0px))',
+      left: 'calc(0px - env(safe-area-inset-left, 0px))',
+      background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    }}>
       <CoachMark
         id="eagle_eye"
         user={user}
