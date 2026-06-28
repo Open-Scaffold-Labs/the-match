@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782624863.168635,
-    "source_id": "de198776-cac6-4c62-bf48-312b84374f36",
-    "verified_at": 1782624888.513866
+    "mtime": 1782625094.7135773,
+    "source_id": "69fe6ceb-7600-4fa0-aaa7-240575f0597e",
+    "verified_at": 1782625125.10272
   },
   "wiki/index.md": {
-    "mtime": 1782624144.8197005,
-    "source_id": "c62a2bdd-2ae6-4e68-ab43-c938a6185c96",
-    "verified_at": 1782624258.298862
+    "mtime": 1782625085.5343466,
+    "source_id": "3c555b49-687b-42c3-b889-faf2d187dc43",
+    "verified_at": 1782625138.880773
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -146,5 +146,10 @@
     "mtime": 1782623893.775454,
     "source_id": "2cb06328-54dd-4055-a175-c2234e7e1201",
     "verified_at": 1782624265.337163
+  },
+  "wiki/synthesis/next-session-handoff-2026-06-28.md": {
+    "mtime": 1782625070.4987473,
+    "source_id": "b0e9753b-4a71-4cf0-95d0-e0c70c2e77f4",
+    "verified_at": 1782625145.247264
   }
 }
