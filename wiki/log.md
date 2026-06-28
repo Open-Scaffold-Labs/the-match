@@ -8,6 +8,14 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-28] schema | Fixed broken rebuild path — added missing 004_tm_games.sql
+
+- While verifying F.6 on a clean Postgres (replayed all migrations), found `tm_games` is referenced by 005 (ADD start_time) and 023 (ADD guests/confirmed_by_creator) but **never created by any migration** — it only existed on live Supabase (created out-of-band). A from-scratch `for f in migrations/*.sql` FAILED at 005 → new env / disaster-recovery rebuild was impossible.
+- Reconstructed the base table from the LIVE schema (information_schema + pg_constraint, the source of truth): `id` PK, `created_by`→tm_users ON DELETE CASCADE, `date`, `course_name`, `request_type` default 'tee_time', `message`, `created_at`, `broadcast`. Excluded later-ALTERed cols (start_time=005; guests/confirmed_by_creator=023).
+- Added as **`004_tm_games.sql`** — sorts after `004_avatar.sql`, before `005` (fixes glob order without editing any existing migration; append-only respected). `IF NOT EXISTS` → no-op on live.
+- **Verified:** clean replay of all migrations now succeeds 37/37 (was 34 ok / 2 fail). tm_games ends identical to live (11 cols). Also confirmed F.6 batched SQL == original loop byte-for-byte (match_history + h2h trigger rollups + results) across normal/all-tie/6-player cases, and that migration 036 applies cleanly.
+- CLAUDE.md DB-setup count refreshed (34 → 37; documents 035/036/004_tm_games + the repair).
+
 ## [2026-06-27] schema | Framing & recommendation checkpoint added to CLAUDE.md
 
 - Matt caught Claude reproducing anti-pattern #23 in prose (excused the dual-write JSONB scoring model as "the normal arc — build the simplest thing that ships") and made the meta-point: the fact it happened means the anti-patterns system isn't catching judgment-class slips.
