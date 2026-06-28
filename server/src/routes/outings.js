@@ -1777,38 +1777,40 @@ router.post('/:code/end', async (req, res) => {
     // winner/loser/tie. Backfill for outing 67 lives in
     // scripts/backfill-h2h-pairs.js.
     if (outing.team_format === 'individual' && dbParticipants.length >= 2) {
-      for (let i = 0; i < dbParticipants.length; i++) {
-        for (let j = i + 1; j < dbParticipants.length; j++) {
-          const a = dbParticipants[i]
-          const b = dbParticipants[j]
-          // dbParticipants is ORDER BY total ASC, so a.total <= b.total.
-          // Equal totals → tie; otherwise a (lower score) wins.
-          const isTie = a.total === b.total
-          // Always record BOTH participant ids. The tm_update_h2h trigger's
-          // tie branch reads winner_id/loser_id as the two players
-          // (LEAST/GREATEST) — nulling them for ties violated
-          // tm_h2h_records.player_a_id NOT NULL and 500'd /end for ANY match
-          // with a tied pair, including matches ended before scoring (all
-          // totals 0 → every pair ties). is_tie disambiguates win vs tie;
-          // every reader (friends/profile aggregates, the rivalry list's
-          // `won = is_tie ? null : i_won`) checks is_tie before treating
-          // winner_id as a winner. (2026-06-23)
-          const winnerId = a.user_id
-          const loserId  = b.user_id
-          await db.query(
-            `INSERT INTO tm_match_history
-               (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)
-             ON CONFLICT DO NOTHING`,
-            [outing.id, winnerId, loserId, isTie, a.total, b.total, outing.course_name]
-          )
-        }
+      // BATCHED (Track F.6 / audit N4): the prior nested loop did one awaited
+      // INSERT per pair — N-choose-2 sequential round-trips (~11k for a
+      // 150-player field) that blew the Vercel timeout and half-closed the
+      // event. The pairing/result logic is unchanged (extracted to the pure,
+      // unit-tested lib/match-close.js helpers) — only the WRITE is now two
+      // batched `unnest` queries instead of ~N² + N round-trips.
+      //
+      // is_tie semantics preserved: BOTH participant ids are always recorded;
+      // the tm_update_h2h trigger's tie branch needs both (LEAST/GREATEST), and
+      // every reader checks is_tie before treating winner_id as a winner
+      // (the 2026-06-23 NOT NULL fix; the 2026-05-07 all-pairs fix).
+      const { buildPairRows, computeResults } = require('../lib/match-close')
+      const pairs = buildPairRows(dbParticipants)
+      if (pairs.winnerIds.length) {
+        await db.query(
+          `INSERT INTO tm_match_history
+             (outing_id, winner_id, loser_id, is_tie, winner_score, loser_score, course_name)
+           SELECT $1, w, l, t, ws, ls, $7
+           FROM unnest($2::bigint[], $3::bigint[], $4::boolean[], $5::int[], $6::int[])
+                AS x(w, l, t, ws, ls)
+           ON CONFLICT DO NOTHING`,
+          [outing.id, pairs.winnerIds, pairs.loserIds, pairs.isTies,
+           pairs.winnerScores, pairs.loserScores, outing.course_name]
+        )
       }
-      for (const p of dbParticipants) {
-        const result = p.total === dbParticipants[0].total
-          ? (dbParticipants.filter(x => x.total === dbParticipants[0].total).length > 1 ? 'tie' : 'win')
-          : 'loss'
-        await db.query('UPDATE tm_outing_participants SET result=$1 WHERE id=$2', [result, p.id])
+      const { ids, results } = computeResults(dbParticipants)
+      if (ids.length) {
+        await db.query(
+          `UPDATE tm_outing_participants AS op
+             SET result = v.result
+           FROM unnest($1::bigint[], $2::text[]) AS v(id, result)
+           WHERE op.id = v.id`,
+          [ids, results]
+        )
       }
     }
 
