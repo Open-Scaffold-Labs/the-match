@@ -8,6 +8,13 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-27] schema | Framing & recommendation checkpoint added to CLAUDE.md
+
+- Matt caught Claude reproducing anti-pattern #23 in prose (excused the dual-write JSONB scoring model as "the normal arc — build the simplest thing that ships") and made the meta-point: the fact it happened means the anti-patterns system isn't catching judgment-class slips.
+- An agent adversarially audited the proposed fix and found: (a) adding another passive anti-patterns entry or refreshing the reminder notebook is near-theater for behavior (the channel that already failed); (b) CLAUDE.md is the only surface guaranteed in active context every session — the real lever, if written as a short imperative checkpoint with literal trigger-phrases; (c) the `audit-before-claim` skill can't be durably edited from a Cowork session (managed plugin; Settings → Capabilities).
+- **Added a "Framing & recommendation check" to this CLAUDE.md** (active checkpoint, phrase-triggered: "normal arc / for now / future upgrade / simplest thing that ships / MVP then iterate / harden later" → run the standard-contradiction check). Mirrors anti-pattern #26 added to the OpenScaffold master page.
+- Honest residual recorded: this lowers recurrence, does not prevent it; human review stays a necessary backstop. Flagged: the-match's `wiki/synthesis/claude-anti-patterns.md` is a stale fork (stops at #13, missing #14–25) — needs resync from the OpenScaffold master.
+
 ## [2026-06-27] perf | F.6 /end batching SHIPPED + F.5 migration scaffolding
 
 - Corrected a reasoning error (flagged by Matt): in beta the test surface IS `main`, so "verify before shipping" = build-verify then ship to `main` for device test — NOT park off `main`. F.6 shipped accordingly; F.5 will ship dark behind a default-off flag, not be withheld.

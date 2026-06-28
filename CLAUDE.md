@@ -146,6 +146,27 @@ Migrations are append-only — never edit a numbered file. New schema changes go
 - Mobile-first: test on iPhone viewport (390px) before considering desktop.
 - Cold-start protection: keep the `/health` no-DB-gate and client 503 retry budget.
 
+## Framing & recommendation check (added 2026-06-27)
+
+This is an active checkpoint, not background reading. Before writing any sentence
+that characterizes a past or proposed decision as **"normal" / "the normal arc" /
+"the natural arc" / "standard practice" / "for now" / "a future upgrade" / "the
+simplest thing that ships" / "MVP then iterate" / "harden it later"** — STOP.
+Those phrases are the trigger.
+
+Run the standard-contradiction check: does this framing excuse a shortcut or
+contradict this project's stated standard (build it right the first time; native
+App-Store-grade quality; see anti-patterns #23 and #26)? If yes, **the framing is
+the bug** — name the shortcut as a shortcut and build/recommend the higher bar.
+Generic-industry wisdom ("ship MVP, iterate") does NOT override this project's
+standard. This discipline applies to prose and recommendations, not only to
+factual claims — i.e. audit-before-claim extends to *how you frame decisions*,
+not just counts/completion/correctness.
+
+Honest residual: this checkpoint lowers recurrence; it cannot fully prevent a
+judgment-class slip (anti-pattern #23 was already on file the day Claude
+reproduced it). Matt catching a bad framing remains a necessary backstop.
+
 ## Self-healing
 
 The-match does not currently ship the self-healing pipeline. Phase: **none**. When ready, deploy per `/Users/matthewlavin/LimitlessStack/self-heal/README.md` (Phase 1: diagnostic only → Phase 2: full pipeline → Phase 3+: rollout).
