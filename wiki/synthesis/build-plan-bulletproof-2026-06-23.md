@@ -152,9 +152,9 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ◐ F.3 Migration `035_tm_outings_indexes.sql` written (status partial+full, host_id; `CONCURRENTLY`) — **NOT applied; Matt applies by hand** — audit N9
 - ☑ F.4 CI enforcement: lint hard gate (removed `continue-on-error`); new `test` job (vitest suites + `node --test` math + client units) — audit N8
 
-*F-data-model — must precede App Store client-freeze:* — ◐ **SPECCED, not executed** (staged plan in `synthesis/foundation-lock-build-spec-2026-06-27.md`; cutover needs a real-match device test)
-- ◐ F.5 Participants single source of truth + `score_version` optimistic-concurrency + non-destructive conflict + durable idempotent offline queue + guests→real rows. The "never lose your round" wedge (no competitor ships true optimistic-concurrency) — audit N3
-- ◐ F.6 Batch the `/end` O(N²) pair inserts + move handicap/referral fan-out off the request path (avoids Vercel-timeout half-close on big league events) — audit N4
+*F-data-model — must precede App Store client-freeze:*
+- ☑ **F.6 SHIPPED 2026-06-27 (`816d3d0`)** — `/end` pair inserts + result update batched into 2 `unnest` queries (was O(N²) sequential); logic extracted to pure, unit-tested `lib/match-close.js` (7 parity tests guarding the 2026-05-07 all-pairs + 2026-06-23 tie fixes); 20/20 server tests, boot-smoke verified. **Verify on beta: close a 3+ player individual match → rivalries populate.** tm_rounds/handicap fan-out (O(N), not the timeout driver) left as a follow-up. — audit N4
+- ◐ F.5 **Migration `036_tm_participants_score_version.sql` written** (additive `score_version` column, NOT applied — Matt applies by hand). Code staged for next focused build, shipped **dark behind a default-off flag**: (1) leaderboard reads derive from participant rows (ends stale-JSONB bug), (2) version-guard the score-on-behalf path with non-destructive conflict, (3) self-scoring stays last-write-wins (correct — you own your card). The "never lose your round" wedge (no competitor ships true optimistic-concurrency). — audit N3
 
 *F-security — greenlit in the handoff; spec it:* — ◐ specced in foundation-lock build spec
 - ☐ F.7 JWT revocation: add `tm_users.token_version`, embed + check it, bump on `reset-pin`/logout; consider shorter TTL + refresh — audit N7

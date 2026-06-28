@@ -8,6 +8,12 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-27] perf | F.6 /end batching SHIPPED + F.5 migration scaffolding
+
+- Corrected a reasoning error (flagged by Matt): in beta the test surface IS `main`, so "verify before shipping" = build-verify then ship to `main` for device test — NOT park off `main`. F.6 shipped accordingly; F.5 will ship dark behind a default-off flag, not be withheld.
+- **F.6 SHIPPED (`816d3d0`):** `/end` match-close was O(N²) — one awaited INSERT per 1v1 pair (~11k round-trips for 150 players) + per-player result UPDATE → Vercel-timeout half-close on big league events. Extracted pairing/result to pure `server/src/lib/match-close.js`; route now writes 2 batched `unnest` queries. 7 new vitest parity tests (guard the 2026-05-07 all-pairs + 2026-06-23 tie NOT-NULL fixes) + 13 existing = 20/20; `node --check` + boot-smoke (`/api/v1/outings/ZZZZ/public` → 404 handler, not a load crash). DB execution of the batched SQL verified on beta by closing a real match (Matt).
+- **F.5 scaffolding:** migration `036_tm_participants_score_version.sql` written (additive `score_version` column, NOT applied). Reading the hot path clarified the real risk is narrower than the audit implied: self-scoring is already safe (you own your card → last-write-wins is correct); the lost-update risk is the score-on-behalf path + the stale-JSONB leaderboard read. F.5 next build = (1) leaderboard reads from participant rows, (2) version-guard the on-behalf path (non-destructive conflict), behind a default-off flag, device-tested for concurrency.
+
 ## [2026-06-27] refactor | Foundation-Lock slice 1 SHIPPED + research-backed master build spec
 
 - Greenlit autonomous Foundation-Lock work. Filed [[synthesis/foundation-lock-build-spec-2026-06-27]] — strategic, failure-mode-hardened master checklist across the 3 pillars (usability/accuracy/visual-flow), backed by a 3-agent competitive research pass on the most-used golf apps (kept generic per the no-competitor-names rule).
