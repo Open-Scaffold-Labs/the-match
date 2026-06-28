@@ -2,6 +2,24 @@ const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
 
+// F.5 S1b: leaderboard reads derive total/holes_played from the authoritative
+// row `scores` when enabled, instead of trusting the denormalized
+// `state.participants[].total` (which goes stale when the state sync misses —
+// the documented split-brain). Flag default OFF → zero change until
+// SCORING_READ_FROM_ROWS=1 is set in env and device-tested; Stage 7 makes it
+// the default and retires the flag. `total` here is GROSS (= Σ scores), which is
+// exactly what tm_outing_participants.total holds; net/stableford are computed
+// client-side from `scores`, so deriving gross from scores is correct.
+const SCORING_READ_FROM_ROWS = process.env.SCORING_READ_FROM_ROWS === '1'
+function deriveScoreTotals(scores, fallbackTotal, fallbackHoles) {
+  if (!SCORING_READ_FROM_ROWS) return { total: fallbackTotal ?? 0, holes_played: fallbackHoles ?? 0 }
+  const arr = Array.isArray(scores) ? scores : []
+  return {
+    total: arr.reduce((s, x) => s + (Number(x) || 0), 0),
+    holes_played: arr.filter(x => Number(x) > 0).length,
+  }
+}
+
 // ─── PUBLIC live leaderboard — no auth ────────────────────────────────────────
 // GET /api/outings/:code/public
 //
@@ -58,13 +76,14 @@ router.get('/:code/public', async (req, res) => {
     const state = row.state || { participants: [] }
     const enriched = (state.participants || []).map(p => {
       if (p.is_guest) {
+        const gt = deriveScoreTotals(p.scores, p.total, p.holes_played)
         return {
           user_id: p.user_id,
           name: p.name,
           is_guest: true,
           scores: p.scores || [],
-          total: p.total ?? 0,
-          holes_played: p.holes_played ?? 0,
+          total: gt.total,
+          holes_played: gt.holes_played,
           group_id: p.group_id ?? null,
           team_id:  p.team_id  ?? null,
           withdrawn: !!p.withdrawn,
@@ -72,6 +91,7 @@ router.get('/:code/public', async (req, res) => {
         }
       }
       const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
+      const t = deriveScoreTotals(dp?.scores, p.total, p.holes_played)
       return {
         user_id: p.user_id,
         name: dp?.name || p.name || 'Player',
@@ -80,8 +100,8 @@ router.get('/:code/public', async (req, res) => {
         handicap: dp?.handicap ?? null,
         gender: dp?.gender ?? null,   // per-player gender for mixed-match Course Handicap (2026-06-25)
         scores: dp?.scores || [],
-        total: p.total ?? 0,
-        holes_played: p.holes_played ?? 0,
+        total: t.total,
+        holes_played: t.holes_played,
         group_id: p.group_id ?? null,
         team_id:  p.team_id  ?? null,
         withdrawn: !!p.withdrawn,
@@ -708,11 +728,19 @@ router.get('/:code', async (req, res) => {
     )
     const state = row.state || { participants: [] }
     const enriched = (state.participants || []).map(p => {
-      if (p.is_guest) return p  // guests: scores already in state JSONB, no avatar
+      if (p.is_guest) {
+        // guests: scores already in state JSONB, no avatar. Derive total/holes
+        // from those scores when SCORING_READ_FROM_ROWS is on (no-op otherwise).
+        const gt = deriveScoreTotals(p.scores, p.total, p.holes_played)
+        return { ...p, total: gt.total, holes_played: gt.holes_played }
+      }
       const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
+      const t = deriveScoreTotals(dp?.scores, p.total, p.holes_played)
       return {
         ...p,
         scores: dp?.scores || [],
+        total: t.total,
+        holes_played: t.holes_played,
         handicap: dp?.handicap ?? null,
         avatar: dp?.avatar ?? null,
       }
@@ -851,7 +879,10 @@ router.put('/:code/scores', async (req, res) => {
   const holesPlayed = scores.filter(x => x > 0).length
 
   await db.query(
-    'UPDATE tm_outing_participants SET scores=$1, total=$2 WHERE outing_id=$3 AND user_id=$4',
+    // F.5 S1a: bump score_version on every row score write (OCC foundation;
+    // nothing reads it yet → no behavior change). Self-scoring stays
+    // last-write-wins — single writer, you own your own card.
+    'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
     [JSON.stringify(scores), total, outing.id, req.user.id]
   )
 
@@ -1058,7 +1089,9 @@ router.put('/:code/scores/host', async (req, res) => {
     const holesPlayed = scores.filter(x => x > 0).length
 
     await db.query(
-      'UPDATE tm_outing_participants SET scores=$1, total=$2 WHERE outing_id=$3 AND user_id=$4',
+      // F.5 S1a: bump score_version on the on-behalf row write too (foundation
+      // for the Stage-2 OCC guard on this multi-writer path; no reader yet).
+      'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
       [JSON.stringify(scores), total, outing.id, user_id]
     )
 

@@ -8,6 +8,13 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-28] perf | F.5 Stage 1 SHIPPED (scoring data-model, flag-gated) + full build spec
+
+- Greenlit F.5 ("never lose your round"). Two research agents ran: (1) a COMPLETE in-repo inventory of every score read/write site, (2) implementation-pattern research (OCC/idempotency/offline). Filed [[synthesis/f5-never-lose-your-round-build-spec-2026-06-28]] — 7-stage flag-gated plan + split-brain risk register.
+- **Inventory reframed F.5 as bigger than the audit implied:** ~7 row-write sites, ~20 state-write sites, 9 readers (friends-live/season/league-standings rank ENTIRELY off stale state.total), guests live ONLY in state, offline queue carries no version, a dead /scores/marker still writes state. Research confirmed: self-scoring is single-writer (no OCC needed); only score-on-behalf is multi-writer; integer-version OCC + idempotency-key-on-the-queued-mutation + append-only event log (tm_score_audit already is one).
+- **SHIPPED Stage 1 (`outings.js`):** S1a — bump `score_version` on both row score-write paths (PUT /scores self, /scores/host on-behalf); additive, nothing reads it yet → zero behavior change (OCC foundation). S1b — `GET /:code` + `/:code/public` derive `total`/`holes_played` from authoritative row `scores` behind flag `SCORING_READ_FROM_ROWS` (default OFF → zero beta change until Matt sets it in env + device-tests); kills the stale-state-total split-brain for the main leaderboards.
+- **Verified:** build+lint+`node --check`+20/20 vitest+boot smoke; real-Postgres test (score_version 0→1→2, scores/total preserved each write); derive-logic parity (flag off→fallback, on→correct row totals). Cutover + guests→rows + reader flips + OCC guard + conflict UI are later staged builds needing Matt's device test.
+
 ## [2026-06-28] schema | Fixed broken rebuild path — added missing 004_tm_games.sql
 
 - While verifying F.6 on a clean Postgres (replayed all migrations), found `tm_games` is referenced by 005 (ADD start_time) and 023 (ADD guests/confirmed_by_creator) but **never created by any migration** — it only existed on live Supabase (created out-of-band). A from-scratch `for f in migrations/*.sql` FAILED at 005 → new env / disaster-recovery rebuild was impossible.
