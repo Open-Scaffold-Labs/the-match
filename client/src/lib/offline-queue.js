@@ -107,6 +107,10 @@ export async function drainQueue() {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            // F.5 S3: replay the SAME idempotency key the original action was
+            // tagged with, so a reconnect/restart replay is deduped server-side
+            // and applied exactly once (never double-applied).
+            ...(item.idempotencyKey ? { 'Idempotency-Key': item.idempotencyKey } : {}),
           },
           body: item.body ? JSON.stringify(item.body) : undefined,
         })
@@ -187,7 +191,7 @@ export async function drainQueue() {
 // Successful writes return the parsed response body (so callers
 // don't have to know whether they're getting through or queued —
 // they can branch on result.queued).
-export async function runWithQueue({ url, method = 'POST', body }) {
+export async function runWithQueue({ url, method = 'POST', body, idempotencyKey }) {
   const token = (() => { try { return localStorage.getItem('tm_token') } catch { return null } })()
   try {
     const res = await fetch(url, {
@@ -195,6 +199,12 @@ export async function runWithQueue({ url, method = 'POST', body }) {
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // F.5 S3: tag the immediate attempt with the SAME key that gets stored
+        // on the queued copy. This closes the dangerous hole where the write
+        // commits server-side but the ack is lost → caller sees a network error
+        // → the request is enqueued → replay would double-apply. Same key on
+        // both attempts means the server dedupes it.
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     })
@@ -209,7 +219,7 @@ export async function runWithQueue({ url, method = 'POST', body }) {
     return await res.json()
   } catch (err) {
     if (isNetworkError(err)) {
-      enqueue({ url, method, body })
+      enqueue({ url, method, body, idempotencyKey })
       return { queued: true }
     }
     throw err
@@ -219,7 +229,22 @@ export async function runWithQueue({ url, method = 'POST', body }) {
 // Auto-drain on online events + an interval ping for cases where
 // `online` doesn't fire (e.g. captive portals that say "online" but
 // can't actually reach the server).
+//
+// F.5 S3 — jittered drain. A whole foursome (or a clubhouse of phones)
+// regains signal at roughly the same moment; firing every queue at once is a
+// synchronized "thundering herd" at the server. A small random delay before
+// each drain spreads the replays out. Idempotency keys make any replay during
+// the spread harmless, so the jitter only needs to smooth load, not guarantee
+// ordering (the queue is already strict-FIFO per device).
+function jitter(maxMs) { return Math.floor(Math.random() * maxMs) }
+function scheduleDrain(maxJitterMs) {
+  setTimeout(() => { if (navigator.onLine) drainQueue().catch(() => {}) }, jitter(maxJitterMs))
+}
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { drainQueue().catch(() => {}) })
-  setInterval(() => { if (navigator.onLine) drainQueue().catch(() => {}) }, 30_000)
+  window.addEventListener('online', () => scheduleDrain(4_000))
+  // Backgrounded tabs that come back to the foreground should try too.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') scheduleDrain(2_000)
+  })
+  setInterval(() => scheduleDrain(5_000), 30_000)
 }

@@ -1,6 +1,7 @@
 const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
+const { claimAndRun } = require('../lib/idempotency')
 
 // F.5 S1b: leaderboard reads derive total/holes_played from the authoritative
 // row `scores` when enabled, instead of trusting the denormalized
@@ -18,6 +19,41 @@ function deriveScoreTotals(scores, fallbackTotal, fallbackHoles) {
     total: arr.reduce((s, x) => s + (Number(x) || 0), 0),
     holes_played: arr.filter(x => Number(x) > 0).length,
   }
+}
+
+// F.5 S2: optimistic-concurrency on the score-on-behalf path (/scores/host).
+// When ON, the app-user branch runs its read-modify-write inside a single
+// transaction with SELECT … FOR UPDATE so two concurrent on-behalf writers
+// can't lose each other's edits (the second reads the first's committed
+// scores array before mutating). Different-hole edits commute; genuine
+// same-hole/different-value collisions still surface via the existing
+// per-hole value guard, now enriched with current_version + who/when so the
+// client can show an inline "Dale entered 5 just now" chip. Default OFF →
+// zero beta change until SCORING_OCC_ONBEHALF=1 is set and device-tested.
+// Self-scoring (/scores) is single-writer and stays last-write-wins.
+const SCORING_OCC_ONBEHALF = process.env.SCORING_OCC_ONBEHALF === '1'
+
+// F.5 S3 — idempotency for score writes. When ON and the request carries an
+// Idempotency-Key header, the key claim + the write + the stored response
+// commit in ONE transaction (the highest-leverage correctness decision), so a
+// replayed queued write (dropped ack / reconnect / app restart) is applied
+// exactly once and the replay returns the original response byte-for-byte
+// (with an Idempotent-Replayed: true header). Default OFF → zero change until
+// SCORING_IDEMPOTENCY=1 is set AND the client sends the header. Enabling this
+// uses the transactional FOR UPDATE write regardless of SCORING_OCC_ONBEHALF.
+const SCORING_IDEMPOTENCY = process.env.SCORING_IDEMPOTENCY === '1'
+
+// Resolve a human name for the last writer of a participant's score, for the
+// enriched 409 conflict body. Best-effort: prefer the state participant name,
+// fall back to the users table, then to a generic label. Never throws.
+async function resolveWriterName(state, outingId, userId) {
+  try {
+    const stp = (state?.participants || []).find(p => String(p.user_id) === String(userId))
+    if (stp?.name) return stp.name
+    if (String(userId).startsWith('guest_')) return 'a guest'
+    const u = await db.one('SELECT name FROM tm_users WHERE id = $1', [Number(userId)])
+    return u?.name || 'another scorer'
+  } catch { return 'another scorer' }
 }
 
 // ─── PUBLIC live leaderboard — no auth ────────────────────────────────────────
@@ -869,73 +905,90 @@ router.put('/:code/scores', async (req, res) => {
     })
   }
 
-  // Capture old score for audit. Self-entry path — no conflict check
-  // needed (you own your own card; you can change your mind freely).
-  const scores = existing.scores || []
-  const oldScore = scores[hole] ?? 0
-
-  scores[hole] = score
-  const total = scores.reduce((s, x) => s + (x || 0), 0)
-  const holesPlayed = scores.filter(x => x > 0).length
-
-  await db.query(
-    // F.5 S1a: bump score_version on every row score write (OCC foundation;
-    // nothing reads it yet → no behavior change). Self-scoring stays
-    // last-write-wins — single writer, you own your own card.
-    'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
-    [JSON.stringify(scores), total, outing.id, req.user.id]
-  )
-
-  // Sync to state JSONB so leaderboard reads are fast
-  const state = outing.state || { participants: [] }
-  // String() both sides — see /:code/join. If pi resolves to -1 because
-  // of a string/number mismatch, the score still writes to the DB row
-  // (line 845), but the JSONB state stays stale and the leaderboard
-  // reads wrong totals until the next refresh from the row.
-  const pi = state.participants?.findIndex(p => String(p.user_id) === String(req.user.id))
-  if (pi >= 0) {
-    state.participants[pi].total = total
-    state.participants[pi].holes_played = holesPlayed
-    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+  // Self-entry path — no conflict check (you own your own card; change your
+  // mind freely). The row write + state sync run via `q` so they can execute
+  // either directly (db.query) or inside the idempotency transaction's client.
+  // Self-scoring is naturally idempotent (totals derive from the array, not an
+  // increment), so the idempotency wrap is defense-in-depth + a clean replay
+  // response — correctness does not depend on it. Stays last-write-wins. (S3)
+  const doSelfWrite = async (q) => {
+    const s = Array.isArray(existing.scores) ? [...existing.scores] : []
+    const old = s[hole] ?? 0
+    s[hole] = score
+    const t  = s.reduce((acc, x) => acc + (x || 0), 0)
+    const hp = s.filter(x => x > 0).length
+    await q(
+      // F.5 S1a: bump score_version on every row score write so an on-behalf
+      // writer sees the change. Self-scoring stays last-write-wins.
+      'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
+      [JSON.stringify(s), t, outing.id, req.user.id]
+    )
+    // Sync to state JSONB so leaderboard reads are fast. String() both sides
+    // (see /:code/join) — on a -1 miss the row still has the score; the S1b
+    // read-from-rows path keeps the leaderboard correct regardless.
+    const state = outing.state || { participants: [] }
+    const pi = state.participants?.findIndex(p => String(p.user_id) === String(req.user.id))
+    if (pi >= 0) {
+      state.participants[pi].total = t
+      state.participants[pi].holes_played = hp
+      await q('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    }
+    return { status: 200, body: { ok: true, total: t, holesPlayed: hp }, side: { oldScore: old, scores: s, total: t, holesPlayed: hp } }
   }
 
-  // Audit — only when the value actually changed (don't log no-ops
-  // from network retries or repeated taps on the same number).
-  // 2026-05-05 — AWAITED. Fire-and-forget caused tm_score_audit to be
-  // empty for every user lifetime (Vercel freezes the lambda after
-  // res.json, killing the in-flight INSERT before it completes). Same
-  // pattern Matt's friends.js fix from 2026-05-02 corrected for push
-  // notifications. ~50ms latency cost; worth it for working audit.
-  if (Number(oldScore || 0) !== Number(score)) {
+  const idemKey = req.get('Idempotency-Key')
+  const idemActive = SCORING_IDEMPOTENCY && !!idemKey
+  let outcome
+  if (idemActive) {
+    outcome = await db.tx(client => claimAndRun(
+      client,
+      { userId: req.user.id, key: idemKey, method: 'PUT', path: `outings/${code}/scores`, body: req.body },
+      (txClient) => doSelfWrite((sql, params) => txClient.query(sql, params))
+    ))
+    if (outcome.replayed) res.set('Idempotent-Replayed', 'true')
+  } else {
+    outcome = await doSelfWrite((sql, params) => db.query(sql, params))
+  }
+
+  // `side` is present only when this request actually wrote (absent on an
+  // idempotent replay) — so audit + achievements never double-fire on replay.
+  const side = outcome.side
+  const scores = side?.scores
+
+  // Audit — only when the value actually changed (don't log no-ops from
+  // retries / repeated taps). AWAITED (2026-05-05): Vercel freezes the lambda
+  // after res.json, killing a fire-and-forget INSERT before it completes.
+  if (side && Number(side.oldScore || 0) !== Number(score)) {
     await writeScoreAudit({
       outing_id: outing.id, user_id: req.user.id, hole,
-      old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
+      old_score: side.oldScore || null, new_score: score, edited_by_id: req.user.id,
     })
   }
 
-  // Achievement detection (2026-05-06 — polish task #5). AWAITED for
-  // the same Vercel-freeze reason as writeScoreAudit. Newly-awarded
-  // achievements come back in the response so the client can pop the
-  // unlock card without an extra fetch. Failures here log and return
-  // empty — never block the score write.
+  // Achievement detection (2026-05-06 — polish task #5). AWAITED for the same
+  // Vercel-freeze reason. Newly-awarded achievements come back in the response
+  // so the client can pop the unlock card without an extra fetch. Failures log
+  // and return empty — never block the score write. Skipped on replay.
   let newly = []
-  try {
-    const { checkAfterHoleScore } = require('../lib/achievements')
-    const par = Array.isArray(outing.hole_pars) ? Number(outing.hole_pars[hole]) : null
-    newly = await checkAfterHoleScore({
-      user_id:    req.user.id,
-      outing_id:  outing.id,
-      hole,
-      par,
-      score:      Number(score),
-      scores,
-      course_par: Number(outing.course_par) || null,
-    })
-  } catch (e) {
-    console.warn('[achievements] check after hole score failed', e.message)
+  if (side) {
+    try {
+      const { checkAfterHoleScore } = require('../lib/achievements')
+      const par = Array.isArray(outing.hole_pars) ? Number(outing.hole_pars[hole]) : null
+      newly = await checkAfterHoleScore({
+        user_id:    req.user.id,
+        outing_id:  outing.id,
+        hole,
+        par,
+        score:      Number(score),
+        scores,
+        course_par: Number(outing.course_par) || null,
+      })
+    } catch (e) {
+      console.warn('[achievements] check after hole score failed', e.message)
+    }
   }
 
-  res.json({ ok: true, total, holesPlayed, achievements: newly })
+  res.json({ ...outcome.body, achievements: newly })
 })
 
 // ─── POST /api/outings/:code/guests ──────────────────────────────────────────
@@ -1068,62 +1121,158 @@ router.put('/:code/scores/host', async (req, res) => {
     }
 
     const holes  = outing.state?.holes ?? 18
-    const scores = Array.isArray(existing.scores) ? [...existing.scores] : new Array(holes).fill(0)
-    while (scores.length < holes) scores.push(0)
-    const oldScore = scores[hole] ?? 0
-    // Same conflict guard as the guest path. Player overwriting their
-    // own score is allowed without force (they're using a different
-    // endpoint anyway — /:code/scores — but this covers the case
-    // where the host endpoint is called for self).
+    // Player overwriting their own score is allowed without force (they're
+    // using a different endpoint anyway — /:code/scores — but this covers
+    // the case where the host endpoint is called for self).
     const isSelfEdit = String(user_id) === String(req.user.id)
-    if (!force && !isHost && !isSelfEdit && Number(oldScore) > 0 && Number(oldScore) !== Number(score)) {
-      return res.status(409).json({
-        error: 'score_conflict',
-        message: `Hole ${Number(hole) + 1} already has a score of ${oldScore}. Resubmit with force:true to overwrite.`,
-        existing_score: Number(oldScore),
-      })
-    }
-    scores[hole] = score
 
-    const total       = scores.reduce((s, x) => s + (x || 0), 0)
-    const holesPlayed = scores.filter(x => x > 0).length
-
-    await db.query(
-      // F.5 S1a: bump score_version on the on-behalf row write too (foundation
-      // for the Stage-2 OCC guard on this multi-writer path; no reader yet).
-      'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
-      [JSON.stringify(scores), total, outing.id, user_id]
-    )
-
-    const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
-    if (pi >= 0) {
-      state.participants[pi].total       = total
-      state.participants[pi].holes_played = holesPlayed
-      // 33-round audit fix: if the host enters a score for a no-show,
-      // auto-clear the no_show flag. Otherwise under DNS policy the
-      // player is hidden from the leaderboard despite having scores.
-      // (Item 6 polish.)
-      if (state.participants[pi].no_show && Number(score) > 0) {
-        state.participants[pi].no_show = false
+    // F.5 S2/S3 — the FOR UPDATE, version-guarded, state-atomic on-behalf
+    // write, factored out so the OCC path (db.tx) and the idempotency path
+    // (db.tx + claimAndRun, SAME transaction) can share it. Returns a
+    // claimAndRun-compatible { status, body, side? }. `side` carries the
+    // post-write data for the best-effort audit + achievement work that (as
+    // today) runs OUTSIDE the transaction; it is absent on an idempotent
+    // replay, so those effects never re-fire on a replayed request. The
+    // FOR UPDATE row lock serializes concurrent on-behalf writers: the
+    // second reads the first's committed scores array (incl. any OTHER-hole
+    // edit) before mutating its own hole, so different-hole writes commute
+    // and nothing is lost. A genuine same-hole/different-value collision
+    // surfaces via the value guard, carrying current_version + who/when for
+    // the inline conflict chip.
+    const applyOnBehalf = async (client) => {
+      const { rows } = await client.query(
+        'SELECT id, scores, score_version FROM tm_outing_participants WHERE outing_id=$1 AND user_id=$2 FOR UPDATE',
+        [outing.id, user_id]
+      )
+      const row = rows[0]
+      if (!row) return { status: 404, body: { error: 'Participant not found' } }
+      const s = Array.isArray(row.scores) ? [...row.scores] : new Array(holes).fill(0)
+      while (s.length < holes) s.push(0)
+      const old = s[hole] ?? 0
+      if (!force && !isHost && !isSelfEdit && Number(old) > 0 && Number(old) !== Number(score)) {
+        const writer = await resolveWriterName(state, outing.id, user_id)
+        return { status: 409, body: {
+          error: 'score_conflict',
+          message: `Hole ${Number(hole) + 1} already has a score of ${old}. Resubmit with force:true to overwrite.`,
+          existing_score: Number(old),
+          current_version: Number(row.score_version),
+          last_written_by: writer,
+          updated_at: new Date().toISOString(),
+        } }
+      }
+      s[hole] = score
+      const t  = s.reduce((acc, x) => acc + (x || 0), 0)
+      const hp = s.filter(x => x > 0).length
+      // Version-guarded write. The version was read above under the row lock
+      // so it matches; AND score_version=$ is a belt — if it somehow doesn't,
+      // 409 rather than clobber. Comparison lives in the bound SQL param to
+      // dodge the pg-string-vs-JS-number trap.
+      const upd = await client.query(
+        'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE id=$3 AND score_version=$4',
+        [JSON.stringify(s), t, row.id, row.score_version]
+      )
+      if (upd.rowCount === 0) {
+        const writer = await resolveWriterName(state, outing.id, user_id)
+        return { status: 409, body: {
+          error: 'score_conflict',
+          message: `Hole ${Number(hole) + 1} changed while you were saving. Re-enter to overwrite.`,
+          existing_score: Number(old),
+          current_version: Number(row.score_version) + 1,
+          last_written_by: writer,
+          updated_at: new Date().toISOString(),
+        } }
+      }
+      // Sync state in the SAME transaction (atomic row + state).
+      const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+      if (pi >= 0) {
+        state.participants[pi].total        = t
+        state.participants[pi].holes_played = hp
+        // 33-round audit fix: host scoring a no-show auto-clears no_show.
+        if (state.participants[pi].no_show && Number(score) > 0) state.participants[pi].no_show = false
+      }
+      await client.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      return {
+        status: 200,
+        body: { ok: true, total: t, holesPlayed: hp },
+        side: { oldScore: old, scores: s, total: t, holesPlayed: hp },
       }
     }
-    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
 
-    if (Number(oldScore || 0) !== Number(score)) {
+    // Legacy non-transactional path (both flags off — current beta behavior).
+    const legacyOnBehalf = async () => {
+      const s = Array.isArray(existing.scores) ? [...existing.scores] : new Array(holes).fill(0)
+      while (s.length < holes) s.push(0)
+      const old = s[hole] ?? 0
+      if (!force && !isHost && !isSelfEdit && Number(old) > 0 && Number(old) !== Number(score)) {
+        return { status: 409, body: {
+          error: 'score_conflict',
+          message: `Hole ${Number(hole) + 1} already has a score of ${old}. Resubmit with force:true to overwrite.`,
+          existing_score: Number(old),
+        } }
+      }
+      s[hole] = score
+      const t  = s.reduce((acc, x) => acc + (x || 0), 0)
+      const hp = s.filter(x => x > 0).length
+      await db.query(
+        // F.5 S1a: bump score_version on the on-behalf row write too.
+        'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
+        [JSON.stringify(s), t, outing.id, user_id]
+      )
+      const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+      if (pi >= 0) {
+        state.participants[pi].total       = t
+        state.participants[pi].holes_played = hp
+        // 33-round audit fix: host scoring a no-show auto-clears no_show.
+        if (state.participants[pi].no_show && Number(score) > 0) state.participants[pi].no_show = false
+      }
+      await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      return {
+        status: 200,
+        body: { ok: true, total: t, holesPlayed: hp },
+        side: { oldScore: old, scores: s, total: t, holesPlayed: hp },
+      }
+    }
+
+    // Dispatch. Idempotency (when active) requires a transaction, so it always
+    // uses the FOR UPDATE write; enabling SCORING_IDEMPOTENCY therefore implies
+    // the OCC write path regardless of SCORING_OCC_ONBEHALF (strictly safer).
+    const idemKey = req.get('Idempotency-Key')
+    const idemActive = SCORING_IDEMPOTENCY && !!idemKey
+    let outcome
+    if (idemActive) {
+      outcome = await db.tx(client => claimAndRun(
+        client,
+        { userId: req.user.id, key: idemKey, method: 'PUT', path: `outings/${code}/scores/host`, body: req.body },
+        applyOnBehalf
+      ))
+      if (outcome.replayed) res.set('Idempotent-Replayed', 'true')
+    } else if (SCORING_OCC_ONBEHALF) {
+      outcome = await db.tx(applyOnBehalf)
+    } else {
+      outcome = await legacyOnBehalf()
+    }
+
+    if (outcome.status !== 200) return res.status(outcome.status).json(outcome.body)
+
+    // `side` is present only when this request actually wrote (absent on an
+    // idempotent replay) — so audit + achievements never double-fire on replay.
+    const side = outcome.side
+    const scores = side?.scores
+
+    if (side && Number(side.oldScore || 0) !== Number(score)) {
       await writeScoreAudit({
         outing_id: outing.id, user_id, hole,
-        old_score: oldScore || null, new_score: score, edited_by_id: req.user.id,
+        old_score: side.oldScore || null, new_score: score, edited_by_id: req.user.id,
       })
     }
 
     // Achievement detection (2026-05-06 — polish task #5). Credits the
-    // PLAYER (user_id), not the writer (req.user.id). Skipped for
-    // guests (the lib also checks but we short-circuit here for
-    // clarity). Newly-awarded achievements come back in the response;
-    // the client only renders the toast when the writer === player so
-    // a host writing on behalf doesn't see someone else's badge pop.
+    // PLAYER (user_id), not the writer (req.user.id). Skipped for guests and
+    // on idempotent replays (no `side`). Newly-awarded achievements come back
+    // in the response; the client only renders the toast when writer === player
+    // so a host writing on behalf doesn't see someone else's badge pop.
     let newly = []
-    if (!isGuest) {
+    if (side && !isGuest) {
       try {
         const { checkAfterHoleScore } = require('../lib/achievements')
         const par = Array.isArray(outing.hole_pars) ? Number(outing.hole_pars[hole]) : null
@@ -1141,7 +1290,7 @@ router.put('/:code/scores/host', async (req, res) => {
       }
     }
 
-    res.json({ ok: true, total, holesPlayed, achievements: newly })
+    res.json({ ...outcome.body, achievements: newly })
   } catch (err) {
     console.error('[outings/scores/host]', err)
     res.status(500).json({ error: 'Failed' })

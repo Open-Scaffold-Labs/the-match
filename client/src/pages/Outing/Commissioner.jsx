@@ -616,10 +616,16 @@ export function CommissionerPanel({ outing, onClose, onParticipantsUpdated }) {
     if (!Number.isFinite(n) || n < 1 || n > 20) return
     setScoreSaveBusy(true)
     try {
+      // F.5 S3 — tap-time idempotency key, carried by the immediate attempt and
+      // any queued replay so a commissioner correction applies exactly once.
+      const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
       await runWithQueue({
         url: `/api/outings/${code}/scores/host`,
         method: 'PUT',
         body: { hole, score: n, user_id: userId, force: true },
+        idempotencyKey: idemKey,
       })
       // Optimistic update — local grid reflects the change even when
       // the call was queued instead of completing online.

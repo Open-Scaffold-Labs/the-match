@@ -1858,21 +1858,51 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         ? { hole, score }
         : { hole, score, user_id: targetUserId }
 
+      // F.5 S3 — idempotency key generated ONCE here, at the moment of the
+      // user's action, and carried by both the immediate attempt and (if the
+      // network drops) the queued replay. This is what makes "set hole 7 to 5"
+      // apply exactly once even if the ack is lost and the write is replayed on
+      // reconnect or app restart. A new tap gets a new key; the force-retry
+      // below is a DIFFERENT action (different body) and gets its own key.
+      const idemKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
       let writeResult = null
       try {
-        writeResult = await runWithQueue({ url: targetUrl, method: 'PUT', body: baseBody })
+        writeResult = await runWithQueue({ url: targetUrl, method: 'PUT', body: baseBody, idempotencyKey: idemKey })
       } catch (err) {
         // Score-conflict handshake (B2). Server returns 409 with the
         // existing different score; surface a styled prompt rather
         // than window.confirm. (Final pass polish.)
         if (err?.status === 409 && err?.payload?.error === 'score_conflict') {
           const existing = err.payload.existing_score
-          const ok = await new Promise(resolve => {
-            setConflictPrompt({ hole: Number(hole), existing, incoming: Number(score), resolve })
-          })
-          setConflictPrompt(null)
-          if (!ok) { setSaving(false); return false }   // user said "keep existing" — bulk should stop
-          writeResult = await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true } })
+          // F.5 S2 — value-aware reconcile. If the server's current value
+          // already equals what we're entering, there's no real conflict
+          // (someone else typed the same number): converge silently, no
+          // prompt. Only a genuine DIFFERENT value surfaces the inline chip,
+          // which names who entered it (last_written_by, when the OCC flag
+          // is on) so the scorer can decide in one tap.
+          if (Number(existing) === Number(score)) {
+            writeResult = { ok: true, converged: true }
+          } else {
+            const ok = await new Promise(resolve => {
+              setConflictPrompt({
+                hole: Number(hole), existing, incoming: Number(score),
+                by: err.payload.last_written_by || null,
+                resolve,
+              })
+            })
+            setConflictPrompt(null)
+            if (!ok) { setSaving(false); return false }   // "keep theirs" — bulk should stop
+            // Force-overwrite is a new, user-confirmed action with a different
+            // body, so it gets a FRESH idempotency key (reusing idemKey would
+            // correctly 422 on the body-hash mismatch).
+            const forceKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+            writeResult = await runWithQueue({ url: targetUrl, method: 'PUT', body: { ...baseBody, force: true }, idempotencyKey: forceKey })
+          }
         } else {
           throw err
         }
@@ -3488,56 +3518,55 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           styled to match the rest of the app. Resolves the saveScore
           promise to true (overwrite) or false (cancel). (Final pass) */}
       {conflictPrompt && createPortal(
-        <div
-          onClick={() => conflictPrompt.resolve(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.55)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 20,
-          }}>
+        <>
+          {/* Transparent click-catcher: tapping away keeps the existing
+              score (resolve false). No screen dimming — the chip is
+              inline and non-blocking so it doesn't break scoring flow. */}
           <div
-            onClick={e => e.stopPropagation()}
+            onClick={() => conflictPrompt.resolve(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'transparent' }}
+          />
+          {/* F.5 S2 — inline conflict chip. Names who entered the
+              conflicting score (when the OCC flag surfaces last_written_by)
+              so the scorer decides in one tap. Keep mine = force overwrite
+              with my value; Keep theirs = leave the existing value. */}
+          <div role="alertdialog" aria-label={`Score conflict on hole ${conflictPrompt.hole + 1}`}
             style={{
+              position: 'fixed', left: '50%',
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 18px)',
+              transform: 'translateX(-50%)', zIndex: 9999,
+              width: 'min(440px, calc(100vw - 24px))',
               background: 'linear-gradient(180deg, #11201A 0%, #0A1410 100%)',
-              borderRadius: 18, padding: '20px 22px',
-              maxWidth: 380, width: '100%',
-              border: '1px solid rgba(245,215,138,0.30)',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
+              borderRadius: 14, border: '1px solid rgba(245,215,138,0.30)',
+              boxShadow: '0 14px 40px rgba(0,0,0,0.6)',
+              padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12,
             }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
-            }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%',
-                background: 'rgba(245,215,138,0.16)',
-                border: '1px solid rgba(245,215,138,0.40)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#F5D78A', fontSize: 18, fontWeight: 800,
-              }}>!</div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>
-                Existing score on Hole {conflictPrompt.hole + 1}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginBottom: 2 }}>
+                Hole {conflictPrompt.hole + 1} conflict
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)', lineHeight: 1.4 }}>
+                {conflictPrompt.by
+                  ? <>{conflictPrompt.by} entered <strong style={{ color: '#fff' }}>{conflictPrompt.existing}</strong> just now. </>
+                  : <>Already has <strong style={{ color: '#fff' }}>{conflictPrompt.existing}</strong>. </>}
+                Use yours (<strong style={{ color: '#F5D78A' }}>{conflictPrompt.incoming}</strong>)?
               </div>
             </div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.70)', lineHeight: 1.5, marginBottom: 16 }}>
-              Hole {conflictPrompt.hole + 1} already has a score of <strong style={{ color: '#fff' }}>{conflictPrompt.existing}</strong>. Replace it with <strong style={{ color: '#F5D78A' }}>{conflictPrompt.incoming}</strong>?
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button onClick={() => conflictPrompt.resolve(false)} style={{
-                flex: 1, padding: '11px',
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
-                borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>Cancel</button>
+                padding: '9px 11px', background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.14)', borderRadius: 9,
+                color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'inherit', whiteSpace: 'nowrap',
+              }}>Keep theirs</button>
               <button onClick={() => conflictPrompt.resolve(true)} style={{
-                flex: 1, padding: '11px',
-                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
-                border: 'none', borderRadius: 10, color: '#070C09',
-                fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
-              }}>Replace with {conflictPrompt.incoming}</button>
+                padding: '9px 11px', background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                border: 'none', borderRadius: 9, color: '#070C09', fontSize: 12,
+                fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+              }}>Keep mine</button>
             </div>
           </div>
-        </div>,
+        </>,
         document.body
       )}
 

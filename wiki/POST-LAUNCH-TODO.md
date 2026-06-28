@@ -18,6 +18,17 @@ unverified entries), #16 (achievement expansion ideas), #17 (preflight
 main-bucket verified_at check). Plus 7 audit-2026-05-07 polish items
 remain in `synthesis/audit-2026-05-07.md` (MEDIUM #4, #6 + LOW #7-#11).
 
+## 25. F.5 S2/S3 rollout — apply migration 037, flip flags, device-test
+
+S2 (OCC on-behalf write) + S3 (offline idempotency) shipped to `main` on 2026-06-28, **dark behind flags**, Postgres-verified (see [[synthesis/f5-s2-s3-build-spec-2026-06-28]] + log entry). Code is live but inert. Sequence to actually turn it on:
+
+1. **Apply migration 037 to prod:** `psql "$DATABASE_URL" -f migrations/037_tm_idempotency_keys.sql` (additive `CREATE TABLE IF NOT EXISTS`, safe).
+2. **Flip `SCORING_OCC_ONBEHALF=1`** in Vercel env → redeploy. Device-test a **two-marker / host-bulk** foursome: concurrent on-behalf entries don't lose each other; same-hole collision pops the inline chip ("X entered N just now — Keep mine / Keep theirs"); identical-value silently converges. Confirm leaderboard correct.
+3. **Then flip `SCORING_IDEMPOTENCY=1`** → redeploy. Device-test: enter scores with airplane mode toggling on/off mid-round; confirm no double-applied scores on reconnect, queue drains, no version drift.
+4. Only after both are proven on a real round: proceed to S4 (guests → real rows) and the eventual S7 cutover (stop writing `state` scores; default flags on). S7 is the only irreversible step — keep it last.
+
+**Next step:** Matt applies 037 + flips `SCORING_OCC_ONBEHALF`, device-tests.
+
 ## 14. Activate Forgot PIN email delivery
 
 The full Forgot PIN reset flow shipped 2026-05-07 PM (migration 025, server endpoints, Login.jsx modes) — but `sendResetEmail()` in `server/src/routes/auth.js` currently `console.log`s the reset URL instead of actually emailing it. The token IS created in the DB, the link IS valid, the reset endpoint works end-to-end. What's missing is the email step.

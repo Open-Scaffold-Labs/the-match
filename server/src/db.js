@@ -48,6 +48,29 @@ const db = {
     const { rows } = await pool.query(sql, params)
     return rows
   },
+
+  // Single-client transaction helper (F.5 S2/S3). Checks out ONE pooled
+  // client, runs the whole BEGIN…COMMIT on it, and always releases it.
+  // Required because the multi-writer score path needs SELECT … FOR UPDATE
+  // + the version-guarded write + the idempotency claim to commit/abort
+  // together — a fresh pooled connection per statement (db.query) cannot
+  // hold a transaction. Pooler-safe: the entire transaction pins this one
+  // backend for its duration. Use a row lock (FOR UPDATE) inside fn, NOT
+  // session-level advisory locks (those leak through a transaction pooler).
+  async tx(fn) {
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const result = await fn(client)
+      await client.query('COMMIT')
+      return result
+    } catch (err) {
+      try { await client.query('ROLLBACK') } catch { /* ignore rollback failure */ }
+      throw err
+    } finally {
+      client.release()
+    }
+  },
 }
 
 module.exports = db
