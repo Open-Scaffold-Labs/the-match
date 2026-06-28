@@ -8,6 +8,10 @@ updated: 2026-06-27
 
 Chronological, append-only. Every entry starts with `## [YYYY-MM-DD] <op> | <label>` where `<op>` is one of `ingest`, `query`, `lint`, `refactor`, `schema`.
 
+## [2026-06-28] refactor | Session wrap — next-session handoff filed
+
+- Filed [[synthesis/next-session-handoff-2026-06-28]] (supersedes 2026-06-27): where to pick up (F.5 S2+S3 = OCC guard + idempotency), the reusable sandbox-Postgres harness, prod state changes made (035/036 applied, S1b flag live), and standing rules. Index updated (new handoff ACTIVE, prior superseded). Trust anchors current (CLAUDE.md migration count refreshed 34→37 earlier this session).
+
 ## [2026-06-28] perf | F.5 Stage 1 SHIPPED (scoring data-model, flag-gated) + full build spec
 
 - Greenlit F.5 ("never lose your round"). Two research agents ran: (1) a COMPLETE in-repo inventory of every score read/write site, (2) implementation-pattern research (OCC/idempotency/offline). Filed [[synthesis/f5-never-lose-your-round-build-spec-2026-06-28]] — 7-stage flag-gated plan + split-brain risk register.
