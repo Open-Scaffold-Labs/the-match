@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782622759.696421,
-    "source_id": "cd4b8740-9d01-4a88-b952-c70cb177a8f4",
-    "verified_at": 1782622797.446629
+    "mtime": 1782624163.6125698,
+    "source_id": "19db63f4-be2c-4893-9c79-38ed079ebbc2",
+    "verified_at": 1782624244.919361
   },
   "wiki/index.md": {
-    "mtime": 1782547064.7059417,
-    "source_id": "7ca3f2af-1976-4a15-8de3-74d1d28e3118",
-    "verified_at": 1782547207.757859
+    "mtime": 1782624144.8197005,
+    "source_id": "c62a2bdd-2ae6-4e68-ab43-c938a6185c96",
+    "verified_at": 1782624258.298862
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -83,9 +83,9 @@
     "verified_at": 1782402704.9574468
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
-    "mtime": 1782616788.082661,
-    "source_id": "37ea9ae7-af87-434e-88bf-951c89f7eb35",
-    "verified_at": 1782616847.52048
+    "mtime": 1782624175.1093721,
+    "source_id": "b1185fd5-2851-407f-aaf5-bdf7df932808",
+    "verified_at": 1782624278.7971
   },
   "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
     "mtime": 1782405889.2891493,
@@ -141,5 +141,10 @@
     "mtime": 1782547010.5425873,
     "source_id": "a59fbc24-3acd-44bf-b0c1-6629ad7dd062",
     "verified_at": 1782547214.727875
+  },
+  "wiki/synthesis/f5-never-lose-your-round-build-spec-2026-06-28.md": {
+    "mtime": 1782623893.775454,
+    "source_id": "2cb06328-54dd-4055-a175-c2234e7e1201",
+    "verified_at": 1782624265.337163
   }
 }
