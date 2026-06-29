@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { api, post } from '../../lib/api.js'
+import { api, post, put } from '../../lib/api.js'
 import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/offline-queue.js'
 import { warn } from '../../lib/logger.js'
 import { scoreColor as scoreToParColor } from '../../lib/scoreColors.js'
@@ -1815,6 +1815,16 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     } catch (e) { console.error(e) }
   }
 
+  // F.5 S6 — host flips scoring mode (open ⇄ designated). In designated mode
+  // only the host + assigned scorers (markers) enter others' scores; assign /
+  // hand off the scorer via the Groups setup (the markers UI).
+  async function changeScoringMode(mode) {
+    try {
+      await put(`/api/outings/${code}/scoring-mode`, { mode })
+      await loadOuting()
+    } catch (e) { console.error(e) }
+  }
+
   async function endMatch() {
     if (!window.confirm('End this match? Scores will be finalized and rivalries updated.')) return
     setEnding(true)
@@ -2004,6 +2014,9 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // initialization." (Hot-fix 2026-05-02.)
   const teams        = outing.state?.teams ?? []
   const markers      = outing.state?.markers ?? []  // [{ marker_id, member_ids[] }]
+  // F.5 S6 — scoring mode. 'designated' = only host + assigned scorer enter
+  // others' scores (players still self-score their own card). Default 'open'.
+  const scoringMode  = outing.state?.scoring_mode || 'open'
   const holeCount    = outing.state?.holes ?? 18
   const coursePar    = outing.course_par ?? 72
   // Prefer real per-hole pars from the picked course; fall back to the
@@ -2666,11 +2679,15 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         {/* Host controls row */}
         {isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 11, color: 'var(--tm-text-3)', flex: 1 }}>
+            <div style={{ fontSize: 11, flex: 1, color: (scoringMode === 'designated' && markers.length === 0) ? '#E8C05A' : 'var(--tm-text-3)', fontWeight: (scoringMode === 'designated' && markers.length === 0) ? 700 : 400 }}>
               {/* "Tap any cell to enter scores" removed 2026-04-30 PM round 11 —
                   the pulsing gold tap-hint on the first empty cell teaches
-                  the same thing without instructional copy. */}
-              {markers.length > 0 ? `${markers.length} marker${markers.length !== 1 ? 's' : ''} assigned` : ''}
+                  the same thing without instructional copy. F.5 S6 nudge: in
+                  designated mode with no scorer assigned, only the host can
+                  score — prompt them to assign one via Edit Groups. */}
+              {scoringMode === 'designated' && markers.length === 0
+                ? '⚠ Assign a group scorer →'
+                : markers.length > 0 ? `${markers.length} scorer${markers.length !== 1 ? 's' : ''} assigned` : ''}
             </div>
             <button onClick={() => setShowGroups(true)} style={{
               background: markers.length > 0 ? 'rgba(138,180,248,0.12)' : 'rgba(255,255,255,0.07)',
@@ -2678,6 +2695,14 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               borderRadius: 20, padding: '3px 10px',
               color: markers.length > 0 ? '#93C5FD' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>{markers.length > 0 ? 'Edit Groups' : 'Set Groups'}</button>
+            {/* F.5 S6 — scoring-mode toggle. Designated = only host + assigned
+                scorers enter others' scores (assign via Edit Groups). */}
+            <button onClick={() => changeScoringMode(scoringMode === 'designated' ? 'open' : 'designated')} style={{
+              background: scoringMode === 'designated' ? 'rgba(201,160,64,0.16)' : 'rgba(255,255,255,0.07)',
+              border: `1px solid ${scoringMode === 'designated' ? 'rgba(201,160,64,0.45)' : 'var(--tm-border)'}`,
+              borderRadius: 20, padding: '3px 10px',
+              color: scoringMode === 'designated' ? '#E8C05A' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>{scoringMode === 'designated' ? '✓ Designated scorer' : 'Scoring: Open'}</button>
             {hasHandicaps && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <button onClick={() => setNetMode(m => !m)} style={{
@@ -2753,12 +2778,41 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             }}>{ending ? 'Ending…' : 'End Match'}</button>
           </div>
         )}
-        {/* Marker hint — shown to assigned markers who aren't host */}
+        {/* Marker hint — shown to assigned markers who aren't host. In
+            designated-scorer mode this becomes a prominent "you're the scorer"
+            banner (the visible indicator no incumbent ships). F.5 S6. */}
         {!isHost && isMarker && (
-          <div style={{ marginTop: 8, fontSize: 11, color: '#93C5FD', fontWeight: 600 }}>
-            ✎ You're a marker — tap any cell in your group to enter scores
-          </div>
+          scoringMode === 'designated' ? (
+            <div style={{
+              marginTop: 8, padding: '8px 12px', borderRadius: 12,
+              background: 'linear-gradient(135deg, rgba(201,160,64,0.18), rgba(201,160,64,0.06))',
+              border: '1px solid rgba(201,160,64,0.45)',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ fontSize: 15 }} aria-hidden="true">✎</span>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: '#E8C05A' }}>You're the scorer for this group</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>— tap any cell in your group to enter</span>
+            </div>
+          ) : (
+            <div style={{ marginTop: 8, fontSize: 11, color: '#93C5FD', fontWeight: 600 }}>
+              ✎ You're a marker — tap any cell in your group to enter scores
+            </div>
+          )
         )}
+        {/* F.5 S6 — non-scorer indicator in designated mode: tell players WHO
+            their scorer is (the research's #1 "who's scoring?" gap), so a tap
+            on a teammate's cell that does nothing has an explanation. */}
+        {!isHost && !isMarker && scoringMode === 'designated' && (() => {
+          const myScorerId = markers.find(m => (m.member_ids || []).map(String).includes(String(user?.id)))?.marker_id
+          const myScorer   = (outing.state?.participants || []).find(p => String(p.user_id) === String(myScorerId))
+          return (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--tm-text-2)', fontWeight: 600 }}>
+              {myScorer
+                ? <>✎ {myScorer.name} is scoring this group — enter your own scores any time</>
+                : <>✎ Designated scoring is on — enter your own scores; ask the host to assign a group scorer</>}
+            </div>
+          )
+        })()}
         {/* 2026-05-06 (polish task #7+8) — non-host quick-actions row.
             Side bets viewing + chat are useful to all participants, not
             just the host. The host already has the same buttons in their

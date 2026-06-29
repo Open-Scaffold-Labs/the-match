@@ -85,6 +85,16 @@ const SCORING_IDEMPOTENCY = process.env.SCORING_IDEMPOTENCY === '1'
 // + backfills existing state-only guests.
 const SCORING_GUEST_ROWS = process.env.SCORING_GUEST_ROWS === '1'
 
+// F.5 S6 — designated-scorer mode. When on AND an outing has set
+// state.scoring_mode = 'designated', the /scores/host gate drops the
+// "anyone in the same foursome" bypass, so only the host or an assigned
+// marker (the designated scorer) can enter scores for OTHER players. Every
+// player still self-scores their own card via PUT /:code/scores (untouched),
+// and a scorer-vs-self conflict reconciles via the S2 chip. Default OFF +
+// per-outing opt-in (scoring_mode defaults 'open') = double safety: with the
+// flag off, scoring_mode is ignored and behavior is exactly as today.
+const SCORING_DESIGNATED = process.env.SCORING_DESIGNATED === '1'
+
 // Resolve a human name for a given participant/user id. Best-effort: prefer the
 // state participant name, fall back to the users table, then a generic label.
 async function resolveWriterName(state, outingId, userId) {
@@ -1138,7 +1148,14 @@ router.put('/:code/scores/host', async (req, res) => {
     )
     const isSameGroup = me?.group_id != null && target?.group_id != null &&
       me.group_id === target.group_id
-    if (!isHost && !isExplicitMarker && !isSameGroup)
+    // F.5 S6: in designated-scorer mode the "anyone in the same foursome"
+    // bypass is dropped — only the host or the assigned marker (the designated
+    // scorer) may enter scores for OTHER players. Self-scoring is unaffected
+    // (players use PUT /:code/scores). Flag-gated + per-outing opt-in, so with
+    // the flag off or mode 'open' this is exactly today's gate.
+    const designated  = SCORING_DESIGNATED && outing.state?.scoring_mode === 'designated'
+    const groupAllowed = isSameGroup && !designated
+    if (!isHost && !isExplicitMarker && !groupAllowed)
       return res.status(403).json({ error: 'Not permitted to enter scores for this player' })
 
     const state = outing.state || { participants: [] }
@@ -2260,6 +2277,34 @@ router.post('/:code/end', async (req, res) => {
     })
   } catch (err) {
     console.error('[outings/end]', err)
+    res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ─── PUT /api/outings/:code/scoring-mode ─────────────────────────────────────
+// Host-only: set the outing's scoring mode. (F.5 S6)
+//   'open'       — anyone in the same foursome can enter anyone's score (default)
+//   'designated' — only the host or an assigned marker (designated scorer) can
+//                  enter OTHERS' scores; every player still self-scores their own.
+// Stored on state.scoring_mode. Only ENFORCED when SCORING_DESIGNATED=1; with
+// the flag off the value is inert, so this is safe to ship + set ahead of the flip.
+router.put('/:code/scoring-mode', async (req, res) => {
+  try {
+    const code = req.params.code.toUpperCase()
+    const { mode } = req.body
+    if (mode !== 'open' && mode !== 'designated')
+      return res.status(400).json({ error: "mode must be 'open' or 'designated'" })
+
+    const outing = await db.one('SELECT * FROM tm_outings WHERE code = $1', [code])
+    if (!outing) return res.status(404).json({ error: 'Not found' })
+    if (String(outing.host_id) !== String(req.user.id))
+      return res.status(403).json({ error: 'Host only' })
+
+    const state = { ...(outing.state || {}), scoring_mode: mode }
+    await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+    res.json({ ok: true, scoring_mode: mode })
+  } catch (err) {
+    console.error('[outings/scoring-mode]', err)
     res.status(500).json({ error: 'Failed' })
   }
 })
