@@ -6,6 +6,16 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] schema | F.5 S6 — designated-scorer mode + scorer-visibility UX, LIVE on beta
+
+Turned the existing markers plumbing into a real enforced mode and filled the whitespace the market research found (no incumbent shows who's scoring or ships a real hand-off; The Match already beats the field on conflict reconciliation via the S2 chip). Spec: [[synthesis/f5-s6-designated-scorer-build-spec-2026-06-29]]. No migration.
+
+- **Server (flag `SCORING_DESIGNATED`, live):** `PUT /:code/scoring-mode` (host-only) sets `state.scoring_mode 'open'|'designated'`. When the flag is on AND mode is designated, the `/scores/host` gate drops the same-group bypass — only host + assigned marker (the designated scorer) enter OTHERS' scores. Self path (`/scores`) untouched: every player always self-scores their own card; a scorer-vs-self conflict reconciles via the S2 chip. Per-outing opt-in + global flag = double safety; off ⇒ today's behavior.
+- **Client:** host scoring-mode toggle; prominent "You're the scorer for this group" banner (the visible indicator nobody ships); non-scorer indicator naming who their scorer is (the research's #1 "who's scoring?" gap); host nudge to assign a scorer when designated + none assigned (prevents lockout). Hand-off reuses the Edit Groups marker UI. **design-critique pass** caught + fixed the missing who's-scoring indicator + the assign-nudge.
+- **Decision (Matt):** non-scorers can still self-score (Hole19-style, showcases our conflict chip).
+- **Verified:** 9/9 checks through the real Express app (designated blocks same-group non-marker 403; host + assigned marker + self all 200; open unchanged; non-host can't set mode 403; bad mode 400). **Live beta e2e on prod: 7/7** (same matrix against real accounts, cleaned up). `node --check` + client lint + build + 24/24 tests.
+- **Remaining F.5:** only S7 left (irreversible cutover) — gated on the S2/S3 real-round device test (#25).
+
 ## [2026-06-29] schema | F.5 S5 — flip remaining readers to row-derived, LIVE on beta
 
 The last prep before S7 can stop writing `state` scores: every reader that still ranked off `state.participants[].total` now derives from the authoritative rows. Spec: [[synthesis/f5-s5-reader-flip-build-spec-2026-06-29]]. No migration (read-only).
