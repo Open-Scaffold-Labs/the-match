@@ -43,6 +43,14 @@ const SCORING_OCC_ONBEHALF = process.env.SCORING_OCC_ONBEHALF === '1'
 // uses the transactional FOR UPDATE write regardless of SCORING_OCC_ONBEHALF.
 const SCORING_IDEMPOTENCY = process.env.SCORING_IDEMPOTENCY === '1'
 
+// F.5 S4 — give guests durable tm_outing_participants rows (user_id NULL,
+// keyed by guest_id), prerequisite for S5/S7. ADDITIVE + default OFF: when on,
+// guest create + guest score writes also write a row; nothing READS guest rows
+// until S5, and the NULL user_id keeps guests excluded from every user_id-keyed
+// stat (recent matches, rounds, h2h, handicap). Migration 038 adds the columns
+// + backfills existing state-only guests.
+const SCORING_GUEST_ROWS = process.env.SCORING_GUEST_ROWS === '1'
+
 // Resolve a human name for a given participant/user id. Best-effort: prefer the
 // state participant name, fall back to the users table, then a generic label.
 async function resolveWriterName(state, outingId, userId) {
@@ -1038,6 +1046,20 @@ router.post('/:code/guests', async (req, res) => {
     state.participants.push(participant)
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
 
+    if (SCORING_GUEST_ROWS) {
+      // F.5 S4: also persist the guest as a durable row (user_id NULL, keyed by
+      // guest_id). Additive — nothing reads guest rows until S5; the NULL
+      // user_id keeps the guest out of every user_id-keyed stat. Best-effort.
+      try {
+        await db.query(
+          `INSERT INTO tm_outing_participants (outing_id, user_id, is_guest, guest_id, guest_name, scores, total)
+           VALUES ($1, NULL, TRUE, $2, $3, $4, 0)
+           ON CONFLICT (outing_id, guest_id) DO NOTHING`,
+          [outing.id, guestId, name.trim(), JSON.stringify(new Array(holes).fill(0))]
+        )
+      } catch (e) { console.warn('[guests] guest row insert failed (non-blocking)', e.message) }
+    }
+
     res.status(201).json({ ok: true, guest_id: guestId })
   } catch (err) {
     console.error('[outings/guests]', err)
@@ -1113,6 +1135,22 @@ router.put('/:code/scores/host', async (req, res) => {
       state.participants[pi].total       = total
       state.participants[pi].holes_played = holesPlayed
       await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      if (SCORING_GUEST_ROWS) {
+        // F.5 S4: mirror the guest's scores into its durable row (user_id NULL,
+        // keyed by guest_id). Additive — no reader uses guest rows until S5, and
+        // the NULL user_id keeps the guest excluded from every user_id-keyed
+        // stat. Upsert (not just update) so a guest created before the flag was
+        // on is self-healed on its first score. Best-effort.
+        try {
+          await db.query(
+            `INSERT INTO tm_outing_participants (outing_id, user_id, is_guest, guest_id, guest_name, scores, total)
+             VALUES ($1, NULL, TRUE, $2, $3, $4, $5)
+             ON CONFLICT (outing_id, guest_id)
+             DO UPDATE SET scores = EXCLUDED.scores, total = EXCLUDED.total`,
+            [outing.id, user_id, state.participants[pi].name || null, JSON.stringify(scores), total]
+          )
+        } catch (e) { console.warn('[scores/host guest] guest row upsert failed (non-blocking)', e.message) }
+      }
       if (Number(oldScore || 0) !== Number(score)) {
         await writeScoreAudit({
           outing_id: outing.id, user_id, hole,
