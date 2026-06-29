@@ -27,7 +27,7 @@ S2 (OCC on-behalf write) + S3 (offline idempotency) shipped to `main` 2026-06-28
 - **Device test (Matt):** two-marker / host-bulk foursome — concurrent on-behalf entries don't lose each other; a same-hole collision pops the inline chip ("X entered N just now — Keep mine / Keep theirs"), identical-value silently converges; leaderboard correct. Then toggle airplane mode mid-round — scores queue and drain with no double-apply, no version drift.
 - If anything's off: pull the relevant flag (`vercel env rm …` + redeploy) — beta reverts to the prior behavior instantly.
 
-**Then continue F.5:** S4 (guests → real rows) → S5 (flip remaining readers: friends-live, season, leagues/standings, CSV) → S6 (conflict-UX polish + optional designated-scorer) → S7 (irreversible cutover: stop writing `state` scores; retire flags). S7 stays last.
+**F.5 progress:** S4 (guests → real rows) **SHIPPED + LIVE 2026-06-29** (migration 038, 13 guests backfilled, `SCORING_GUEST_ROWS=1`; `user_id NULL` keeps guests excluded from all stats — verified). **Next: S5** (flip remaining readers to row-derived: friends-live, season, leagues/standings, CSV — these still read guests from `state`; S5 is where they start reading rows, which is exactly why S4 had to land first) → S6 (conflict-UX polish + optional designated-scorer) → S7 (irreversible cutover: stop writing `state` scores; retire flags). S7 stays last.
 
 **Next step:** Matt device-tests on a real round; report back and I take S4.
 

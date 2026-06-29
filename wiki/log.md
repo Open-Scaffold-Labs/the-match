@@ -6,6 +6,16 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] schema | F.5 S4 — guests get real rows, LIVE on beta
+
+Gave guests durable `tm_outing_participants` rows (prerequisite for S5 reader-flip + S7 cutover). Spec: [[synthesis/f5-s4-guest-rows-build-spec-2026-06-29]].
+
+- **Design (the safe one):** guest rows use `user_id = NULL` + `is_guest`/`guest_id`/`guest_name`. A full blast-radius inventory confirmed every guest exclusion keys on `user_id` (recent-matches `IS NOT NULL`, rounds co-participants `IS NOT NULL`, `/end` `if(!p.user_id) continue`, h2h joins, handicap via `tm_rounds`), so NULL-`user_id` guests stay excluded everywhere with ZERO query changes. Purely additive — nothing reads guest rows until S5.
+- **Migration 038** (applied to prod, backfilled **13** existing state-only guests): `user_id` nullable; `is_guest`/`guest_id`/`guest_name` columns; unique `(outing_id, guest_id)`; `tm_op_guest_shape` CHECK (a row is either a real user with `user_id`, or a guest with NULL `user_id` + `guest_id`); idempotent backfill from `state.participants`.
+- **Server** (`SCORING_GUEST_ROWS=1`, live): `POST /:code/guests` inserts a guest row; the guest branch of `/scores/host` upserts the row's scores/total (keyed by `guest_id`). `state` stays authoritative until S7. `/scores/marker` left alone (unused by client; dead path for S7).
+- **Verified:** sandbox Postgres (`s4_verify`) — migration clean, backfill correct + idempotent, CHECK guards both shapes, and the safety thesis PROVEN (NULL-`user_id` guest excluded by recent-matches, rounds, h2h with a real opponent present). Live beta e2e on prod — guest row created on add + on scoring, reflects the score, excluded from opponent/rivalry queries; test data cleaned. Gate: `node --check` + lint + 24/24 tests.
+- **Remaining F.5:** S2/S3 still want a real on-phone device test (#25); then S5 (flip readers to row-derived) → S6 → S7.
+
 ## [2026-06-29] deploy | F.5 S2+S3 turned ON in prod (beta)
 
 Took S2+S3 from dark to live on the beta. Migration `037_tm_idempotency_keys` applied to prod (table + 2 indexes confirmed). Set `SCORING_OCC_ONBEHALF=1` + `SCORING_IDEMPOTENCY=1` in Vercel prod env (alongside existing `SCORING_READ_FROM_ROWS=1`); redeployed (build `3228aba`, `/health` ok). Before flipping, de-risked the one reasoned-not-tested assumption — `db.tx` (single-client BEGIN/COMMIT) + `SELECT … FOR UPDATE` — by running both against the **real Supabase pooler** (zero data change): both OK. Reversible via env-var removal + redeploy. Remaining F.5 work is the device test (POST-LAUNCH-TODO #25), then S4→S7.
