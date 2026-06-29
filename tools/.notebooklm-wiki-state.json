@@ -5,9 +5,9 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782625094.7135773,
-    "source_id": "69fe6ceb-7600-4fa0-aaa7-240575f0597e",
-    "verified_at": 1782625125.10272
+    "mtime": 1782629590.041511,
+    "source_id": "812826b0-5518-43e8-a8f5-3f75b3fe804f",
+    "verified_at": 1782629768.296447
   },
   "wiki/index.md": {
     "mtime": 1782625085.5343466,
@@ -53,9 +53,8 @@
     "verified_at": 1777683687.3069088
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1782544753.1773248,
-    "source_id": "231e1906-afee-422e-b197-07deec8407ac",
-    "verified_at": 1782544869.38897
+    "mtime": 1782629609.0210042,
+    "source_id": "0a194e5c-7229-464e-9688-29789c91e7f3"
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1778180654.29875,
@@ -151,5 +150,10 @@
     "mtime": 1782625070.4987473,
     "source_id": "b0e9753b-4a71-4cf0-95d0-e0c70c2e77f4",
     "verified_at": 1782625145.247264
+  },
+  "wiki/synthesis/f5-s2-s3-build-spec-2026-06-28.md": {
+    "mtime": 1782629561.5856357,
+    "source_id": "360cd76c-e3e1-4d90-88ad-e83e87288b4d",
+    "verified_at": 1782629774.571966
   }
 }

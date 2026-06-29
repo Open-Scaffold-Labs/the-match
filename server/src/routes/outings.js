@@ -43,9 +43,8 @@ const SCORING_OCC_ONBEHALF = process.env.SCORING_OCC_ONBEHALF === '1'
 // uses the transactional FOR UPDATE write regardless of SCORING_OCC_ONBEHALF.
 const SCORING_IDEMPOTENCY = process.env.SCORING_IDEMPOTENCY === '1'
 
-// Resolve a human name for the last writer of a participant's score, for the
-// enriched 409 conflict body. Best-effort: prefer the state participant name,
-// fall back to the users table, then to a generic label. Never throws.
+// Resolve a human name for a given participant/user id. Best-effort: prefer the
+// state participant name, fall back to the users table, then a generic label.
 async function resolveWriterName(state, outingId, userId) {
   try {
     const stp = (state?.participants || []).find(p => String(p.user_id) === String(userId))
@@ -54,6 +53,25 @@ async function resolveWriterName(state, outingId, userId) {
     const u = await db.one('SELECT name FROM tm_users WHERE id = $1', [Number(userId)])
     return u?.name || 'another scorer'
   } catch { return 'another scorer' }
+}
+
+// Resolve a human name for WHO last wrote a given hole's score, for the
+// enriched 409 conflict body ("Dale entered 5 just now"). The participant row
+// doesn't store the last writer, so we read the most recent audit row for
+// (outing, player, hole) and resolve THAT editor's name — not the player whose
+// card it is. Best-effort; falls back to a generic label when there's no audit
+// row (e.g. a guest score, or a score predating the audit log). Never throws.
+async function resolveLastWriterName(state, outingId, userId, hole) {
+  try {
+    const a = await db.one(
+      `SELECT edited_by_id FROM tm_score_audit
+        WHERE outing_id=$1 AND user_id=$2 AND hole=$3
+        ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [outingId, Number(userId), Number(hole)]
+    )
+    if (a?.edited_by_id != null) return resolveWriterName(state, outingId, a.edited_by_id)
+  } catch { /* fall through to generic */ }
+  return 'another scorer'
 }
 
 // ─── PUBLIC live leaderboard — no auth ────────────────────────────────────────
@@ -1150,7 +1168,7 @@ router.put('/:code/scores/host', async (req, res) => {
       while (s.length < holes) s.push(0)
       const old = s[hole] ?? 0
       if (!force && !isHost && !isSelfEdit && Number(old) > 0 && Number(old) !== Number(score)) {
-        const writer = await resolveWriterName(state, outing.id, user_id)
+        const writer = await resolveLastWriterName(state, outing.id, user_id, hole)
         return { status: 409, body: {
           error: 'score_conflict',
           message: `Hole ${Number(hole) + 1} already has a score of ${old}. Resubmit with force:true to overwrite.`,
@@ -1172,7 +1190,7 @@ router.put('/:code/scores/host', async (req, res) => {
         [JSON.stringify(s), t, row.id, row.score_version]
       )
       if (upd.rowCount === 0) {
-        const writer = await resolveWriterName(state, outing.id, user_id)
+        const writer = await resolveLastWriterName(state, outing.id, user_id, hole)
         return { status: 409, body: {
           error: 'score_conflict',
           message: `Hole ${Number(hole) + 1} changed while you were saving. Re-enter to overwrite.`,
