@@ -21,6 +21,14 @@ const requireAuth   = require('../middleware/auth')
 const requireElite  = require('../middleware/requireElite')
 const db            = require('../db')
 
+// F.5 S5: when on, standings derive each participant's scores/total from the
+// authoritative tm_outing_participants rows instead of the state.participants
+// snapshot (same flag as the outings.js reader flip). Default off → identical
+// to today. For a closed event the row scores already equal the frozen state
+// snapshot, so this is parity today; it keeps standings correct for events
+// closed after S7 stops writing state scores.
+const SCORING_AGG_READ_FROM_ROWS = process.env.SCORING_AGG_READ_FROM_ROWS === '1'
+
 router.use(requireAuth)
 
 // Round 7 audit fix — DON'T gate every route behind requireElite.
@@ -350,10 +358,32 @@ router.get('/:id/standings', async (req, res) => {
       return [...parts].sort((a, b) => (a.total ?? 9_999_999) - (b.total ?? 9_999_999))
     }
 
+    // F.5 S5: bulk-fetch authoritative row scores for every event, keyed
+    // `${outing_id}:${user_id||guest_id}`, so ranking derives from rows.
+    const rowScoreMap = new Map()
+    if (SCORING_AGG_READ_FROM_ROWS && events.length) {
+      const prs = await db.many(
+        'SELECT outing_id, user_id, guest_id, scores FROM tm_outing_participants WHERE outing_id = ANY($1)',
+        [events.map(e => e.id)]
+      )
+      for (const pr of prs) {
+        rowScoreMap.set(`${pr.outing_id}:${pr.user_id != null ? pr.user_id : pr.guest_id}`, pr.scores)
+      }
+    }
+
     const playerMap = new Map()
     for (const ev of (events || [])) {
       const state = ev.state || {}
-      const parts = (state.participants || []).filter(p => !p.withdrawn && !p.no_show)
+      const parts = (state.participants || [])
+        .filter(p => !p.withdrawn && !p.no_show)
+        // Inject row-derived scores + total (skins/stableford rank off .scores,
+        // stroke off .total). Falls back to the state participant when the flag
+        // is off or no row exists, so output is identical when stores are synced.
+        .map(p => {
+          const rowScores = rowScoreMap.get(`${ev.id}:${p.user_id}`)
+          if (!Array.isArray(rowScores)) return p
+          return { ...p, scores: rowScores, total: rowScores.reduce((s, x) => s + (Number(x) || 0), 0) }
+        })
       const sorted = rankParticipants(ev, parts)
       sorted.forEach((p, idx) => {
         if (!p.user_id) return

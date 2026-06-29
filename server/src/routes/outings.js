@@ -21,6 +21,40 @@ function deriveScoreTotals(scores, fallbackTotal, fallbackHoles) {
   }
 }
 
+// F.5 S5: flip the remaining readers (friends-live, season, leagues/standings,
+// CSV) from ranking off the denormalized state.total to deriving from the
+// authoritative row `scores`. Separate flag from SCORING_READ_FROM_ROWS so this
+// batch can ship dark and be parity-verified against real closed outings before
+// flipping. When OFF, every reader behaves exactly as today (state-derived).
+// `aggFromRows` returns row-derived {total, holes_played} when the flag is on
+// AND a row `scores` array is present; otherwise the state fallback — so a
+// missing row (e.g. a guest created before SCORING_GUEST_ROWS) never zeroes a
+// total, it just keeps the state value. Row == state when synced ⇒ parity.
+const SCORING_AGG_READ_FROM_ROWS = process.env.SCORING_AGG_READ_FROM_ROWS === '1'
+function aggFromRows(scores, fallbackTotal, fallbackHoles) {
+  if (!SCORING_AGG_READ_FROM_ROWS || !Array.isArray(scores)) {
+    return { total: fallbackTotal ?? 0, holes_played: fallbackHoles ?? 0 }
+  }
+  return {
+    total: scores.reduce((s, x) => s + (Number(x) || 0), 0),
+    holes_played: scores.filter(x => Number(x) > 0).length,
+  }
+}
+// Bulk-fetch row scores for a set of outings, keyed `${outing_id}:${user_id||guest_id}`
+// so a state participant (app user OR guest) can look up its authoritative scores.
+async function rowScoreMapFor(outingIds) {
+  const m = new Map()
+  if (!SCORING_AGG_READ_FROM_ROWS || !outingIds.length) return m
+  const prs = await db.many(
+    'SELECT outing_id, user_id, guest_id, scores FROM tm_outing_participants WHERE outing_id = ANY($1)',
+    [outingIds]
+  )
+  for (const pr of prs) {
+    m.set(`${pr.outing_id}:${pr.user_id != null ? pr.user_id : pr.guest_id}`, pr.scores)
+  }
+  return m
+}
+
 // F.5 S2: optimistic-concurrency on the score-on-behalf path (/scores/host).
 // When ON, the app-user branch runs its read-modify-write inside a single
 // transaction with SELECT … FOR UPDATE so two concurrent on-behalf writers
@@ -593,11 +627,20 @@ router.get('/friends-live', async (req, res) => {
       [uid]
     )
 
-    // Compute current_hole, leader_name, leader_diff from state.participants.
-    // Cheap because state is already in-memory from the JSONB column.
+    // F.5 S5: derive per-player total/holes from authoritative row scores
+    // (falls back to state per-participant when a row is missing or the flag is
+    // off). active matches are exactly where state.total can lag the rows.
+    const rowScores = await rowScoreMapFor(rows.map(r => r.id))
+
+    // Compute current_hole, leader_name, leader_diff from state.participants
+    // (the participant LIST + withdrawn flags stay state-sourced; only the
+    // score VALUES come from rows). Cheap — state is already in-memory.
     const enriched = rows.map(r => {
       const state = r.state || {}
-      const participants = (state.participants || []).filter(p => !p.withdrawn)
+      const participants = (state.participants || []).filter(p => !p.withdrawn).map(p => {
+        const a = aggFromRows(rowScores.get(`${r.id}:${p.user_id}`), p.total, p.holes_played)
+        return { ...p, total: a.total, holes_played: a.holes_played }
+      })
       const holePars = Array.isArray(r.hole_pars) ? r.hole_pars : []
       const fallbackPar = Math.round((r.course_par || 72) / 18) || 4
 
@@ -1453,7 +1496,8 @@ router.get('/:code/export.csv', async (req, res) => {
       return res.status(403).json({ error: 'Host only' })
 
     const partRows = await db.many(
-      `SELECT op.user_id, op.scores, op.total, u.name, u.handle, u.handicap
+      `SELECT op.user_id, op.scores, op.total, op.is_guest, op.guest_id, op.guest_name,
+              u.name, u.handle, u.handicap
        FROM tm_outing_participants op
        LEFT JOIN tm_users u ON u.id = op.user_id
        WHERE op.outing_id = $1`,
@@ -1484,7 +1528,13 @@ router.get('/:code/export.csv', async (req, res) => {
     // to the bottom so the leaderboard order matches what spectators
     // see in the app.
     const rows = (state.participants || []).map(sp => {
-      const dp = partRows.find(r => String(r.user_id) === String(sp.user_id))
+      // F.5 S5: app users match their row by user_id (already row-derived);
+      // guests match their row by guest_id (user_id is NULL on guest rows),
+      // gated by the flag. With the flag off, guests fall back to state scores —
+      // exactly today's behavior. Row == state when synced ⇒ parity either way.
+      const dp = sp.is_guest
+        ? (SCORING_AGG_READ_FROM_ROWS ? partRows.find(r => r.is_guest && String(r.guest_id) === String(sp.user_id)) : undefined)
+        : partRows.find(r => String(r.user_id) === String(sp.user_id))
       const scores = (dp?.scores && Array.isArray(dp.scores)) ? dp.scores : (sp.scores || [])
       // Compute total from scores rather than trusting dp.total — the
       // cached total can be stale relative to the latest score writes.
@@ -1501,7 +1551,7 @@ router.get('/:code/export.csv', async (req, res) => {
       return {
         sortKey: sp.withdrawn || sp.no_show ? 9_999_999 : (total > 0 ? total : 9_999_998),
         cells: [
-          dp?.name || sp.name || `Player ${sp.user_id}`,
+          dp?.name || dp?.guest_name || sp.name || `Player ${sp.user_id}`,
           dp?.handle ? `@${dp.handle}` : '',
           effective != null ? String(effective) : '',
           total > 0 ? String(total) : '',
@@ -1566,13 +1616,24 @@ router.get('/season/:season', async (req, res) => {
       [season]
     )
 
+    // F.5 S5: derive each player's total from authoritative row scores
+    // (fallback to state.total per-participant when a row is missing/flag off).
+    // The participant LIST + withdrawn/no_show flags stay state-sourced. For a
+    // CLOSED outing the row total already equals the frozen state total, so this
+    // is a parity no-op today; it keeps the rollup correct for outings closed
+    // after S7 stops writing state scores. Keying (incl. guests by their
+    // guest_ string) is unchanged.
+    const rowScores = await rowScoreMapFor(rows.map(o => o.id))
+
     // Aggregate per-player. Position is computed from the participant
     // ordering at end-time (state.participants is sorted by total asc
     // by the time the outing closes).
     const playerMap = new Map()
     for (const o of rows) {
       const state = o.state || {}
-      const parts = (state.participants || []).filter(p => !p.withdrawn && !p.no_show)
+      const parts = (state.participants || [])
+        .filter(p => !p.withdrawn && !p.no_show)
+        .map(p => ({ ...p, total: aggFromRows(rowScores.get(`${o.id}:${p.user_id}`), p.total, p.holes_played).total }))
       const sorted = [...parts].sort((a, b) => (a.total ?? 9_999_999) - (b.total ?? 9_999_999))
       sorted.forEach((p, idx) => {
         if (!p.user_id) return

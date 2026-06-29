@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782629590.041511,
-    "source_id": "812826b0-5518-43e8-a8f5-3f75b3fe804f",
-    "verified_at": 1782629768.296447
+    "mtime": 1782754762.3324456,
+    "source_id": "72e344a2-d4d3-4016-961e-a709ee254354",
+    "verified_at": 1782754854.0026162
   },
   "wiki/index.md": {
-    "mtime": 1782625085.5343466,
-    "source_id": "3c555b49-687b-42c3-b889-faf2d187dc43",
-    "verified_at": 1782625138.880773
+    "mtime": 1782754795.7754946,
+    "source_id": "e4130433-9ae5-4a5e-bcbd-136f89630f87",
+    "verified_at": 1782754868.953282
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -53,8 +53,9 @@
     "verified_at": 1777683687.3069088
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1782629609.0210042,
-    "source_id": "0a194e5c-7229-464e-9688-29789c91e7f3"
+    "mtime": 1782754800.5777833,
+    "source_id": "9ef57019-e2ae-4dd7-8c4a-7e4dee907a1b",
+    "verified_at": 1782754838.947388
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1778180654.29875,
@@ -155,5 +156,10 @@
     "mtime": 1782629561.5856357,
     "source_id": "360cd76c-e3e1-4d90-88ad-e83e87288b4d",
     "verified_at": 1782629774.571966
+  },
+  "wiki/synthesis/f5-s4-guest-rows-build-spec-2026-06-29.md": {
+    "mtime": 1782754456.4821508,
+    "source_id": "ad5b39a9-43ef-4dd6-8c9b-f53ad44969ec",
+    "verified_at": 1782754876.431031
   }
 }
