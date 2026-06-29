@@ -6,6 +6,14 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] schema | F.5 S5 — flip remaining readers to row-derived, LIVE on beta
+
+The last prep before S7 can stop writing `state` scores: every reader that still ranked off `state.participants[].total` now derives from the authoritative rows. Spec: [[synthesis/f5-s5-reader-flip-build-spec-2026-06-29]]. No migration (read-only).
+
+- **Flipped (flag `SCORING_AGG_READ_FROM_ROWS`, live):** `friends-live`, `season/:season`, `leagues/:id/standings`, CSV export. Each state participant looks up its row by `user_id` (app) or `guest_id` (guest, `user_id` NULL) and derives total (and scores, for skins/stableford) from `row.scores`; falls back to `state.total` when no row. The participant LIST + withdrawn/no_show flags + format config stay state-sourced — that's the config that survives into S7. Separate flag from `SCORING_READ_FROM_ROWS` so it shipped dark and was parity-verified before flipping.
+- **Verified:** season parity end-to-end through the real handler — flag OFF vs ON identical on synced data (Bob avg 91 both), and ON corrected a deliberately-stale `state.total` (Ann 80→88.3, reading the true row). ESLint `no-undef` clean on both changed server files (catches the scope-bug class `node --check` can't). **Real prod-data check: 45/45 participants across 38 closed outings had `row_total == state_total` → flipping is a provable no-op for existing data.** Live smoke: friends-live + season run 200 with the flag on. Gate: `node --check` + client lint + 24/24 tests.
+- **Remaining F.5:** S2/S3 device test (#25); then S6 (conflict UX polish) → S7 (cutover: stop writing `state` scores).
+
 ## [2026-06-29] schema | F.5 S4 — guests get real rows, LIVE on beta
 
 Gave guests durable `tm_outing_participants` rows (prerequisite for S5 reader-flip + S7 cutover). Spec: [[synthesis/f5-s4-guest-rows-build-spec-2026-06-29]].
