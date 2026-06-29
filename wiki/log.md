@@ -6,6 +6,12 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] deploy | F.5 S2+S3 turned ON in prod (beta)
+
+Took S2+S3 from dark to live on the beta. Migration `037_tm_idempotency_keys` applied to prod (table + 2 indexes confirmed). Set `SCORING_OCC_ONBEHALF=1` + `SCORING_IDEMPOTENCY=1` in Vercel prod env (alongside existing `SCORING_READ_FROM_ROWS=1`); redeployed (build `3228aba`, `/health` ok). Before flipping, de-risked the one reasoned-not-tested assumption — `db.tx` (single-client BEGIN/COMMIT) + `SELECT … FOR UPDATE` — by running both against the **real Supabase pooler** (zero data change): both OK. Reversible via env-var removal + redeploy. Remaining F.5 work is the device test (POST-LAUNCH-TODO #25), then S4→S7.
+
+- Also fixed (same day, commit `3228aba`): the enriched 409 `last_written_by` was resolving the TARGET player's name instead of the actual last writer — caught by a real HTTP e2e test (boots the Express app vs sandbox Postgres). Added `resolveLastWriterName` (reads the latest `tm_score_audit` editor for the hole). Now the conflict chip names who actually entered the score.
+
 ## [2026-06-28] schema | F.5 S2 + S3 — OCC on-behalf write + offline idempotency (dark, flag-gated)
 
 Built and shipped to `main` the two multi-writer-safety stages of "never lose your round," both dark behind flags (zero beta change until enabled + device-tested). Grounded in a full in-repo read + two research passes (golf-app market behavior; idempotency/OCC/offline-replay engineering). Spec: [[synthesis/f5-s2-s3-build-spec-2026-06-28]].
