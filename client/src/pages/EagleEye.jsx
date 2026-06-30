@@ -1557,13 +1557,22 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     : 'FROM TEE'
   const distAccent = gpsToGreen != null ? '#5ED47A' : gpsAcquiring ? '#F0A868' : '#C9A040'
 
-  // "Plays like" on the live distance — only when we have a real GPS-to-green
-  // reading + weather (so the wind/temp/altitude model has real inputs). Uses
-  // the player→green bearing for the wind component. (2026-06-06)
+  // "Plays like" wind needs a shot DIRECTION. Prefer the live player→green
+  // bearing once we have a trusted GPS fix; otherwise fall back to the
+  // tee→green bearing from the course geometry (the same tee/green we draw the
+  // hole line + "FROM TEE" distance from). Without this fallback the wind term
+  // was silently 0 on the pre-shot/from-tee view, so the header could show a
+  // headwind that wasn't in the plays-like number. (2026-06-30 — Matt caught
+  // "wind in our face but plays 6 shorter"; temp/alt already applied, wind didn't.)
   const altFt = gps?.alt != null
     ? Math.round(gps.alt * 3.281)
     : estimateAltFromPressure(weather?.surface_pressure)
-  const shotBearing = (trustedGps && greenCoord) ? calcBearing({ lat: trustedGps.lat, lon: trustedGps.lon }, greenCoord) : null
+  const teeCoord = holePositions[currentHole] || null
+  const shotBearing = (trustedGps && greenCoord)
+    ? calcBearing({ lat: trustedGps.lat, lon: trustedGps.lon }, greenCoord)
+    : (teeCoord && greenCoord)
+      ? calcBearing(teeCoord, greenCoord)
+      : null
   // Auto-derived conditions (from weather + DEM) and the effective conditions
   // after any manual overrides from the plays-like sheet. The chip + sheet both
   // read `playsLike`, computed from the effective values. (Phase 3.1)
