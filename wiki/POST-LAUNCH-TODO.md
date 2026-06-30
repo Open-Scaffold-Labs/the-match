@@ -24,8 +24,9 @@ S2 (OCC on-behalf write) + S3 (offline idempotency) shipped to `main` 2026-06-28
 
 **Remaining = the one thing that can't be tested from a sandbox: a real round on a phone.**
 
-- **Device test (Matt):** two-marker / host-bulk foursome — concurrent on-behalf entries don't lose each other; a same-hole collision pops the inline chip ("X entered N just now — Keep mine / Keep theirs"), identical-value silently converges; leaderboard correct. Then toggle airplane mode mid-round — scores queue and drain with no double-apply, no version drift.
-- If anything's off: pull the relevant flag (`vercel env rm …` + redeploy) — beta reverts to the prior behavior instantly.
+- **UPDATE 2026-06-29 — browser UI layer now VERIFIED.** The whole UI/offline path was driven end-to-end in a real Chrome session on the live beta + cross-checked in the DB: core scoring, the S2 conflict chip (named writer + Keep mine/theirs + force-overwrite), the S6 scorer banner + Open⇄Designated toggle, and the S3 offline queue (queued-with-idempotency-key → reconnect → drained → applied exactly once). See the log entry. So this device test is **narrowed**.
+- **Remaining device test (Matt, on the course):** ONLY the native iOS WKWebView shell on a physical iPhone during a real round — does the inline chip clear the safe-area/bottom tab bar; do real cellular drops queue + drain in the native wrapper (not just a DevTools-simulated offline); 60fps feel. The two-marker / airplane-mode scenarios are the script.
+- If anything's off: pull the relevant flag (`vercel env rm …` + redeploy) — beta reverts instantly.
 
 **F.5 progress:** S4 (guests → rows), S5 (readers row-derived), and S6 (designated-scorer mode) all **SHIPPED + LIVE 2026-06-29**. S6: `SCORING_DESIGNATED=1`; `PUT /:code/scoring-mode` + a gate that, in designated mode, restricts scoring-others to host + assigned marker (players still self-score); client scorer banner + who's-scoring indicator + assign-nudge; verified 9/9 sandbox + 7/7 live on prod. **Only S7 remains: the irreversible cutover** — stop writing `state` scores, neutralize the dead `/scores/marker`, default the read flags on + retire them. **S7 is the only irreversible step and is GATED on the S2/S3 real-round device test below.** Do not do S7 until Matt has device-tested S2/S3 on a real round.
 

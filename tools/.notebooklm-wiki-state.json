@@ -5,14 +5,13 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782756059.443667,
-    "source_id": "86f5bddf-3a32-40a6-b913-372cf01ea932",
-    "verified_at": 1782756120.190828
+    "mtime": 1782757820.489361,
+    "source_id": "969a9a78-9b6c-4125-b517-25a358c24b91"
   },
   "wiki/index.md": {
-    "mtime": 1782756081.0537388,
-    "source_id": "431d8ea4-6adf-47e0-b3be-2eb137dc9c00",
-    "verified_at": 1782756135.454019
+    "mtime": 1782757843.9917452,
+    "source_id": "c41677ee-89fc-4536-b2a4-82fb94c643d7",
+    "verified_at": 1782757957.4788978
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -53,9 +52,8 @@
     "verified_at": 1777683687.3069088
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1782756069.8984253,
-    "source_id": "83ba2641-7bbf-40be-9a7c-0b7b460c58f0",
-    "verified_at": 1782756104.830702
+    "mtime": 1782757832.4652846,
+    "source_id": "32881586-edbc-4345-8107-7ef5ba30732e"
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1778180654.29875,
@@ -166,5 +164,10 @@
     "mtime": 1782755555.7705626,
     "source_id": "130953cf-677b-4303-b096-3e0413b2c377",
     "verified_at": 1782756142.651552
+  },
+  "wiki/synthesis/f5-s6-designated-scorer-build-spec-2026-06-29.md": {
+    "mtime": 1782757305.204365,
+    "source_id": "8177e713-80e2-42fe-8e86-57e7fd08a713",
+    "verified_at": 1782757964.498656
   }
 }

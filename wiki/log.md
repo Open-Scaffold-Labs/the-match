@@ -6,6 +6,17 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] query | F.5 browser UI verification (real browser, live beta)
+
+Drove the live beta end-to-end in a real Chrome session (Claude-in-Chrome) with throwaway test accounts, to close the UI/offline part of the S2/S3 device-test gap that HTTP scripts couldn't cover. All verified rendering + functioning, cross-checked against the prod DB; all test data cleaned up after (0 left).
+
+- **Core scoring:** sign-in → onboarding → open match → enter birdie → save → branded share card → leaderboard re-ranks live → persists (DB). Score-entry sheet is best-in-class (per-hole, stepper, relative-to-par quick-picks, auto-advance).
+- **S2 conflict chip:** as a non-host marker, a real 409 surfaced the inline chip — *"Hole 1 conflict — UI A entered 4 just now. Use yours (5)?"* Keep theirs/Keep mine; names the ACTUAL writer (last_written_by fix, live); "Keep mine" force-overwrote (DB hole1=5). The differentiator renders.
+- **S6:** host toggle flips Open⇄Designated + persists; the gold "You're the scorer for this group" banner renders for the assigned scorer.
+- **S3 offline:** patched fetch to fail → score queued in localStorage WITH its idempotency key → restored → queue drained empty → DB shows the score landed once, idempotency key count=1, code 200 (no double-apply).
+- **Self-correction (audit):** nearly flagged the share-card date as a "2028 bug"; device clock + `new Date()` code prove it's 2026 — a screenshot misread, withdrawn.
+- **Still NOT covered (the only remaining device test):** the native iOS WKWebView shell on a physical iPhone (real cellular drop, native wrapper) + a real on-course round. Deferred — Matt not on the course today. S7 stays gated on it.
+
 ## [2026-06-29] schema | F.5 S6 — designated-scorer mode + scorer-visibility UX, LIVE on beta
 
 Turned the existing markers plumbing into a real enforced mode and filled the whitespace the market research found (no incumbent shows who's scoring or ships a real hand-off; The Match already beats the field on conflict reconciliation via the S2 chip). Spec: [[synthesis/f5-s6-designated-scorer-build-spec-2026-06-29]]. No migration.
