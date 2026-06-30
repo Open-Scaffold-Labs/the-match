@@ -730,7 +730,6 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-green-text)', animation: 'pulse 2s infinite' }} />
               <span style={{ fontSize: 10, color: 'var(--tm-text-2)', fontWeight: 700, letterSpacing: '0.04em' }}>GPS</span>
-              {gps.accuracy && <span style={{ fontSize: 10, color: 'var(--tm-text-3)' }}>±{Math.round(gps.accuracy)}m</span>}
             </div>
           )}
         </div>

@@ -1949,23 +1949,25 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             }}>
               {/* Hero distance instrument — arc gauge + number roll in lockstep */}
               <DistanceInstrument yards={displayYards} label={distLabel} accent={distAccent} />
-              {/* GPS accuracy / acquiring chip (Phase 1.1) — the honesty
-                  signal that earns trust on hole 1. Trusted: green "±Xm".
-                  Acquiring: amber + pulsing, so the golfer knows the live
-                  number isn't ready and the shown figure is the static tee
-                  yardage, not a confident GPS read. */}
+              {/* GPS ready / acquiring chip (Phase 1.1; ± margin removed
+                  2026-06-30 — Matt: don't narrate the GPS's error on screen).
+                  Locked: a calm green "GPS" dot = the read is ready, no margin
+                  shown. Acquiring: amber + pulsing = the live number isn't
+                  ready yet and the shown figure is the static tee yardage. The
+                  accuracy gate still uses coords.accuracy under the hood; we
+                  just never quantify the uncertainty to the user. */}
               {gpsTrusted ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#5ED47A', boxShadow: '0 0 6px rgba(94,212,122,0.8)' }} />
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(94,212,122,0.85)', fontVariantNumeric: 'tabular-nums' }}>
-                    ±{Math.round(gpsAcc)} m
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(94,212,122,0.85)' }}>
+                    GPS
                   </span>
                 </div>
               ) : gpsAcquiring ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F0A868', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(240,168,104,0.95)', fontVariantNumeric: 'tabular-nums' }}>
-                    ACQUIRING · ±{Math.round(gpsAcc)} m
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(240,168,104,0.95)' }}>
+                    ACQUIRING
                   </span>
                 </div>
               ) : null}
