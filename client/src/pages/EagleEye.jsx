@@ -1720,17 +1720,18 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
-            {/* Wind arrow is SHOT-RELATIVE: rotate by (wind.dir − shotBearing)
-                so the arrow points at the wind's source relative to facing the
-                pin — a headwind reads at top, matching the dial + course-up map.
-                The same real wind now reads differently per hole because each
-                hole faces a different bearing. Falls back to absolute compass
-                direction until a bearing exists. (2026-06-30 — Matt: the header
-                wind wasn't changing per hole.) */}
+            {/* Wind arrow is SHOT-RELATIVE and shows which way the wind BLOWS
+                relative to facing the pin. wind.dir is the FROM direction, so
+                rotate by (wind.dir − shotBearing + 180): arrow points DOWN when
+                the wind is in your face (headwind), UP when it's at your back
+                toward the pin (tailwind), sideways = crosswind. Same real wind
+                reads differently per hole (each faces a different bearing).
+                Falls back to absolute blow-direction until a bearing exists.
+                (2026-06-30 — Matt: per-hole + down = in your face.) */}
             {wind && (
               <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>
-                  <WindArrow deg={shotBearing != null ? wind.dir - shotBearing : wind.dir} /> {wind.speed}
+                  <WindArrow deg={shotBearing != null ? wind.dir - shotBearing + 180 : wind.dir + 180} /> {wind.speed}
                 </span>
               </div>
             )}
