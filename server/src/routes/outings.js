@@ -95,6 +95,17 @@ const SCORING_GUEST_ROWS = process.env.SCORING_GUEST_ROWS === '1'
 // flag off, scoring_mode is ignored and behavior is exactly as today.
 const SCORING_DESIGNATED = process.env.SCORING_DESIGNATED === '1'
 
+// F.5 S7 — the cutover: rows become the SOLE store for scores. When on, the
+// score-write paths stop syncing per-score totals into the state.participants
+// blob (state keeps only config: withdrawn/no_show/markers/groups/teams). Every
+// reader already derives scores from the authoritative rows (S1b app-users +
+// S5 aggregates + the guest-row read added with S7), so nothing reads state
+// scores anymore. Eliminates the dual-write split-brain class entirely and
+// drops a full-blob rewrite per hole tap. Reversible: flag off ⇒ dual-write
+// resumes (state-score values just sat stale while it was on; no reader used
+// them). The dead /scores/marker endpoint is also retired when this is on.
+const SCORING_STATE_WRITES_OFF = process.env.SCORING_STATE_WRITES_OFF === '1'
+
 // Resolve a human name for a given participant/user id. Best-effort: prefer the
 // state participant name, fall back to the users table, then a generic label.
 async function resolveWriterName(state, outingId, userId) {
@@ -173,7 +184,7 @@ router.get('/:code/public', async (req, res) => {
     // Enrich participants with live scores from tm_outing_participants
     // (same pattern as the authed GET) but trim to public fields only.
     const partRows = await db.many(
-      `SELECT op.user_id, op.scores, u.name, u.handle, u.handicap, u.avatar, u.gender
+      `SELECT op.user_id, op.scores, op.is_guest, op.guest_id, u.name, u.handle, u.handicap, u.avatar, u.gender
        FROM tm_outing_participants op
        LEFT JOIN tm_users u ON u.id = op.user_id
        WHERE op.outing_id = $1`,
@@ -182,12 +193,17 @@ router.get('/:code/public', async (req, res) => {
     const state = row.state || { participants: [] }
     const enriched = (state.participants || []).map(p => {
       if (p.is_guest) {
-        const gt = deriveScoreTotals(p.scores, p.total, p.holes_played)
+        // F.5 S7: derive guest scores from the guest ROW (authoritative since
+        // S4), falling back to state when no row — so guest scores survive the
+        // S7 cutover that stops writing them into state. Row == state today.
+        const grow = partRows.find(r => r.is_guest && String(r.guest_id) === String(p.user_id))
+        const gscores = (Array.isArray(grow?.scores) ? grow.scores : p.scores) || []
+        const gt = deriveScoreTotals(gscores, p.total, p.holes_played)
         return {
           user_id: p.user_id,
           name: p.name,
           is_guest: true,
-          scores: p.scores || [],
+          scores: gscores,
           total: gt.total,
           holes_played: gt.holes_played,
           group_id: p.group_id ?? null,
@@ -835,7 +851,7 @@ router.get('/:code', async (req, res) => {
     // from tm_users so the Augusta scorecard can show profile pictures.
     // (avatar added 2026-04-30 — user requested player photos on the board)
     const partRows = await db.many(
-      `SELECT op.user_id, op.scores, u.handicap, u.avatar
+      `SELECT op.user_id, op.scores, op.is_guest, op.guest_id, u.handicap, u.avatar
        FROM tm_outing_participants op
        LEFT JOIN tm_users u ON u.id = op.user_id
        WHERE op.outing_id = $1`,
@@ -844,10 +860,13 @@ router.get('/:code', async (req, res) => {
     const state = row.state || { participants: [] }
     const enriched = (state.participants || []).map(p => {
       if (p.is_guest) {
-        // guests: scores already in state JSONB, no avatar. Derive total/holes
-        // from those scores when SCORING_READ_FROM_ROWS is on (no-op otherwise).
-        const gt = deriveScoreTotals(p.scores, p.total, p.holes_played)
-        return { ...p, total: gt.total, holes_played: gt.holes_played }
+        // F.5 S7: prefer the guest ROW's scores (authoritative since S4), fall
+        // back to state when no row — so guest scores survive the S7 cutover
+        // that stops writing them into state. Row == state today (parity).
+        const grow = partRows.find(r => r.is_guest && String(r.guest_id) === String(p.user_id))
+        const gscores = (Array.isArray(grow?.scores) ? grow.scores : p.scores) || []
+        const gt = deriveScoreTotals(gscores, p.total, p.holes_played)
+        return { ...p, scores: gscores, total: gt.total, holes_played: gt.holes_played }
       }
       const dp = partRows.find(r => String(r.user_id) === String(p.user_id))
       const t = deriveScoreTotals(dp?.scores, p.total, p.holes_played)
@@ -1005,9 +1024,11 @@ router.put('/:code/scores', async (req, res) => {
     // Sync to state JSONB so leaderboard reads are fast. String() both sides
     // (see /:code/join) — on a -1 miss the row still has the score; the S1b
     // read-from-rows path keeps the leaderboard correct regardless.
+    // F.5 S7: when state-score writes are off, the row is the sole store —
+    // skip this entirely (the self path only ever writes score fields here).
     const state = outing.state || { participants: [] }
     const pi = state.participants?.findIndex(p => String(p.user_id) === String(req.user.id))
-    if (pi >= 0) {
+    if (!SCORING_STATE_WRITES_OFF && pi >= 0) {
       state.participants[pi].total = t
       state.participants[pi].holes_played = hp
       await q('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
@@ -1191,16 +1212,21 @@ router.put('/:code/scores/host', async (req, res) => {
       scores[hole] = score
       const total       = scores.reduce((s, x) => s + (x || 0), 0)
       const holesPlayed = scores.filter(x => x > 0).length
-      state.participants[pi].scores      = scores
-      state.participants[pi].total       = total
-      state.participants[pi].holes_played = holesPlayed
-      await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
-      if (SCORING_GUEST_ROWS) {
+      // F.5 S7: when state-score writes are off, the guest ROW is the sole
+      // store — skip syncing the guest's scores into state.
+      if (!SCORING_STATE_WRITES_OFF) {
+        state.participants[pi].scores      = scores
+        state.participants[pi].total       = total
+        state.participants[pi].holes_played = holesPlayed
+        await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      }
+      if (SCORING_GUEST_ROWS || SCORING_STATE_WRITES_OFF) {
         // F.5 S4: mirror the guest's scores into its durable row (user_id NULL,
-        // keyed by guest_id). Additive — no reader uses guest rows until S5, and
-        // the NULL user_id keeps the guest excluded from every user_id-keyed
-        // stat. Upsert (not just update) so a guest created before the flag was
-        // on is self-healed on its first score. Best-effort.
+        // keyed by guest_id). The NULL user_id keeps the guest excluded from
+        // every user_id-keyed stat. Upsert (not just update) so a guest created
+        // before the flag was on is self-healed on its first score. Under S7
+        // (state writes off) this is the ONLY place the guest score lands, so
+        // it must run regardless of SCORING_GUEST_ROWS. Best-effort.
         try {
           await db.query(
             `INSERT INTO tm_outing_participants (outing_id, user_id, is_guest, guest_id, guest_name, scores, total)
@@ -1298,15 +1324,28 @@ router.put('/:code/scores/host', async (req, res) => {
           updated_at: new Date().toISOString(),
         } }
       }
-      // Sync state in the SAME transaction (atomic row + state).
+      // Sync state in the SAME transaction (atomic row + state). F.5 S7: when
+      // state-score writes are off, scores live only in the row — skip the
+      // total/holes sync; still apply the no_show config flip (config stays
+      // state-sourced) and only write state when that config actually changed,
+      // so the common path does no full-blob rewrite.
       const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+      let stateChanged = false
       if (pi >= 0) {
-        state.participants[pi].total        = t
-        state.participants[pi].holes_played = hp
-        // 33-round audit fix: host scoring a no-show auto-clears no_show.
-        if (state.participants[pi].no_show && Number(score) > 0) state.participants[pi].no_show = false
+        if (!SCORING_STATE_WRITES_OFF) {
+          state.participants[pi].total        = t
+          state.participants[pi].holes_played = hp
+          stateChanged = true
+        }
+        // 33-round audit fix: host scoring a no-show auto-clears no_show (config).
+        if (state.participants[pi].no_show && Number(score) > 0) {
+          state.participants[pi].no_show = false
+          stateChanged = true
+        }
       }
-      await client.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      if (stateChanged) {
+        await client.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      }
       return {
         status: 200,
         body: { ok: true, total: t, holesPlayed: hp },
@@ -1334,14 +1373,24 @@ router.put('/:code/scores/host', async (req, res) => {
         'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
         [JSON.stringify(s), t, outing.id, user_id]
       )
+      // F.5 S7: same as the OCC path — skip the score sync when state writes
+      // are off, keep the no_show config flip, write state only if config moved.
       const pi = (state.participants || []).findIndex(p => String(p.user_id) === String(user_id))
+      let stateChanged = false
       if (pi >= 0) {
-        state.participants[pi].total       = t
-        state.participants[pi].holes_played = hp
-        // 33-round audit fix: host scoring a no-show auto-clears no_show.
-        if (state.participants[pi].no_show && Number(score) > 0) state.participants[pi].no_show = false
+        if (!SCORING_STATE_WRITES_OFF) {
+          state.participants[pi].total       = t
+          state.participants[pi].holes_played = hp
+          stateChanged = true
+        }
+        if (state.participants[pi].no_show && Number(score) > 0) {
+          state.participants[pi].no_show = false
+          stateChanged = true
+        }
       }
-      await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      if (stateChanged) {
+        await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
+      }
       return {
         status: 200,
         body: { ok: true, total: t, holesPlayed: hp },
@@ -2072,11 +2121,25 @@ router.post('/:code/end', async (req, res) => {
       const base = Math.floor(cp / h), extra = cp - base * h
       return Array.from({ length: h }, (_, i) => (i < extra ? base + 1 : base))
     })()
+    // F.5 S5/S7: the podium + highlights sort by `total`, which historically
+    // came from the stale `state` copy (spec split-brain trap #6). Derive both
+    // scores AND total from the authoritative rows — app-users by user_id,
+    // guests by guest_id (guest rows have NULL user_id) — so the close ceremony
+    // matches the recorded row-based results, including after S7 stops writing
+    // `state` scores. Falls back to state when no row / flag off (parity).
     const allParticipants = (state.participants || []).map(sp => {
+      if (sp.is_guest) {
+        const grow = dbParticipants.find(r => r.is_guest && String(r.guest_id) === String(sp.user_id))
+        const gs = (Array.isArray(grow?.scores) ? grow.scores : sp.scores) || []
+        const gt = deriveScoreTotals(gs, sp.total, sp.holes_played)
+        return { ...sp, scores: gs, total: gt.total, holes_played: gt.holes_played }
+      }
       const dp = dbParticipants.find(r => String(r.user_id) === String(sp.user_id))
+      const ds = (Array.isArray(dp?.scores) ? dp.scores : sp.scores) || []
+      const t  = deriveScoreTotals(ds, sp.total, sp.holes_played)
       return dp
-        ? { ...sp, scores: dp.scores || [], name: dp.name || sp.name, handicap: dp.handicap }
-        : sp // guest
+        ? { ...sp, scores: ds, total: t.total, holes_played: t.holes_played, name: dp.name || sp.name, handicap: dp.handicap }
+        : { ...sp, scores: ds, total: t.total, holes_played: t.holes_played }
     }).sort((a, b) => (a.total ?? 999) - (b.total ?? 999))
 
     // For individual play: write 1v1 match history for every PAIR of
@@ -2336,6 +2399,14 @@ router.put('/:code/markers', async (req, res) => {
 // Assigned marker: enter scores for any player in their group
 router.put('/:code/scores/marker', async (req, res) => {
   try {
+    // F.5 S7: this endpoint is unused by the client (scoring routes through
+    // /scores and /scores/host) and writes scores into state, which would
+    // re-introduce the dual-write split-brain S7 eliminates. Retire it once the
+    // cutover is on — a stray/replayed call gets a clear 410 instead of writing
+    // divergent state. (Reversible: flag off ⇒ original behavior.)
+    if (SCORING_STATE_WRITES_OFF) {
+      return res.status(410).json({ error: 'gone', message: 'Deprecated — use /scores/host.' })
+    }
     const code = req.params.code.toUpperCase()
     const { hole, score, user_id } = req.body
     if (hole === undefined || score === undefined || !user_id)
