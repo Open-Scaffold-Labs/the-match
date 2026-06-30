@@ -322,6 +322,11 @@
   /* Tabular numerals — for number readouts and stat columns. */
   .tm-nums        { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
+  /* "✓ Saved" confirmation chip animation, exposed as a class (was inline in
+     LiveOuting) so the reduced-motion rule can preserve it at full length
+     instead of zeroing it to invisible. (2026-06-30 — Phase 0 WP-0.E) */
+  .tm-anim-saved  { animation: tm-saved-flash 1700ms ease-out forwards; }
+
   /* Layered depth shadow. */
   .tm-shadow-layered { box-shadow: var(--tm-shadow-layered); }
 
@@ -338,4 +343,28 @@
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .tm-glass { background: rgba(18,24,21,0.92); }
   }
+}
+
+/* ═══════════════════════════════════════════
+   Reduced motion — honors iOS Settings → Accessibility → Motion → Reduce
+   Motion (WKWebView reads it correctly; App-Store accessibility expectation).
+   Strategy per MDN ("reduce OR replace", not blanket-kill): cut sustained /
+   looping decorative motion + smooth-scroll to near-instant, and snap one-shot
+   entrances (sheets, achievement pops, score reveals) to their final VISIBLE
+   state — but PRESERVE the gentle, opacity-led transient confirmations (the
+   "✓ Saved" chip and the score-event banner) at full length so reduced-motion
+   users still get the feedback. Unlayered + !important so it overrides the
+   inline `animation`/`transition` styles used across the app.
+   (2026-06-30 — Phase 0 WP-0.E)
+═══════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep transient confirmations visible (opacity fades, not vestibular). */
+  .tm-event-pop  { animation-duration: 4000ms !important; }
+  .tm-anim-saved { animation-duration: 1700ms !important; }
 }

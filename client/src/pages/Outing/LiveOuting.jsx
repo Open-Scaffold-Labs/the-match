@@ -231,6 +231,7 @@ export function SavedChip({ savedAt }) {
     <div
       key={savedAt}
       aria-live="polite"
+      className="tm-anim-saved"
       style={{
         position: 'fixed',
         bottom: 'calc(56px + env(safe-area-inset-bottom) + 12px)',
@@ -245,7 +246,6 @@ export function SavedChip({ savedAt }) {
         border: '1.5px solid rgba(122,88,0,0.45)',
         display: 'flex', alignItems: 'center', gap: 6,
         pointerEvents: 'none',
-        animation: 'tm-saved-flash 1700ms ease-out forwards',
       }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12"/>
