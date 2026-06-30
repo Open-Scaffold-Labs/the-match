@@ -6,6 +6,16 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] schema | F.5 S7 — the cutover: rows are the sole score store. LIVE on beta. F.5 COMPLETE.
+
+The finish line of "never lose your round." Flag `SCORING_STATE_WRITES_OFF` (LIVE on prod). No migration. Reversible.
+
+- **Writes:** the score-write paths (self, on-behalf OCC + legacy, guest) stop syncing per-score totals/scores into the `state.participants` blob. `state` is now config-only (withdrawn/no_show/markers/groups/teams); the no_show auto-clear still writes state (config), and state is written only when config actually moves. Guest scores land in the guest ROW (the upsert runs regardless of `SCORING_GUEST_ROWS` under S7). The row is the single source of truth → the dual-write split-brain class is eliminated, and a full-blob rewrite per hole tap is gone.
+- **Reads completed for the cutover:** `/public` + `/:code` now derive GUEST scores from the guest row (by guest_id); `/end`'s podium/highlights derive total+scores from rows for app-users (user_id) AND guests (guest_id) — fixed split-brain trap #6 (the close ceremony had sorted off stale `state.total`). friends-live/season/leagues/CSV were already row-derived (S5). All derives fall back to state when no row / flag off → parity, reversible.
+- **Dead `/scores/marker` retired** (410) when the flag is on — a stray/replayed call can no longer re-introduce divergent state.
+- **Verified:** sandbox Postgres through the real Express app (`s7_http`) — app-user + on-behalf + guest scores write to ROWS only, `state` scores stay 0 (stale, unused), `/public` derives correct totals from rows for app-users AND guest; marker → 410. node --check + eslint no-undef + 24/24 tests. **Live on prod (`s7_live`):** rows A=4/B=5/guest=6, state all 0, `/public` correct from rows; test data cleaned up.
+- **F.5 is now COMPLETE — S1–S7 all live + verified** (server, live-prod, and browser UI). The only residual is a real on-course round on the native iOS shell (#25) — now a confidence check, not a gate.
+
 ## [2026-06-29] query | F.5 browser UI verification (real browser, live beta)
 
 Drove the live beta end-to-end in a real Chrome session (Claude-in-Chrome) with throwaway test accounts, to close the UI/offline part of the S2/S3 device-test gap that HTTP scripts couldn't cover. All verified rendering + functioning, cross-checked against the prod DB; all test data cleaned up after (0 left).

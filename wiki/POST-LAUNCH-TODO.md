@@ -18,7 +18,7 @@ unverified entries), #16 (achievement expansion ideas), #17 (preflight
 main-bucket verified_at check). Plus 7 audit-2026-05-07 polish items
 remain in `synthesis/audit-2026-05-07.md` (MEDIUM #4, #6 + LOW #7-#11).
 
-## 25. F.5 S2/S3 — LIVE on beta, awaiting device test
+## 25. F.5 COMPLETE (S1–S7 all live) — only a real on-course round remains as a confidence check
 
 S2 (OCC on-behalf write) + S3 (offline idempotency) shipped to `main` 2026-06-28 and **turned ON in prod 2026-06-29**: migration 037 applied, `SCORING_OCC_ONBEHALF=1` + `SCORING_IDEMPOTENCY=1` set in Vercel, redeployed (build `3228aba`). `db.tx` + `SELECT FOR UPDATE` confirmed against the real Supabase pooler; full HTTP e2e green (see [[synthesis/f5-s2-s3-build-spec-2026-06-28]] + log). Reversible: remove env var(s) + redeploy.
 
@@ -28,7 +28,7 @@ S2 (OCC on-behalf write) + S3 (offline idempotency) shipped to `main` 2026-06-28
 - **Remaining device test (Matt, on the course):** ONLY the native iOS WKWebView shell on a physical iPhone during a real round — does the inline chip clear the safe-area/bottom tab bar; do real cellular drops queue + drain in the native wrapper (not just a DevTools-simulated offline); 60fps feel. The two-marker / airplane-mode scenarios are the script.
 - If anything's off: pull the relevant flag (`vercel env rm …` + redeploy) — beta reverts instantly.
 
-**F.5 progress:** S4 (guests → rows), S5 (readers row-derived), and S6 (designated-scorer mode) all **SHIPPED + LIVE 2026-06-29**. S6: `SCORING_DESIGNATED=1`; `PUT /:code/scoring-mode` + a gate that, in designated mode, restricts scoring-others to host + assigned marker (players still self-score); client scorer banner + who's-scoring indicator + assign-nudge; verified 9/9 sandbox + 7/7 live on prod. **Only S7 remains: the irreversible cutover** — stop writing `state` scores, neutralize the dead `/scores/marker`, default the read flags on + retire them. **S7 is the only irreversible step and is GATED on the S2/S3 real-round device test below.** Do not do S7 until Matt has device-tested S2/S3 on a real round.
+**F.5 progress: COMPLETE.** S4 (guests→rows), S5 (readers row-derived), S6 (designated-scorer mode), and **S7 (cutover — rows are the sole score store, `SCORING_STATE_WRITES_OFF=1`)** are all **SHIPPED + LIVE 2026-06-29**. S7 was restructured from the spec's "irreversible cutover" into a **reversible flag** (flag off → dual-write resumes; no reader uses state scores so the gap is invisible) and completed the reader coverage (`/public`+`/:code` guest reads → rows; `/end` podium → rows, fixing split-brain trap #6). Verified through the Express app + live on prod. **All `SCORING_*` flags remain as independent off-ramps.** The native-shell round (above) is now the only open confidence check — NOT a blocker, since `state` was a redundant copy, not a true fallback (a 200 = the row committed; the offline queue + idempotency protect writes). F.5 is done.
 
 **Next step:** Matt device-tests on a real round; report back and I take S4.
 
