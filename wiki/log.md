@@ -6,6 +6,10 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-06-29] refactor | Handoff for the Eagle Eye accuracy/visual-flow push + checklist refresh
+
+Wrote [[synthesis/next-session-handoff-2026-06-29]] (supersedes 06-28) to point the next session at the user-facing Eagle Eye visual-flow + accuracy-polish layer now that F.5 is complete. Refreshed the two roadmap checklists to match reality: `build-plan-bulletproof-2026-06-23.md` — F.5 marked COMPLETE (all 7 stages live, with the four sub-spec links), F.2 pooler-safety confirmed, F.3 (035 indexes) marked applied to prod; `eagle-eye-premium-plan-2026-06-23.md` — Phase 2 status note updated (plays-like/own-club-arcs/data→practice + F.5 reliability all shipped; next = Phase 0 foundation + Phase 3 polish + accuracy refinements). Index ACTIVE-handoff pointer moved to the new doc. No code change.
+
 ## [2026-06-29] schema | F.5 S7 — the cutover: rows are the sole score store. LIVE on beta. F.5 COMPLETE.
 
 The finish line of "never lose your round." Flag `SCORING_STATE_WRITES_OFF` (LIVE on prod). No migration. Reversible.

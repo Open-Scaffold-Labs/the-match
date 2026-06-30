@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-27
+updated: 2026-06-29
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -148,13 +148,13 @@ Principle: **every step ships independently, builds + lints clean, and is device
 
 *F-cheap — do first (small, independent, expensive-later):* — **SHIPPED 2026-06-27 (`d282074`)**
 - ☑ F.1 `/api/v1` route prefix — one router dual-mounted at `/api/v1` + `/api` (legacy alias); client rewrites `/api/*`→`/api/v1/*` centrally. Server-smoke verified both mounts. — audit N5
-- ☑ F.2 Serverless DB pool `max 5→2` in prod + `allowExitOnIdle` — audit N6. ☐ *still TODO (Matt):* confirm `DATABASE_URL` is the transaction-mode pooler (6543).
-- ◐ F.3 Migration `035_tm_outings_indexes.sql` written (status partial+full, host_id; `CONCURRENTLY`) — **NOT applied; Matt applies by hand** — audit N9
+- ☑ F.2 Serverless DB pool `max 5→2` in prod + `allowExitOnIdle` — audit N6. ☑ *Confirmed 2026-06-29:* `db.tx` (single-client BEGIN/COMMIT) + `SELECT FOR UPDATE` work correctly against the real Supabase pooler (proven during F.5 S2, zero-data-impact check).
+- ☑ F.3 Migration `035_tm_outings_indexes.sql` (status partial+full, host_id; `CONCURRENTLY`) — **applied to prod 2026-06-29** — audit N9
 - ☑ F.4 CI enforcement: lint hard gate (removed `continue-on-error`); new `test` job (vitest suites + `node --test` math + client units) — audit N8
 
 *F-data-model — must precede App Store client-freeze:*
 - ☑ **F.6 SHIPPED 2026-06-27 (`816d3d0`)** — `/end` pair inserts + result update batched into 2 `unnest` queries (was O(N²) sequential); logic extracted to pure, unit-tested `lib/match-close.js` (7 parity tests guarding the 2026-05-07 all-pairs + 2026-06-23 tie fixes); 20/20 server tests, boot-smoke verified. **Verify on beta: close a 3+ player individual match → rivalries populate.** tm_rounds/handicap fan-out (O(N), not the timeout driver) left as a follow-up. — audit N4
-- ◐ F.5 **Stage 1 SHIPPED 2026-06-28** — full 7-stage plan in `synthesis/f5-never-lose-your-round-build-spec-2026-06-28.md`. S0 migration 036 (score_version). S1a: bump score_version on row score writes (additive). S1b: `/:code` + `/public` derive total/holes from rows behind flag `SCORING_READ_FROM_ROWS` (default off). Remaining (staged, flag-gated, device-tested): S2 OCC guard on on-behalf path, S3 idempotency + offline-queue versioning, S4 guests→rows, S5 flip friends-live/season/league readers, S6 conflict UX, S7 cutover (stop state writes). The "never lose your round" wedge. — audit N3
+- ☑ F.5 **COMPLETE — all 7 stages LIVE on beta 2026-06-29.** The "never lose your round" data-model rework. Stages + sub-specs: S1 read-from-rows (`SCORING_READ_FROM_ROWS`); S2 OCC on the on-behalf path (`db.tx` + `SELECT FOR UPDATE` + enriched 409 + inline conflict chip, `SCORING_OCC_ONBEHALF`); S3 offline idempotency (migration 037 `tm_idempotency_keys`, tap-time keys, claim+write+response in one txn, `SCORING_IDEMPOTENCY`); S4 guests→real rows (migration 038, `user_id NULL`, `SCORING_GUEST_ROWS`); S5 flip friends-live/season/leagues/CSV to row-derived (`SCORING_AGG_READ_FROM_ROWS`); S6 designated-scorer mode + scorer-visibility UX (`SCORING_DESIGNATED`); S7 cutover — rows are the SOLE score store, dead `/scores/marker` retired (`SCORING_STATE_WRITES_OFF`). All flag-gated + reversible; verified vs real Postgres + live prod + a real-browser UI pass. Specs: `f5-s2-s3-build-spec-2026-06-28.md`, `f5-s4-guest-rows-build-spec-2026-06-29.md`, `f5-s5-reader-flip-build-spec-2026-06-29.md`, `f5-s6-designated-scorer-build-spec-2026-06-29.md`. Only residual: a real on-course round on the native iOS shell (confidence check, not a gate). — audit N3
 
 *F-security — greenlit in the handoff; spec it:* — ◐ specced in foundation-lock build spec
 - ☐ F.7 JWT revocation: add `tm_users.token_version`, embed + check it, bump on `reset-pin`/logout; consider shorter TTL + refresh — audit N7

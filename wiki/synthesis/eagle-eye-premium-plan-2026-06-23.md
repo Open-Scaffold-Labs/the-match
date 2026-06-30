@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-26
+updated: 2026-06-29
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -77,7 +77,7 @@ The showcase. This is where we visibly pass rivals.
 
 ### Phase 2 — Signature features that *leapfrog* (not just match)
 
-> **Status (updated 2026-06-26):** #1 transparent adjustable plays-like and #3 own-club distance arcs are **SHIPPED** (build-plan Phase 3.1 + 3.3). A full **handicap & scoring-accuracy track** also shipped alongside (gender foundation, gender-correct ratings, Course Handicap, a WHS-faithful index rewrite, and the 9-hole/solo-round fixes) — see `handicap-accuracy-audit-2026-06-25.md`. Remaining leapfrogs below: #2 ad-free free tier, #4 green slope+putt-line, #5 data→practice loop, #6 AR.
+> **Status (updated 2026-06-29):** #1 transparent adjustable plays-like, #3 own-club distance arcs, and #5 data→practice loop are **SHIPPED** (build-plan Phase 3.1/3.3/3.5). The **handicap & scoring-accuracy track** shipped (gender foundation, gender-correct ratings, Course Handicap, a WHS-faithful index rewrite, 9-hole/solo fixes) — `handicap-accuracy-audit-2026-06-25.md`. And the entire **F.5 "never lose your round" data-model rework is COMPLETE** (S1–S7 live: OCC, idempotent offline, guests→rows, row-derived readers, designated-scorer mode, rows-as-sole-store) — `build-plan-bulletproof-2026-06-23.md` Track F.5. **So scoring reliability (thesis pillar) is now best-in-class.** Remaining leapfrogs: #2 ad-free generous free tier, #4 green slope+putt-line, #6 clean AR. **The next focus is the still-undone VISUAL-FLOW + ACCURACY-polish layer that this whole plan opened with** — Phase 0 (foundation tokens/type/motion: NONE done) and Phase 3 (app-wide polish + the Eagle Eye 190+ inline-style → token refactor: NONE done), plus accuracy refinements on top of the shipped GPS gate (graded confidence chip, club-arc dispersion bands, battery discipline/instant-on, the held concentric range-rings). See `next-session-handoff-2026-06-29.md`.
 
 Each maps to a documented category gap. Sequence by appetite.
 
