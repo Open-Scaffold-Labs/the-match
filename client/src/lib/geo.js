@@ -28,31 +28,58 @@ export function calcBearing(from, to) {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360
 }
 
-// Yards of plays-like adjustment per foot of shot elevation change (target vs
-// ball). ~1 yd per 3 ft is the common conservative caddie rule; deliberately
-// modest and TUNABLE against on-course truth. We never advertise a precision
-// figure (see the build plan's marketing stance). (3.1, 2026-06-25)
-export const PLAYSLIKE_K_ELEV = 1 / 3
+// Elevation "plays-like": uphill plays longer, downhill shorter — but NOT
+// symmetric. Uphill ≈ 1 yd per 3 ft (0.33 yd/ft, the standard caddie rule,
+// Trackman-consistent); downhill gives back only ~⅔ of that (you lose less
+// going down than you gain going up). We never advertise a precision figure
+// (marketing stance). (rebuilt 2026-06-30)
+export const PLAYSLIKE_K_ELEV = 1 / 3            // uphill yards per foot
+const PLAYSLIKE_DOWNHILL_FACTOR = 0.67           // downhill yields ~⅔ of uphill
 
-// Wind/temp/altitude/elevation "plays like" model. Headwind + cold + low
-// altitude-above-sea-level + uphill all play LONGER. Two distinct altitude
-// effects, NOT double-counted: `altFt` = absolute height ASL (air density);
-// `elevDeltaFt` = target-minus-ball elevation delta (uphill/downhill ball
-// flight). Returns { plays, adj } (rounded, unchanged for existing callers)
-// plus { base, factors:{wind,temp,alt,elevation} } as PRECISE floats so the
-// transparency UI can apportion/round them itself without drift. Mirrors the
-// copy in EagleEye.jsx exactly — edit BOTH. (elevation term added 3.1 2026-06-25)
+// Wind / temperature / altitude / elevation "plays like" model. Sourced,
+// physically-defensible coefficients — see
+// wiki/synthesis/playslike-accuracy-rebuild-2026-06-30.md:
+//   • Wind ASYMMETRIC: headwind +1.0%/mph, tailwind −0.5%/mph (~2:1, Trackman).
+//     Only the along-shot (cosine) component changes distance; crosswind is an
+//     aim cue, not a distance change.
+//   • Temp: ~0.8%/10°F vs a 70°F baseline (air density; colder → longer).
+//   • Altitude (ASL): ~1.16%/1000 ft (Titleist R&D; thinner air → shorter).
+//   • Elevation: geometric yards (above), kept SEPARATE from altitude (two
+//     distinct effects, not double-counted).
+// Per-channel caps stop a bad sensor reading producing an absurd number.
+// Additive by design so the transparency UI's four factors sum to the total.
+// Mirrors the copy in EagleEye.jsx EXACTLY — edit BOTH. `altFt` = absolute
+// height ASL; `elevDeltaFt` = target-minus-ball delta. Returns rounded
+// plays/adj/base + precise factor floats for the UI.
 export function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0, elevDeltaFt = null } = {}) {
   if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0, base: baseYds || 0, factors: { wind: 0, temp: 0, alt: 0, elevation: 0 } }
-  const per100 = baseYds / 100
+
+  // Wind — asymmetric; only the along-shot (cosine) component changes distance.
   let wind = 0
   if (windSpeed && windFromDeg != null && shotBearing != null) {
-    const theta = ((shotBearing - windFromDeg) * Math.PI) / 180
-    wind = windSpeed * Math.cos(theta) * per100 // +headwind longer, -tailwind shorter
+    const along = windSpeed * Math.cos(((shotBearing - windFromDeg) * Math.PI) / 180) // + head, − tail
+    let pct = along >= 0 ? 0.010 * along : 0.005 * along                              // 1%/mph head, 0.5%/mph tail
+    pct = Math.max(-0.30, Math.min(0.40, pct))                                        // sane caps
+    wind = pct * baseYds
   }
-  const temp = tempF != null ? ((70 - tempF) / 10) * per100 : 0 // colder plays longer
-  const alt = -baseYds * ((altFt || 0) / 1000) * 0.02            // ASL air density: altitude plays shorter
-  const elevation = elevDeltaFt != null ? elevDeltaFt * PLAYSLIKE_K_ELEV : 0 // uphill (+) plays longer
+
+  // Temperature — air density vs a 70°F baseline; colder plays longer.
+  let temp = tempF != null ? ((70 - tempF) / 10) * 0.008 * baseYds : 0
+  temp = Math.max(-0.10 * baseYds, Math.min(0.10 * baseYds, temp))
+
+  // Altitude (ASL) — thinner air, ball flies farther, plays shorter.
+  let alt = -((altFt || 0) / 1000) * 0.0116 * baseYds
+  alt = Math.max(-0.15 * baseYds, Math.min(0.15 * baseYds, alt))
+
+  // Elevation — geometric; uphill full, downhill ~⅔.
+  let elevation = 0
+  if (elevDeltaFt != null) {
+    elevation = elevDeltaFt >= 0
+      ? elevDeltaFt * PLAYSLIKE_K_ELEV
+      : elevDeltaFt * PLAYSLIKE_K_ELEV * PLAYSLIKE_DOWNHILL_FACTOR
+    elevation = Math.max(-40, Math.min(40, elevation))
+  }
+
   const adj = wind + temp + alt + elevation
   return {
     plays: Math.max(0, Math.round(baseYds + adj)),

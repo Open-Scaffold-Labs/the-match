@@ -29,17 +29,30 @@ near(calcBearing({ lat: 0, lon: 0 }, { lat: 1, lon: 0 }), 0, 1, 'bearing due nor
 near(calcBearing({ lat: 0, lon: 0 }, { lat: 0, lon: 1 }), 90, 1, 'bearing due east ≈ 90')
 near(calcBearing({ lat: 0, lon: 0 }, { lat: -1, lon: 0 }), 180, 1, 'bearing due south ≈ 180')
 
-// ── computePlaysLike ──
-// Headwind: 150y, 20mph from N (0°), shot due N (0°) → +20*1.5 = +30.
-near(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 0, tempF: 70, altFt: 0 }).adj, 30, 1, 'plays-like full headwind +30')
-// Tailwind: shot due S (180°), wind from N (0°) → -30.
-near(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 180, tempF: 70, altFt: 0 }).adj, -30, 1, 'plays-like full tailwind -30')
-// Crosswind: shot due E (90°), wind from N (0°) → ~0.
-near(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 90, tempF: 70, altFt: 0 }).adj, 0, 1, 'plays-like crosswind ≈ 0')
-// Cold: 50°F, no wind → ((70-50)/10)*1.5 = +3.
-near(computePlaysLike(150, { tempF: 50, altFt: 0 }).adj, 3, 1, 'plays-like cold +3')
-// Altitude: 5000 ft → -150*5*0.02 = -15.
-near(computePlaysLike(150, { tempF: 70, altFt: 5000 }).adj, -15, 1, 'plays-like altitude -15')
+// ── computePlaysLike (rebuilt 2026-06-30: sourced, asymmetric coefficients) ──
+// Wind is ASYMMETRIC: headwind +1%/mph, tailwind −0.5%/mph (~2:1, Trackman).
+// Headwind: 150y, 20mph from N (0°), shot due N (0°) → +1%·20·150 = +30.
+near(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 0, tempF: 70, altFt: 0 }).adj, 30, 1, 'headwind 20mph → +30')
+// Tailwind: shot due S (180°) → −0.5%·20·150 = −15 (half the headwind).
+near(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 180, tempF: 70, altFt: 0 }).adj, -15, 1, 'tailwind 20mph → −15 (asymmetric)')
+// The 2:1 asymmetry, explicitly: |headwind| === 2·|tailwind|.
+assert(Math.abs(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 0 }).factors.wind)
+       === 2 * Math.abs(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 180 }).factors.wind),
+       'headwind hurts ~2× as much as tailwind helps')
+// Crosswind: shot due E (90°) → along-component ≈ 0 → no distance change.
+near(computePlaysLike(150, { windSpeed: 20, windFromDeg: 0, shotBearing: 90, tempF: 70, altFt: 0 }).adj, 0, 1, 'crosswind ≈ 0 distance')
+// Cold: 50°F, no wind → ((70−50)/10)·0.8%·150 = +2.4 → +2.
+near(computePlaysLike(150, { tempF: 50, altFt: 0 }).adj, 2, 1, 'cold 50°F → +2')
+// Altitude: 5000 ft → −5·1.16%·150 ≈ −9 (was the folk 2% = −15).
+near(computePlaysLike(150, { tempF: 70, altFt: 5000 }).adj, -9, 1, 'altitude 5000ft → −9')
+// Elevation asymmetry: uphill full (1yd/3ft), downhill ~⅔.
+near(computePlaysLike(150, { elevDeltaFt: 30 }).adj, 10, 1, 'uphill +30ft → +10')
+near(computePlaysLike(150, { elevDeltaFt: -30 }).adj, -7, 1, 'downhill −30ft → −7 (smaller than uphill)')
+// Cap: a garbage 100mph wind can't blow past +40% (App-Store robustness).
+assert(computePlaysLike(150, { windSpeed: 100, windFromDeg: 0, shotBearing: 0 }).factors.wind === 60, 'extreme wind capped at +40% (60 on 150)')
+// Realism regression — the hole-6 case (335y, 9mph tailwind, 90°F) that was an
+// absurd −36 under the old symmetric model now lands ≈ −20.
+near(computePlaysLike(335, { windSpeed: 9, windFromDeg: 180, shotBearing: 0, tempF: 90, altFt: 0 }).adj, -20, 2, 'hole-6: 335y/9mph tail/90°F ≈ −20 (was −36)')
 assert(computePlaysLike(0).adj === 0, 'plays-like zero base → 0 adj')
 
 // ── estimateAltFromPressure ──

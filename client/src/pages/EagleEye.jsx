@@ -170,26 +170,42 @@ function haversineYards(a, b) {
 // uses (minus visual slope, which needs the photo) to the live GPS distance,
 // so every glance shows an adjusted "plays like" number — not just the
 // camera. Headwind + cold + low altitude all play longer. (2026-06-06)
-// Yards of plays-like adjustment per foot of shot elevation change. Mirror of
-// PLAYSLIKE_K_ELEV in lib/geo.js — keep in sync. (3.1, 2026-06-25)
+// Mirror of PLAYSLIKE_K_ELEV in lib/geo.js — keep in sync. Uphill full;
+// downhill ~⅔ (asymmetric). (rebuilt 2026-06-30)
 const PLAYSLIKE_K_ELEV = 1 / 3
-// Mirrors computePlaysLike in lib/geo.js EXACTLY — edit BOTH. `altFt` = absolute
-// height ASL (air density); `elevDeltaFt` = target-minus-ball delta (uphill/
-// downhill), a separate effect (not double-counted). Returns rounded plays/adj
-// (unchanged for existing callers) + base + precise factor floats for the
-// transparency UI. (elevation term added 3.1 2026-06-25)
+const PLAYSLIKE_DOWNHILL_FACTOR = 0.67
+// Mirrors computePlaysLike in lib/geo.js EXACTLY — edit BOTH. Sourced
+// coefficients (see wiki/synthesis/playslike-accuracy-rebuild-2026-06-30.md):
+// wind asymmetric (+1%/mph head, −0.5%/mph tail), temp 0.8%/10°F @70°F,
+// altitude 1.16%/1000 ft, elevation geometric (separate from altitude).
+// Per-channel caps. Additive so the UI's four factors sum to the total.
+// `altFt` = ASL height; `elevDeltaFt` = target-minus-ball delta.
 function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0, elevDeltaFt = null } = {}) {
   if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0, base: baseYds || 0, factors: { wind: 0, temp: 0, alt: 0, elevation: 0 } }
-  const per100 = baseYds / 100
+
+  // Wind — asymmetric; only the along-shot (cosine) component changes distance.
   let wind = 0
   if (windSpeed && windFromDeg != null && shotBearing != null) {
-    const theta = ((shotBearing - windFromDeg) * Math.PI) / 180
-    wind = windSpeed * Math.cos(theta) * per100   // +headwind plays longer, -tailwind shorter
+    const along = windSpeed * Math.cos(((shotBearing - windFromDeg) * Math.PI) / 180) // + head, − tail
+    let pct = along >= 0 ? 0.010 * along : 0.005 * along                              // 1%/mph head, 0.5%/mph tail
+    pct = Math.max(-0.30, Math.min(0.40, pct))
+    wind = pct * baseYds
   }
-  const temp = tempF != null ? ((70 - tempF) / 10) * per100 : 0  // colder plays longer
-  const alt  = -baseYds * ((altFt || 0) / 1000) * 0.02            // ASL air density: altitude plays shorter
-  const elevation = elevDeltaFt != null ? elevDeltaFt * PLAYSLIKE_K_ELEV : 0 // uphill (+) plays longer
-  const adj  = wind + temp + alt + elevation
+  // Temperature — air density vs a 70°F baseline; colder plays longer.
+  let temp = tempF != null ? ((70 - tempF) / 10) * 0.008 * baseYds : 0
+  temp = Math.max(-0.10 * baseYds, Math.min(0.10 * baseYds, temp))
+  // Altitude (ASL) — thinner air plays shorter.
+  let alt = -((altFt || 0) / 1000) * 0.0116 * baseYds
+  alt = Math.max(-0.15 * baseYds, Math.min(0.15 * baseYds, alt))
+  // Elevation — geometric; uphill full, downhill ~⅔.
+  let elevation = 0
+  if (elevDeltaFt != null) {
+    elevation = elevDeltaFt >= 0
+      ? elevDeltaFt * PLAYSLIKE_K_ELEV
+      : elevDeltaFt * PLAYSLIKE_K_ELEV * PLAYSLIKE_DOWNHILL_FACTOR
+    elevation = Math.max(-40, Math.min(40, elevation))
+  }
+  const adj = wind + temp + alt + elevation
   return {
     plays: Math.max(0, Math.round(baseYds + adj)),
     adj: Math.round(adj),
