@@ -174,6 +174,7 @@ function haversineYards(a, b) {
 // downhill ~⅔ (asymmetric). (rebuilt 2026-06-30)
 const PLAYSLIKE_K_ELEV = 1 / 3
 const PLAYSLIKE_DOWNHILL_FACTOR = 0.67
+const PLAYSLIKE_CARRY_CEILING = 250   // wind/air-density act on one carry, not a whole hole (mirror geo.js)
 // Mirrors computePlaysLike in lib/geo.js EXACTLY — edit BOTH. Sourced
 // coefficients (see wiki/synthesis/playslike-accuracy-rebuild-2026-06-30.md):
 // wind asymmetric (+1%/mph head, −0.5%/mph tail), temp 0.8%/10°F @70°F,
@@ -183,20 +184,24 @@ const PLAYSLIKE_DOWNHILL_FACTOR = 0.67
 function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0, elevDeltaFt = null } = {}) {
   if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0, base: baseYds || 0, factors: { wind: 0, temp: 0, alt: 0, elevation: 0 } }
 
+  // Wind + air density act on a single carry, not the full distance — cap what
+  // they scale on (≤250 ⇒ no change; a real aim/approach shot passes its own dist).
+  const flightYds = Math.min(baseYds, PLAYSLIKE_CARRY_CEILING)
+
   // Wind — asymmetric; only the along-shot (cosine) component changes distance.
   let wind = 0
   if (windSpeed && windFromDeg != null && shotBearing != null) {
     const along = windSpeed * Math.cos(((shotBearing - windFromDeg) * Math.PI) / 180) // + head, − tail
     let pct = along >= 0 ? 0.010 * along : 0.005 * along                              // 1%/mph head, 0.5%/mph tail
     pct = Math.max(-0.30, Math.min(0.40, pct))
-    wind = pct * baseYds
+    wind = pct * flightYds
   }
   // Temperature — air density vs a 70°F baseline; colder plays longer.
-  let temp = tempF != null ? ((70 - tempF) / 10) * 0.008 * baseYds : 0
-  temp = Math.max(-0.10 * baseYds, Math.min(0.10 * baseYds, temp))
+  let temp = tempF != null ? ((70 - tempF) / 10) * 0.008 * flightYds : 0
+  temp = Math.max(-0.10 * flightYds, Math.min(0.10 * flightYds, temp))
   // Altitude (ASL) — thinner air plays shorter.
-  let alt = -((altFt || 0) / 1000) * 0.0116 * baseYds
-  alt = Math.max(-0.15 * baseYds, Math.min(0.15 * baseYds, alt))
+  let alt = -((altFt || 0) / 1000) * 0.0116 * flightYds
+  alt = Math.max(-0.15 * flightYds, Math.min(0.15 * flightYds, alt))
   // Elevation — geometric; uphill full, downhill ~⅔.
   let elevation = 0
   if (elevDeltaFt != null) {

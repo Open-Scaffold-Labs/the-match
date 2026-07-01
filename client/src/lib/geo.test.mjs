@@ -51,8 +51,14 @@ near(computePlaysLike(150, { elevDeltaFt: -30 }).adj, -7, 1, 'downhill −30ft �
 // Cap: a garbage 100mph wind can't blow past +40% (App-Store robustness).
 assert(computePlaysLike(150, { windSpeed: 100, windFromDeg: 0, shotBearing: 0 }).factors.wind === 60, 'extreme wind capped at +40% (60 on 150)')
 // Realism regression — the hole-6 case (335y, 9mph tailwind, 90°F) that was an
-// absurd −36 under the old symmetric model now lands ≈ −20.
-near(computePlaysLike(335, { windSpeed: 9, windFromDeg: 180, shotBearing: 0, tempF: 90, altFt: 0 }).adj, -20, 2, 'hole-6: 335y/9mph tail/90°F ≈ −20 (was −36)')
+// absurd −36 under the old symmetric model; with the carry cap now ≈ −15
+// (wind/temp scale on min(335,250)=250, not the full 335).
+near(computePlaysLike(335, { windSpeed: 9, windFromDeg: 180, shotBearing: 0, tempF: 90, altFt: 0 }).adj, -15, 2, 'hole-6: 335y/9mph tail/90°F ≈ −15 (was −36)')
+// Carry cap: wind/air-density scale on min(dist,250), so a long-hole number
+// can't balloon. 400y @ 15mph head → wind on 250 = +37.5 (flat-on-400 was +60).
+assert(computePlaysLike(400, { windSpeed: 15, windFromDeg: 0, shotBearing: 0 }).factors.wind === 250 * 0.01 * 15, 'wind scales on capped carry (250), not full 400')
+// Approach shots (≤250) are unaffected by the cap — 200y matches uncapped.
+assert(computePlaysLike(200, { windSpeed: 10, windFromDeg: 0, shotBearing: 0 }).factors.wind === 200 * 0.01 * 10, 'approach ≤250 unchanged by cap')
 assert(computePlaysLike(0).adj === 0, 'plays-like zero base → 0 adj')
 
 // ── estimateAltFromPressure ──

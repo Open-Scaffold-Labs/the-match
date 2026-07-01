@@ -35,6 +35,14 @@ export function calcBearing(from, to) {
 // (marketing stance). (rebuilt 2026-06-30)
 export const PLAYSLIKE_K_ELEV = 1 / 3            // uphill yards per foot
 const PLAYSLIKE_DOWNHILL_FACTOR = 0.67           // downhill yields ~⅔ of uphill
+// Wind + air-density act on ONE carry's worth of flight time, not on a whole-
+// hole distance — and flight time stops growing past full-swing apex (Trackman:
+// apex ~30-32y for every club), so a driver loses fewer % than a wedge. Cap the
+// distance those %-terms scale on at a single-carry ceiling so a long-hole
+// number can't balloon them (250y sits under tour driver carry ~282y, above
+// most amateur carries → approach shots ≤250 are unchanged). Elevation is
+// geometry to the target, so it is NOT capped. (research 2026-06-30)
+const PLAYSLIKE_CARRY_CEILING = 250              // yards
 
 // Wind / temperature / altitude / elevation "plays like" model. Sourced,
 // physically-defensible coefficients — see
@@ -54,22 +62,27 @@ const PLAYSLIKE_DOWNHILL_FACTOR = 0.67           // downhill yields ~⅔ of uphi
 export function computePlaysLike(baseYds, { windSpeed = 0, windFromDeg = null, shotBearing = null, tempF = null, altFt = 0, elevDeltaFt = null } = {}) {
   if (!baseYds || baseYds <= 0) return { plays: baseYds, adj: 0, base: baseYds || 0, factors: { wind: 0, temp: 0, alt: 0, elevation: 0 } }
 
+  // Wind + air density act on a single carry, not the full (possibly whole-hole)
+  // distance. Cap the distance they scale on so long holes can't balloon them
+  // (≤250 ⇒ no change; a real aim/approach shot passes its own distance in).
+  const flightYds = Math.min(baseYds, PLAYSLIKE_CARRY_CEILING)
+
   // Wind — asymmetric; only the along-shot (cosine) component changes distance.
   let wind = 0
   if (windSpeed && windFromDeg != null && shotBearing != null) {
     const along = windSpeed * Math.cos(((shotBearing - windFromDeg) * Math.PI) / 180) // + head, − tail
     let pct = along >= 0 ? 0.010 * along : 0.005 * along                              // 1%/mph head, 0.5%/mph tail
     pct = Math.max(-0.30, Math.min(0.40, pct))                                        // sane caps
-    wind = pct * baseYds
+    wind = pct * flightYds
   }
 
   // Temperature — air density vs a 70°F baseline; colder plays longer.
-  let temp = tempF != null ? ((70 - tempF) / 10) * 0.008 * baseYds : 0
-  temp = Math.max(-0.10 * baseYds, Math.min(0.10 * baseYds, temp))
+  let temp = tempF != null ? ((70 - tempF) / 10) * 0.008 * flightYds : 0
+  temp = Math.max(-0.10 * flightYds, Math.min(0.10 * flightYds, temp))
 
   // Altitude (ASL) — thinner air, ball flies farther, plays shorter.
-  let alt = -((altFt || 0) / 1000) * 0.0116 * baseYds
-  alt = Math.max(-0.15 * baseYds, Math.min(0.15 * baseYds, alt))
+  let alt = -((altFt || 0) / 1000) * 0.0116 * flightYds
+  alt = Math.max(-0.15 * flightYds, Math.min(0.15 * flightYds, alt))
 
   // Elevation — geometric; uphill full, downhill ~⅔.
   let elevation = 0
