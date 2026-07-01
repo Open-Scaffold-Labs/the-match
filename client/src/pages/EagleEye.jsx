@@ -2002,7 +2002,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20)',
               minWidth: 124,
               marginTop: 0,
-              marginBottom: 60,   /* float above the ANALYZE / BAG pill row (bottom corners) */
+              marginBottom: 16,   /* sit low near the tee; compact (PAR pill removed) */
               zIndex: 800,
             }}>
               {/* Hero distance instrument — arc gauge + number roll in lockstep */}
@@ -2064,16 +2064,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 </button>
               )}
               {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
-              <div style={{ display: 'flex', gap: 4, marginTop: 6, justifyContent: 'flex-start' }}>
-                <div style={{ background: 'rgba(42,122,56,0.3)', border: '1px solid rgba(42,122,56,0.5)', borderRadius: 4, padding: '1px 6px' }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: '#5ED47A' }}>PAR {holeData?.par ?? '—'}</span>
+              {/* PAR pill removed 2026-06-30 — par already shows in the top hole
+                  toggle; dropping it shrinks the card so it doesn't crowd the tee. */}
+              {holeData?.yardage && gpsToGreen != null && (
+                <div style={{ marginTop: 6, background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 4, padding: '1px 6px' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#C9A040' }}>{holeData.yardage}Y TEE</span>
                 </div>
-                {holeData?.yardage && gpsToGreen != null && (
-                  <div style={{ background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 4, padding: '1px 6px' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: '#C9A040' }}>{holeData.yardage}Y TEE</span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
             {/* ── actions (LAST ANALYSIS) — sits just above the hero card ── */}
@@ -2166,7 +2163,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       {!showCamera && !showPicker && (
         <button onClick={() => setShowCamera(true)} style={{
           position: 'absolute',
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)', left: 16,
+          top: 'calc(42% + 78px)', left: 10,   /* directly under the +/- zoom toggle (mid-left) */
           background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
           border: '1px solid rgba(245,215,138,0.85)',
           borderRadius: 999, padding: '10px 16px',
