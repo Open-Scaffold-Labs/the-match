@@ -1450,17 +1450,26 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // This is an OPTIONAL factor — the distance and every other readout never
   // block on or break from it; any failure simply leaves elevDelta null.
   const [elevDelta, setElevDelta] = useState(null)
+  // Option B (2026-06-30): when the golfer drags the aim point short of the pin,
+  // the whole readout (distance + plays-like) retargets to that aim — a real
+  // shot — instead of the pin. `aimInfo` is reported up by HoleMapGL. userPlaced
+  // is false for the auto-default aim, which stays Option A (to the pin, capped).
+  // aimGreenYds > 8 ⇒ the aim is meaningfully short of the green.
+  const [aimInfo, setAimInfo] = useState(null)
+  const userAim = (aimInfo?.userPlaced && aimInfo.aimGreenYds > 8) ? aimInfo : null
   const gpsLat4 = gps ? gps.lat.toFixed(4) : null
   const gpsLon4 = gps ? gps.lon.toFixed(4) : null
   useEffect(() => {
-    const green = greenPositions[currentHole]
+    // Elevation to the ACTIVE target: the user aim when Option B is on, else the
+    // green. Same endpoint (server caches per coordinate), so retargeting is cheap.
+    const target = userAim ? userAim.aim : greenPositions[currentHole]
     const acc = gps?.acc ?? null
     const trusted = gps != null && acc != null && acc <= GPS_ACCURACY_GATE_M
-    if (!trusted || !green) { setElevDelta(null); return }   // reset stale elevation on hole/GPS change
+    if (!trusted || !target) { setElevDelta(null); return }   // reset stale elevation on hole/GPS/aim change
     let cancelled = false
     ;(async () => {
       try {
-        const r = await fetch(`/api/eagle-eye/elevation?glat=${green.lat}&glon=${green.lon}&plat=${gps.lat}&plon=${gps.lon}`)
+        const r = await fetch(`/api/eagle-eye/elevation?glat=${target.lat}&glon=${target.lon}&plat=${gps.lat}&plon=${gps.lon}`)
         if (!r.ok) return
         const d = await r.json()
         if (!cancelled) setElevDelta(typeof d.deltaFt === 'number' ? d.deltaFt : null)
@@ -1468,7 +1477,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentHole, greenPositions, gpsLat4, gpsLon4])
+  }, [currentHole, greenPositions, gpsLat4, gpsLon4, userAim])
 
   // Seed weather from the course's own location as soon as the geometry loads,
   // so plays-like (and its chip) appear without waiting for a GPS fix — a fix
@@ -1565,18 +1574,22 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     : null
   const temp = weather ? Math.round(weather.temperature_2m) : null
 
-  const displayYards = gpsToGreen ?? (gpsTrusted && distanceWalked > 10 && remainingYards != null
+  const pinYards = gpsToGreen ?? (gpsTrusted && distanceWalked > 10 && remainingYards != null
     ? remainingYards
     : (holeData?.yardage ?? null))
+  // Option B: a user-placed aim short of the pin becomes the target — the hero
+  // distance follows it (a real shot), else the pin distance (Option A).
+  const displayYards = userAim ? userAim.teeAimYds : pinYards
 
-  // Hero-instrument label + accent (Phase 2.3). Green when the number is a
-  // trusted live GPS-to-green read; amber while acquiring; muted for the
-  // static tee/remaining fallback.
-  const distLabel = gpsToGreen != null ? 'TO GREEN'
+  // Hero-instrument label + accent (Phase 2.3). Gold when aimed at a user target;
+  // green for a trusted live GPS-to-green read; amber while acquiring; muted for
+  // the static tee/remaining fallback.
+  const distLabel = userAim ? 'TO AIM'
+    : gpsToGreen != null ? 'TO GREEN'
     : gpsAcquiring ? 'ACQUIRING'
     : (gpsTrusted && distanceWalked > 10 && remainingYards != null) ? 'REMAINING'
     : 'FROM TEE'
-  const distAccent = gpsToGreen != null ? '#5ED47A' : gpsAcquiring ? '#F0A868' : '#C9A040'
+  const distAccent = userAim ? '#F5D78A' : gpsToGreen != null ? '#5ED47A' : gpsAcquiring ? '#F0A868' : '#C9A040'
 
   // "Plays like" wind needs a shot DIRECTION. Prefer the live player→green
   // bearing once we have a trusted GPS fix; otherwise fall back to the
@@ -1589,11 +1602,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     ? Math.round(gps.alt * 3.281)
     : estimateAltFromPressure(weather?.surface_pressure)
   const teeCoord = holePositions[currentHole] || null
-  const shotBearing = (trustedGps && greenCoord)
-    ? calcBearing({ lat: trustedGps.lat, lon: trustedGps.lon }, greenCoord)
-    : (teeCoord && greenCoord)
-      ? calcBearing(teeCoord, greenCoord)
-      : null
+  const shotOrigin = trustedGps ? { lat: trustedGps.lat, lon: trustedGps.lon } : teeCoord
+  const shotBearing = (userAim && shotOrigin)
+    ? calcBearing(shotOrigin, userAim.aim)                    // B: wind relative to the aim shot
+    : (trustedGps && greenCoord)
+      ? calcBearing({ lat: trustedGps.lat, lon: trustedGps.lon }, greenCoord)
+      : (teeCoord && greenCoord)
+        ? calcBearing(teeCoord, greenCoord)
+        : null
   // Auto-derived conditions (from weather + DEM) and the effective conditions
   // after any manual overrides from the plays-like sheet. The chip + sheet both
   // read `playsLike`, computed from the effective values. (Phase 3.1)
@@ -1644,7 +1660,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // yardage stands alone rather than showing numbers we can't stand behind.
   // (2026-06-24)
   const fcbPlayer = (trustedGps?.lat != null) ? { lat: trustedGps.lat, lon: trustedGps.lon } : null
-  const fcb = (ENABLE_FCB && greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
+  // F/C/B is a green concept — hide it when the readout is aimed at a user
+  // target short of the pin (Option B).
+  const fcb = (ENABLE_FCB && !userAim && greenPolygon && fcbPlayer && greenCoord) ? greenFCB(fcbPlayer, greenPolygon, greenCoord) : null
 
   const teeHoles = courseCtx?.tee?.holes ?? []
 
@@ -1954,6 +1972,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             clubYards={selectedClub ? Number(selectedClub.avg_yards) : null}
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
             bagArcs={bagArcsData}
+            onAimChange={setAimInfo}
           />
 
           {/* HUD overlay — the wrapper spans the full map (`inset: 0`) with

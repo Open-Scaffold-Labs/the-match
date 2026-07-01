@@ -148,6 +148,7 @@ export default function HoleMapGL({
   clubYards = null, clubLabel = null,
   bagArcs = [],
   onInitError,
+  onAimChange,          // ({userPlaced, teeAimYds, aimGreenYds, aim}|null) — B: retarget plays-like to a user aim
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -175,6 +176,9 @@ export default function HoleMapGL({
   const bagArcsRef = useRef(bagArcs)   // [{label, yards, estimated, highlight}] — Phase 3.3
   const bagLabelsRef = useRef([])      // dynamic list of club-zone label markers
   const lastAimRef = useRef(null)      // aim {lat,lon} from the last redrawAim, shared with drawBagArcs
+  const onAimChangeRef = useRef(onAimChange)   // latest callback for the once-attached dragend handler
+  const emitAimRef = useRef(() => {})          // latest emitAim (avoids stale closure)
+  useEffect(() => { onAimChangeRef.current = onAimChange }, [onAimChange])
   useEffect(() => { gpsRef.current = gps }, [gps])
   useEffect(() => { clubRef.current = { yards: clubYards, label: clubLabel } }, [clubYards, clubLabel])
   useEffect(() => { bagArcsRef.current = bagArcs; redrawRef.current() }, [bagArcs]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -383,10 +387,14 @@ export default function HoleMapGL({
           aimRef.current = { lat: ll.lat, lon: ll.lng }
           redrawRef.current()
         })
+        // Retarget the HUD's plays-like to the user aim on release (not per
+        // drag frame — avoids re-rendering the HUD mid-drag). (2026-06-30, B)
+        aimMarkerRef.current.on('dragend', () => { emitAimRef.current() })
       } else aimMarkerRef.current.setLngLat([aim.lon, aim.lat])
     } else if (aimMarkerRef.current) { aimMarkerRef.current.remove(); aimMarkerRef.current = null }
 
     redrawAim()
+    emitAim()   // report the (default or hole-reset) aim to the HUD — userPlaced=false
 
     // cinematic course-up camera: bearing tee→green, pitched down the fairway.
     // Zoom adapts to hole length so the green stays on screen on long par 5s
@@ -463,6 +471,33 @@ export default function HoleMapGL({
     drawBagArcs(player)
   }
   redrawRef.current = redrawAim
+
+  // Report the current aim up to the parent (Option B). userPlaced=false for the
+  // auto-default (par-aware layup / green); true once the golfer drags it. Yards
+  // are the same split-proportional values the on-map pills show. Called on
+  // default draw + on dragend (not per drag frame). (2026-06-30)
+  function emitAim() {
+    const cb = onAimChangeRef.current
+    if (!cb) return
+    const tee = holePositions[currentHole]
+    const green = greenPositions[currentHole]
+    if (!tee || !green) { cb(null); return }
+    const meta = holeMeta()
+    const totalYards = meta?.yardage ?? Math.round(haversineYards(tee, green) || 0)
+    const par = meta?.par ?? 4
+    const aim = aimRef.current || getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
+      || { lat: (tee.lat + green.lat) / 2, lon: (tee.lon + green.lon) / 2 }
+    const a = haversineYards(tee, aim) || 0
+    const b = haversineYards(aim, green) || 0
+    const tot = (a + b) || 1
+    cb({
+      userPlaced: aimRef.current != null,
+      teeAimYds: Math.round((a / tot) * totalYards),
+      aimGreenYds: Math.round((b / tot) * totalYards),
+      aim,
+    })
+  }
+  emitAimRef.current = emitAim
 
   const ARC_HALF_DEG = 26
   // A curved arc of `radiusYards` from `center`, swept ±ARC_HALF_DEG around
