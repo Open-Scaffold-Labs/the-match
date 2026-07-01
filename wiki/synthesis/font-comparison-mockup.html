@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Match — Font Option Comparison</title>
+<!-- Real fonts so you see the actual difference. SF Pro = your Mac's system font (-apple-system). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#070C09; --d0:#0A0E0C; --d1:#1E211F; --d2:#252826; --d3:#2B2E2C;
+    --green:#2A7A38; --green-br:#3a9a4a; --gold:#C9A040; --gold-br:#E8C05A;
+    --txt:rgba(255,255,255,0.92); --txt2:rgba(255,255,255,0.60); --txt3:rgba(255,255,255,0.40);
+    --birdie:#5b9bf0; --bogey:#E0903A;
+    --sf:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",system-ui,sans-serif;
+    --inter:"Inter",var(--sf);
+    --jb:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:radial-gradient(120% 80% at 50% 0%, #0d140f 0%, var(--bg) 60%);
+    color:var(--txt); font-family:var(--sf);
+    font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased;
+    padding:32px 20px 64px; min-height:100vh;
+  }
+  .head{max-width:1100px;margin:0 auto 28px;}
+  .head h1{font-size:24px;font-weight:800;letter-spacing:-0.02em;}
+  .head p{color:var(--txt2);font-size:14px;margin-top:6px;line-height:1.5;max-width:760px;}
+  .head .note{color:var(--gold-br);font-size:12.5px;margin-top:10px;}
+  .grid{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  @media(max-width:1180px){.grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:620px){.grid{grid-template-columns:1fr;}}
+  .col{background:var(--d1);border:1px solid rgba(255,255,255,0.07);border-radius:18px;overflow:hidden;
+       box-shadow:0 1px 1px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}
+  .col-h{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);background:var(--d2);}
+  .col-h .opt{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;}
+  .col-h .name{font-size:15px;font-weight:700;margin-top:3px;}
+  .col-h .desc{font-size:11.5px;color:var(--txt2);margin-top:4px;line-height:1.45;}
+  .rec{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;color:#0A0E0C;
+       background:var(--gold-br);border-radius:6px;padding:2px 7px;margin-left:7px;vertical-align:middle;}
+  .body{padding:20px 16px 22px;}
+
+  /* HUD mock */
+  .hud-label{font-size:10.5px;font-weight:700;letter-spacing:.16em;color:var(--txt3);text-transform:uppercase;}
+  .hero{display:flex;align-items:baseline;gap:8px;margin-top:6px;}
+  .hero .num{font-size:76px;line-height:0.92;font-weight:800;letter-spacing:-0.03em;color:#fff;
+             font-variant-numeric:tabular-nums;font-feature-settings:"zero" 1;}
+  .hero .unit{font-size:18px;font-weight:600;color:var(--txt2);letter-spacing:.02em;}
+  .fcb{display:flex;gap:10px;margin-top:16px;}
+  .fcb .cell{flex:1;background:var(--d0);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:9px 10px;text-align:center;}
+  .fcb .t{font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--txt3);text-transform:uppercase;}
+  .fcb .v{font-size:24px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;}
+  .pl{margin-top:16px;display:flex;align-items:center;justify-content:space-between;
+      background:rgba(42,122,56,.16);border:1px solid rgba(58,154,74,.3);border-radius:12px;padding:11px 13px;}
+  .pl .lab{font-size:11px;font-weight:600;color:var(--green-br);letter-spacing:.02em;}
+  .pl .v{font-size:26px;font-weight:800;color:var(--gold-br);font-variant-numeric:tabular-nums;font-feature-settings:"zero" 1;}
+  .pl .v small{font-size:13px;color:var(--txt2);font-weight:600;margin-left:2px;}
+
+  /* scorecard mock */
+  .sc{margin-top:20px;border-top:1px solid rgba(255,255,255,.07);padding-top:16px;}
+  .sc-h{font-size:10.5px;font-weight:700;letter-spacing:.14em;color:var(--txt3);text-transform:uppercase;margin-bottom:9px;}
+  .sc-row{display:grid;grid-template-columns:1.6fr repeat(5,1fr) 1.1fr;gap:4px;align-items:center;}
+  .sc-row + .sc-row{margin-top:5px;}
+  .sc-row .lbl{font-size:12px;color:var(--txt2);font-weight:600;}
+  .sc-row .c{text-align:center;font-size:14px;font-variant-numeric:tabular-nums;font-weight:700;}
+  .sc-row.hdr .c,.sc-row.hdr .lbl{font-size:10px;color:var(--txt3);font-weight:700;letter-spacing:.05em;}
+  .sc-row .tot{text-align:center;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .birdie{color:var(--birdie);} .bogey{color:var(--bogey);} .par{color:var(--txt2);} .eagle{color:var(--gold-br);}
+  .ui-note{margin-top:18px;font-size:11.5px;color:var(--txt2);line-height:1.5;}
+  .ui-note b{color:var(--txt);font-weight:700;}
+
+  /* option-specific font assignments */
+  /* Current = today's live stack: system font everywhere (no instrument numerals) */
+  .optCurrent,.optCurrent .hero .num,.optCurrent .fcb .v,.optCurrent .pl .v,.optCurrent .sc-row .c,.optCurrent .sc-row .tot{font-family:var(--sf);}
+  .optCurrent .hero .num{font-feature-settings:normal;} /* no slashed-zero today */
+  .optCurrent .pl .v{font-feature-settings:normal;}
+
+  .optA .hero .num,.optA .fcb .v,.optA .pl .v,.optA .sc-row .c,.optA .sc-row .tot{font-family:var(--sf);}
+  .optA .hud-label,.optA .pl .lab,.optA .ui-note,.optA .sc-h,.optA .fcb .t{font-family:var(--sf);}
+
+  /* subtle frame on the Current card so it's clearly the baseline */
+  .col.baseline{border-color:rgba(201,160,64,.35);}
+  .col.baseline .col-h{background:#23201a;}
+
+  .optB{font-family:var(--sf);}
+  .optB .hero .num,.optB .fcb .v,.optB .pl .v,.optB .sc-row .c,.optB .sc-row .tot{font-family:var(--jb);}
+
+  .optC{font-family:var(--inter);}
+  .optC .hero .num,.optC .fcb .v,.optC .pl .v,.optC .sc-row .c,.optC .sc-row .tot{font-family:var(--jb);}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>The Match — Current font vs. the 3 options, on our real dark palette</h1>
+    <p>Same Eagle Eye hero readout + a sample scorecard in all four. <b>Current</b> is exactly what the app ships today (the system font stack from <code>tokens.css:137</code>). The difference is in the <b>numerals</b> — the hero distance, F/C/B, plays-like, scores. All use tabular numerals so digits never jitter.</p>
+    <p class="note">Key point: <b>Current and Option A use the same font</b> (your device's system SF Pro) — so on your Mac/iPhone they render identically. That tells you Option A = "formalize today's font," while B &amp; C are the real upgrades. Inter &amp; JetBrains Mono load from Google Fonts — open with a connection so they render.</p>
+  </div>
+
+  <div class="grid">
+    <!-- CURRENT -->
+    <div class="col baseline optCurrent">
+      <div class="col-h">
+        <div class="opt" style="color:#E8C05A">Current</div>
+        <div class="name">Live app today</div>
+        <div class="desc">System font stack (<code>-apple-system…SF Pro</code>), tabular numerals on, no instrument face, no slashed zero. This is the baseline.</div>
+      </div>
+      <div class="body">
+        <div class="hud-label">To Center</div>
+        <div class="hero"><span class="num">147</span><span class="unit">yds</span></div>
+        <div class="fcb">
+          <div class="cell"><div class="t">Front</div><div class="v">139</div></div>
+          <div class="cell"><div class="t">Center</div><div class="v">147</div></div>
+          <div class="cell"><div class="t">Back</div><div class="v">156</div></div>
+        </div>
+        <div class="pl"><span class="lab">Plays like</span><span class="v">152<small>yds</small></span></div>
+        <div class="sc">
+          <div class="sc-h">Front Nine</div>
+          <div class="sc-row hdr"><span class="lbl">Hole</span><span class="c">1</span><span class="c">2</span><span class="c">3</span><span class="c">4</span><span class="c">5</span><span class="c">Out</span></div>
+          <div class="sc-row"><span class="lbl">Matt</span><span class="c birdie">3</span><span class="c par">4</span><span class="c bogey">5</span><span class="c par">3</span><span class="c eagle">3</span><span class="tot">18</span></div>
+        </div>
+        <div class="ui-note"><b>Feel:</b> what you have now. Clean and solid — but the hero number is "just text," not an instrument. On your device this looks the same as Option A.</div>
+      </div>
+    </div>
+
+    <!-- OPTION A -->
+    <div class="col optA">
+      <div class="col-h">
+        <div class="opt">Option A</div>
+        <div class="name">System SF Pro only</div>
+        <div class="desc">SF Pro everywhere, with its built-in tabular digits. Zero font-loading risk, free Dynamic Type. Reads clean &amp; iOS-native.</div>
+      </div>
+      <div class="body">
+        <div class="hud-label">To Center</div>
+        <div class="hero"><span class="num">147</span><span class="unit">yds</span></div>
+        <div class="fcb">
+          <div class="cell"><div class="t">Front</div><div class="v">139</div></div>
+          <div class="cell"><div class="t">Center</div><div class="v">147</div></div>
+          <div class="cell"><div class="t">Back</div><div class="v">156</div></div>
+        </div>
+        <div class="pl"><span class="lab">Plays like</span><span class="v">152<small>yds</small></span></div>
+        <div class="sc">
+          <div class="sc-h">Front Nine</div>
+          <div class="sc-row hdr"><span class="lbl">Hole</span><span class="c">1</span><span class="c">2</span><span class="c">3</span><span class="c">4</span><span class="c">5</span><span class="c">Out</span></div>
+          <div class="sc-row"><span class="lbl">Matt</span><span class="c birdie">3</span><span class="c par">4</span><span class="c bogey">5</span><span class="c par">3</span><span class="c eagle">3</span><span class="tot">18</span></div>
+        </div>
+        <div class="ui-note"><b>Feel:</b> familiar, friendly, Apple-native. The hero number looks like a great iOS app.</div>
+      </div>
+    </div>
+
+    <!-- OPTION B -->
+    <div class="col optB">
+      <div class="col-h">
+        <div class="opt">Option B <span class="rec">RECOMMENDED</span></div>
+        <div class="name">SF Pro UI + JetBrains Mono numerals</div>
+        <div class="desc">SF Pro for all text (safe), one bundled mono "instrument" face for the readouts only. Distinctive exactly where it's the hero.</div>
+      </div>
+      <div class="body">
+        <div class="hud-label">To Center</div>
+        <div class="hero"><span class="num">147</span><span class="unit">yds</span></div>
+        <div class="fcb">
+          <div class="cell"><div class="t">Front</div><div class="v">139</div></div>
+          <div class="cell"><div class="t">Center</div><div class="v">147</div></div>
+          <div class="cell"><div class="t">Back</div><div class="v">156</div></div>
+        </div>
+        <div class="pl"><span class="lab">Plays like</span><span class="v">152<small>yds</small></span></div>
+        <div class="sc">
+          <div class="sc-h">Front Nine</div>
+          <div class="sc-row hdr"><span class="lbl">Hole</span><span class="c">1</span><span class="c">2</span><span class="c">3</span><span class="c">4</span><span class="c">5</span><span class="c">Out</span></div>
+          <div class="sc-row"><span class="lbl">Matt</span><span class="c birdie">3</span><span class="c par">4</span><span class="c bogey">5</span><span class="c par">3</span><span class="c eagle">3</span><span class="tot">18</span></div>
+        </div>
+        <div class="ui-note"><b>Feel:</b> the readout reads like a precision instrument / rangefinder, while the rest stays clean iOS. Slashed zero + mono tick = "device."</div>
+      </div>
+    </div>
+
+    <!-- OPTION C -->
+    <div class="col optC">
+      <div class="col-h">
+        <div class="opt">Option C</div>
+        <div class="name">Inter UI + JetBrains Mono numerals</div>
+        <div class="desc">Fully custom: Inter for all text, JetBrains Mono for numbers. Most "designed," but the largest font-loading surface to get right in the app.</div>
+      </div>
+      <div class="body">
+        <div class="hud-label">To Center</div>
+        <div class="hero"><span class="num">147</span><span class="unit">yds</span></div>
+        <div class="fcb">
+          <div class="cell"><div class="t">Front</div><div class="v">139</div></div>
+          <div class="cell"><div class="t">Center</div><div class="v">147</div></div>
+          <div class="cell"><div class="t">Back</div><div class="v">156</div></div>
+        </div>
+        <div class="pl"><span class="lab">Plays like</span><span class="v">152<small>yds</small></span></div>
+        <div class="sc">
+          <div class="sc-h">Front Nine</div>
+          <div class="sc-row hdr"><span class="lbl">Hole</span><span class="c">1</span><span class="c">2</span><span class="c">3</span><span class="c">4</span><span class="c">5</span><span class="c">Out</span></div>
+          <div class="sc-row"><span class="lbl">Matt</span><span class="c birdie">3</span><span class="c par">4</span><span class="c bogey">5</span><span class="c par">3</span><span class="c eagle">3</span><span class="tot">18</span></div>
+        </div>
+        <div class="ui-note"><b>Feel:</b> coherent, "Swiss" designed system. Inter is crisp &amp; modern but less Apple-native; biggest WKWebView load risk.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

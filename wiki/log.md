@@ -1397,3 +1397,15 @@ Non-code session producing GolfNow-affiliate marketing collateral, a reusable do
 - Built two social-media marketing deliverables as native `.pages`, styled to match `the-match-brief.pages` (gold-gradient cover + "Match" wordmark, cream interior, Didot green headings, gold eyebrows/rules, two-column feature grid, pull quotes, refined gold-accented tables): `The-Match-Social-Media-Marketing-Strategy.pages` (full deck) and `The-Match-Social-Media-One-Pager.pages` (1-page, strictly social media). Pipeline: docx via docx-js → gold cover/banner rendered with Chrome headless using the Mac's Didot font → Pages saves as native `.pages`. Removed the earlier flat `.docx` versions of both.
 - Added reusable `brand-kit/` (`STYLE-GUIDE.md`, `brandkit.js`, `build-pages-docs.js`, `cover.html`, `banner.html`) — the standard appearance for all future Match docs.
 - Recorded the marketing-site URL from Dale: **the-match.openscaffoldlabs.com** (POST-LAUNCH-TODO #23). Distinct from the app origin `the-match-roan.vercel.app` and the still-TBD referral short URL (#19).
+
+## [2026-06-30] refactor | Eagle Eye accuracy + visual polish (6 fixes) + plays-like rebuild
+
+Six commits to `main`, all build+lint+test-gated + Matt device-checked:
+- reduced-motion accessibility pass (`tokens.css`; `e5aef08`) — cuts decorative/looping motion, preserves opacity-led confirmations (Saved chip, score banner).
+- removed the on-screen GPS "±X m" margin, 3 spots (`587999d`) — Matt: don't narrate the flaw. Now calm "GPS"/"ACQUIRING" only; the `coords.accuracy` gate is unchanged.
+- plays-like wind now applies pre-fix via a tee→green geometry-bearing fallback for `shotBearing` (`4d13c9d`).
+- header wind arrow made shot-relative, changes per hole (`5002848`); then flipped to blow-direction — down = in your face (`975fefc`).
+- **plays-like coefficient REBUILD** (`a2f5b73`) — replaced the unvalidated heuristic with sourced Trackman/Titleist coefficients: asymmetric wind (headwind +1%/mph, tailwind −0.5%/mph), altitude 1.16%/1000ft, temp 0.8%/10°F, downhill ×0.67, per-channel caps. Fixes the −36 hole-6 bug (→ ≈−20). Mirrored in `geo.js` + `EagleEye.jsx`; 29/29 `geo.test.mjs` assertions. Spec: `playslike-accuracy-rebuild-2026-06-30.md`.
+- Phase 0 foundation: WP-0.A tabular numerals verified (already applied); WP-0.E reduced-motion shipped; WP-0.C/D/F deferred (app is inline-styled → Phase-4.3 refactor, not a token flip); font = keep system SF Pro (Matt reviewed a 4-way mockup). Spec: `phase0-foundation-build-spec-2026-06-30.md`.
+- Corrected trust anchors: build-plan risk #2 + marketing-stance line updated — **never show a precision figure anywhere** (in-app ±chip removed; no graded chip). New `next-session-handoff-2026-06-30.md` supersedes 06-29.
+- Research: two cited agent reports (competitor UX foundation; plays-like methods + physics).
