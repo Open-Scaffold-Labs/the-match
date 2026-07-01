@@ -1975,6 +1975,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             onAimChange={setAimInfo}
           />
 
+          {/* Focus vignette — subtly darkens the map edges so the centre + the
+              distance card pop (premium framing). Static, pointer-through. */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5,
+            background: 'radial-gradient(125% 90% at 50% 40%, transparent 56%, rgba(0,0,0,0.40) 100%)' }} />
+
           {/* HUD overlay — the wrapper spans the full map (`inset: 0`) with
               pointerEvents:none at auto z-index; each visible child carries
               its own zIndex: 800 so the yardage card + Analyze paint above
@@ -2163,20 +2168,20 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       {!showCamera && !showPicker && (
         <button onClick={() => setShowCamera(true)} style={{
           position: 'absolute',
-          top: 'calc(42% + 78px)', left: 10,   /* directly under the +/- zoom toggle (mid-left) */
-          background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
-          border: '1px solid rgba(245,215,138,0.85)',
-          borderRadius: 999, padding: '10px 16px',
-          color: '#070C09',
-          fontSize: 12, fontWeight: 900, letterSpacing: '0.06em',
+          top: 'calc(50% - 124px)', right: 16, transform: 'translateY(-50%)',   /* right rail, above ARCS */
+          background: 'rgba(7,12,9,0.62)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+          border: '1px solid rgba(245,215,138,0.40)',
+          borderRadius: 999, padding: '8px 12px',
+          color: '#F5D78A',
+          fontSize: 11, fontWeight: 800, letterSpacing: '0.06em',
           cursor: 'pointer',
-          // inset top-rim highlight = the detail that reads as real glass/metal
-          boxShadow: '0 8px 22px rgba(201,160,64,0.45), inset 0 1px 0 rgba(255,255,255,0.5)',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
           display: 'inline-flex', alignItems: 'center', gap: 7,
           fontFamily: 'inherit',
           zIndex: 1000,
+          WebkitTapHighlightColor: 'transparent',
         }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#070C09" strokeWidth="2.2" strokeLinecap="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.1" strokeLinecap="round">
             <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
             <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
             <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
