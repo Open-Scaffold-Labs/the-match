@@ -1822,7 +1822,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             </button>
           )
           return (
-            <div style={{ padding: '0 20px 12px', pointerEvents: 'auto' }}>
+            <div style={{ padding: '0 20px 12px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 2,
                 background: 'rgba(8,12,10,0.55)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
@@ -1980,7 +1980,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               its own zIndex: 800 so the yardage card + Analyze paint above
               the map while the empty middle stays click-through to the map
               (pan/tap-to-measure). Floating BAG sits at 1000. */}
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 'calc(env(safe-area-inset-top, 44px) + 96px) 16px 20px', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: 'calc(env(safe-area-inset-top, 44px) + 96px) 16px 20px', pointerEvents: 'none' }}>
 
             {/* ── Top yardage card — top-LEFT corner. Replaces the
                 standalone HOLE badge that used to live in HoleMap;
@@ -1994,14 +1994,15 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 tabular numeral with a soft shadow so it stays legible over
                 bright satellite imagery. Compact enough not to occlude the
                 map/markers. (2026-06-23 — premium pass, first visual slice.) */}
-            <div style={{ alignSelf: 'flex-start', pointerEvents: 'auto', textAlign: 'center',
+            <div style={{ alignSelf: 'center', order: 2, pointerEvents: 'auto', textAlign: 'center',
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'rgba(8,12,10,0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
               borderRadius: 20, border: '1px solid rgba(255,255,255,0.14)',
               padding: '10px 14px 12px',
               boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20)',
               minWidth: 124,
-              marginTop: 12,
+              marginTop: 0,
+              marginBottom: 60,   /* float above the ANALYZE / BAG pill row (bottom corners) */
               zIndex: 800,
             }}>
               {/* Hero distance instrument — arc gauge + number roll in lockstep */}
@@ -2075,8 +2076,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </div>
             </div>
 
-            {/* ── Bottom: actions ── */}
-            <div style={{ pointerEvents: 'auto', zIndex: 800 }}>
+            {/* ── actions (LAST ANALYSIS) — sits just above the hero card ── */}
+            <div style={{ pointerEvents: 'auto', zIndex: 800, order: 1 }}>
               {/* Conditions pills removed 2026-05-01 — same wind/temp
                   values are already shown in the page header, so the
                   duplicate row above the Analyze Shot button was dead
@@ -2165,7 +2166,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       {!showCamera && !showPicker && (
         <button onClick={() => setShowCamera(true)} style={{
           position: 'absolute',
-          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', left: 16,
+          bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)', left: 16,
           background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
           border: '1px solid rgba(245,215,138,0.85)',
           borderRadius: 999, padding: '10px 16px',
