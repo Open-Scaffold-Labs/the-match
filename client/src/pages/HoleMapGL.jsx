@@ -449,13 +449,13 @@ export default function HoleMapGL({
 
     // RAW great-circle distances — what every rangefinder + the USGA use. NEVER
     // scale to the scorecard (that's a dogleg-path number; scaling to it compresses
-    // distances and breaks PAST the green — the 219-for-a-435-shot bug). The one
-    // correction: the OSM tee NODE can be misplaced (hole 6: raw tee→green ~388 vs
-    // scorecard 335), so subtract just the tee's over-distance and measure raw from
-    // the corrected origin. aim→green stays fully raw (green-based → right regardless
-    // of the tee, and grows correctly past the green). The correction fires ONLY when
-    // the tee reads LONG (max 0), so genuine doglegs (scorecard > straight-line)
-    // aren't inflated. Durable fix = verified course geometry. (2026-07 research + Matt.)
+    // distances and breaks PAST the green — the 219-for-a-435-shot bug). Small
+    // safety `teeOffset`: if the app's tee→green comes out LONGER than the scorecard,
+    // subtract the excess so tee→aim stays scorecard-consistent (fires only when it
+    // reads long, so real doglegs aren't inflated). NOTE (verified 2026-07 from
+    // tm_osm_cache): the OSM hole-6 LINE is accurate — tee→green ≈ 338 ≈ scorecard 335,
+    // so any residual gap is a tee/green PARSING/matching artifact, NOT OSM being
+    // wrong. aim→green stays fully raw (green-based, correct even past the green).
     const teeOffset = totalYards > 0 ? Math.max(0, (haversineYards(tee, green) || 0) - totalYards) : 0
     const teeAim = Math.max(0, Math.round((haversineYards(tee, aim) || 0) - teeOffset))
     const aimGreen = Math.round(haversineYards(aim, green) || 0)

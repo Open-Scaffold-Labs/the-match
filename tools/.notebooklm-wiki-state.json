@@ -5,9 +5,9 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1782918931.2353895,
-    "source_id": "c16a5505-7e1d-415c-8cb2-46633e5cf3e9",
-    "verified_at": 1782919021.311519
+    "mtime": 1783030557.280201,
+    "source_id": "28622711-bad0-4f6a-b27a-bf4858ee89b2",
+    "verified_at": 1783030792.767728
   },
   "wiki/index.md": {
     "mtime": 1782918965.8755987,
@@ -73,9 +73,9 @@
     "verified_at": 1782247883.452485
   },
   "wiki/synthesis/eagle-eye-premium-plan-2026-06-23.md": {
-    "mtime": 1782834378.5518088,
-    "source_id": "9c092571-e1f3-4c61-b130-95d2dd3ed19c",
-    "verified_at": 1782834549.722037
+    "mtime": 1783026563.9545171,
+    "source_id": "35449636-1391-4d6f-a5d3-819a3fb49e21",
+    "verified_at": 1783030860.0720031
   },
   "wiki/synthesis/next-session-handoff-2026-06-24.md": {
     "mtime": 1782402638.9567585,
@@ -83,9 +83,9 @@
     "verified_at": 1782402704.9574468
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
-    "mtime": 1782918838.6159556,
-    "source_id": "cf138008-fdba-4fcd-bbd0-6d535abf974e",
-    "verified_at": 1782919066.548222
+    "mtime": 1783026542.938031,
+    "source_id": "be79c099-d726-4a75-84f6-10952e451564",
+    "verified_at": 1783030875.092641
   },
   "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
     "mtime": 1782405889.2891493,
@@ -183,13 +183,22 @@
     "verified_at": 1782919044.028348
   },
   "wiki/synthesis/playslike-accuracy-rebuild-2026-06-30.md": {
-    "mtime": 1782859769.4480348,
-    "source_id": "bfbb6e57-98d8-4984-b1b8-dc7f49b5eced",
-    "verified_at": 1782919051.200489
+    "mtime": 1782924039.489906,
+    "source_id": "7a918908-2d7f-4454-b013-66b253d05371"
   },
   "wiki/synthesis/next-session-handoff-2026-06-30.md": {
     "mtime": 1782918879.0631866,
     "source_id": "975806db-02f4-47c5-a016-e24721c3dd7a",
     "verified_at": 1782919074.195175
+  },
+  "wiki/synthesis/eagle-eye-tokenization-plan-2026-07-02.md": {
+    "mtime": 1783028022.1143303,
+    "source_id": "7ea68233-58aa-4c90-872e-da6b49b1b314",
+    "verified_at": 1783030844.1734889
+  },
+  "wiki/synthesis/next-session-handoff-2026-07-02.md": {
+    "mtime": 1783030572.792388,
+    "source_id": "b68ab083-a8b1-4007-a1c2-ad00db4cbe29",
+    "verified_at": 1783030882.4236338
   }
 }
