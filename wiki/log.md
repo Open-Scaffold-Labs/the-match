@@ -1431,3 +1431,10 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Verified: lint+build+geo 31/31+tests 4/4 per commit · 244/244 changed lines resolve byte-identical through tokens.css · live-browser TOKEN-CHECK-PASS for rgb-slash-alpha, var-in-SVG-attr, stopColor var · iOS ≥12.2 syntax support (caniuse)
 - Plan corrections from audit: 7 unplanned colors added; B6 dropped (false premise — no exact matches; 999≠9999px); suite is `node --test` not vitest; B-commits consolidated to 2 bisectable passes
 - Open residual: on-device eyeball pass on the beta (low-risk); NEXT-SLICE TRAP: HoleMapGL colors go to MapLibre paint props where var() does NOT resolve — needs a getComputedStyle bridge
+
+## [2026-07-02 PM2] feat | Range-rings + club-arc dispersion bands SHIPPED (premium 2.5 + accuracy)
+- Spec: [[synthesis/range-rings-dispersion-build-spec-2026-07-02]] (research-grounded, risk register, checklist) — commit `d904347` on `main`
+- Accuracy fix: selected-club landing zone was a fixed 11-yd circle; now the 3.3 `dispersionEllipse` model (1 SD ≈ 5%, short-skew) as a soft feathered zone + `~` honesty label. ARCS highlight club gets an annular dispersion band (one zone at a time)
+- Held-2.5 rings shipped in the market-validated form (agent research): green-anchored 100/150/200/250 layup arcs, opt-in RINGS toggle (persisted, default off), stroke-only white over dark under-halo, in-play filtered
+- New pure `lib/mapOverlays.js` + 6 tests (skew direction asserted); `eeColor` getComputedStyle bridge for MapLibre paint (var() doesn't resolve there) — the pattern the Phase-4.3 HoleMapGL slice needs
+- Gates: lint/build clean, geo 31/31, tests 10/10; design-critique vs research do/don't list clean; residual = on-device clutter/legibility pass

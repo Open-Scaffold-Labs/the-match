@@ -115,10 +115,13 @@ both plans opened with). Ranked, each with a concrete next step:
    files sharing instrument literals — ⚠ HoleMapGL feeds MapLibre paint props where CSS
    `var()` does NOT resolve; that slice needs a getComputedStyle-at-init bridge, don't
    extend the codemod naively.
-3. **Accuracy refinements on the shipped GPS gate** (premium-plan Phase 2 residuals): the
-   held concentric yardage range-rings (2.5), club-arc dispersion bands. NOTE the hard
-   marketing rule: **never show an on-screen precision/±margin and never build a "graded
-   confidence chip"** (bulletproof plan, operational decisions — Matt, 2026-06-30).
+3. **Accuracy refinements on the shipped GPS gate — ✅ SHIPPED 2026-07-02 PM** (`d904347`;
+   [[synthesis/range-rings-dispersion-build-spec-2026-07-02]]): honest dispersion zones
+   (fixed 11-yd circle → dispersionEllipse model, soft + `~`-labeled), highlight-club arc
+   dispersion band, and the held-2.5 rings as opt-in green-anchored layup arcs (the
+   market-validated form — research killed player-centered concentric rings). Residual:
+   on-device clutter/legibility pass. The hard marketing rule held: **no on-screen
+   precision/±margin, no graded confidence chip** (Matt, 2026-06-30).
 4. **Decide the principled tee-origin story (NOT urgent, do NOT act without Matt).** Today
    the map geometry + `teeOffset` reconcile to the scorecard. If we ever want the tee
    *marker* to sit exactly on the selected tee box, that's a real design conversation with
