@@ -87,6 +87,61 @@
     --tm-dark-text:       #E8EDEA;
     --tm-dark-text-2:     rgba(232,237,234,0.62);
 
+    /* ═══ Eagle Eye instrument palette — Phase 4.3 (2026-07-02) ═══
+       Self-contained DARK-surface palette for the Eagle Eye hero screen.
+       The app theme is light parchment; the instrument is deliberately a
+       dark cockpit — so EE OWNS its palette and does NOT alias app tokens,
+       even where values coincide today (--tm-ee-gold == --tm-gold, etc.).
+       A future app-theme change must never silently restyle the instrument.
+       VALUES ARE FROZEN to the exact literals shipped in EagleEye.jsx on
+       2026-07-02 — the Stage A/B tokenization is pixel-identical by
+       contract; value elevation is Stage C, reviewed per-change.
+       Semantics (Arccos precedent: white numbers = raw GPS, green = plays-
+       like adjusted): gold-light = raw readouts · green = aligned /
+       GPS-locked / plays-shorter · amber = acquiring / plays-longer.
+       Standing rule: NEVER add a ±margin/confidence chip to the hero. */
+    --tm-ee-bg:           #070C09;  /* instrument background (NOT --tm-dark-0) */
+    --tm-ee-bg-sheet:     #07100C;  /* course-picker panel bg */
+    --tm-ee-bg-deep:      #0E1F13;  /* bag-sheet gradient top */
+    --tm-ee-ink:          #0A0A0A;  /* near-black ink (dial handle stroke, MANUAL badge text) */
+    --tm-ee-gold:         #C9A040;  /* primary gold (== --tm-gold today; owned by EE) */
+    --tm-ee-gold-bright:  #E8C05A;  /* gradient / pulse endpoint (== --tm-gold-bright today) */
+    --tm-ee-gold-light:   #F5D78A;  /* readout / chip-label light gold */
+    --tm-ee-gold-pulse:   #F5E070;  /* gauge-gradient start + landing-zone pulse yellow */
+    --tm-ee-green:        #5ED47A;  /* aligned / GPS-locked / plays-shorter */
+    --tm-ee-green-deep:   #2A7A38;  /* gauge-gradient deep green (== --tm-green-bright today) */
+    --tm-ee-green-grad-a: #1A6B28;  /* "Use This Course" CTA gradient start */
+    --tm-ee-green-grad-b: #2E9E45;  /* "Use This Course" CTA gradient end */
+    --tm-ee-amber:        #F0A868;  /* acquiring / plays-longer warm */
+    --tm-ee-red:          #F87171;  /* GPS-error accent */
+
+    /* RGB triplets — call sites use rgb(var(--tm-ee-*-rgb) / alpha).
+       Space-separated + slash-alpha is CSS Color 4, WebKit since iOS 12.2 —
+       safe on the iOS 15+ WKWebView floor (verified 2026-07-02). */
+    --tm-ee-bg-rgb:          7 12 9;
+    --tm-ee-glass-rgb:       8 12 10;    /* glass pills (back btn, hole pill, hero card) */
+    --tm-ee-glass-panel-rgb: 10 14 12;   /* plays-like sheet panel */
+    --tm-ee-glass-deep-rgb:  4 8 6;      /* last-analysis card */
+    --tm-ee-gold-rgb:        201 160 64;
+    --tm-ee-gold-bright-rgb: 232 192 90;
+    --tm-ee-gold-light-rgb:  245 215 138;
+    --tm-ee-gold-pulse-rgb:  245 224 112;
+    --tm-ee-green-rgb:       94 212 122;
+    --tm-ee-green-deep-rgb:  42 122 56;
+    --tm-ee-amber-rgb:       240 168 104;
+    --tm-ee-red-rgb:         248 113 113;
+    --tm-ee-red-deep-rgb:    220 38 38;  /* GPS-error surface */
+    --tm-ee-red-error-rgb:   224 82 82;  /* camera-analysis error banner */
+    --tm-ee-white-rgb:       255 255 255;
+    --tm-ee-black-rgb:       0 0 0;
+
+    /* Semantic aliases — name the MEANING; Stage C elevates values behind
+       these stable names without another literal-hunt. */
+    --tm-ee-raw:       var(--tm-ee-gold-light);
+    --tm-ee-adjusted:  var(--tm-ee-green);
+    --tm-ee-aligned:   var(--tm-ee-green);
+    --tm-ee-acquiring: var(--tm-ee-amber);
+
     /* — Layered, hue-tinted depth shadow — stacked low-opacity shadows with
        one consistent light direction (reads premium vs a single grey blur). */
     --tm-shadow-layered:
