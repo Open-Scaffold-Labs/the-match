@@ -1676,7 +1676,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         id="eagle_eye"
         user={user}
         title="Eagle Eye is your caddie"
-        body='Top card shows live GPS distance to the green once you reach the course. Tap "Analyze Shot" to use the AI rangefinder — point your camera at the flag and it returns the exact carry yardage (factoring wind/elevation). The BAG button on the right lets you toggle clubs to see expected landing zones on the map.'
+        body='Top card shows live GPS distance to the green once you reach the course, with a plays-like number that factors wind and elevation. Drag the aim point on the map to measure any target. The BAG button on the right lets you toggle clubs to see expected landing zones on the map.'
         anchor="top"
       />
       <style>{`
@@ -1916,7 +1916,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             Know Every Yard.<br/>Play Every Shot.
           </div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.32)', lineHeight: 1.6, marginBottom: 24, maxWidth: 270, textAlign: 'center' }}>
-            Select your course for live hole distances, GPS tracking, and AI shot analysis.
+            Select your course for live hole distances, GPS tracking, and plays-like yardages.
           </div>
           {!gps && (
             <button onClick={requestLocation} style={{
@@ -1940,7 +1940,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
             {[
               { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>, label: 'GPS Live' },
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'AI Analysis' },
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Plays-Like' },
               { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>, label: 'Weather' },
             ].map(f => (
               <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -2166,33 +2166,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           already exposes a Scorecard link, the floating pill duplicated
           it and crowded the bottom-right where the BAG toggle lives. */}
 
-      {/* Analyze Shot — small floating pill at bottom-left, mirrors
-          the BAG toggle on the right. Replaces the full-width primary
-          CTA that used to sit inside the HUD stack. (2026-05-01) */}
-      {!showCamera && !showPicker && (
-        <button onClick={() => setShowCamera(true)} style={{
-          position: 'absolute',
-          top: 'calc(50% - 124px)', right: 16, transform: 'translateY(-50%)',   /* right rail, above ARCS */
-          background: 'rgba(7,12,9,0.62)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-          border: '1px solid rgba(245,215,138,0.40)',
-          borderRadius: 999, padding: '8px 12px',
-          color: '#F5D78A',
-          fontSize: 11, fontWeight: 800, letterSpacing: '0.06em',
-          cursor: 'pointer',
-          boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
-          display: 'inline-flex', alignItems: 'center', gap: 7,
-          fontFamily: 'inherit',
-          zIndex: 1000,
-          WebkitTapHighlightColor: 'transparent',
-        }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.1" strokeLinecap="round">
-            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
-            <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
-            <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-          </svg>
-          ANALYZE
-        </button>
-      )}
+      {/* ANALYZE (AI camera rangefinder) button REMOVED 2026-07-02 (Matt):
+          the shot-analysis flow is not yet wired to production quality, so
+          the button was nothing more than a broken entry point. The plumbing
+          (CameraModal + `/api/eagle-eye/analyze` + ResultSheet, all below) is
+          intentionally LEFT IN PLACE but unreachable — re-surface a button
+          here only once the feature is properly built and verified end-to-end. */}
 
       {/* Club toggle — idle state:
           single BAG button. Tap once → AI picks the best club match
