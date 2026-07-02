@@ -436,9 +436,9 @@ export default function HoleMapGL({
     }
   }
 
-  // ── Aim line (tee→aim→green) + split yardages + club landing-zone ring ──
-  // Split-proportional so the two pills always sum to the official hole
-  // yardage. Recomputed live as the aim target is dragged.
+  // ── Aim line (tee→aim→green) + segment yardages + club landing-zone ring ──
+  // Segment labels are TRUE GPS straight-line distances (raw haversine), each
+  // independent — recomputed live as the aim target is dragged.
   function redrawAim() {
     const map = mapRef.current, gl = glRef.current
     if (!map || !readyRef.current || !gl) return
@@ -459,11 +459,11 @@ export default function HoleMapGL({
 
     map.getSource('fairway')?.setData(fc([lineF([[tee.lon, tee.lat], [aim.lon, aim.lat], [green.lon, green.lat]])]))
 
-    const a = haversineYards(tee, aim) || 0
-    const b = haversineYards(aim, green) || 0
-    const tot = (a + b) || 1
-    const teeAim = Math.round((a / tot) * totalYards)
-    const aimGreen = Math.round((b / tot) * totalYards)
+    // TRUE GPS distances (raw haversine), NOT scaled to the scorecard yardage —
+    // decoupled so a bad tee position can't corrupt aim→green, and so both match
+    // tap-to-measure. (2026-07 — Matt: split showed 132 to grn where tap showed 164.)
+    const teeAim = Math.round(haversineYards(tee, aim) || 0)
+    const aimGreen = Math.round(haversineYards(aim, green) || 0)
     const mid = (p, q) => [(p.lon + q.lon) / 2, (p.lat + q.lat) / 2]
     // Labels are offset to the SIDES of the (course-up, ~vertical) line so they
     // never sit on the line/markers, and the two segment pills go on opposite
@@ -533,13 +533,10 @@ export default function HoleMapGL({
     const par = meta?.par ?? 4
     const aim = aimRef.current || getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
       || { lat: (tee.lat + green.lat) / 2, lon: (tee.lon + green.lon) / 2 }
-    const a = haversineYards(tee, aim) || 0
-    const b = haversineYards(aim, green) || 0
-    const tot = (a + b) || 1
     cb({
       userPlaced: aimRef.current != null,
-      teeAimYds: Math.round((a / tot) * totalYards),
-      aimGreenYds: Math.round((b / tot) * totalYards),
+      teeAimYds: Math.round(haversineYards(tee, aim) || 0),    // true GPS distance (raw haversine)
+      aimGreenYds: Math.round(haversineYards(aim, green) || 0),
       aim,
     })
   }
