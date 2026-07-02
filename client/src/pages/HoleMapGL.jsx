@@ -425,8 +425,8 @@ export default function HoleMapGL({
   }
 
   // ── Aim line (tee→aim→green) + segment yardages + club landing-zone ring ──
-  // Segment labels are anchored to the scorecard tee→pin yardage (the geometry
-  // provides only the tee:aim ratio) — recomputed live as the aim is dragged.
+  // Segment labels are RAW great-circle distances (no scorecard scaling), with a
+  // tee-offset correction for misplaced OSM tee nodes — recomputed as aim drags.
   function redrawAim() {
     const map = mapRef.current, gl = glRef.current
     if (!map || !readyRef.current || !gl) return
@@ -447,18 +447,18 @@ export default function HoleMapGL({
 
     map.getSource('fairway')?.setData(fc([lineF([[tee.lon, tee.lat], [aim.lon, aim.lat], [green.lon, green.lat]])]))
 
-    // Anchor the split to the SCORECARD tee→pin yardage (authoritative), using the
-    // geometry only for the tee:aim RATIO. The raw OSM tee→green can be materially
-    // wrong (hole 6: geometry ~388 vs scorecard 335 → a RAW front-of-green read of
-    // 371 EXCEEDED the 335 pin, which is impossible). Anchoring keeps the split
-    // bounded + sensible. Residual: it distributes the geometry error proportionally,
-    // so per-segment accuracy still depends on decent geometry — the durable fix is
-    // better course data. (2026-07 — Matt; reverts the raw-haversine regression.)
-    const a = haversineYards(tee, aim) || 0
-    const b = haversineYards(aim, green) || 0
-    const tot = (a + b) || 1
-    const teeAim = Math.round((a / tot) * totalYards)
-    const aimGreen = Math.round((b / tot) * totalYards)
+    // RAW great-circle distances — what every rangefinder + the USGA use. NEVER
+    // scale to the scorecard (that's a dogleg-path number; scaling to it compresses
+    // distances and breaks PAST the green — the 219-for-a-435-shot bug). The one
+    // correction: the OSM tee NODE can be misplaced (hole 6: raw tee→green ~388 vs
+    // scorecard 335), so subtract just the tee's over-distance and measure raw from
+    // the corrected origin. aim→green stays fully raw (green-based → right regardless
+    // of the tee, and grows correctly past the green). The correction fires ONLY when
+    // the tee reads LONG (max 0), so genuine doglegs (scorecard > straight-line)
+    // aren't inflated. Durable fix = verified course geometry. (2026-07 research + Matt.)
+    const teeOffset = totalYards > 0 ? Math.max(0, (haversineYards(tee, green) || 0) - totalYards) : 0
+    const teeAim = Math.max(0, Math.round((haversineYards(tee, aim) || 0) - teeOffset))
+    const aimGreen = Math.round(haversineYards(aim, green) || 0)
     const mid = (p, q) => [(p.lon + q.lon) / 2, (p.lat + q.lat) / 2]
     // Labels are offset to the SIDES of the (course-up, ~vertical) line so they
     // never sit on the line/markers, and the two segment pills go on opposite
@@ -528,15 +528,13 @@ export default function HoleMapGL({
     const par = meta?.par ?? 4
     const aim = aimRef.current || getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
       || { lat: (tee.lat + green.lat) / 2, lon: (tee.lon + green.lon) / 2 }
-    // Scorecard-anchored split (same as redrawAim) so the Option-B "TO AIM"
-    // hero can't exceed the pin distance on holes with inflated geometry.
-    const a = haversineYards(tee, aim) || 0
-    const b = haversineYards(aim, green) || 0
-    const tot = (a + b) || 1
+    // Raw great-circle + tee-offset correction (same as redrawAim); no scorecard
+    // scaling — so the Option-B "TO AIM" hero is correct even past the green.
+    const teeOffset = totalYards > 0 ? Math.max(0, (haversineYards(tee, green) || 0) - totalYards) : 0
     cb({
       userPlaced: aimRef.current != null,
-      teeAimYds: Math.round((a / tot) * totalYards),
-      aimGreenYds: Math.round((b / tot) * totalYards),
+      teeAimYds: Math.max(0, Math.round((haversineYards(tee, aim) || 0) - teeOffset)),
+      aimGreenYds: Math.round(haversineYards(aim, green) || 0),
       aim,
     })
   }
