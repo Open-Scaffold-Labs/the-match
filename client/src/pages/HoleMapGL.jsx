@@ -142,6 +142,31 @@ function pillEl(text, primary) {
   return el
 }
 
+// On-map distance label — premium map-native style (Golfshot/Hole19, 2026-07
+// research): NO pill. A bare white bold TABULAR number with a dark contrast
+// halo so it reads over any imagery; the aim→green number carries a small gold
+// flag glyph. Numbers only, no units (users know). (Matt 2026-07)
+function distEl(numText, toGreen) {
+  const size = toGreen ? 22 : 20
+  const el = document.createElement('div')
+  el.style.cssText = 'display:flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:none'
+  if (toGreen) {
+    const flag = document.createElement('span')
+    flag.style.cssText = 'display:inline-flex;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.8))'
+    flag.innerHTML = '<svg width="12" height="14" viewBox="0 0 22 28"><line x1="4" y1="3" x2="4" y2="26" stroke="#E8C05A" stroke-width="2.4" stroke-linecap="round"/><polygon points="4,2.5 19,8 4,13.5" fill="#E8C05A"/></svg>'
+    el.appendChild(flag)
+  }
+  const num = document.createElement('span')
+  num.className = 'ee-dist-num'
+  num.textContent = numText
+  num.style.cssText = 'color:#fff;font-weight:800;font-size:' + size + 'px;line-height:1;'
+    + 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-variant-numeric:tabular-nums;'
+    + '-webkit-text-stroke:0.75px rgba(0,0,0,0.55);'
+    + 'text-shadow:0 0 3px rgba(0,0,0,0.85),0 1px 3px rgba(0,0,0,0.9)'
+  el.appendChild(num)
+  return el
+}
+
 export default function HoleMapGL({
   courseCtx, currentHole, gps, geocoded,
   holePositions = {}, greenPositions = {}, holeGeometries = {}, greenPolys = {},
@@ -447,8 +472,14 @@ export default function HoleMapGL({
       if (!ref.current) ref.current = new gl.Marker({ element: pillEl(text, primary), anchor, offset }).setLngLat(lnglat).addTo(map)
       else { ref.current.getElement().textContent = text; ref.current.setLngLat(lnglat) }
     }
-    setLabel(teeAimLabelRef, `${teeAim}y`, false, mid(tee, aim), 'right', [-10, 0])
-    setLabel(aimGreenLabelRef, `${aimGreen} to grn`, true, mid(aim, green), 'left', [10, 0])
+    // Bare outlined distance numbers (no pill / no units); update the number
+    // span in place so the flag glyph survives a live drag.
+    const setDistLabel = (ref, numText, toGreen, lnglat, anchor, offset) => {
+      if (!ref.current) ref.current = new gl.Marker({ element: distEl(numText, toGreen), anchor, offset }).setLngLat(lnglat).addTo(map)
+      else { const n = ref.current.getElement().querySelector('.ee-dist-num'); if (n) n.textContent = numText; ref.current.setLngLat(lnglat) }
+    }
+    setDistLabel(teeAimLabelRef, `${teeAim}`, false, mid(tee, aim), 'right', [-10, 0])
+    setDistLabel(aimGreenLabelRef, `${aimGreen}`, true, mid(aim, green), 'left', [10, 0])
 
     // landing-zone ring: single selected club from the player along player→aim.
     // Suppressed while in bag-arcs mode (Phase 3.3) so the two never double up.
