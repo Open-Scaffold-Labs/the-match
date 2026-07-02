@@ -234,9 +234,9 @@ function playsLikeView(pl) {
 // ─── Pulsating Eagle Eye Button ───────────────────────────────────────────────
 const PULSE_STYLE = `
   @keyframes ee-pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(201,160,64,0.55), 0 4px 20px rgba(201,160,64,0.3); transform: scale(1); }
-    60%  { box-shadow: 0 0 0 16px rgba(201,160,64,0), 0 4px 24px rgba(201,160,64,0.4); transform: scale(1.04); }
-    100% { box-shadow: 0 0 0 0 rgba(201,160,64,0), 0 4px 20px rgba(201,160,64,0.3); transform: scale(1); }
+    0%   { box-shadow: 0 0 0 0 rgb(var(--tm-ee-gold-rgb) / 0.55), 0 4px 20px rgb(var(--tm-ee-gold-rgb) / 0.3); transform: scale(1); }
+    60%  { box-shadow: 0 0 0 16px rgb(var(--tm-ee-gold-rgb) / 0), 0 4px 24px rgb(var(--tm-ee-gold-rgb) / 0.4); transform: scale(1.04); }
+    100% { box-shadow: 0 0 0 0 rgb(var(--tm-ee-gold-rgb) / 0), 0 4px 20px rgb(var(--tm-ee-gold-rgb) / 0.3); transform: scale(1); }
   }
   @keyframes ee-scan {
     0%   { opacity: 1; }
@@ -255,7 +255,7 @@ function EagleEyeBtn({ onPress, scanning }) {
         style={{
           width: 80, height: 80, borderRadius: '50%',
           background: 'linear-gradient(145deg, var(--tm-ee-gold-bright), var(--tm-ee-gold))',
-          border: '3px solid rgba(255,255,255,0.25)',
+          border: '3px solid rgb(var(--tm-ee-white-rgb) / 0.25)',
           cursor: scanning ? 'default' : 'pointer',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
           animation: scanning ? 'ee-scan 0.9s ease-in-out infinite' : 'ee-pulse 2s ease-out infinite',
@@ -264,17 +264,17 @@ function EagleEyeBtn({ onPress, scanning }) {
         }}
       >
         {/* Eagle Eye target icon */}
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(7,12,9,0.85)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-bg-rgb) / 0.85)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10"/>
           <circle cx="12" cy="12" r="5"/>
-          <circle cx="12" cy="12" r="1.5" fill="rgba(7,12,9,0.85)"/>
+          <circle cx="12" cy="12" r="1.5" fill="rgb(var(--tm-ee-bg-rgb) / 0.85)"/>
           <line x1="12" y1="2" x2="12" y2="5"/>
           <line x1="12" y1="19" x2="12" y2="22"/>
           <line x1="2" y1="12" x2="5" y2="12"/>
           <line x1="19" y1="12" x2="22" y2="12"/>
         </svg>
       </button>
-      <div style={{ color: 'rgba(245,215,138,0.7)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', marginTop: 6, textTransform: 'uppercase' }}>
+      <div style={{ color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.7)', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', marginTop: 6, textTransform: 'uppercase' }}>
         {scanning ? 'Analyzing…' : 'Eagle Eye'}
       </div>
     </>
@@ -348,27 +348,27 @@ function DistanceInstrument({ yards, label, accent = 'var(--tm-ee-green)' }) {
           </linearGradient>
         </defs>
         {/* track */}
-        <path d={gaugeArc(C, C, R, 225, TRACK)} fill="none" stroke="rgba(255,255,255,0.12)"
+        <path d={gaugeArc(C, C, R, 225, TRACK)} fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.12)"
           strokeWidth="7" strokeLinecap="round" />
         {/* value */}
         {has && sweep > 0 && (
           <path d={gaugeArc(C, C, R, 225, TRACK * sweep)} fill="none" stroke="url(#ee-gauge-grad)"
             strokeWidth="7" strokeLinecap="round"
-            style={{ filter: 'drop-shadow(0 0 5px rgba(245,224,112,0.45))' }} />
+            style={{ filter: 'drop-shadow(0 0 5px rgb(var(--tm-ee-gold-pulse-rgb) / 0.45))' }} />
         )}
       </svg>
       {/* number + unit, centred */}
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
         <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
-          color: has ? accent : 'rgba(255,255,255,0.45)', marginBottom: -2 }}>{label}</div>
+          color: has ? accent : 'rgb(var(--tm-ee-white-rgb) / 0.45)', marginBottom: -2 }}>{label}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
           <span style={{ fontSize: 46, fontWeight: 900, letterSpacing: '-2px', color: '#fff',
             lineHeight: 0.9, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"',
-            textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>{display}</span>
+            textShadow: '0 2px 12px rgb(var(--tm-ee-black-rgb) / 0.5)' }}>{display}</span>
         </div>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-          color: 'rgba(255,255,255,0.5)', marginTop: 1 }}>YDS</div>
+          color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', marginTop: 1 }}>YDS</div>
       </div>
     </div>
   )
@@ -491,8 +491,8 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
           {/* Rotating arrow ring */}
           <div style={{
             width: 64, height: 64, borderRadius: '50%',
-            background: isAligned ? 'rgba(42,122,56,0.85)' : 'rgba(7,12,9,0.75)',
-            border: `2px solid ${isAligned ? 'var(--tm-ee-green)' : 'rgba(255,255,255,0.25)'}`,
+            background: isAligned ? 'rgb(var(--tm-ee-green-deep-rgb) / 0.85)' : 'rgb(var(--tm-ee-bg-rgb) / 0.75)',
+            border: `2px solid ${isAligned ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.25)'}`,
             backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'background 0.3s, border-color 0.3s',
@@ -507,11 +507,11 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
           </div>
           {/* Label */}
           <div style={{
-            background: 'rgba(7,12,9,0.75)', backdropFilter: 'blur(8px)',
+            background: 'rgb(var(--tm-ee-bg-rgb) / 0.75)', backdropFilter: 'blur(8px)',
             borderRadius: 20, padding: '4px 12px',
-            border: `1px solid ${isAligned ? 'rgba(94,212,122,0.4)' : 'rgba(255,255,255,0.15)'}`,
+            border: `1px solid ${isAligned ? 'rgb(var(--tm-ee-green-rgb) / 0.4)' : 'rgb(var(--tm-ee-white-rgb) / 0.15)'}`,
           }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: isAligned ? 'var(--tm-ee-green)' : 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: isAligned ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.7)', letterSpacing: '0.06em' }}>
               {isAligned
                 ? '✓ FACING GREEN'
                 : compass != null
@@ -538,18 +538,18 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
       </div>
 
       {/* Top bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: '16px', padding: '12px 16px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={() => { closeCamera(); onClose() }} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: '16px', padding: '12px 16px', background: 'linear-gradient(to bottom, rgb(var(--tm-ee-black-rgb) / 0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={() => { closeCamera(); onClose() }} style={{ background: 'rgb(var(--tm-ee-black-rgb) / 0.5)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 800, fontSize: 13, letterSpacing: '0.12em' }}>EAGLE EYE</div>
-          {holeData && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>H{currentHole} · {holeData.yardage}y · Par {holeData.par}</div>}
+          {holeData && <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.6)', fontSize: 12 }}>H{currentHole} · {holeData.yardage}y · Par {holeData.par}</div>}
         </div>
-        <button onClick={flip} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⇄</button>
+        <button onClick={flip} style={{ background: 'rgb(var(--tm-ee-black-rgb) / 0.5)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⇄</button>
       </div>
 
       {/* Scanning overlay */}
       {scanning && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+        <div style={{ position: 'absolute', inset: 0, background: 'rgb(var(--tm-ee-black-rgb) / 0.72)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
           <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ animation: 'ee-scan 0.9s ease-in-out infinite' }}>
             <circle cx="36" cy="36" r="32" stroke="var(--tm-ee-gold)" strokeWidth="1" strokeOpacity="0.4"/>
             <circle cx="36" cy="36" r="20" stroke="var(--tm-ee-gold-bright)" strokeWidth="1.5" strokeOpacity="0.8"/>
@@ -560,13 +560,13 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
             <line x1="58" y1="36" x2="68" y2="36" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
           </svg>
           <div style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 800, fontSize: 18, letterSpacing: '0.04em' }}>Analyzing</div>
-          <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, letterSpacing: '0.06em' }}>GPS · WEATHER · VISION{courseCtx ? ' · COURSE' : ''}</div>
+          <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 12, letterSpacing: '0.06em' }}>GPS · WEATHER · VISION{courseCtx ? ' · COURSE' : ''}</div>
         </div>
       )}
 
       {/* Error */}
       {error && !scanning && (
-        <div style={{ position: 'absolute', bottom: 120, left: 16, right: 16, background: 'rgba(224,82,82,0.9)', borderRadius: 12, padding: '14px 16px', color: '#fff', textAlign: 'center' }}>
+        <div style={{ position: 'absolute', bottom: 120, left: 16, right: 16, background: 'rgb(var(--tm-ee-red-error-rgb) / 0.9)', borderRadius: 12, padding: '14px 16px', color: '#fff', textAlign: 'center' }}>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>Analysis failed</div>
           <div style={{ fontSize: 13, opacity: 0.85 }}>{error}</div>
         </div>
@@ -580,17 +580,17 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
             style={{
               width: 76, height: 76, borderRadius: '50%',
               background: 'linear-gradient(135deg, var(--tm-ee-gold-light), var(--tm-ee-gold))',
-              border: '4px solid rgba(255,255,255,0.35)',
-              boxShadow: '0 0 28px rgba(201,160,64,0.7)',
+              border: '4px solid rgb(var(--tm-ee-white-rgb) / 0.35)',
+              boxShadow: '0 0 28px rgb(var(--tm-ee-gold-rgb) / 0.7)',
               cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="rgba(7,12,9,0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-bg-rgb) / 0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/>
               <circle cx="12" cy="12" r="5"/>
-              <circle cx="12" cy="12" r="1.5" fill="rgba(7,12,9,0.8)"/>
+              <circle cx="12" cy="12" r="1.5" fill="rgb(var(--tm-ee-bg-rgb) / 0.8)"/>
               <line x1="12" y1="2" x2="12" y2="5"/>
               <line x1="12" y1="19" x2="12" y2="22"/>
               <line x1="2" y1="12" x2="5" y2="12"/>
@@ -611,12 +611,12 @@ function ResultSheet({ result: r, holeData, onClose }) {
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-      <div onClick={onClose} style={{ flex: 1, background: 'rgba(0,0,0,0.5)' }} />
+      <div onClick={onClose} style={{ flex: 1, background: 'rgb(var(--tm-ee-black-rgb) / 0.5)' }} />
       <div style={{
         background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0',
         border: '1px solid var(--tm-border-2)',
         padding: '20px 20px', paddingBottom: 'max(24px, calc(var(--nav-height) + 12px))',
-        boxShadow: '0 -8px 40px rgba(0,0,0,0.8)',
+        boxShadow: '0 -8px 40px rgb(var(--tm-ee-black-rgb) / 0.8)',
       }}>
         <div style={{ width: 36, height: 4, borderRadius: 99, background: 'var(--tm-border-3)', margin: '0 auto 20px' }} />
 
@@ -637,38 +637,38 @@ function ResultSheet({ result: r, holeData, onClose }) {
 
         {/* Club recommendation */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          <div style={{ background: 'rgba(42,122,56,0.2)', border: '1px solid rgba(42,122,56,0.4)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-            <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Club</div>
+          <div style={{ background: 'rgb(var(--tm-ee-green-deep-rgb) / 0.2)', border: '1px solid rgb(var(--tm-ee-green-deep-rgb) / 0.4)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
+            <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Club</div>
             <div style={{ color: 'var(--tm-ee-gold)', fontWeight: 800, fontSize: 22 }}>{r.recommendedClub}</div>
           </div>
-          <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-            <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Alternate</div>
+          <div style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.04)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
+            <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Alternate</div>
             <div style={{ color: 'var(--tm-text-2)', fontWeight: 800, fontSize: 22 }}>{r.alternateClub}</div>
           </div>
         </div>
 
         {/* Adjustments */}
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
+        <div style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.03)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
           {[
             ['↗ Slope', r.adjustments.slopeYards],
             ['~ Wind',  r.adjustments.windYards],
             ['° Temp',  r.adjustments.tempYards],
             ['▲ Alt',   r.adjustments.altitudeYards],
           ].filter(([,v]) => v !== 0).map(([label, val]) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>{label}</span>
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.05)' }}>
+              <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 13 }}>{label}</span>
               <span style={{ color: val > 0 ? 'var(--tm-ee-red)' : 'var(--tm-ee-gold)', fontWeight: 700, fontSize: 13 }}>{adj(val)}y</span>
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6 }}>
-            <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Shot shape</span>
+            <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.6)', fontSize: 13, fontWeight: 600 }}>Shot shape</span>
             <span style={{ color: 'var(--tm-ee-gold-light)', fontSize: 13, fontWeight: 700 }}>{r.shotShape}</span>
           </div>
         </div>
 
         {/* Caddie note */}
         {r.caddieNote && (
-          <div style={{ background: 'rgba(42,122,56,0.12)', border: '1px solid rgba(42,122,56,0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+          <div style={{ background: 'rgb(var(--tm-ee-green-deep-rgb) / 0.12)', border: '1px solid rgb(var(--tm-ee-green-deep-rgb) / 0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
             <div style={{ color: 'var(--tm-ee-gold)', fontSize: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.1em' }}>CADDIE NOTE</div>
             <div style={{ color: 'var(--tm-text)', fontSize: 14, lineHeight: 1.55 }}>{r.caddieNote}</div>
           </div>
@@ -676,8 +676,8 @@ function ResultSheet({ result: r, holeData, onClose }) {
 
         <button onClick={onClose} style={{
           width: '100%', padding: '14px', borderRadius: 14,
-          background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)',
-          color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
+          background: 'rgb(var(--tm-ee-white-rgb) / 0.07)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
+          color: 'rgb(var(--tm-ee-white-rgb) / 0.7)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
         }}>Done</button>
       </div>
     </div>,
@@ -763,13 +763,13 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
        padding, same content. Audit finding R2 / 2026-04-29. */
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.5)',
+      background: 'rgb(var(--tm-ee-black-rgb) / 0.5)',
       display: 'flex', justifyContent: 'center',
     }}>
     <div style={{ width: '100%', maxWidth: 430, height: '100%', background: 'var(--tm-ee-bg-sheet)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
+      <div style={{ padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.1)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer' }}>←</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', fontSize: 22, cursor: 'pointer' }}>←</button>
           <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>Select Course</div>
         </div>
         <div style={{ position: 'relative', marginTop: 12 }}>
@@ -777,10 +777,10 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
             autoFocus value={query}
             onChange={e => { setSelected(null); setCourse(null); setQuery(e.target.value) }}
             placeholder="Search course name…"
-            style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 40px 10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
+            style={{ width: '100%', background: 'rgb(var(--tm-ee-white-rgb) / 0.08)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.15)', borderRadius: 10, padding: '10px 40px 10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
           />
           {loading && (
-            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(245,215,138,0.3)', borderTopColor: 'var(--tm-ee-gold-light)', animation: 'ee-spin-slow 0.7s linear infinite' }} />
+            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgb(var(--tm-ee-gold-light-rgb) / 0.3)', borderTopColor: 'var(--tm-ee-gold-light)', animation: 'ee-spin-slow 0.7s linear infinite' }} />
           )}
         </div>
       </div>
@@ -790,13 +790,13 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
           const miles = distMiles(c)
           const distLabel = miles < Infinity ? (miles < 0.1 ? 'Here' : miles < 1 ? `${Math.round(miles * 10) / 10} mi` : `${Math.round(miles)} mi`) : null
           return (
-            <div key={c.id} onClick={() => pickCourse(c)} style={{ padding: '14px 0', borderBottom: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div key={c.id} onClick={() => pickCourse(c)} style={{ padding: '14px 0', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.club_name}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{[c.city, c.state, c.country].filter(Boolean).join(', ')}</div>
+                <div style={{ fontSize: 12, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', marginTop: 2 }}>{[c.city, c.state, c.country].filter(Boolean).join(', ')}</div>
               </div>
               {distLabel && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: miles < 5 ? 'var(--tm-ee-green)' : 'rgba(255,255,255,0.3)', flexShrink: 0, marginLeft: 12 }}>{distLabel}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: miles < 5 ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)', flexShrink: 0, marginLeft: 12 }}>{distLabel}</div>
               )}
             </div>
           )
@@ -804,23 +804,23 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
 
         {course && activeTee && (
           <>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(232,192,90,0.8)', marginBottom: 10 }}>{course.club_name}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.8)', marginBottom: 10 }}>{course.club_name}</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
               {tees.map((t, i) => (
                 <button key={i} onClick={() => setTeeIdx(i)} style={{
                   padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  background: i === teeIdx ? 'rgba(232,192,90,0.2)' : 'rgba(255,255,255,0.07)',
-                  border: `1px solid ${i === teeIdx ? 'rgba(232,192,90,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                  color: i === teeIdx ? 'var(--tm-ee-gold-light)' : 'rgba(255,255,255,0.6)',
+                  background: i === teeIdx ? 'rgb(var(--tm-ee-gold-bright-rgb) / 0.2)' : 'rgb(var(--tm-ee-white-rgb) / 0.07)',
+                  border: `1px solid ${i === teeIdx ? 'rgb(var(--tm-ee-gold-bright-rgb) / 0.5)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
+                  color: i === teeIdx ? 'var(--tm-ee-gold-light)' : 'rgb(var(--tm-ee-white-rgb) / 0.6)',
                 }}>{t.tee_name} ({t.total_yards}y)</button>
               ))}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
               {activeTee.holes.map(h => (
-                <div key={h.hole} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>HOLE {h.hole} · PAR {h.par}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 2 }}>{h.yardage}<span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 3 }}>yds</span></div>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Hdcp {h.handicap}</div>
+                <div key={h.hole} style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.05)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.1)', borderRadius: 10, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', fontWeight: 700 }}>HOLE {h.hole} · PAR {h.par}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 2 }}>{h.yardage}<span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginLeft: 3 }}>yds</span></div>
+                  <div style={{ fontSize: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.35)' }}>Hdcp {h.handicap}</div>
                 </div>
               ))}
             </div>
@@ -857,23 +857,23 @@ const normDeg = (d) => ((d % 360) + 360) % 360
 const PL_LONGER = 'var(--tm-ee-amber)'   // plays longer (warm) — matches the existing PLAYS row
 const PL_SHORTER = 'var(--tm-ee-green)'  // plays shorter (green)
 const yardStr = (n) => (n > 0 ? `+${n}` : `${n}`)
-const factorColor = (n) => (n > 0 ? PL_LONGER : n < 0 ? PL_SHORTER : 'rgba(255,255,255,0.5)')
+const factorColor = (n) => (n > 0 ? PL_LONGER : n < 0 ? PL_SHORTER : 'rgb(var(--tm-ee-white-rgb) / 0.5)')
 
 function PlStepper({ label, value, suffix, onDec, onInc, onReset, isManual }) {
   const btn = {
-    width: 44, height: 44, borderRadius: 12, border: '1px solid rgba(255,255,255,0.16)',
-    background: 'rgba(255,255,255,0.06)', color: '#fff', fontSize: 22, fontWeight: 700,
+    width: 44, height: 44, borderRadius: 12, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.16)',
+    background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', color: '#fff', fontSize: 22, fontWeight: 700,
     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   }
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 }}>
-      <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.7)' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button aria-label={`decrease ${label}`} style={btn} onClick={onDec}>−</button>
         <span style={{ minWidth: 70, textAlign: 'center', fontSize: 18, fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{value}{suffix}</span>
         <button aria-label={`increase ${label}`} style={btn} onClick={onInc}>+</button>
         {isManual && (
-          <button onClick={onReset} style={{ ...btn, width: 'auto', height: 32, padding: '0 10px', fontSize: 12, fontWeight: 700, color: 'rgba(245,215,138,0.9)' }}>RESET</button>
+          <button onClick={onReset} style={{ ...btn, width: 'auto', height: 32, padding: '0 10px', fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.9)' }}>RESET</button>
         )}
       </div>
     </div>
@@ -910,17 +910,17 @@ function WindDial({ windDir, windSpeed, shotBearing, onChange }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 10 }}>
       <svg ref={ref} width={size} height={size} onPointerDown={onDown} style={{ touchAction: 'none', cursor: 'grab' }}>
-        <circle cx={c} cy={c} r={r} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" />
+        <circle cx={c} cy={c} r={r} fill="rgb(var(--tm-ee-white-rgb) / 0.04)" stroke="rgb(var(--tm-ee-white-rgb) / 0.16)" strokeWidth="1.5" />
         {/* toward-target marker (top) */}
-        <path d={`M ${c} ${c - r - 8} l -5 9 l 10 0 z`} fill="rgba(94,212,122,0.9)" />
-        <text x={c} y={c - r - 12} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgba(94,212,122,0.9)" letterSpacing="0.5">TARGET</text>
+        <path d={`M ${c} ${c - r - 8} l -5 9 l 10 0 z`} fill="rgb(var(--tm-ee-green-rgb) / 0.9)" />
+        <text x={c} y={c - r - 12} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgb(var(--tm-ee-green-rgb) / 0.9)" letterSpacing="0.5">TARGET</text>
         <line x1={c} y1={c} x2={mx} y2={my} stroke={PL_LONGER} strokeWidth="2.5" strokeLinecap="round" />
         {/* draggable handle — visual 18px, generous hit via the whole svg pointerdown */}
         <circle cx={mx} cy={my} r="11" fill={PL_LONGER} stroke="var(--tm-ee-ink)" strokeWidth="2" />
         <text x={c} y={c + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#fff" style={{ fontVariantNumeric: 'tabular-nums' }}>{windSpeed}</text>
-        <text x={c} y={c + 18} textAnchor="middle" fontSize="8" fontWeight="600" fill="rgba(255,255,255,0.5)">MPH</text>
+        <text x={c} y={c + 18} textAnchor="middle" fontSize="8" fontWeight="600" fill="rgb(var(--tm-ee-white-rgb) / 0.5)">MPH</text>
       </svg>
-      <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.75)', marginTop: 4 }}>{label}</span>
     </div>
   )
 }
@@ -929,31 +929,31 @@ function PlRow({ name, sub, yds, isManual, expanded, onToggle, available = true,
   const showValue = isManual || autoKnown
   const interactive = available && !readOnly
   return (
-    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+    <div style={{ borderTop: '1px solid rgb(var(--tm-ee-white-rgb) / 0.08)' }}>
       <button onClick={interactive ? onToggle : undefined} aria-expanded={readOnly ? undefined : expanded} style={{
         width: '100%', minHeight: 52, padding: '12px 4px', display: 'flex', alignItems: 'center', gap: 10,
         background: 'none', border: 'none', cursor: interactive ? 'pointer' : 'default', textAlign: 'left', WebkitTapHighlightColor: 'transparent',
       }}>
         <span style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{name}</span>
-          {sub && <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{sub}</span>}
+          {sub && <span style={{ fontSize: 10, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginTop: 1 }}>{sub}</span>}
         </span>
         {isManual ? (
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--tm-ee-ink)', background: 'rgba(245,215,138,0.95)', borderRadius: 4, padding: '2px 5px' }}>MANUAL</span>
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--tm-ee-ink)', background: 'rgb(var(--tm-ee-gold-light-rgb) / 0.95)', borderRadius: 4, padding: '2px 5px' }}>MANUAL</span>
         ) : autoKnown && available ? (
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)' }}>AUTO</span>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.4)' }}>AUTO</span>
         ) : available && !autoKnown ? (
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(245,215,138,0.6)' }}>SET</span>
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.6)' }}>SET</span>
         ) : null}
         {!available ? (
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.35)' }}>—</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.35)' }}>—</span>
         ) : showValue ? (
           <span style={{ fontSize: 17, fontWeight: 800, color: factorColor(yds), fontVariantNumeric: 'tabular-nums', minWidth: 44, textAlign: 'right' }}>{yardStr(yds)}</span>
         ) : (
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.3)', minWidth: 44, textAlign: 'right' }}>—</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.3)', minWidth: 44, textAlign: 'right' }}>—</span>
         )}
         {interactive && (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.18s' }}><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.4)" strokeWidth="2.5" strokeLinecap="round" style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.18s' }}><polyline points="9 18 15 12 9 6"/></svg>
         )}
       </button>
       {!readOnly && expanded && available && <div style={{ padding: '0 4px 14px' }}>{children}</div>}
@@ -975,31 +975,31 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
     <>
       <style>{PL_SHEET_STYLE}</style>
       <div className="ee-pl-scrim" onClick={onClose} style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 4000, animation: 'ee-scrim-in 0.2s ease-out',
+        position: 'fixed', inset: 0, background: 'rgb(var(--tm-ee-black-rgb) / 0.5)', zIndex: 4000, animation: 'ee-scrim-in 0.2s ease-out',
       }} />
       <div className="ee-pl-panel" role="dialog" aria-label="Plays-like breakdown" style={{
         position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 4001, maxWidth: 480, margin: '0 auto',
-        background: 'rgba(10,14,12,0.92)', backdropFilter: 'blur(28px) saturate(160%)', WebkitBackdropFilter: 'blur(28px) saturate(160%)',
-        borderTopLeftRadius: 22, borderTopRightRadius: 22, border: '1px solid rgba(255,255,255,0.12)', borderBottom: 'none',
-        boxShadow: '0 -12px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.16)',
+        background: 'rgb(var(--tm-ee-glass-panel-rgb) / 0.92)', backdropFilter: 'blur(28px) saturate(160%)', WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+        borderTopLeftRadius: 22, borderTopRightRadius: 22, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', borderBottom: 'none',
+        boxShadow: '0 -12px 40px rgb(var(--tm-ee-black-rgb) / 0.6), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.16)',
         padding: '8px 18px max(22px, env(safe-area-inset-bottom)) 18px', animation: 'ee-sheet-up 0.26s cubic-bezier(0.32,0.72,0,1)',
       }}>
         {/* grabber */}
         <div onClick={onClose} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px', cursor: 'pointer' }}>
-          <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.22)' }} />
+          <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgb(var(--tm-ee-white-rgb) / 0.22)' }} />
         </div>
 
         {/* hero total */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 4 }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(245,215,138,0.8)' }}>PLAYS LIKE</div>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.8)' }}>PLAYS LIKE</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{view.total}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>yds</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>yds</span>
             </div>
           </div>
           <div style={{ textAlign: 'right', paddingBottom: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>actual {view.base} yds</div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)' }}>actual {view.base} yds</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: factorColor(view.adj), fontVariantNumeric: 'tabular-nums' }}>{yardStr(view.adj)} yds</div>
           </div>
         </div>
@@ -1014,7 +1014,7 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
           </PlRow>
 
           <PlRow name="Elevation" yds={view.elevation} isManual={overrides.elevDeltaFt != null} expanded={activeRow === 'elev'} onToggle={() => toggle('elev')} autoKnown={elevAvailable}>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', marginTop: 8 }}>
               {(eff.elevDeltaFt ?? 0) >= 0 ? 'Uphill' : 'Downhill'} {Math.abs(Math.round(eff.elevDeltaFt ?? 0))} ft (~{Math.abs(ftToYd(eff.elevDeltaFt ?? 0))} yd)
             </div>
             <PlStepper label="Elevation change" value={Math.round(eff.elevDeltaFt ?? 0)} suffix=" ft" isManual={overrides.elevDeltaFt != null}
@@ -1042,14 +1042,14 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           {anyManual && (
             <button onClick={() => setOverrides({})} style={{
-              flex: 1, height: 46, borderRadius: 13, border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.05)',
-              color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              flex: 1, height: 46, borderRadius: 13, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.16)', background: 'rgb(var(--tm-ee-white-rgb) / 0.05)',
+              color: 'rgb(var(--tm-ee-white-rgb) / 0.8)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
             }}>Reset all to auto</button>
           )}
           <button onClick={onClose} style={{
-            flex: 1, height: 46, borderRadius: 13, border: '1px solid rgba(201,160,64,0.4)',
-            background: 'linear-gradient(180deg, rgba(201,160,64,0.28), rgba(201,160,64,0.16))',
-            color: 'var(--tm-ee-gold-light)', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)',
+            flex: 1, height: 46, borderRadius: 13, border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.4)',
+            background: 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.28), rgb(var(--tm-ee-gold-rgb) / 0.16))',
+            color: 'var(--tm-ee-gold-light)', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.15)',
           }}>Done</button>
         </div>
       </div>
@@ -1688,11 +1688,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
            aim line at the active club's distance. No background box. */
         @keyframes lz-pulse {
           0%, 100% {
-            box-shadow: 0 0 0 0 rgba(245,224,112,0.55), 0 0 16px rgba(245,224,112,0.55);
+            box-shadow: 0 0 0 0 rgb(var(--tm-ee-gold-pulse-rgb) / 0.55), 0 0 16px rgb(var(--tm-ee-gold-pulse-rgb) / 0.55);
             transform: scale(0.95);
           }
           50% {
-            box-shadow: 0 0 0 14px rgba(245,224,112,0), 0 0 28px rgba(245,224,112,0.85);
+            box-shadow: 0 0 0 14px rgb(var(--tm-ee-gold-pulse-rgb) / 0), 0 0 28px rgb(var(--tm-ee-gold-pulse-rgb) / 0.85);
             transform: scale(1.08);
           }
         }
@@ -1707,7 +1707,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         paddingTop: 'env(safe-area-inset-top, 44px)',
         ...(courseCtx ? {
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
-          background: 'linear-gradient(to bottom, rgba(7,12,9,0.92) 0%, rgba(7,12,9,0.55) 58%, rgba(7,12,9,0) 100%)',
+          background: 'linear-gradient(to bottom, rgb(var(--tm-ee-bg-rgb) / 0.92) 0%, rgb(var(--tm-ee-bg-rgb) / 0.55) 58%, rgb(var(--tm-ee-bg-rgb) / 0) 100%)',
           pointerEvents: 'none',
         } : {
           background: 'var(--tm-ee-bg)',
@@ -1718,7 +1718,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               so this back chevron is the way out, returning to the prior tab. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {onExit && (
-              <button onClick={onExit} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgba(8,12,10,0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--tm-ee-gold-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
+              <button onClick={onExit} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgb(var(--tm-ee-glass-rgb) / 0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', color: 'var(--tm-ee-gold-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
             )}
@@ -1728,8 +1728,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </div>
               {courseCtx && (
                 <button onClick={() => setShowPicker(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  <span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
               )}
             </div>
@@ -1744,18 +1744,18 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               title={gpsTrusted ? 'GPS locked — tap to refresh' : gpsAcquiring ? 'Acquiring GPS — tap to refresh' : 'Tap to turn on GPS'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                background: gpsTrusted ? 'rgba(42,122,56,0.18)' : gpsAcquiring ? 'rgba(240,168,104,0.14)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${gpsTrusted ? 'rgba(42,122,56,0.35)' : gpsAcquiring ? 'rgba(240,168,104,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                background: gpsTrusted ? 'rgb(var(--tm-ee-green-deep-rgb) / 0.18)' : gpsAcquiring ? 'rgb(var(--tm-ee-amber-rgb) / 0.14)' : 'rgb(var(--tm-ee-white-rgb) / 0.06)',
+                border: `1px solid ${gpsTrusted ? 'rgb(var(--tm-ee-green-deep-rgb) / 0.35)' : gpsAcquiring ? 'rgb(var(--tm-ee-amber-rgb) / 0.35)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
                 borderRadius: 20, padding: '4px 8px', cursor: 'pointer',
                 fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
               }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%',
-                background: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgba(255,255,255,0.2)',
+                background: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgb(var(--tm-ee-white-rgb) / 0.2)',
                 animation: gpsAcquiring ? 'ee-acq-pulse 1.1s ease-in-out infinite' : 'none' }} />
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-                color: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgba(255,255,255,0.3)' }}>GPS</span>
+                color: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)' }}>GPS</span>
               {/* refresh glyph — signals the pill is tappable */}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgb(var(--tm-ee-white-rgb) / 0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
                 <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
@@ -1768,15 +1768,15 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 Falls back to absolute blow-direction until a bearing exists.
                 (2026-06-30 — Matt: per-hole + down = in your face.) */}
             {wind && (
-              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>
+              <div style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.1)', borderRadius: 20, padding: '4px 8px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>
                   <WindArrow deg={shotBearing != null ? wind.dir - shotBearing + 180 : wind.dir + 180} /> {wind.speed}
                 </span>
               </div>
             )}
             {temp != null && (
-              <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '4px 8px' }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>{temp}°</span>
+              <div style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.1)', borderRadius: 20, padding: '4px 8px' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>{temp}°</span>
               </div>
             )}
             {/* Inline Scorecard pill — sits next to the conditions pills so
@@ -1784,8 +1784,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 they're currently looking at. (2026-05-01) */}
             {onGoToScorecard && (
               <button onClick={onGoToScorecard} style={{
-                background: 'rgba(232,192,90,0.14)',
-                border: '1px solid rgba(232,192,90,0.40)',
+                background: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.14)',
+                border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.40)',
                 borderRadius: 20, padding: '4px 10px',
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 4,
@@ -1812,7 +1812,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           const NavBtn = ({ dir, disabled }) => (
             <button onClick={() => go(dir)} disabled={disabled} aria-label={dir < 0 ? 'Previous hole' : 'Next hole'} style={{
               width: 30, height: 30, borderRadius: '50%', border: 'none', background: 'transparent',
-              color: disabled ? 'rgba(245,215,138,0.22)' : 'rgba(245,215,138,0.9)',
+              color: disabled ? 'rgb(var(--tm-ee-gold-light-rgb) / 0.22)' : 'rgb(var(--tm-ee-gold-light-rgb) / 0.9)',
               cursor: disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               WebkitTapHighlightColor: 'transparent',
             }}>
@@ -1825,15 +1825,15 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             <div style={{ padding: '0 20px 12px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 2,
-                background: 'rgba(8,12,10,0.55)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-                border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '3px 5px',
-                boxShadow: '0 6px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
+                background: 'rgb(var(--tm-ee-glass-rgb) / 0.55)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+                border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', borderRadius: 999, padding: '3px 5px',
+                boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.12)',
               }}>
                 <NavBtn dir={-1} disabled={idx <= 0} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px' }}>
                   <span style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', letterSpacing: '-0.01em' }}>Hole {cur?.hole}</span>
-                  <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.35)' }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.62)' }}>Par {cur?.par}</span>
+                  <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgb(var(--tm-ee-white-rgb) / 0.35)' }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.62)' }}>Par {cur?.par}</span>
                 </div>
                 <NavBtn dir={1} disabled={idx >= teeHoles.length - 1} />
               </div>
@@ -1845,7 +1845,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       {/* ── GPS error banner ── floats below the header on a course (map is
           full-bleed underneath), else normal flow on the welcome screen. */}
       {gpsError && (
-        <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)',
+        <div style={{ padding: '12px 14px', borderRadius: 12, background: 'rgb(var(--tm-ee-red-deep-rgb) / 0.12)', border: '1px solid rgb(var(--tm-ee-red-deep-rgb) / 0.3)',
           ...(courseCtx
             ? { position: 'absolute', top: 'calc(env(safe-area-inset-top, 44px) + 100px)', left: 16, right: 16, zIndex: 21, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
             : { margin: '8px 16px 0' }) }}>
@@ -1855,24 +1855,24 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--tm-ee-red)' }}>
                 {gpsError === 'denied-hard' ? 'Location access blocked' : gpsError === 'timeout' ? 'GPS signal lost' : 'Location unavailable'}
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
+              <div style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginTop: 1 }}>
                 {gpsError === 'denied-hard' ? 'Tap below to enable, or go to Settings manually' : 'Move to an open area and try again'}
               </div>
             </div>
             <button onClick={requestLocation}
-              style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 8, padding: '6px 12px', color: 'var(--tm-ee-red)', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+              style={{ background: 'rgb(var(--tm-ee-red-rgb) / 0.15)', border: '1px solid rgb(var(--tm-ee-red-rgb) / 0.4)', borderRadius: 8, padding: '6px 12px', color: 'var(--tm-ee-red)', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
             >
               Enable GPS
             </button>
           </div>
           {gpsError === 'denied-hard' && (
-            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(0,0,0,0.3)', borderRadius: 8, fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.8 }}>
+            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgb(var(--tm-ee-black-rgb) / 0.3)', borderRadius: 8, fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.55)', lineHeight: 1.8 }}>
               Location is blocked. Open Settings and allow access:<br/>
-              <span style={{ color: 'rgba(255,255,255,0.75)' }}>
+              <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.75)' }}>
                 If using from home screen:<br/>
                 <span style={{ color: 'var(--tm-ee-gold-light)' }}>Settings → Privacy &amp; Security → Location Services → The Match → While Using</span>
               </span><br/>
-              <span style={{ color: 'rgba(255,255,255,0.75)' }}>
+              <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.75)' }}>
                 If using in Safari:<br/>
                 <span style={{ color: 'var(--tm-ee-gold-light)' }}>Settings → Privacy &amp; Security → Location Services → Safari → While Using</span>
               </span>
@@ -1888,10 +1888,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           {/* Animated crosshair */}
           <div style={{ position: 'relative', width: 140, height: 140, marginBottom: 24 }}>
             <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0, animation: 'ee-spin-slow 20s linear infinite' }}>
-              <circle cx="80" cy="80" r="74" stroke="rgba(201,160,64,0.10)" strokeWidth="1" strokeDasharray="6 8"/>
+              <circle cx="80" cy="80" r="74" stroke="rgb(var(--tm-ee-gold-rgb) / 0.10)" strokeWidth="1" strokeDasharray="6 8"/>
             </svg>
             <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0, animation: 'ee-spin-slow 12s linear infinite reverse' }}>
-              <circle cx="80" cy="80" r="60" stroke="rgba(201,160,64,0.14)" strokeWidth="1" strokeDasharray="4 10"/>
+              <circle cx="80" cy="80" r="60" stroke="rgb(var(--tm-ee-gold-rgb) / 0.14)" strokeWidth="1" strokeDasharray="4 10"/>
             </svg>
             <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0 }}>
               <circle cx="80" cy="80" r="46" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.55"/>
@@ -1908,20 +1908,20 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 return <line key={a} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--tm-ee-gold)" strokeWidth="1" strokeOpacity="0.3" strokeLinecap="round"/>
               })}
             </svg>
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', boxShadow: '0 0 80px rgba(201,160,64,0.08)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', boxShadow: '0 0 80px rgb(var(--tm-ee-gold-rgb) / 0.08)', pointerEvents: 'none' }} />
           </div>
 
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: 'var(--tm-ee-gold)', marginBottom: 10 }}>AI-POWERED RANGEFINDER</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 8, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
             Know Every Yard.<br/>Play Every Shot.
           </div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.32)', lineHeight: 1.6, marginBottom: 24, maxWidth: 270, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.32)', lineHeight: 1.6, marginBottom: 24, maxWidth: 270, textAlign: 'center' }}>
             Select your course for live hole distances, GPS tracking, and plays-like yardages.
           </div>
           {!gps && (
             <button onClick={requestLocation} style={{
-              padding: '11px 28px', borderRadius: 12, border: '1px solid rgba(94,212,122,0.4)', cursor: 'pointer',
-              background: 'rgba(94,212,122,0.1)', color: 'var(--tm-ee-green)', fontWeight: 700, fontSize: 13,
+              padding: '11px 28px', borderRadius: 12, border: '1px solid rgb(var(--tm-ee-green-rgb) / 0.4)', cursor: 'pointer',
+              background: 'rgb(var(--tm-ee-green-rgb) / 0.1)', color: 'var(--tm-ee-green)', fontWeight: 700, fontSize: 13,
               marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
             }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 8px var(--tm-ee-green)' }} />
@@ -1933,7 +1933,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             padding: '15px 48px', borderRadius: 16, border: 'none', cursor: 'pointer',
             background: 'linear-gradient(135deg, var(--tm-ee-gold) 0%, var(--tm-ee-gold-bright) 100%)',
             color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 16, letterSpacing: '0.02em',
-            boxShadow: '0 6px 32px rgba(201,160,64,0.4), 0 2px 8px rgba(0,0,0,0.3)',
+            boxShadow: '0 6px 32px rgb(var(--tm-ee-gold-rgb) / 0.4), 0 2px 8px rgb(var(--tm-ee-black-rgb) / 0.3)',
           }}>Select Course</button>
 
           {/* Feature row */}
@@ -1945,7 +1945,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             ].map(f => (
               <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 {f.icon}
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 600, letterSpacing: '0.06em' }}>{f.label}</span>
+                <span style={{ fontSize: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.3)', fontWeight: 600, letterSpacing: '0.06em' }}>{f.label}</span>
               </div>
             ))}
           </div>
@@ -1978,7 +1978,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           {/* Focus vignette — subtly darkens the map edges so the centre + the
               distance card pop (premium framing). Static, pointer-through. */}
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5,
-            background: 'radial-gradient(125% 90% at 50% 40%, transparent 56%, rgba(0,0,0,0.40) 100%)' }} />
+            background: 'radial-gradient(125% 90% at 50% 40%, transparent 56%, rgb(var(--tm-ee-black-rgb) / 0.40) 100%)' }} />
 
           {/* HUD overlay — the wrapper spans the full map (`inset: 0`) with
               pointerEvents:none at auto z-index; each visible child carries
@@ -2001,10 +2001,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 map/markers. (2026-06-23 — premium pass, first visual slice.) */}
             <div style={{ alignSelf: 'center', order: 2, pointerEvents: 'auto', textAlign: 'center',
               display: 'flex', flexDirection: 'column', alignItems: 'center',
-              background: 'rgba(8,12,10,0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
-              borderRadius: 20, border: '1px solid rgba(255,255,255,0.14)',
+              background: 'rgb(var(--tm-ee-glass-rgb) / 0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
+              borderRadius: 20, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',
               padding: '10px 14px 12px',
-              boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20), 0 0 46px rgba(201,160,64,0.13)',
+              boxShadow: '0 10px 34px rgb(var(--tm-ee-black-rgb) / 0.55), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.20), 0 0 46px rgb(var(--tm-ee-gold-rgb) / 0.13)',
               position: 'relative', overflow: 'hidden',
               minWidth: 124,
               marginTop: 0,
@@ -2025,15 +2025,15 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   just never quantify the uncertainty to the user. */}
               {gpsTrusted ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 6px rgba(94,212,122,0.8)' }} />
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(94,212,122,0.85)' }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 6px rgb(var(--tm-ee-green-rgb) / 0.8)' }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-green-rgb) / 0.85)' }}>
                     GPS
                   </span>
                 </div>
               ) : gpsAcquiring ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-amber)', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(240,168,104,0.95)' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-amber-rgb) / 0.95)' }}>
                     ACQUIRING
                   </span>
                 </div>
@@ -2043,10 +2043,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   polygon matched (else the single number stands). (2026-06-06) */}
               {fcb && fcb.front != null && fcb.back != null && (
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(94,212,122,0.9)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgb(var(--tm-ee-green-rgb) / 0.9)' }}>
                     F <span style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{fcb.front}</span>
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(255,255,255,0.55)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)' }}>
                     B <span style={{ color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{fcb.back}</span>
                   </span>
                 </div>
@@ -2059,24 +2059,24 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               {plView && (
                 <button onClick={() => setPlSheetOpen(true)} style={{
                   display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, padding: '4px 9px',
-                  background: 'rgba(201,160,64,0.16)', border: '1px solid rgba(201,160,64,0.38)', borderRadius: 9,
+                  background: 'rgb(var(--tm-ee-gold-rgb) / 0.16)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.38)', borderRadius: 9,
                   cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
                 }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(245,215,138,0.8)' }}>PLAYS LIKE</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.8)' }}>PLAYS LIKE</span>
                   <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{plView.total}</span>
                   {plView.adj !== 0 && (
                     <span style={{ fontSize: 10, fontWeight: 800, color: plView.adj > 0 ? 'var(--tm-ee-amber)' : 'var(--tm-ee-green)', fontVariantNumeric: 'tabular-nums' }}>
                       {plView.adj > 0 ? `+${plView.adj}` : plView.adj}
                     </span>
                   )}
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(245,215,138,0.55)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-gold-light-rgb) / 0.55)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               )}
-              {osmLoading && <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
+              {osmLoading && <div style={{ fontSize: 8, color: 'rgb(var(--tm-ee-white-rgb) / 0.30)', marginTop: 3, letterSpacing: '0.06em' }}>Loading…</div>}
               {/* PAR pill removed 2026-06-30 — par already shows in the top hole
                   toggle; dropping it shrinks the card so it doesn't crowd the tee. */}
               {holeData?.yardage && gpsToGreen != null && (
-                <div style={{ marginTop: 6, background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 4, padding: '1px 6px' }}>
+                <div style={{ marginTop: 6, background: 'rgb(var(--tm-ee-gold-rgb) / 0.15)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.3)', borderRadius: 4, padding: '1px 6px' }}>
                   <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--tm-ee-gold)' }}>{holeData.yardage}Y TEE</span>
                 </div>
               )}
@@ -2093,14 +2093,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               {result && (
                 <div onClick={() => setResult(result)} style={{
                   marginBottom: 10, padding: '10px 16px', borderRadius: 14, cursor: 'pointer',
-                  background: 'rgba(4,8,6,0.78)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(201,160,64,0.3)', display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'rgb(var(--tm-ee-glass-deep-rgb) / 0.78)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.3)', display: 'flex', alignItems: 'center', gap: 12,
                 }}>
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(245,215,138,0.5)', letterSpacing: '0.1em' }}>LAST ANALYSIS</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.5)', letterSpacing: '0.1em' }}>LAST ANALYSIS</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--tm-ee-gold-light)', marginTop: 1 }}>{result.playsLikeYards} yds · {result.recommendedClub}</div>
                   </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(245,215,138,0.4)" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-gold-light-rgb) / 0.4)" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
               )}
 
@@ -2205,12 +2205,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             // and grows downward into a tall ▲/club/▼ pill when a club is picked).
             // 50%−72px keeps a comfortable gap so the two never collide. (2026-06-26)
             position: 'absolute', top: 'calc(50% - 72px)', right: 16, transform: 'translateY(-50%)',
-            background: bagArcsOn ? 'rgba(201,160,64,0.30)' : 'rgba(7,12,9,0.62)',
+            background: bagArcsOn ? 'rgb(var(--tm-ee-gold-rgb) / 0.30)' : 'rgb(var(--tm-ee-bg-rgb) / 0.62)',
             backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-            border: bagArcsOn ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(245,215,138,0.40)',
+            border: bagArcsOn ? '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.85)' : '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.40)',
             borderRadius: 999, padding: '8px 12px', color: 'var(--tm-ee-gold-light)',
             fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', cursor: 'pointer',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
+            boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.50), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.14)',
             display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', zIndex: 1000,
             WebkitTapHighlightColor: 'transparent',
           }}>
@@ -2278,14 +2278,14 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         // at the same point. (2026-05-01 — Matt)
         top: 'calc(50% + 22px)', right: 16,
         transform: 'translateY(-50%)',
-        background: 'rgba(7,12,9,0.62)',
+        background: 'rgb(var(--tm-ee-bg-rgb) / 0.62)',
         backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-        border: '1px solid rgba(245,215,138,0.40)',
+        border: '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.40)',
         borderRadius: 999, padding: '10px 14px',
         color: 'var(--tm-ee-gold-light)',
         fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
         cursor: 'pointer',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
+        boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.50), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.14)',
         display: 'inline-flex', alignItems: 'center', gap: 8,
         fontFamily: 'inherit',
         zIndex: 1000,
@@ -2311,16 +2311,16 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
       disabled={disabled}
       onClick={() => club && onSelect?.(club)}
       style={{
-        background: disabled ? 'rgba(7,12,9,0.42)' : 'rgba(7,12,9,0.62)',
+        background: disabled ? 'rgb(var(--tm-ee-bg-rgb) / 0.42)' : 'rgb(var(--tm-ee-bg-rgb) / 0.62)',
         backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-        border: disabled ? '1px solid rgba(245,215,138,0.18)' : '1px solid rgba(245,215,138,0.55)',
-        color: disabled ? 'rgba(245,215,138,0.30)' : 'var(--tm-ee-gold-light)',
+        border: disabled ? '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.18)' : '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.55)',
+        color: disabled ? 'rgb(var(--tm-ee-gold-light-rgb) / 0.30)' : 'var(--tm-ee-gold-light)',
         borderRadius: 12, padding: '6px 10px',
         fontSize: 11, fontWeight: 800, letterSpacing: '0.02em',
         cursor: disabled ? 'default' : 'pointer',
         fontFamily: 'inherit', minWidth: 96,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.12)',
+        boxShadow: '0 4px 12px rgb(var(--tm-ee-black-rgb) / 0.45), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.12)',
       }}
     >
       <span>{label}</span>
@@ -2349,13 +2349,13 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         <button
           onClick={onOpenSheet}
           style={{
-            background: 'linear-gradient(135deg, rgba(245,215,138,0.97), rgba(201,160,64,0.97))',
-            border: '1px solid rgba(245,215,138,0.85)',
+            background: 'linear-gradient(135deg, rgb(var(--tm-ee-gold-light-rgb) / 0.97), rgb(var(--tm-ee-gold-rgb) / 0.97))',
+            border: '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.85)',
             borderRadius: 12, padding: '10px 14px',
             color: 'var(--tm-ee-bg)',
             fontFamily: 'inherit',
             cursor: 'pointer',
-            boxShadow: '0 6px 18px rgba(201,160,64,0.45)',
+            boxShadow: '0 6px 18px rgb(var(--tm-ee-gold-rgb) / 0.45)',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             minWidth: 96,
           }}
@@ -2371,8 +2371,8 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
           onClick={onClear}
           aria-label="Clear club"
           style={{
-            background: 'rgba(7,12,9,0.85)',
-            border: '1px solid rgba(245,215,138,0.40)',
+            background: 'rgb(var(--tm-ee-bg-rgb) / 0.85)',
+            border: '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.40)',
             borderRadius: 12, padding: '0 10px',
             color: 'var(--tm-ee-gold-light)',
             fontSize: 14, fontWeight: 800,
@@ -2417,7 +2417,7 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
   return createPortal(
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+      background: 'rgb(var(--tm-ee-black-rgb) / 0.65)', backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }}>
@@ -2426,19 +2426,19 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
         maxHeight: '78vh',
         display: 'flex', flexDirection: 'column',
         background: 'linear-gradient(180deg, var(--tm-ee-bg-deep) 0%, var(--tm-ee-bg) 100%)',
-        border: '1px solid rgba(245,215,138,0.25)',
+        border: '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.25)',
         borderRadius: '20px 20px 0 0',
         overflow: 'hidden',
       }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(245,215,138,0.30)', margin: '12px auto 8px', flexShrink: 0 }} />
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgb(var(--tm-ee-gold-light-rgb) / 0.30)', margin: '12px auto 8px', flexShrink: 0 }} />
 
         <div style={{
           padding: '4px 18px 14px', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.06)',
         }}>
           <div>
-            <div style={{ fontSize: 10, color: 'rgba(245,215,138,0.60)', fontWeight: 700, letterSpacing: '0.20em' }}>
+            <div style={{ fontSize: 10, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.60)', fontWeight: 700, letterSpacing: '0.20em' }}>
               MY BAG
             </div>
             <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginTop: 2 }}>
@@ -2446,8 +2446,8 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
             </div>
           </div>
           <button onClick={onClose} style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: 10, color: 'rgba(255,255,255,0.70)', fontSize: 16,
+            background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
+            borderRadius: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.70)', fontSize: 16,
             cursor: 'pointer', padding: '4px 10px', height: 32, lineHeight: 1,
             fontFamily: 'inherit',
           }}>✕</button>
@@ -2457,7 +2457,7 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
           {usable.length === 0 && (
             <div style={{
               padding: '32px 16px', textAlign: 'center',
-              color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 1.55,
+              color: 'rgb(var(--tm-ee-white-rgb) / 0.55)', fontSize: 13, lineHeight: 1.55,
             }}>
               Your bag is empty (or no distances saved yet).<br/>
               Add clubs in the <strong>My Bag</strong> tab to use this picker.
@@ -2468,8 +2468,8 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
             return (
               <button key={c.slot} onClick={() => onPick(c)} style={{
                 width: '100%', textAlign: 'left',
-                background: active ? 'rgba(245,215,138,0.10)' : 'rgba(255,255,255,0.03)',
-                border: active ? '1px solid rgba(245,215,138,0.55)' : '1px solid rgba(255,255,255,0.06)',
+                background: active ? 'rgb(var(--tm-ee-gold-light-rgb) / 0.10)' : 'rgb(var(--tm-ee-white-rgb) / 0.03)',
+                border: active ? '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.55)' : '1px solid rgb(var(--tm-ee-white-rgb) / 0.06)',
                 borderRadius: 12, padding: '12px 14px',
                 marginBottom: 6,
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
@@ -2477,14 +2477,14 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
               }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{
-                    fontSize: 10, color: 'rgba(245,215,138,0.65)', fontWeight: 700,
+                    fontSize: 10, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.65)', fontWeight: 700,
                     letterSpacing: '0.10em', textTransform: 'uppercase',
                   }}>{SLOT_LABELS[c.slot] || c.slot}</div>
                   <div style={{
                     fontSize: 14, fontWeight: 800, color: '#fff',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
-                    {c.brand} <span style={{ color: 'rgba(255,255,255,0.62)', fontWeight: 600 }}>{c.model}</span>
+                    {c.brand} <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.62)', fontWeight: 600 }}>{c.model}</span>
                   </div>
                 </div>
                 <div style={{
@@ -2502,15 +2502,15 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
         {selectedSlot && (
           <div style={{
             padding: '10px 18px calc(10px + env(safe-area-inset-bottom)) 18px',
-            borderTop: '1px solid rgba(255,255,255,0.06)',
+            borderTop: '1px solid rgb(var(--tm-ee-white-rgb) / 0.06)',
             flexShrink: 0,
           }}>
             <button onClick={onClear} style={{
               width: '100%', padding: '12px',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgb(var(--tm-ee-white-rgb) / 0.05)',
+              border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
               borderRadius: 12,
-              color: 'rgba(255,255,255,0.75)',
+              color: 'rgb(var(--tm-ee-white-rgb) / 0.75)',
               fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
             }}>Clear selection</button>
