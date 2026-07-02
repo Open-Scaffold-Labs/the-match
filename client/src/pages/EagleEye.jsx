@@ -254,7 +254,7 @@ function EagleEyeBtn({ onPress, scanning }) {
         disabled={scanning}
         style={{
           width: 80, height: 80, borderRadius: '50%',
-          background: 'linear-gradient(145deg, #E8C05A, #C9A040)',
+          background: 'linear-gradient(145deg, var(--tm-ee-gold-bright), var(--tm-ee-gold))',
           border: '3px solid rgba(255,255,255,0.25)',
           cursor: scanning ? 'default' : 'pointer',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
@@ -330,7 +330,7 @@ function gaugeArc(cx, cy, r, startDeg, sweepDeg) {
   return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`
 }
 
-function DistanceInstrument({ yards, label, accent = '#5ED47A' }) {
+function DistanceInstrument({ yards, label, accent = 'var(--tm-ee-green)' }) {
   const RANGE = 320                               // yds at full 270° sweep
   const has = typeof yards === 'number'
   const shown = useTween(has ? yards : null)
@@ -342,9 +342,9 @@ function DistanceInstrument({ yards, label, accent = '#5ED47A' }) {
       <svg width={SZ} height={SZ} viewBox={`0 0 ${SZ} ${SZ}`} style={{ display: 'block' }}>
         <defs>
           <linearGradient id="ee-gauge-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#F5E070" />
+            <stop offset="0%" stopColor="var(--tm-ee-gold-pulse)" />
             <stop offset="55%" stopColor={accent} />
-            <stop offset="100%" stopColor="#2A7A38" />
+            <stop offset="100%" stopColor="var(--tm-ee-green-deep)" />
           </linearGradient>
         </defs>
         {/* track */}
@@ -492,7 +492,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
           <div style={{
             width: 64, height: 64, borderRadius: '50%',
             background: isAligned ? 'rgba(42,122,56,0.85)' : 'rgba(7,12,9,0.75)',
-            border: `2px solid ${isAligned ? '#5ED47A' : 'rgba(255,255,255,0.25)'}`,
+            border: `2px solid ${isAligned ? 'var(--tm-ee-green)' : 'rgba(255,255,255,0.25)'}`,
             backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'background 0.3s, border-color 0.3s',
@@ -502,7 +502,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
               transition: arrowRotation != null ? 'transform 0.1s linear' : 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 28, lineHeight: 1,
-              color: isAligned ? '#5ED47A' : '#F5D78A',
+              color: isAligned ? 'var(--tm-ee-green)' : 'var(--tm-ee-gold-light)',
             }}>↑</div>
           </div>
           {/* Label */}
@@ -511,7 +511,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
             borderRadius: 20, padding: '4px 12px',
             border: `1px solid ${isAligned ? 'rgba(94,212,122,0.4)' : 'rgba(255,255,255,0.15)'}`,
           }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: isAligned ? '#5ED47A' : 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: isAligned ? 'var(--tm-ee-green)' : 'rgba(255,255,255,0.7)', letterSpacing: '0.06em' }}>
               {isAligned
                 ? '✓ FACING GREEN'
                 : compass != null
@@ -527,13 +527,13 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
         <div style={{ width: 180, height: 180, position: 'relative', opacity: scanning ? 0.3 : 0.7, transition: 'opacity 300ms' }}>
           {[['tl','top','left'], ['tr','top','right'], ['bl','bottom','left'], ['br','bottom','right']].map(([k, v, h]) => (
             <div key={k} style={{ position: 'absolute', [v]: 0, [h]: 0, width: 24, height: 24,
-              borderTop:    v === 'top'    ? '2px solid #F5D78A' : 'none',
-              borderBottom: v === 'bottom' ? '2px solid #F5D78A' : 'none',
-              borderLeft:   h === 'left'   ? '2px solid #F5D78A' : 'none',
-              borderRight:  h === 'right'  ? '2px solid #F5D78A' : 'none',
+              borderTop:    v === 'top'    ? '2px solid var(--tm-ee-gold-light)' : 'none',
+              borderBottom: v === 'bottom' ? '2px solid var(--tm-ee-gold-light)' : 'none',
+              borderLeft:   h === 'left'   ? '2px solid var(--tm-ee-gold-light)' : 'none',
+              borderRight:  h === 'right'  ? '2px solid var(--tm-ee-gold-light)' : 'none',
             }} />
           ))}
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 5, height: 5, borderRadius: '50%', background: '#F5D78A', boxShadow: '0 0 8px #F5D78A' }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-gold-light)', boxShadow: '0 0 8px var(--tm-ee-gold-light)' }} />
         </div>
       </div>
 
@@ -541,7 +541,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: '16px', padding: '12px 16px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => { closeCamera(); onClose() }} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 13, letterSpacing: '0.12em' }}>EAGLE EYE</div>
+          <div style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 800, fontSize: 13, letterSpacing: '0.12em' }}>EAGLE EYE</div>
           {holeData && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>H{currentHole} · {holeData.yardage}y · Par {holeData.par}</div>}
         </div>
         <button onClick={flip} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⇄</button>
@@ -551,15 +551,15 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
       {scanning && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.72)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
           <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ animation: 'ee-scan 0.9s ease-in-out infinite' }}>
-            <circle cx="36" cy="36" r="32" stroke="#C9A040" strokeWidth="1" strokeOpacity="0.4"/>
-            <circle cx="36" cy="36" r="20" stroke="#E8C05A" strokeWidth="1.5" strokeOpacity="0.8"/>
-            <circle cx="36" cy="36" r="3" fill="#F5D78A"/>
-            <line x1="36" y1="4" x2="36" y2="14" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-            <line x1="36" y1="58" x2="36" y2="68" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-            <line x1="4" y1="36" x2="14" y2="36" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-            <line x1="58" y1="36" x2="68" y2="36" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <circle cx="36" cy="36" r="32" stroke="var(--tm-ee-gold)" strokeWidth="1" strokeOpacity="0.4"/>
+            <circle cx="36" cy="36" r="20" stroke="var(--tm-ee-gold-bright)" strokeWidth="1.5" strokeOpacity="0.8"/>
+            <circle cx="36" cy="36" r="3" fill="var(--tm-ee-gold-light)"/>
+            <line x1="36" y1="4" x2="36" y2="14" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <line x1="36" y1="58" x2="36" y2="68" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <line x1="4" y1="36" x2="14" y2="36" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
+            <line x1="58" y1="36" x2="68" y2="36" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
           </svg>
-          <div style={{ color: '#F5D78A', fontWeight: 800, fontSize: 18, letterSpacing: '0.04em' }}>Analyzing</div>
+          <div style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 800, fontSize: 18, letterSpacing: '0.04em' }}>Analyzing</div>
           <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, letterSpacing: '0.06em' }}>GPS · WEATHER · VISION{courseCtx ? ' · COURSE' : ''}</div>
         </div>
       )}
@@ -579,7 +579,7 @@ function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos,
             onClick={capture}
             style={{
               width: 76, height: 76, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, var(--tm-ee-gold-light), var(--tm-ee-gold))',
               border: '4px solid rgba(255,255,255,0.35)',
               boxShadow: '0 0 28px rgba(201,160,64,0.7)',
               cursor: 'pointer',
@@ -639,7 +639,7 @@ function ResultSheet({ result: r, holeData, onClose }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
           <div style={{ background: 'rgba(42,122,56,0.2)', border: '1px solid rgba(42,122,56,0.4)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Club</div>
-            <div style={{ color: '#C9A040', fontWeight: 800, fontSize: 22 }}>{r.recommendedClub}</div>
+            <div style={{ color: 'var(--tm-ee-gold)', fontWeight: 800, fontSize: 22 }}>{r.recommendedClub}</div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Alternate</div>
@@ -657,19 +657,19 @@ function ResultSheet({ result: r, holeData, onClose }) {
           ].filter(([,v]) => v !== 0).map(([label, val]) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13 }}>{label}</span>
-              <span style={{ color: val > 0 ? '#F87171' : '#C9A040', fontWeight: 700, fontSize: 13 }}>{adj(val)}y</span>
+              <span style={{ color: val > 0 ? 'var(--tm-ee-red)' : 'var(--tm-ee-gold)', fontWeight: 700, fontSize: 13 }}>{adj(val)}y</span>
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6 }}>
             <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>Shot shape</span>
-            <span style={{ color: '#F5D78A', fontSize: 13, fontWeight: 700 }}>{r.shotShape}</span>
+            <span style={{ color: 'var(--tm-ee-gold-light)', fontSize: 13, fontWeight: 700 }}>{r.shotShape}</span>
           </div>
         </div>
 
         {/* Caddie note */}
         {r.caddieNote && (
           <div style={{ background: 'rgba(42,122,56,0.12)', border: '1px solid rgba(42,122,56,0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-            <div style={{ color: '#C9A040', fontSize: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.1em' }}>CADDIE NOTE</div>
+            <div style={{ color: 'var(--tm-ee-gold)', fontSize: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.1em' }}>CADDIE NOTE</div>
             <div style={{ color: 'var(--tm-text)', fontSize: 14, lineHeight: 1.55 }}>{r.caddieNote}</div>
           </div>
         )}
@@ -766,7 +766,7 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
       background: 'rgba(0,0,0,0.5)',
       display: 'flex', justifyContent: 'center',
     }}>
-    <div style={{ width: '100%', maxWidth: 430, height: '100%', background: '#07100C', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '100%', maxWidth: 430, height: '100%', background: 'var(--tm-ee-bg-sheet)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer' }}>←</button>
@@ -780,7 +780,7 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
             style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 40px 10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
           />
           {loading && (
-            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(245,215,138,0.3)', borderTopColor: '#F5D78A', animation: 'ee-spin-slow 0.7s linear infinite' }} />
+            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(245,215,138,0.3)', borderTopColor: 'var(--tm-ee-gold-light)', animation: 'ee-spin-slow 0.7s linear infinite' }} />
           )}
         </div>
       </div>
@@ -796,7 +796,7 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{[c.city, c.state, c.country].filter(Boolean).join(', ')}</div>
               </div>
               {distLabel && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: miles < 5 ? '#5ED47A' : 'rgba(255,255,255,0.3)', flexShrink: 0, marginLeft: 12 }}>{distLabel}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: miles < 5 ? 'var(--tm-ee-green)' : 'rgba(255,255,255,0.3)', flexShrink: 0, marginLeft: 12 }}>{distLabel}</div>
               )}
             </div>
           )
@@ -811,7 +811,7 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
                   padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
                   background: i === teeIdx ? 'rgba(232,192,90,0.2)' : 'rgba(255,255,255,0.07)',
                   border: `1px solid ${i === teeIdx ? 'rgba(232,192,90,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                  color: i === teeIdx ? '#F5D78A' : 'rgba(255,255,255,0.6)',
+                  color: i === teeIdx ? 'var(--tm-ee-gold-light)' : 'rgba(255,255,255,0.6)',
                 }}>{t.tee_name} ({t.total_yards}y)</button>
               ))}
             </div>
@@ -826,7 +826,7 @@ function CoursePicker({ onSelect, onClose, gps, gender }) {
             </div>
             <button onClick={() => onSelect({ course, tee: activeTee })} style={{
               width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg, #1A6B28, #2E9E45)',
+              background: 'linear-gradient(135deg, var(--tm-ee-green-grad-a), var(--tm-ee-green-grad-b))',
               color: '#fff', fontWeight: 800, fontSize: 16,
             }}>Use This Course & Tee</button>
           </>
@@ -854,8 +854,8 @@ const PL_SHEET_STYLE = `
   }
 `
 const normDeg = (d) => ((d % 360) + 360) % 360
-const PL_LONGER = '#F0A868'   // plays longer (warm) — matches the existing PLAYS row
-const PL_SHORTER = '#5ED47A'  // plays shorter (green)
+const PL_LONGER = 'var(--tm-ee-amber)'   // plays longer (warm) — matches the existing PLAYS row
+const PL_SHORTER = 'var(--tm-ee-green)'  // plays shorter (green)
 const yardStr = (n) => (n > 0 ? `+${n}` : `${n}`)
 const factorColor = (n) => (n > 0 ? PL_LONGER : n < 0 ? PL_SHORTER : 'rgba(255,255,255,0.5)')
 
@@ -916,7 +916,7 @@ function WindDial({ windDir, windSpeed, shotBearing, onChange }) {
         <text x={c} y={c - r - 12} textAnchor="middle" fontSize="9" fontWeight="700" fill="rgba(94,212,122,0.9)" letterSpacing="0.5">TARGET</text>
         <line x1={c} y1={c} x2={mx} y2={my} stroke={PL_LONGER} strokeWidth="2.5" strokeLinecap="round" />
         {/* draggable handle — visual 18px, generous hit via the whole svg pointerdown */}
-        <circle cx={mx} cy={my} r="11" fill={PL_LONGER} stroke="#0A0A0A" strokeWidth="2" />
+        <circle cx={mx} cy={my} r="11" fill={PL_LONGER} stroke="var(--tm-ee-ink)" strokeWidth="2" />
         <text x={c} y={c + 4} textAnchor="middle" fontSize="15" fontWeight="800" fill="#fff" style={{ fontVariantNumeric: 'tabular-nums' }}>{windSpeed}</text>
         <text x={c} y={c + 18} textAnchor="middle" fontSize="8" fontWeight="600" fill="rgba(255,255,255,0.5)">MPH</text>
       </svg>
@@ -939,7 +939,7 @@ function PlRow({ name, sub, yds, isManual, expanded, onToggle, available = true,
           {sub && <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>{sub}</span>}
         </span>
         {isManual ? (
-          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: '#0A0A0A', background: 'rgba(245,215,138,0.95)', borderRadius: 4, padding: '2px 5px' }}>MANUAL</span>
+          <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--tm-ee-ink)', background: 'rgba(245,215,138,0.95)', borderRadius: 4, padding: '2px 5px' }}>MANUAL</span>
         ) : autoKnown && available ? (
           <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)' }}>AUTO</span>
         ) : available && !autoKnown ? (
@@ -994,7 +994,7 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
           <div>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgba(245,215,138,0.8)' }}>PLAYS LIKE</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{view.total}</span>
+              <span style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{view.total}</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)' }}>yds</span>
             </div>
           </div>
@@ -1049,7 +1049,7 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
           <button onClick={onClose} style={{
             flex: 1, height: 46, borderRadius: 13, border: '1px solid rgba(201,160,64,0.4)',
             background: 'linear-gradient(180deg, rgba(201,160,64,0.28), rgba(201,160,64,0.16))',
-            color: '#F5D78A', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)',
+            color: 'var(--tm-ee-gold-light)', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)',
           }}>Done</button>
         </div>
       </div>
@@ -1589,7 +1589,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     : gpsAcquiring ? 'ACQUIRING'
     : (gpsTrusted && distanceWalked > 10 && remainingYards != null) ? 'REMAINING'
     : 'FROM TEE'
-  const distAccent = userAim ? '#F5D78A' : gpsToGreen != null ? '#5ED47A' : gpsAcquiring ? '#F0A868' : '#C9A040'
+  const distAccent = userAim ? 'var(--tm-ee-gold-light)' : gpsToGreen != null ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'var(--tm-ee-gold)'
 
   // "Plays like" wind needs a shot DIRECTION. Prefer the live player→green
   // bearing once we have a trusted GPS fix; otherwise fall back to the
@@ -1671,7 +1671,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
     // every downward map-pan and reloading the page (dropping GPS + re-
     // fetching OSM). Opt the whole screen out of the gesture. (2026-06-24)
-    <div data-no-pull-refresh="true" style={{ position: 'fixed', inset: 0, background: '#070C09', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div data-no-pull-refresh="true" style={{ position: 'fixed', inset: 0, background: 'var(--tm-ee-bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <CoachMark
         id="eagle_eye"
         user={user}
@@ -1710,7 +1710,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           background: 'linear-gradient(to bottom, rgba(7,12,9,0.92) 0%, rgba(7,12,9,0.55) 58%, rgba(7,12,9,0) 100%)',
           pointerEvents: 'none',
         } : {
-          background: '#070C09',
+          background: 'var(--tm-ee-bg)',
         }),
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px 10px', pointerEvents: 'auto' }}>
@@ -1718,12 +1718,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               so this back chevron is the way out, returning to the prior tab. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {onExit && (
-              <button onClick={onExit} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgba(8,12,10,0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', color: '#F5D78A', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
+              <button onClick={onExit} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgba(8,12,10,0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.12)', color: 'var(--tm-ee-gold-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
             )}
             <div>
-              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, #F5D78A, #C9A040)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, var(--tm-ee-gold-light), var(--tm-ee-gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 EAGLE EYE
               </div>
               {courseCtx && (
@@ -1750,12 +1750,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
               }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%',
-                background: gpsTrusted ? '#5ED47A' : gpsAcquiring ? '#F0A868' : 'rgba(255,255,255,0.2)',
+                background: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgba(255,255,255,0.2)',
                 animation: gpsAcquiring ? 'ee-acq-pulse 1.1s ease-in-out infinite' : 'none' }} />
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-                color: gpsTrusted ? '#5ED47A' : gpsAcquiring ? '#F0A868' : 'rgba(255,255,255,0.3)' }}>GPS</span>
+                color: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgba(255,255,255,0.3)' }}>GPS</span>
               {/* refresh glyph — signals the pill is tappable */}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? '#5ED47A' : gpsAcquiring ? '#F0A868' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgba(255,255,255,0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
                 <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
@@ -1791,8 +1791,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 display: 'flex', alignItems: 'center', gap: 4,
                 fontFamily: 'inherit',
               }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#F5D78A', letterSpacing: '0.04em' }}>SCORECARD</span>
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--tm-ee-gold-light)', letterSpacing: '0.04em' }}>SCORECARD</span>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold-light)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             )}
           </div>
@@ -1850,9 +1850,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             ? { position: 'absolute', top: 'calc(env(safe-area-inset-top, 44px) + 100px)', left: 16, right: 16, zIndex: 21, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }
             : { margin: '8px 16px 0' }) }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-red)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#F87171' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--tm-ee-red)' }}>
                 {gpsError === 'denied-hard' ? 'Location access blocked' : gpsError === 'timeout' ? 'GPS signal lost' : 'Location unavailable'}
               </div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 }}>
@@ -1860,7 +1860,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </div>
             </div>
             <button onClick={requestLocation}
-              style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 8, padding: '6px 12px', color: '#F87171', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+              style={{ background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 8, padding: '6px 12px', color: 'var(--tm-ee-red)', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
             >
               Enable GPS
             </button>
@@ -1870,11 +1870,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               Location is blocked. Open Settings and allow access:<br/>
               <span style={{ color: 'rgba(255,255,255,0.75)' }}>
                 If using from home screen:<br/>
-                <span style={{ color: '#F5D78A' }}>Settings → Privacy &amp; Security → Location Services → The Match → While Using</span>
+                <span style={{ color: 'var(--tm-ee-gold-light)' }}>Settings → Privacy &amp; Security → Location Services → The Match → While Using</span>
               </span><br/>
               <span style={{ color: 'rgba(255,255,255,0.75)' }}>
                 If using in Safari:<br/>
-                <span style={{ color: '#F5D78A' }}>Settings → Privacy &amp; Security → Location Services → Safari → While Using</span>
+                <span style={{ color: 'var(--tm-ee-gold-light)' }}>Settings → Privacy &amp; Security → Location Services → Safari → While Using</span>
               </span>
             </div>
           )}
@@ -1894,24 +1894,24 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               <circle cx="80" cy="80" r="60" stroke="rgba(201,160,64,0.14)" strokeWidth="1" strokeDasharray="4 10"/>
             </svg>
             <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0 }}>
-              <circle cx="80" cy="80" r="46" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.55"/>
-              <circle cx="80" cy="80" r="26" stroke="#E8C05A" strokeWidth="1.5" strokeOpacity="0.8"/>
-              <circle cx="80" cy="80" r="4" fill="#F5D78A"/>
-              <line x1="80" y1="6" x2="80" y2="50" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              <line x1="80" y1="110" x2="80" y2="154" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              <line x1="6" y1="80" x2="50" y2="80" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              <line x1="110" y1="80" x2="154" y2="80" stroke="#C9A040" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <circle cx="80" cy="80" r="46" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.55"/>
+              <circle cx="80" cy="80" r="26" stroke="var(--tm-ee-gold-bright)" strokeWidth="1.5" strokeOpacity="0.8"/>
+              <circle cx="80" cy="80" r="4" fill="var(--tm-ee-gold-light)"/>
+              <line x1="80" y1="6" x2="80" y2="50" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <line x1="80" y1="110" x2="80" y2="154" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <line x1="6" y1="80" x2="50" y2="80" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
+              <line x1="110" y1="80" x2="154" y2="80" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
               {[45,135,225,315].map(a => {
                 const rad = a * Math.PI / 180
                 const x1 = 80 + 52*Math.cos(rad), y1 = 80 + 52*Math.sin(rad)
                 const x2 = 80 + 62*Math.cos(rad), y2 = 80 + 62*Math.sin(rad)
-                return <line key={a} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C9A040" strokeWidth="1" strokeOpacity="0.3" strokeLinecap="round"/>
+                return <line key={a} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--tm-ee-gold)" strokeWidth="1" strokeOpacity="0.3" strokeLinecap="round"/>
               })}
             </svg>
             <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', boxShadow: '0 0 80px rgba(201,160,64,0.08)', pointerEvents: 'none' }} />
           </div>
 
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: '#C9A040', marginBottom: 10 }}>AI-POWERED RANGEFINDER</div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: 'var(--tm-ee-gold)', marginBottom: 10 }}>AI-POWERED RANGEFINDER</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 8, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
             Know Every Yard.<br/>Play Every Shot.
           </div>
@@ -1921,27 +1921,27 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           {!gps && (
             <button onClick={requestLocation} style={{
               padding: '11px 28px', borderRadius: 12, border: '1px solid rgba(94,212,122,0.4)', cursor: 'pointer',
-              background: 'rgba(94,212,122,0.1)', color: '#5ED47A', fontWeight: 700, fontSize: 13,
+              background: 'rgba(94,212,122,0.1)', color: 'var(--tm-ee-green)', fontWeight: 700, fontSize: 13,
               marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
             }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#5ED47A', boxShadow: '0 0 8px #5ED47A' }} />
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 8px var(--tm-ee-green)' }} />
               Enable Location
             </button>
           )}
 
           <button onClick={() => setShowPicker(true)} style={{
             padding: '15px 48px', borderRadius: 16, border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg, #C9A040 0%, #E8C05A 100%)',
-            color: '#070C09', fontWeight: 900, fontSize: 16, letterSpacing: '0.02em',
+            background: 'linear-gradient(135deg, var(--tm-ee-gold) 0%, var(--tm-ee-gold-bright) 100%)',
+            color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 16, letterSpacing: '0.02em',
             boxShadow: '0 6px 32px rgba(201,160,64,0.4), 0 2px 8px rgba(0,0,0,0.3)',
           }}>Select Course</button>
 
           {/* Feature row */}
           <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
             {[
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>, label: 'GPS Live' },
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Plays-Like' },
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>, label: 'Weather' },
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold)" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>, label: 'GPS Live' },
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold)" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Plays-Like' },
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold)" strokeWidth="1.8" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>, label: 'Weather' },
             ].map(f => (
               <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 {f.icon}
@@ -2025,14 +2025,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   just never quantify the uncertainty to the user. */}
               {gpsTrusted ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#5ED47A', boxShadow: '0 0 6px rgba(94,212,122,0.8)' }} />
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 6px rgba(94,212,122,0.8)' }} />
                   <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(94,212,122,0.85)' }}>
                     GPS
                   </span>
                 </div>
               ) : gpsAcquiring ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#F0A868', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-amber)', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
                   <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(240,168,104,0.95)' }}>
                     ACQUIRING
                   </span>
@@ -2063,9 +2063,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
                 }}>
                   <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(245,215,138,0.8)' }}>PLAYS LIKE</span>
-                  <span style={{ fontSize: 17, fontWeight: 900, color: '#F5D78A', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{plView.total}</span>
+                  <span style={{ fontSize: 17, fontWeight: 900, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{plView.total}</span>
                   {plView.adj !== 0 && (
-                    <span style={{ fontSize: 10, fontWeight: 800, color: plView.adj > 0 ? '#F0A868' : '#5ED47A', fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: plView.adj > 0 ? 'var(--tm-ee-amber)' : 'var(--tm-ee-green)', fontVariantNumeric: 'tabular-nums' }}>
                       {plView.adj > 0 ? `+${plView.adj}` : plView.adj}
                     </span>
                   )}
@@ -2077,7 +2077,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   toggle; dropping it shrinks the card so it doesn't crowd the tee. */}
               {holeData?.yardage && gpsToGreen != null && (
                 <div style={{ marginTop: 6, background: 'rgba(201,160,64,0.15)', border: '1px solid rgba(201,160,64,0.3)', borderRadius: 4, padding: '1px 6px' }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: '#C9A040' }}>{holeData.yardage}Y TEE</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--tm-ee-gold)' }}>{holeData.yardage}Y TEE</span>
                 </div>
               )}
             </div>
@@ -2098,7 +2098,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 }}>
                   <div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(245,215,138,0.5)', letterSpacing: '0.1em' }}>LAST ANALYSIS</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#F5D78A', marginTop: 1 }}>{result.playsLikeYards} yds · {result.recommendedClub}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--tm-ee-gold-light)', marginTop: 1 }}>{result.playsLikeYards} yds · {result.recommendedClub}</div>
                   </div>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(245,215,138,0.4)" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
@@ -2208,13 +2208,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             background: bagArcsOn ? 'rgba(201,160,64,0.30)' : 'rgba(7,12,9,0.62)',
             backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
             border: bagArcsOn ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(245,215,138,0.40)',
-            borderRadius: 999, padding: '8px 12px', color: '#F5D78A',
+            borderRadius: 999, padding: '8px 12px', color: 'var(--tm-ee-gold-light)',
             fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', cursor: 'pointer',
             boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
             display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', zIndex: 1000,
             WebkitTapHighlightColor: 'transparent',
           }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.1" strokeLinecap="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold-light)" strokeWidth="2.1" strokeLinecap="round">
             <path d="M3 18a9 9 0 0 1 18 0"/><path d="M6.5 18a5.5 5.5 0 0 1 11 0"/>
           </svg>
           ARCS
@@ -2282,7 +2282,7 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
         border: '1px solid rgba(245,215,138,0.40)',
         borderRadius: 999, padding: '10px 14px',
-        color: '#F5D78A',
+        color: 'var(--tm-ee-gold-light)',
         fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
         cursor: 'pointer',
         boxShadow: '0 6px 18px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.14)',
@@ -2291,7 +2291,7 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         zIndex: 1000,
       }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-          stroke="#F5D78A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          stroke="var(--tm-ee-gold-light)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 9h12v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9z"/>
           <path d="M9 9V5a3 3 0 0 1 6 0v4"/>
           <line x1="12" y1="3" x2="12" y2="9" />
@@ -2314,7 +2314,7 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
         background: disabled ? 'rgba(7,12,9,0.42)' : 'rgba(7,12,9,0.62)',
         backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
         border: disabled ? '1px solid rgba(245,215,138,0.18)' : '1px solid rgba(245,215,138,0.55)',
-        color: disabled ? 'rgba(245,215,138,0.30)' : '#F5D78A',
+        color: disabled ? 'rgba(245,215,138,0.30)' : 'var(--tm-ee-gold-light)',
         borderRadius: 12, padding: '6px 10px',
         fontSize: 11, fontWeight: 800, letterSpacing: '0.02em',
         cursor: disabled ? 'default' : 'pointer',
@@ -2352,7 +2352,7 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
             background: 'linear-gradient(135deg, rgba(245,215,138,0.97), rgba(201,160,64,0.97))',
             border: '1px solid rgba(245,215,138,0.85)',
             borderRadius: 12, padding: '10px 14px',
-            color: '#070C09',
+            color: 'var(--tm-ee-bg)',
             fontFamily: 'inherit',
             cursor: 'pointer',
             boxShadow: '0 6px 18px rgba(201,160,64,0.45)',
@@ -2374,7 +2374,7 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
             background: 'rgba(7,12,9,0.85)',
             border: '1px solid rgba(245,215,138,0.40)',
             borderRadius: 12, padding: '0 10px',
-            color: '#F5D78A',
+            color: 'var(--tm-ee-gold-light)',
             fontSize: 14, fontWeight: 800,
             cursor: 'pointer', fontFamily: 'inherit',
           }}
@@ -2425,7 +2425,7 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
         width: '100%', maxWidth: 480,
         maxHeight: '78vh',
         display: 'flex', flexDirection: 'column',
-        background: 'linear-gradient(180deg, #0E1F13 0%, #070C09 100%)',
+        background: 'linear-gradient(180deg, var(--tm-ee-bg-deep) 0%, var(--tm-ee-bg) 100%)',
         border: '1px solid rgba(245,215,138,0.25)',
         borderRadius: '20px 20px 0 0',
         overflow: 'hidden',
@@ -2488,8 +2488,8 @@ function BagSheet({ clubs = [], selectedSlot = null, onPick, onClear, onClose })
                   </div>
                 </div>
                 <div style={{
-                  background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
-                  color: '#070C09',
+                  background: 'linear-gradient(135deg, var(--tm-ee-gold-light), var(--tm-ee-gold))',
+                  color: 'var(--tm-ee-bg)',
                   padding: '4px 10px', borderRadius: 999,
                   fontSize: 13, fontWeight: 900, letterSpacing: '-0.01em',
                   flexShrink: 0,
