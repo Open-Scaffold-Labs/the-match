@@ -2004,12 +2004,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               background: 'rgba(8,12,10,0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
               borderRadius: 20, border: '1px solid rgba(255,255,255,0.14)',
               padding: '10px 14px 12px',
-              boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20)',
+              boxShadow: '0 10px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.20), 0 0 46px rgba(201,160,64,0.13)',
+              position: 'relative', overflow: 'hidden',
               minWidth: 124,
               marginTop: 0,
               marginBottom: 16,   /* sit low near the tee; compact (PAR pill removed) */
               zIndex: 800,
             }}>
+              {/* faint static grain — kills the flat-dark look (no blend mode → dodges the iOS mix-blend caveat) */}
+              <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.05,
+                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
               {/* Hero distance instrument — arc gauge + number roll in lockstep */}
               <DistanceInstrument yards={displayYards} label={distLabel} accent={distAccent} />
               {/* GPS ready / acquiring chip (Phase 1.1; ± margin removed
