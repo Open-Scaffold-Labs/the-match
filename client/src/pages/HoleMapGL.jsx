@@ -307,20 +307,8 @@ export default function HoleMapGL({
           'line-opacity': 0.95,
         }, layout: { 'line-cap': 'round' } })
 
-        // tap-to-measure: carry from player + distance to green at the tapped point
-        map.on('click', (e) => {
-          const tap = { lat: e.lngLat.lat, lon: e.lngLat.lng }
-          const g = gpsRef.current
-          const player = (g && g.lat != null) ? { lat: g.lat, lon: g.lon } : null
-          const grn = greenRef.current
-          const carry = player ? haversineYards(player, tap) : null
-          const toGreen = grn ? haversineYards(tap, grn) : null
-          if (carry == null && toGreen == null) return
-          const txt = (carry != null && toGreen != null) ? `${carry}y · ${toGreen} to grn`
-            : (carry != null) ? `${carry}y` : `${toGreen}y to grn`
-          new glRef.current.Popup({ closeButton: false, className: 'ee-gl-pop', offset: 10 })
-            .setLngLat([tap.lon, tap.lat]).setHTML(`<span>${txt}</span>`).addTo(map)
-        })
+        // tap-to-measure popup removed 2026-07 (Matt): redundant with the aim
+        // line's distances, looked poor, and the popup didn't dismiss on tap.
 
         drawHole(true)
         syncPuck()
