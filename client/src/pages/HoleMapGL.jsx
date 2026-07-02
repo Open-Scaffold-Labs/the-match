@@ -472,14 +472,29 @@ export default function HoleMapGL({
       if (!ref.current) ref.current = new gl.Marker({ element: pillEl(text, primary), anchor, offset }).setLngLat(lnglat).addTo(map)
       else { ref.current.getElement().textContent = text; ref.current.setLngLat(lnglat) }
     }
-    // Bare outlined distance numbers (no pill / no units); update the number
-    // span in place so the flag glyph survives a live drag.
+    // Bare outlined distance numbers (no pill / no units). Update the number
+    // span in place on drag; recreate only when the flag state flips (rare) so
+    // the flag can appear/disappear correctly.
     const setDistLabel = (ref, numText, toGreen, lnglat, anchor, offset) => {
-      if (!ref.current) ref.current = new gl.Marker({ element: distEl(numText, toGreen), anchor, offset }).setLngLat(lnglat).addTo(map)
-      else { const n = ref.current.getElement().querySelector('.ee-dist-num'); if (n) n.textContent = numText; ref.current.setLngLat(lnglat) }
+      const cur = ref.current
+      if (cur && cur.getElement().dataset.flag === String(toGreen)) {
+        const n = cur.getElement().querySelector('.ee-dist-num'); if (n) n.textContent = numText
+        cur.setLngLat(lnglat)
+      } else {
+        if (cur) cur.remove()
+        const elm = distEl(numText, toGreen); elm.dataset.flag = String(toGreen)
+        ref.current = new gl.Marker({ element: elm, anchor, offset }).setLngLat(lnglat).addTo(map)
+      }
     }
-    setDistLabel(teeAimLabelRef, `${teeAim}`, false, mid(tee, aim), 'right', [-10, 0])
-    setDistLabel(aimGreenLabelRef, `${aimGreen}`, true, mid(aim, green), 'left', [10, 0])
+    // On a par 3 (or any time the aim sits on the green) the aim→green distance
+    // is ~0 and meaningless — show ONLY the to-pin number, with the flag on it.
+    const aimAtGreen = aimGreen <= 2
+    setDistLabel(teeAimLabelRef, `${teeAim}`, aimAtGreen, mid(tee, aim), 'right', [-10, 0])
+    if (!aimAtGreen) {
+      setDistLabel(aimGreenLabelRef, `${aimGreen}`, true, mid(aim, green), 'left', [10, 0])
+    } else if (aimGreenLabelRef.current) {
+      aimGreenLabelRef.current.remove(); aimGreenLabelRef.current = null
+    }
 
     // landing-zone ring: single selected club from the player along player→aim.
     // Suppressed while in bag-arcs mode (Phase 3.3) so the two never double up.
