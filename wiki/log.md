@@ -1423,3 +1423,11 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - **Left the plumbing in place but unreachable** — `CameraModal` + `POST /api/eagle-eye/analyze` + `ResultSheet` — to re-surface a button only once the feature is properly built + verified end-to-end.
 - Flagged (not changed): the empty-state hero tagline still reads "AI-POWERED RANGEFINDER" — a brand-copy decision for Matt now that the AI camera feature is pulled.
 - Gate: client lint 0, build clean, `geo.test.mjs` 31/31, server 24/24. Commit `f6f5dfb`, pushed to `main`.
+
+## [2026-07-02 PM] refactor | Phase 4.3 Stage A+B — Eagle Eye tokenization SHIPPED (pixel-identical)
+- Plan: [[synthesis/eagle-eye-tokenization-plan-2026-07-02]] — §9 execution record added (audit corrections, evidence, findings)
+- Commits on `main`: `6fcbd72` (34-token `--tm-ee-*` instrument palette, values frozen), `e63ef0c` (all hex → tokens, 84 lines), `7add76f` (all 225 rgba → `rgb(var(--tm-ee-*-rgb) / a)`); pushed `f39eea4..7add76f`
+- EagleEye.jsx now has ZERO palette color literals (residual: `#fff`/`#000` by design + 1 hex in a comment); 30 distinct tokens referenced, 0 undefined, 0 orphans
+- Verified: lint+build+geo 31/31+tests 4/4 per commit · 244/244 changed lines resolve byte-identical through tokens.css · live-browser TOKEN-CHECK-PASS for rgb-slash-alpha, var-in-SVG-attr, stopColor var · iOS ≥12.2 syntax support (caniuse)
+- Plan corrections from audit: 7 unplanned colors added; B6 dropped (false premise — no exact matches; 999≠9999px); suite is `node --test` not vitest; B-commits consolidated to 2 bisectable passes
+- Open residual: on-device eyeball pass on the beta (low-risk); NEXT-SLICE TRAP: HoleMapGL colors go to MapLibre paint props where var() does NOT resolve — needs a getComputedStyle bridge

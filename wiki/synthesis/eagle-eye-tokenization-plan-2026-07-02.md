@@ -249,23 +249,24 @@ inert (defining unused tokens changes nothing) so it can sit safely even if B is
 - [x] Full inventory of EagleEye.jsx literals + token gaps (agent, spot-checked) — 2026-07-02
 - [x] Design `--tm-ee-*` token architecture — 2026-07-02
 - [x] Write this bulletproof plan + checklist — 2026-07-02
-- [ ] Audit plan with `audit-before-claim`
-- [ ] Matt greenlights Stage A build
+- [x] Audit plan with `audit-before-claim` — 2026-07-02 PM (see §9 execution record: corrections found + applied)
+- [x] Matt greenlights Stage A build — 2026-07-02 ("lock in work autonomously on this")
 
 **Stage A — establish tokens**
-- [ ] A1 add `--tm-ee-*` solid + rgb-triplet + semantic tokens to `tokens.css` (exact values)
-- [ ] A2 comment header documenting namespace + white=raw/green=adjusted intent
-- [ ] Gate: build clean, zero visual change
+- [x] A1 add `--tm-ee-*` solid + rgb-triplet + semantic tokens to `tokens.css` (exact values) — commit `6fcbd72`
+- [x] A2 comment header documenting namespace + white=raw/green=adjusted intent — same commit
+- [x] Gate: build clean, zero visual change — lint ✓ build ✓ geo 31/31 tests 4/4
 
-**Stage B — swap literals (region by region, gated each)**
-- [ ] B1 static solid colors
-- [ ] B2 opacity families → `rgb(var(--tm-ee-*-rgb) / a)`
-- [ ] B3 conditional/ternary colors (333, 495, 505, 660, 799, 1753, 2068)
-- [ ] B4 SVG fill/stroke attrs (267–275, 346–348, 551–561, 590–598, 915–921) + accent prop
-- [ ] B5 box-shadow/drop-shadow/inset strings (357, 584, 1911, 2007, 2379)
-- [ ] B6 exact-match radius/shadow non-color tokens only
-- [ ] Gate each region: lint + build + geo.test 31/31 + vitest + screenshot diff
-- [ ] On-device pixel-identical pass (beta), then push to `main`
+**Stage B — swap literals (consolidated to 2 bisectable commits, gated each — see §9)**
+- [x] B1 static solid colors — commit `e63ef0c` (all hex, 84 lines)
+- [x] B2 opacity families → `rgb(var(--tm-ee-*-rgb) / a)` — commit `7add76f` (225 substitutions, 0 `rgba(` remain)
+- [x] B3 conditional/ternary colors — inside `e63ef0c`/`7add76f`; operands only, logic byte-identical (333, 495, 505, 660, 799, GPS pill 1747–1758, chip 2068, `PL_LONGER`/`PL_SHORTER`, `distAccent` 1592)
+- [x] B4 SVG fill/stroke attrs + accent prop — inside the same commits; runtime-verified in a live browser (var-in-attr + `stopColor` var + nested `rgb(var()/a)` in attr all resolve to exact values — TOKEN-CHECK-PASS)
+- [x] B5 box-shadow/drop-shadow/inset strings — inside the same commits (incl. keyframes in `<style>` template literals)
+- [x] ~~B6 exact-match radius/shadow non-color tokens~~ — **DROPPED after audit**: no `0 8px 32px` shadow exists in the live file, and pill radii are `999` (≠ `--tm-radius-full` 9999px — swapping would change the value). Coupling EE radii to app tokens also contradicts the EE-owns-its-surface rationale. See §9.
+- [x] Gate each commit: lint ✓ + build ✓ + geo.test 31/31 ✓ + `npm test` 4/4 ✓ (note: the suite is `node --test`, not vitest) + **programmatic value-equivalence check** (stronger than screenshot diff from a sandbox): 244/244 changed lines resolve byte-identical to the pre-refactor literals through tokens.css
+- [x] Pushed to `main` (beta) — `f39eea4..7add76f`, 2026-07-02 PM
+- [ ] On-device pixel-identical eyeball pass on the beta (Matt, next time on the phone) — residual, low-risk given the equivalence + live-browser checks
 
 **Stage C — visual elevation (separate, optional, reviewed)**
 - [ ] Type/spacing/letter-spacing scale as a design-system decision
@@ -282,6 +283,59 @@ inert (defining unused tokens changes nothing) so it can sit safely even if B is
 - Will **not** add a confidence/±-margin chip (standing marketing/accuracy rule).
 - Will **not** create type/spacing scales inside the mechanical refactor.
 - Will **not** drive-by refactor adjacent logic — every changed line traces to a token swap.
+
+---
+
+## 9. Execution record — Stage A+B SHIPPED 2026-07-02 PM (audited)
+
+Executed autonomously on Matt's greenlight. Three commits on `main`:
+`6fcbd72` (Stage A tokens) · `e63ef0c` (all hex → tokens, 84 lines) · `7add76f`
+(all 225 `rgba()` → `rgb(var(--tm-ee-*-rgb) / a)`). Every gate green per commit.
+
+**Audit corrections to this plan (live file had drifted since the plan was written):**
+- File was 2,523 lines / 236 style blocks at execution (plan said 2,544/237 — the
+  2026-07-02 ANALYZE-button removal shifted it).
+- **7 colors the plan's palette missed** were found and added to the token set with exact
+  frozen values: `#F5E070`+`rgba(245,224,112)` (gauge/landing-zone pulse), `#07100C`
+  (course-picker bg), `#0E1F13` (bag-sheet gradient), `#1A6B28`/`#2E9E45` (CTA gradient),
+  `rgba(224,82,82)`/`rgba(220,38,38)` (error reds), glass darks `8,12,10`/`10,14,12`/`4,8,6`.
+  Final namespace: 34 tokens (14 solids + 16 rgb-triplets + 4 semantic aliases).
+- **B6 dropped** — its premise was false in the live file (no `0 8px 32px`; radii are `999`
+  not `9999`, and 999→9999px is a value change violating the freeze).
+- The test suite is `node --test` (4/4), not vitest.
+- Region-by-region commits consolidated to **2 bisectable commits** (all-hex, all-rgba):
+  the value→token mapping is context-independent, so finer regions added review surface
+  without adding safety; the equivalence verifier covers the whole diff regardless.
+
+**Verification actually performed (evidence, this session):**
+1. Lint + build + `geo.test` 31/31 + `npm test` 4/4 after each of the 3 commits.
+2. Combined-diff equivalence: a resolver script mapped every `var(--tm-ee-*)` /
+   `rgb(var(--tm-ee-*-rgb) / a)` in the new tree back through `tokens.css` — **244/244
+   changed lines byte-identical** to the pre-refactor literals. Fails loudly on unmapped
+   colors/typos, so an undefined-token silent break (risk R4) is mechanically excluded.
+3. Live-browser runtime check (Chrome via localhost probe page): `rgb(R G B / a)` w/ var,
+   var in box-shadow, **var in SVG `fill`/`stroke` attributes**, nested `rgb(var()/a)` in
+   an SVG attribute, and `stopColor` var all computed to the exact expected colors
+   (TOKEN-CHECK-PASS). Closes R3/R5 in Blink; WebKit syntax support separately confirmed
+   (caniuse: Safari/iOS ≥ 12.2 — below the iOS 15 floor).
+4. Design-system audit of the namespace: 0 used-but-undefined tokens, 0 orphans beyond the
+   4 intentional Stage-C aliases, naming consistent. Residual color literals in the file:
+   `#fff`×19/`#000`×1 (kept by design) + 1 hex inside a comment.
+
+**Findings logged, not fixed (out of scope):**
+- The same instrument literals appear in **34 other files** (HoleMapGL, Login, Stats, the
+  Outing suite, …) — future Phase-4.3 slices.
+- ⚠ **HoleMapGL trap for the next slice:** it feeds colors into MapLibre **paint
+  properties**, where CSS `var()` does NOT resolve. That slice needs a
+  `getComputedStyle`-at-init bridge (or equivalent) — do NOT extend this codemod to it naively.
+- `ResultSheet` (unreachable since the ANALYZE removal) mixes light-theme app tokens
+  (`--tm-surface`, now parchment) with dark-surface white-opacity text — a pre-existing
+  inconsistency to resolve whenever the AI-camera flow is rebuilt.
+
+**Competitor-research verification (agent, cited):** white=raw/green=adjusted is
+**Arccos-specific precedent**, not industry-wide (token comment says so); Garmin ships a
+literal "Big Numbers" mode (hero-number convention confirmed); **no mainstream app prints a
+± margin on the hero number** — standing rule reaffirmed.
 
 ---
 

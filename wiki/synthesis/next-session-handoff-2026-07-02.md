@@ -106,9 +106,15 @@ both plans opened with). Ranked, each with a concrete next step:
    short of pin → whole readout retargets, elevation refetch to aim, F/C/B hide, "TO AIM"
    label) still wants a clean on-course pass. `POST-LAUNCH-TODO #25` (real on-course round
    on the native iOS shell) covers this.
-2. **Premium-plan Phase 3 / bulletproof Phase 4.3 — the Eagle Eye inline-style → token
-   refactor** (190+ inline styles → design tokens). Biggest maintainability + consistency
-   win on the hero screen; still ☐.
+2. **Premium-plan Phase 3 / bulletproof Phase 4.3 — Eagle Eye tokenization: Stage A+B
+   ✅ SHIPPED 2026-07-02 PM** (commits `6fcbd72`/`e63ef0c`/`7add76f`; pixel-identical by
+   verified contract — see [[synthesis/eagle-eye-tokenization-plan-2026-07-02]] §9).
+   EagleEye.jsx color literals are gone (34-token `--tm-ee-*` palette). Remaining in this
+   track: (a) on-device eyeball pass on the beta (low-risk residual), (b) Stage C value
+   elevation + type/spacing scales (reviewed, with Matt), (c) next slices = the 34 other
+   files sharing instrument literals — ⚠ HoleMapGL feeds MapLibre paint props where CSS
+   `var()` does NOT resolve; that slice needs a getComputedStyle-at-init bridge, don't
+   extend the codemod naively.
 3. **Accuracy refinements on the shipped GPS gate** (premium-plan Phase 2 residuals): the
    held concentric yardage range-rings (2.5), club-arc dispersion bands. NOTE the hard
    marketing rule: **never show an on-screen precision/±margin and never build a "graded
