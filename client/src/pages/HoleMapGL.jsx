@@ -15,6 +15,8 @@
 import { useRef, useEffect, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { haversineYards, calcBearing } from '../lib/geo.js'
+import { dispersionEllipse } from '../lib/clubModel.js'
+import { dispersionZonePolygon, arcBandPolygon, layupRingsInPlay } from '../lib/mapOverlays.js'
 
 // NAIP tiles load through a custom 'naipc://' protocol so EVERY tile request
 // (including the ones MapLibre issues from its worker thread, which a service
@@ -142,6 +144,22 @@ function pillEl(text, primary) {
   return el
 }
 
+// ── Design-token bridge for MapLibre paint (Phase 4.3 pattern, established
+// 2026-07-02): MapLibre paint properties do NOT resolve CSS var(), so new
+// layers read the --tm-ee-* tokens via getComputedStyle at layer-creation.
+// `name` may be a solid token (returns its value) or a `-rgb` triplet token
+// (combined with `alpha` into an rgba() string). Literal fallbacks guarantee
+// a failed read can never blank a layer. Existing layers keep their literals
+// until the full HoleMapGL tokenization slice.
+function eeColor(name, alpha, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    if (!v) return fallback
+    if (alpha == null) return v
+    return `rgba(${v.split(/\s+/).join(',')},${alpha})`
+  } catch { return fallback }
+}
+
 // On-map distance label — premium map-native style (Golfshot/Hole19, 2026-07
 // research): NO pill. A bare white bold TABULAR number with a dark contrast
 // halo so it reads over any imagery; the aim→green number carries a small gold
@@ -172,6 +190,7 @@ export default function HoleMapGL({
   holePositions = {}, greenPositions = {}, holeGeometries = {}, greenPolys = {},
   clubYards = null, clubLabel = null,
   bagArcs = [],
+  rangeRingsOn = false,   // layup range-arcs to the green (100/150/200/250), opt-in
   onInitError,
   onAimChange,          // ({userPlaced, teeAimYds, aimGreenYds, aim}|null) — B: retarget plays-like to a user aim
 }) {
@@ -200,6 +219,8 @@ export default function HoleMapGL({
   const clubRef = useRef({ yards: clubYards, label: clubLabel })
   const bagArcsRef = useRef(bagArcs)   // [{label, yards, estimated, highlight}] — Phase 3.3
   const bagLabelsRef = useRef([])      // dynamic list of club-zone label markers
+  const ringsOnRef = useRef(rangeRingsOn) // layup range-arcs toggle (opt-in, persisted upstream)
+  const ringLabelsRef = useRef([])     // dynamic list of range-ring label chips
   const lastAimRef = useRef(null)      // aim {lat,lon} from the last redrawAim, shared with drawBagArcs
   const onAimChangeRef = useRef(onAimChange)   // latest callback for the once-attached dragend handler
   const emitAimRef = useRef(() => {})          // latest emitAim (avoids stale closure)
@@ -207,6 +228,7 @@ export default function HoleMapGL({
   useEffect(() => { gpsRef.current = gps }, [gps])
   useEffect(() => { clubRef.current = { yards: clubYards, label: clubLabel } }, [clubYards, clubLabel])
   useEffect(() => { bagArcsRef.current = bagArcs; redrawRef.current() }, [bagArcs]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { ringsOnRef.current = rangeRingsOn; redrawRef.current() }, [rangeRingsOn]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Init the map once we know where the course is ──
   useEffect(() => {
@@ -286,9 +308,36 @@ export default function HoleMapGL({
         map.addLayer({ id: 'green-line', type: 'line', source: 'green', paint: { 'line-color': '#5ED47A', 'line-width': 2, 'line-opacity': 0.85 } })
         map.addLayer({ id: 'halo-fill', type: 'fill', source: 'halo', paint: { 'fill-color': '#F5D78A', 'fill-opacity': 0.08 } })
         map.addLayer({ id: 'halo-line', type: 'line', source: 'halo', paint: { 'line-color': '#F5D78A', 'line-width': 1, 'line-opacity': 0.30 } })
+        // Layup range-arcs (2.5, market-corrected form 2026-07-02): green-anchored
+        // 100/150/200/250 arcs, opt-in via the RINGS toggle. Stroke-only (never
+        // fill — hazards must stay readable through them) in the white=raw-distance
+        // semantic, over a dark under-halo so the thin line survives bright
+        // fairway pixels. Added first so club overlays render above.
+        map.addSource('rangeRings', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'rangeRings-halo', type: 'line', source: 'rangeRings', paint: {
+          'line-color': eeColor('--tm-ee-bg-rgb', 0.6, 'rgba(7,12,9,0.6)'),
+          'line-width': 4, 'line-blur': 3, 'line-opacity': 0.55,
+        }, layout: { 'line-cap': 'round' } })
+        map.addLayer({ id: 'rangeRings-line', type: 'line', source: 'rangeRings', paint: {
+          'line-color': eeColor('--tm-ee-white-rgb', 0.6, 'rgba(255,255,255,0.6)'),
+          'line-width': 1.5, 'line-opacity': 0.75,
+        }, layout: { 'line-cap': 'round' } })
+        // Dispersion band for the HIGHLIGHTED bag-arc club (one club at a time —
+        // honest zone, not a boundary): soft feathered fill under the arc lines.
+        map.addSource('bagArcBand', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'bagArcBand-fill', type: 'fill', source: 'bagArcBand', paint: {
+          'fill-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'fill-opacity': 0.12,
+        } })
+        map.addLayer({ id: 'bagArcBand-edge', type: 'line', source: 'bagArcBand', paint: {
+          'line-color': eeColor('--tm-ee-gold-pulse-rgb', 0.5, 'rgba(245,224,112,0.5)'),
+          'line-width': 5, 'line-blur': 6, 'line-opacity': 0.22,
+        } })
         map.addSource('landing', { type: 'geojson', data: fc([]) })
-        map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': '#F5E070', 'fill-opacity': 0.30 } })
-        map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': '#F5E070', 'line-width': 2.5, 'line-opacity': 0.95 } })
+        // Landing ZONE (2026-07-02): now the honest dispersionEllipse shape, drawn
+        // soft — feathered blurred edge, no crisp outline (a hard 2.5px line read
+        // as false precision; risk D1 in the range-rings/dispersion spec).
+        map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': '#F5E070', 'fill-opacity': 0.14 } })
+        map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': '#F5E070', 'line-width': 5, 'line-blur': 6, 'line-opacity': 0.35 } })
         // Bag arcs (Phase 3.3, rebuilt 2026-06-26): own-club distance ARCS — a
         // curved band per club at its true-ground yardage, swept across the line
         // of play. Drawn as LineStrings. A wide low-opacity glow under a crisp
@@ -335,6 +384,7 @@ export default function HoleMapGL({
       aimGreenLabelRef.current = null
       landingLabelRef.current = null
       bagLabelsRef.current = []   // markers destroyed with the map; drop the dangling refs
+      ringLabelsRef.current = []  // ditto for the range-ring chips
       lastAimRef.current = null
       puckRef.current = null
       puckPosRef.current = null
@@ -435,6 +485,12 @@ export default function HoleMapGL({
     const clearAll = () => {
       map.getSource('fairway')?.setData(fc([]))
       map.getSource('landing')?.setData(fc([]))
+      // also clear the 2026-07-02 overlays so nothing goes stale on a hole with
+      // missing tee/green data (drawBagArcs/drawRangeRings won't run below)
+      map.getSource('bagArcBand')?.setData(fc([]))
+      map.getSource('rangeRings')?.setData(fc([]))
+      for (const m of ringLabelsRef.current) { try { m.remove() } catch { /* gone */ } }
+      ringLabelsRef.current = []
       for (const r of [teeAimLabelRef, aimGreenLabelRef, landingLabelRef]) { if (r.current) { r.current.remove(); r.current = null } }
     }
     if (!tee || !green) return clearAll()
@@ -502,14 +558,19 @@ export default function HoleMapGL({
       const brng = calcBearing(player, aim)
       if (Number.isFinite(brng)) {
         const landing = projectByYards(player, brng, yards)
-        map.getSource('landing')?.setData(fc([polyF(ringCoords(landing, 11))]))
-        setLabel(landingLabelRef, club.label ? `${club.label} · ${yards}y` : `${yards}y`, false, [landing.lon, landing.lat], 'left', [16, 0])
+        // Honest landing ZONE (2026-07-02): the dispersionEllipse model (1 SD ≈ 5%
+        // of distance, short-skewed toward the player) replaces the old fixed
+        // 11-yd circle, which asserted the same precision for a wedge and a
+        // driver. "~" on the label = model estimate, never a measured figure.
+        map.getSource('landing')?.setData(fc([polyF(dispersionZonePolygon(landing, brng, dispersionEllipse(yards)))]))
+        setLabel(landingLabelRef, club.label ? `${club.label} · ~${yards}y` : `~${yards}y`, false, [landing.lon, landing.lat], 'left', [16, 0])
       }
     } else {
       map.getSource('landing')?.setData(fc([]))
       if (landingLabelRef.current) { landingLabelRef.current.remove(); landingLabelRef.current = null }
     }
     drawBagArcs(player)
+    drawRangeRings(player)
   }
   redrawRef.current = redrawAim
 
@@ -565,9 +626,17 @@ export default function HoleMapGL({
     bagLabelsRef.current = []
     const clubs = bagArcsRef.current
     const target = greenPositions[currentHole] || lastAimRef.current
-    if (!Array.isArray(clubs) || !clubs.length || !player || !target) { map.getSource('bagArcs')?.setData(fc([])); return }
+    const clearArcs = () => { map.getSource('bagArcs')?.setData(fc([])); map.getSource('bagArcBand')?.setData(fc([])) }
+    if (!Array.isArray(clubs) || !clubs.length || !player || !target) { clearArcs(); return }
     const brng = calcBearing(player, target)
-    if (!Number.isFinite(brng)) { map.getSource('bagArcs')?.setData(fc([])); return }
+    if (!Number.isFinite(brng)) { clearArcs(); return }
+    // Dispersion band on the HIGHLIGHTED club only (one honest zone at a time —
+    // spec risk D2/D1): annular sector between yards − depth×shortSkew (misses
+    // are mostly short) and yards + depth, rendered as a soft feathered fill.
+    const hi = clubs.find(c => c.highlight && Number.isFinite(Number(c.yards)) && Number(c.yards) > 0)
+    map.getSource('bagArcBand')?.setData(hi
+      ? fc([polyF(arcBandPolygon(player, brng, Number(hi.yards), dispersionEllipse(Number(hi.yards)), ARC_HALF_DEG - 2))])
+      : fc([]))
     const feats = []
     for (const c of clubs) {
       const y = Number(c?.yards)
@@ -588,6 +657,34 @@ export default function HoleMapGL({
       bagLabelsRef.current.push(new gl.Marker({ element: el, anchor: side > 0 ? 'left' : 'right', offset: [side > 0 ? 6 : -6, 0] }).setLngLat([labelPt.lon, labelPt.lat]).addTo(map))
     }
     map.getSource('bagArcs')?.setData(fc(feats))
+  }
+
+  // ── Layup range-arcs (2.5, 2026-07-02): 100/150/200/250 TO THE GREEN, swept
+  // across the line of play around the green→player bearing. The market-
+  // validated semantic ("what do I leave myself?") — NOT player-centered
+  // concentric circles (documented clutter anti-pattern). Opt-in via the RINGS
+  // toggle; only rings meaningfully between the player and the green draw. ──
+  function drawRangeRings(player) {
+    const map = mapRef.current, gl = glRef.current
+    if (!map || !readyRef.current || !gl) return
+    for (const m of ringLabelsRef.current) { try { m.remove() } catch { /* gone */ } }
+    ringLabelsRef.current = []
+    const green = greenPositions[currentHole]
+    const clear = () => map.getSource('rangeRings')?.setData(fc([]))
+    if (!ringsOnRef.current || !green || !player) return clear()
+    const dist = haversineYards(player, green)
+    const brng = calcBearing(green, player)   // arcs open back toward the player
+    const rings = layupRingsInPlay(dist)
+    if (!Number.isFinite(brng) || !rings.length) return clear()
+    const feats = []
+    for (const r of rings) {
+      feats.push(lineF(arcCoords(green, brng, r, 30)))
+      // small chip at the arc's RIGHT end (bag-arc labels default left — D7)
+      const lp = projectByYards(green, brng + 27, r)
+      const el = pillEl(String(r), false)
+      ringLabelsRef.current.push(new gl.Marker({ element: el, anchor: 'left', offset: [6, 0] }).setLngLat([lp.lon, lp.lat]).addTo(map))
+    }
+    map.getSource('rangeRings')?.setData(fc(feats))
   }
 
   // ── Smooth player puck + true-ground accuracy halo ──

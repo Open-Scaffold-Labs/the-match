@@ -1090,6 +1090,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [bagOpen, setBagOpen]       = useState(false)
   const [selectedClub, setSelectedClub] = useState(null)
   const [bagArcsOn, setBagArcsOn] = useState(false) // Phase 3.3 — show own-club zones
+  // Layup range-arcs toggle (2.5, 2026-07-02) — opt-in + persisted; the
+  // category-correct default is a clean map, and the preference is remembered.
+  const [ringsOn, setRingsOn] = useState(() => {
+    try { return localStorage.getItem('tm-eye-rings') === '1' } catch { return false }
+  })
+  const toggleRings = () => setRingsOn(v => {
+    const next = !v
+    try { localStorage.setItem('tm-eye-rings', next ? '1' : '0') } catch { /* private mode */ }
+    return next
+  })
   useEffect(() => {
     let alive = true
     api('/api/clubs/bag').then(d => {
@@ -1972,6 +1982,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             clubYards={selectedClub ? Number(selectedClub.avg_yards) : null}
             clubLabel={selectedClub ? `${selectedClub.brand} ${selectedClub.model}` : null}
             bagArcs={bagArcsData}
+            rangeRingsOn={ringsOn}
             onAimChange={setAimInfo}
           />
 
@@ -2218,6 +2229,33 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             <path d="M3 18a9 9 0 0 1 18 0"/><path d="M6.5 18a5.5 5.5 0 0 1 11 0"/>
           </svg>
           ARCS
+        </button>
+      )}
+
+      {/* Layup range-arcs toggle (2.5, 2026-07-02) — 100/150/200/250 to the green,
+          the classic "what do I leave myself?" caddie view. Opt-in + persisted
+          (tm-eye-rings); default off keeps the map clean (the market's #1
+          documented overlay failure is clutter). Sits above ARCS on the same
+          right-edge control rail — one coherent glass column. */}
+      {!showCamera && !showPicker && courseCtx && (
+        <button
+          onClick={toggleRings}
+          aria-pressed={ringsOn}
+          style={{
+            position: 'absolute', top: 'calc(50% - 122px)', right: 16, transform: 'translateY(-50%)',
+            background: ringsOn ? 'rgb(var(--tm-ee-gold-rgb) / 0.30)' : 'rgb(var(--tm-ee-bg-rgb) / 0.62)',
+            backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+            border: ringsOn ? '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.85)' : '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.40)',
+            borderRadius: 999, padding: '8px 12px', color: 'var(--tm-ee-gold-light)',
+            fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', cursor: 'pointer',
+            boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.50), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.14)',
+            display: 'inline-flex', alignItems: 'center', gap: 7, fontFamily: 'inherit', zIndex: 1000,
+            WebkitTapHighlightColor: 'transparent',
+          }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold-light)" strokeWidth="2.1" strokeLinecap="round">
+            <circle cx="12" cy="12" r="3"/><path d="M5.5 12a6.5 6.5 0 0 1 13 0"/><path d="M2 12a10 10 0 0 1 20 0"/>
+          </svg>
+          RINGS
         </button>
       )}
 
