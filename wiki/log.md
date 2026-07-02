@@ -1416,3 +1416,10 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - **Source discrepancy flagged (in both plans):** Phase 0 spec §7 checklist shows WPs `☐` and the 06-30 log said "C/D/F deferred," but the code shows the primitives landed. Code cited as ground truth; log to be reconciled next pass.
 - Recorded in the bulletproof plan: plays-like accuracy rebuild (Phase 3.1) + this session's Eagle Eye work under Phase 2 — on-map labels redesigned (bare tabular numerals, gold-flag glyph, single flagged number on par-3), and aim segment distances corrected from scorecard-proportional scaling to pure great-circle (`HoleMapGL.jsx:428,460-461`); tap-to-measure removed. Matt verified accurate on the beta (Pebble Creek Colts Neck, White tees).
 - New `next-session-handoff-2026-07-02.md`. Verifications: `geo.test.mjs` 31/31; grep-confirmed code citations above.
+
+## [2026-07-02] refactor | Eagle Eye — remove broken ANALYZE (AI camera) button
+- Removed the ANALYZE floating pill from Eagle Eye (`EagleEye.jsx`) — the AI camera shot-analysis flow is not wired to production quality, so the button was a broken entry point (Matt).
+- Scrubbed the copy that advertised/instructed it: coach-mark body, empty-state subtitle ("AI shot analysis" → "plays-like yardages"), and the "AI Analysis" feature chip → "Plays-Like".
+- **Left the plumbing in place but unreachable** — `CameraModal` + `POST /api/eagle-eye/analyze` + `ResultSheet` — to re-surface a button only once the feature is properly built + verified end-to-end.
+- Flagged (not changed): the empty-state hero tagline still reads "AI-POWERED RANGEFINDER" — a brand-copy decision for Matt now that the AI camera feature is pulled.
+- Gate: client lint 0, build clean, `geo.test.mjs` 31/31, server 24/24. Commit `f6f5dfb`, pushed to `main`.

@@ -120,6 +120,13 @@ both plans opened with). Ranked, each with a concrete next step:
 5. **Wind/trajectory realism (deferred, sourced residual):** ideal plays-like scales wind by
    club/trajectory; the 250y carry cap is the pragmatic minimum-correct version. Only if Matt
    wants it.
+6. **AI camera shot-analysis (ANALYZE) — PARKED, needs proper wiring before it's a feature.**
+   The ANALYZE button was removed 2026-07-02 (`EagleEye.jsx`, commit `f6f5dfb`) because it was
+   a broken entry point. The plumbing is intentionally left in place but unreachable:
+   `CameraModal` + `POST /api/eagle-eye/analyze` + `ResultSheet`. To ship it: wire + verify the
+   full flow end-to-end (camera → analyze → result), then re-surface a button. Also revisit the
+   empty-state hero tagline **"AI-POWERED RANGEFINDER"** (`EagleEye.jsx:1914`) — a brand-copy
+   call now that the AI camera feature is pulled.
 
 ## Bulletproof build plan — remaining open work (from the master checklist)
 
