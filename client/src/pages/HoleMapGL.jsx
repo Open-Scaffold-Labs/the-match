@@ -153,7 +153,7 @@ function distEl(numText, toGreen) {
   if (toGreen) {
     const flag = document.createElement('span')
     flag.style.cssText = 'display:inline-flex;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.8))'
-    flag.innerHTML = '<svg width="12" height="14" viewBox="0 0 22 28"><line x1="4" y1="3" x2="4" y2="26" stroke="#E8C05A" stroke-width="2.4" stroke-linecap="round"/><polygon points="4,2.5 19,8 4,13.5" fill="#E8C05A"/></svg>'
+    flag.innerHTML = '<svg width="12" height="14" viewBox="0 0 22 28"><line x1="4" y1="3" x2="4" y2="26" stroke="#E53935" stroke-width="2.4" stroke-linecap="round"/><polygon points="4,2.5 19,8 4,13.5" fill="#E53935"/></svg>'
     el.appendChild(flag)
   }
   const num = document.createElement('span')
@@ -391,7 +391,7 @@ export default function HoleMapGL({
         // Red pin-flag (matches the Leaflet map's flag), anchored at the pole base.
         const el = document.createElement('div')
         el.style.cssText = 'width:22px;height:28px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6))'
-        el.innerHTML = '<svg width="22" height="28" viewBox="0 0 22 28"><line x1="4" y1="2" x2="4" y2="27" stroke="white" stroke-width="1.8" stroke-linecap="round"/><polygon points="4,2 20,8 4,14" fill="#E8C05A" stroke="white" stroke-width="0.8"/><circle cx="4" cy="27" r="2.5" fill="#E8C05A" stroke="white" stroke-width="1.2"/></svg>'
+        el.innerHTML = '<svg width="22" height="28" viewBox="0 0 22 28"><line x1="4" y1="2" x2="4" y2="27" stroke="white" stroke-width="1.8" stroke-linecap="round"/><polygon points="4,2 20,8 4,14" fill="#E53935" stroke="white" stroke-width="0.8"/><circle cx="4" cy="27" r="2.5" fill="#E53935" stroke="white" stroke-width="1.2"/></svg>'
         greenMarkerRef.current = new gl.Marker({ element: el, anchor: 'bottom', offset: [7, 0] }).setLngLat([green.lon, green.lat]).addTo(map)
       } else greenMarkerRef.current.setLngLat([green.lon, green.lat])
     } else if (greenMarkerRef.current) { greenMarkerRef.current.remove(); greenMarkerRef.current = null }
