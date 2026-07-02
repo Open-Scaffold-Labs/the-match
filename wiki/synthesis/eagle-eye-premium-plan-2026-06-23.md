@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-29
+updated: 2026-07-02
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -55,6 +55,8 @@ Ordered by **perceived-quality gained per hour**. Phase 0 is mostly find-and-rep
 
 ### Phase 0 — Foundation: the "expensive in an afternoon" pass (app-wide)
 
+> **STATUS — PARTIAL** (code-verified 2026-07-02; spec: `phase0-foundation-build-spec-2026-06-30.md`). The primitives are in the codebase; the app-wide sweep + inline-style→token refactor (Phase 3 below / build-plan Phase 4.3) are NOT done. Per item: **(1) tabular numerals ☑** (verified app-wide, `tokens.css:145-146,323`). **(2) elevation + layered shadows ◐** — `--tm-shadow-layered` token + utility exist (`tokens.css:92,331`), but app-wide application unverified. **(3) palette tells ◐** — pure-`#fff`/`#000` sweep not confirmed. **(4) motion discipline ◐** — reduced-motion block present (`tokens.css:360`); full vocabulary conversion unverified. **(6) grain overlay ◐** — present on the Eagle Eye hero (`EagleEye.jsx:2014`), not confirmed on all dark surfaces. **(5) type system — DROPPED by decision** (Matt, 2026-06-30): keep the system SF Pro stack; instrument feel from size/weight/tabular + depth/motion/grain, not a typeface (removes the WKWebView font-loading risk). ⚠ The spec §7 checklist shows these `☐` and the 06-30 log says "C/D/F deferred," but the code shows the primitives landed — code above is ground truth; finish the app-wide application in Phase 3 / build-plan Phase 4.3.
+
 These are the 80/20 wins. Low risk, high visible payoff, set the system the rest builds on.
 
 1. **Tabular numerals on every live number** (`font-variant-numeric: tabular-nums`) — distances, scores, timers. One line; stops numbers "dancing" as they update. Highest ratio on the list.
@@ -77,7 +79,7 @@ The showcase. This is where we visibly pass rivals.
 
 ### Phase 2 — Signature features that *leapfrog* (not just match)
 
-> **Status (updated 2026-06-29):** #1 transparent adjustable plays-like, #3 own-club distance arcs, and #5 data→practice loop are **SHIPPED** (build-plan Phase 3.1/3.3/3.5). The **handicap & scoring-accuracy track** shipped (gender foundation, gender-correct ratings, Course Handicap, a WHS-faithful index rewrite, 9-hole/solo fixes) — `handicap-accuracy-audit-2026-06-25.md`. And the entire **F.5 "never lose your round" data-model rework is COMPLETE** (S1–S7 live: OCC, idempotent offline, guests→rows, row-derived readers, designated-scorer mode, rows-as-sole-store) — `build-plan-bulletproof-2026-06-23.md` Track F.5. **So scoring reliability (thesis pillar) is now best-in-class.** Remaining leapfrogs: #2 ad-free generous free tier, #4 green slope+putt-line, #6 clean AR. **The next focus is the still-undone VISUAL-FLOW + ACCURACY-polish layer that this whole plan opened with** — Phase 0 (foundation tokens/type/motion: NONE done) and Phase 3 (app-wide polish + the Eagle Eye 190+ inline-style → token refactor: NONE done), plus accuracy refinements on top of the shipped GPS gate (graded confidence chip, club-arc dispersion bands, battery discipline/instant-on, the held concentric range-rings). See `next-session-handoff-2026-06-29.md`.
+> **Status (updated 2026-07-02):** #1 transparent adjustable plays-like, #3 own-club distance arcs, and #5 data→practice loop are **SHIPPED** (build-plan Phase 3.1/3.3/3.5). The **handicap & scoring-accuracy track** shipped (gender foundation, gender-correct ratings, Course Handicap, a WHS-faithful index rewrite, 9-hole/solo fixes) — `handicap-accuracy-audit-2026-06-25.md`. And the entire **F.5 "never lose your round" data-model rework is COMPLETE** (S1–S7 live: OCC, idempotent offline, guests→rows, row-derived readers, designated-scorer mode, rows-as-sole-store) — `build-plan-bulletproof-2026-06-23.md` Track F.5. **So scoring reliability (thesis pillar) is now best-in-class.** Remaining leapfrogs: #2 ad-free generous free tier, #4 green slope+putt-line, #6 clean AR. **UPDATE 2026-06-30 → 07-02: Phase 0 foundation is PARTIAL** (tabular numerals verified app-wide; layered-shadow token + grain-on-hero + reduced-motion primitives in code, but the app-wide sweep + inline-style→token refactor are open = Phase 4.3; custom-font item dropped by decision — keep SF Pro), and Eagle Eye accuracy advanced materially — the **plays-like coefficients were rebuilt to sourced values + a carry cap**, **Option B aim-retarget** shipped, and the **on-map segment distances were corrected to true great-circle math** (Matt verified accurate on-course). **The remaining VISUAL-FLOW + ACCURACY-polish layer:** Phase 3 app-wide polish + the Eagle Eye 190+ inline-style → token refactor (still NONE done; = build-plan Phase 4), plus accuracy refinements on the shipped GPS gate — club-arc dispersion bands, battery discipline/instant-on, the held concentric range-rings. **NOTE (marketing rule):** do **not** build a graded/±-margin confidence chip — showing an error figure anywhere was ruled out (Matt, 2026-06-30). See `next-session-handoff-2026-07-02.md`.
 
 Each maps to a documented category gap. Sequence by appetite.
 

@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-06-23
-updated: 2026-06-29
+updated: 2026-07-02
 tags: [the-match, eagle-eye, roadmap, build-plan]
 ---
 
@@ -104,10 +104,12 @@ Principle: **every step ships independently, builds + lints clean, and is device
 
 > Status legend: ☐ not started · ◐ in progress · ☑ done
 
-**Phase 0 — Foundation**
-- ☐ 0.1 Dark elevation + layered shadow tokens
-- ☐ 0.2 Type system + tabular numerals everywhere
-- ☐ 0.3 Motion discipline pass
+**Phase 0 — Foundation — PARTIAL** (code-verified 2026-07-02; spec: `phase0-foundation-build-spec-2026-06-30.md`). The design *primitives* are in the codebase, but the full app-wide application + the inline-style → token refactor are NOT complete (that refactor is Phase 4.3).
+- ☑ 0.2 Tabular numerals — VERIFIED app-wide in code: `tokens.css:145-146` (`body` `tabular-nums`/`tnum`) + `.tm-nums` utility (`:323`). **Custom "type identity" font dropped by decision (Matt, 2026-06-30 §6): keep the system SF Pro stack** — instrument feel from size/weight/tabular + depth/motion/grain, not a bundled face (removes the WKWebView font-loading risk).
+- ◐ 0.1 Dark elevation + layered shadows + grain — primitives present: `--tm-shadow-layered` token + `.tm-shadow-layered` utility (`tokens.css:92,331`), grain overlay on the Eagle Eye hero (`EagleEye.jsx:2014`), existing green-tinted `--tm-dark-*` ramp kept (WP-0.C decision). **NOT verified:** layered shadows applied to every light card/modal, the pure-`#fff`/`#000` palette sweep, and grain across *all* dark surfaces app-wide. Full inline-style → token refactor = Phase 4.3.
+- ◐ 0.3 Motion discipline — reduced-motion handling present (`tokens.css:360` global block + hero handling in `EagleEye.jsx`/`HoleMapGL.jsx`). **NOT verified:** the full easing/duration-vocabulary conversion of all animations to transform/opacity.
+
+> **⚠ Source discrepancy (flagged 2026-07-02):** the Phase 0 spec §7 checklist still shows these WPs `☐`, and the 2026-06-30 `log.md` entry says "WP-0.C/D/F deferred" — but the code shows the primitives (grain, layered-shadow token, reduced-motion) DID land. Treat the code citations above as ground truth (the spec checklist was never updated; the log understated). Reconcile the log on the next pass, and finish the app-wide application under Phase 4.3.
 
 **Phase 1 — Correctness & cost-safety (do before the pretty)**
 - ☑ 1.1 GPS accuracy gate (suppress > ~10 m, "acquiring" state) — shipped 2026-06-24 (c819c69)
@@ -121,9 +123,10 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ☑ 2.3 Distance instrument — shipped: 270° SVG arc gauge + odometer number-roll, lockstep rAF tween (hand-rolled, no NumberFlow dep) (95717ee).
 - ☑ 2.4 Glass HUD + unified controls — shipped (1ee636a + GL zoom/attribution restyle).
 - ◐ 2.5 Smooth player puck + accuracy halo — shipped (rAF-glide puck + true-ground metres halo). Concentric yardage range-rings still held pending a live-map clutter check.
+- ☑ **On-map distance labels + segment-distance correctness (2026-07-02).** On-map yardage labels redesigned to bare outlined tabular numerals (no "y"/"to grn" suffix), gold-flag glyph on the to-green number, single flagged number on par-3/aim-on-green. **Corrected the aim segment math:** replaced the old scorecard-proportional scaling (which broke badly past the green — e.g. showed 219 for a ~435 shot) with pure great-circle (haversine) distance for tee→aim and aim→green. Removed the redundant tap-to-measure readout. Matt verified distances accurate on the beta (Pebble Creek Colts Neck, White tees). *Detail + the "speak only from verified facts" process lesson: `next-session-handoff-2026-07-02.md`.*
 
 **Phase 3 — Leapfrog (pick order)**
-- ☑ 3.1 Transparent adjustable plays-like (free) — **SHIPPED 2026-06-25.** Hero plays-like number expands into wind/elevation/temp rows, each overridable; real USGS 3DEP DEM elevation term (migration 029 cache); tappable bottom sheet (mobile-native, no dead tooltip). Spec: `playslike-3.1-build-spec-2026-06-25.md`.
+- ☑ 3.1 Transparent adjustable plays-like (free) — **SHIPPED 2026-06-25.** Hero plays-like number expands into wind/elevation/temp rows, each overridable; real USGS 3DEP DEM elevation term (migration 029 cache); tappable bottom sheet (mobile-native, no dead tooltip). Spec: `playslike-3.1-build-spec-2026-06-25.md`. **Accuracy rebuild 2026-06-30:** replaced the in-house heuristic (which produced an absurd −36 on hole 6) with sourced, physically-defensible coefficients (asymmetric wind, 0.8%/10°F temp, 1.16%/1000ft altitude, asymmetric elevation) + a 250y single-carry cap so long holes stop ballooning; `geo.test.mjs` 31/31. **Option B (aim-retarget) added 2026-06-30:** dragging the aim short of the pin retargets the whole readout to that aim. Spec: `playslike-accuracy-rebuild-2026-06-30.md`.
 - ☐ 3.2 Ad-free generous free tier
 - ☑ 3.3 Own-club distance arcs — **SHIPPED 2026-06-25.** Distance arcs from the player's *own* bag averages on the GL hole map; no handicap-based distance guessing (Matt's correction — real bag data only). Spec: `own-club-arcs-3.3-build-spec-2026-06-25.md`.
 - ☐ 3.4 Green slope + putt-line
