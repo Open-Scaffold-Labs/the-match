@@ -239,4 +239,37 @@ router.get('/:id', async (req, res) => {
   res.json({ ...row, co_participants })
 })
 
+// PATCH /api/rounds/:id/putts — add or edit SG putt facts after the fact.
+//
+// This is how OUTING rounds get putt data (docs/SG-DESIGN.md): the F.5 live
+// scoring path stays untouched — after match close fans the outing out into
+// per-player tm_rounds, each player tags their own putts here (works for solo
+// rounds too). Owner-only; same validation as POST /rounds (invalid shapes
+// rejected, but a valid partial array — null entries for unknown holes — is
+// always fine). Facts only; SG stays computed at read time.
+router.patch('/:id/putts', async (req, res) => {
+  const { putts, firstPutts } = req.body || {}
+  const SG_BUCKETS = ['in3', '3-10', '10-25', '25plus']
+  const cleanPutts = Array.isArray(putts) && putts.length > 0
+    && putts.every(p => p == null || (Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 6))
+    ? putts.map(p => (p == null ? null : Number(p)))
+    : null
+  if (!cleanPutts) return res.status(400).json({ error: 'putts must be an array of per-hole counts (nulls allowed)' })
+  const cleanFirstPutts = Array.isArray(firstPutts)
+    && firstPutts.length === cleanPutts.length
+    && firstPutts.every(b => b == null || SG_BUCKETS.includes(b))
+    ? firstPutts.map(b => b ?? null)
+    : cleanPutts.map(() => null)
+
+  const row = await db.one(
+    `UPDATE tm_rounds
+     SET putts = $1, first_putts = $2
+     WHERE id = $3 AND user_id = $4
+     RETURNING id, putts, first_putts`,
+    [JSON.stringify(cleanPutts), JSON.stringify(cleanFirstPutts), req.params.id, req.user.id]
+  )
+  if (!row) return res.status(404).json({ error: 'Not found' }) // wrong id OR not your round
+  res.json(row)
+})
+
 module.exports = router

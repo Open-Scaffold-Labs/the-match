@@ -3167,6 +3167,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
       {selectedRoundId != null && (
         <RoundScorecard
           roundId={selectedRoundId}
+          canEditPutts // own profile → own rounds; PATCH is owner-checked server-side too
           onClose={() => setSelectedRoundId(null)}
           // Tap a co-participant's avatar/name inside the scorecard popup
           // → close the scorecard and bubble up to the parent (Home top-
@@ -3208,6 +3209,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <RoundHistory
           rounds={rounds}
           title="Recent Rounds"
+          canEditPutts // own profile → own rounds
           onClose={() => setHistoryOpen(false)}
           // Same scope fix as the RoundScorecard above — bubble through
           // ProfileView's onOpenFriend prop instead of referencing the
