@@ -1443,3 +1443,10 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Verified against live systems: branch gates TRUE (client lint/build clean, client 10/10, server vitest 70/70 in an isolated worktree off current main); migrations 039/040 ARE applied to prod (all 6 columns present — initial check queried wrong objects and was corrected); Vercel prod has NO ANTHROPIC_API_KEY (16 vars listed) → Dale's keyless-ANALYZE root-cause confirmed (SDK defers key error to request time, which is why other eagle-eye routes worked)
 - Review verdict: APPROVE with minor suggestions (caddie `round` context sanitization, COALESCE-can't-clear tendencies, one EE-gold literal on FriendProfile) + one prerequisite (Matt adds ANTHROPIC_API_KEY before/with merge). F.5 non-interference confirmed: no outing-scoring files touched; putt facts land on per-player tm_rounds via owner-scoped PATCH. Honesty gates consistent (10-round putting gate in practice + caddie prompt; no-fake-numbers null discipline throughout sg lib)
 - Action for Matt: `vercel env add ANTHROPIC_API_KEY production` + redeploy; merge is Matt's call; on-course putt-chip/ShotSheet pass when next playing
+
+## [2026-07-03] infra | Prod DB migrated to OSL org (Pro) — "Open Design Studio" project, us-east-2
+- Both partners approved; target chosen by idle-project survey (13 projects queried; bqjd picked for same-region us-east-2 + dead-duplicate status)
+- pg_dump (v17 client, full public schema after -t missed the trigger functions) → restore verified: 33/33 table counts identical, 2 tm_ functions, 5 triggers, 27 sequences with positions carried; straggler diff over the 2-min gap = 0 rows
+- Cutover: Vercel DATABASE_URL flipped (blind pipe, secret never surfaced), redeploy `31c095b`; end-to-end proof: /health db:true + outing UDCX served from the target; local .env swapped (old string kept commented as fallback)
+- Daily backups confirmed on the Pro project (nightly physical) — the F.5 data now has real backups for the first time
+- Residuals: retire the old free-tier DB after a clean week; Dale may drop the dead ods_ scaffold tables in the target; CLAUDE.md trust anchor updated (Stack → DB)

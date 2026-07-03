@@ -68,7 +68,7 @@ Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or
 - **Client**: `client/` — React 19, Vite 6, Tailwind v4, Lucide icons
 - **Server**: `server/` — Express 4, Node 22, pg (direct Supabase pooler)
 - **API entry**: `api/index.js` re-exports the Express app for Vercel serverless
-- **DB**: Supabase free tier. All tables prefixed `tm_`. Schema in `migrations/`.
+- **DB**: Supabase — **OSL org (Pro), project "Open Design Studio" `bqjdiixkygslaryxcyfg`, us-east-2** (moved 2026-07-03 from Matt's personal free tier: daily backups on, no auto-pause, both partners on the dashboard). The project also still carries the dead `ods_` scaffold tables from its prior life — ignore them (Dale may drop them). The old free-tier DB is a frozen fallback for ~a week post-move, then retire. All tables prefixed `tm_`. Schema in `migrations/`.
 - **Auth**: email + 4-digit PIN. JWT (90-day). No OAuth for now.
 - **Deployment**: Vercel (dev/beta surface). `trust proxy: 1` is required (TLS terminated at edge).
 - **Shipping target**: packaged as a **native iOS app for the App Store** (WKWebView shell over the web app). Vercel is where it's developed/tested; the App Store build is the product. See the App Store callout at the top of this file.
