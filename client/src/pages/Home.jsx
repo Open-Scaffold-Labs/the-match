@@ -7,6 +7,7 @@ import PlayerCard from '../components/PlayerCard.jsx'
 import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
 import Practice from './Practice.jsx'
+import Caddie from './Caddie.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
 import RoundHistory from '../components/RoundHistory.jsx'
 import AdminUsersModal from '../components/AdminUsersModal.jsx'
@@ -2463,7 +2464,7 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // header (big avatar + name + course + handicap + season W-L-T-AVG3 +
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
-function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice }) {
+function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice, onOpenCaddie }) {
   // Golf handicap display convention (matches HcpBadge):
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
@@ -3005,6 +3006,32 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
               <div style={{ fontSize: 14, fontWeight: 800, color: '#F5D78A' }}>Practice Plan</div>
               <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
                 Find your focus areas &amp; a session to fix them
+              </div>
+            </div>
+            <IconChevronRight size={18} color="rgba(255,255,255,0.40)" />
+          </button>
+        )}
+
+        {/* The Caddie — AI chat calibrated to the player's bag, handicap,
+            tendencies and strokes-gained profile (whitepaper §5.6). */}
+        {onOpenCaddie && (
+          <button onClick={onOpenCaddie} className="touch-press" style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer',
+            borderRadius: 14, marginBottom: 12, padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(42,122,56,0.20) 0%, rgba(255,255,255,0.03) 70%)',
+            border: '1px solid rgba(42,122,56,0.40)',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(42,122,56,0.25)', border: '1px solid rgba(42,122,56,0.50)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+            }}>⛳</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#8FCB9B' }}>The Caddie</div>
+              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
+                Club calls &amp; game advice from your real numbers
               </div>
             </div>
             <IconChevronRight size={18} color="rgba(255,255,255,0.40)" />
@@ -3717,6 +3744,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
   const [editOpen, setEditOpen] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [practiceOpen, setPracticeOpen] = useState(false)
+  const [caddieOpen, setCaddieOpen]     = useState(false)
   const [selectedFriend, setSelectedFriend] = useState(null)
   const [games, setGames]               = useState({ incoming: [], confirmed: [] })
   const [teeRequests, setTeeRequests]   = useState({ incoming: [], outgoing: [] })
@@ -3977,6 +4005,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
           onOpenPractice={() => setPracticeOpen(true)}
+          onOpenCaddie={() => setCaddieOpen(true)}
           // Tap an opponent face inside a rivalry popup → open that
           // user's FriendProfile on top of this view.
           onOpenFriend={setSelectedFriend}
@@ -3989,6 +4018,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
             view's Practice card. Full-screen overlay; fetches /api/practice. */}
         {practiceOpen && (
           <Practice onClose={() => setPracticeOpen(false)} />
+        )}
+
+        {/* The Caddie — AI chat (whitepaper §5.6). Full-screen overlay;
+            POSTs /api/caddie/chat with the running thread. */}
+        {caddieOpen && (
+          <Caddie onClose={() => setCaddieOpen(false)} />
         )}
         {/* Player card overlay — opens from the big avatar in the header */}
         {playerCardOpen && (

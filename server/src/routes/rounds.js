@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/rounds
 router.post('/', async (req, res) => {
-  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps } = req.body
+  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps, putts, firstPutts } = req.body
   const total = scores?.reduce((s, x) => s + (x ?? 0), 0) ?? 0
 
   // 2026-05-07 PM — holePars accepted from solo client so the
@@ -71,15 +71,34 @@ router.post('/', async (req, res) => {
     ? holeHandicaps.map(h => Number(h))
     : null
 
+  // 2026-07-02 — SG facts (migration 039, docs/SG-DESIGN.md). Putt facts
+  // arrive as parallel arrays (matching the scores/hole_pars convention):
+  // putts = putt count per hole (null entries OK = no data for that hole),
+  // firstPutts = first-putt distance bucket per hole. Facts only — SG is
+  // computed at read time in /api/stats/sg, never stored. Invalid shapes
+  // are dropped, never 400s: putt capture is optional and must not be able
+  // to break round save.
+  const SG_BUCKETS = ['in3', '3-10', '10-25', '25plus']
+  const cleanPutts = Array.isArray(putts) && putts.length > 0
+    && putts.every(p => p == null || (Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 6))
+    ? putts.map(p => (p == null ? null : Number(p)))
+    : null
+  const cleanFirstPutts = cleanPutts && Array.isArray(firstPutts)
+    && firstPutts.every(b => b == null || SG_BUCKETS.includes(b))
+    ? firstPutts.map(b => b ?? null)
+    : null
+
   const row = await db.one(
     `INSERT INTO tm_rounds
-       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars, hole_handicaps)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars, hole_handicaps, putts, first_putts)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING id`,
     [req.user.id, courseName, coursePar ?? 72, courseRating, slopeRating,
      gameType ?? 'stroke', JSON.stringify(scores ?? []), JSON.stringify(shots ?? []), total,
      cleanHolePars ? JSON.stringify(cleanHolePars) : null,
-     cleanHoleHandicaps ? JSON.stringify(cleanHoleHandicaps) : null]
+     cleanHoleHandicaps ? JSON.stringify(cleanHoleHandicaps) : null,
+     cleanPutts ? JSON.stringify(cleanPutts) : null,
+     cleanFirstPutts ? JSON.stringify(cleanFirstPutts) : null]
   )
 
   // 2026-05-05 — AWAITED. Was fire-and-forget which silently failed

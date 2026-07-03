@@ -179,6 +179,69 @@ function signalConsistency(rounds) {
 
 const SIGNALS = [signalParType, signalBlowups, signalToughHoles, signalBackNine, signalConsistency]
 
+// ── Strokes Gained signals (2026-07-02, docs/SG-DESIGN.md) ──────────────────
+// Unlike the score-shape signals above, these are MEASURED strokes against the
+// player's baseline, computed by lib/sg from putt/shot facts on tm_rounds.
+// They only speak when the sample clears the research thresholds:
+//
+//   - Putting: Brill & Wyner (2025, arXiv:2506.21822) show putting skill is
+//     nearly indistinguishable from noise in small samples — below
+//     SG_PUTT_MIN_ROUNDS measured rounds we say NOTHING about putting SG
+//     (the signal is not emitted; no hedged half-claims).
+//   - Approach: appBucketBreakdown already enforces a ≥5-shot floor per
+//     bucket; we additionally require SG_SHOT_MIN_ROUNDS rounds of shot data.
+const { aggregateSG, appBucketBreakdown } = require('./sg')
+
+const SG_PUTT_MIN_ROUNDS = 10
+const SG_SHOT_MIN_ROUNDS = 8
+
+// Measured putting leak. sgAgg = aggregateSG output. Emits only when the
+// player is losing ≥ 0.5 strokes/round on the greens over a big-enough sample.
+function signalPuttingSG(sgAgg) {
+  if (!sgAgg || sgAgg.roundsWithPutting < SG_PUTT_MIN_ROUNDS) return null
+  if (sgAgg.sgP == null || sgAgg.sgP > -0.5) return null
+  const lost = Math.abs(sgAgg.sgP)
+  return {
+    id: 'sg_putting',
+    label: 'Putting is costing you measured strokes',
+    area: 'Putting (strokes gained)',
+    severity: clamp01(lost / 4), // −4 SG:P per round = max severity
+    evidence: {
+      sgP: sgAgg.sgP, rounds: sgAgg.roundsWithPutting,
+      baseline: sgAgg.baseline, measured: true,
+    },
+    explanation: `Across ${sgAgg.roundsWithPutting} measured rounds you're losing ${round1(lost)} strokes per round on the greens vs the ${sgAgg.baseline} baseline — measured from your putt counts and first-putt distances, not inferred.`,
+    category: 'putting',
+  }
+}
+
+// Measured approach leak, with the worst distance bucket named when a real
+// sample exists (that bucket is what the drill targets).
+function signalApproachSG(sgAgg, sgRounds, baselineSetting, handicap) {
+  if (!sgAgg || sgAgg.roundsWithShots < SG_SHOT_MIN_ROUNDS) return null
+  if (sgAgg.sgAPP == null || sgAgg.sgAPP > -0.5) return null
+  const lost = Math.abs(sgAgg.sgAPP)
+  const buckets = appBucketBreakdown(sgRounds, baselineSetting, handicap)
+  const worst = buckets.find(b => b.shots >= 5 && b.avgSG < 0) || null
+  return {
+    id: 'sg_approach',
+    label: worst
+      ? `Approach shots from ${worst.bucket} yds are your biggest leak`
+      : 'Approach play is costing you measured strokes',
+    area: 'Approach (strokes gained)',
+    severity: clamp01(lost / 5), // −5 SG:APP per round = max severity
+    evidence: {
+      sgAPP: sgAgg.sgAPP, rounds: sgAgg.roundsWithShots,
+      baseline: sgAgg.baseline, measured: true,
+      worstBucket: worst ? { bucket: worst.bucket, avgSG: worst.avgSG, shots: worst.shots } : null,
+    },
+    explanation: worst
+      ? `You're losing ${round1(lost)} strokes per round on approach vs the ${sgAgg.baseline} baseline, and ${worst.bucket} yds is the worst pocket (${worst.avgSG}/shot over ${worst.shots} shots). That distance is what to drill.`
+      : `You're losing ${round1(lost)} strokes per round on approach shots vs the ${sgAgg.baseline} baseline across ${sgAgg.roundsWithShots} measured rounds.`,
+    category: 'approach',
+  }
+}
+
 // ── curated drill library (benchmarked skills-games, not block reps) ────────
 // Each drill maps to a weakness category and carries a handicap-banded target so
 // the player knows when they've "passed" (kills the practice-boredom failure mode).
@@ -306,6 +369,17 @@ const DRILLS = {
       ],
       scoring: 'Count putts finishing inside 3 ft, out of 10.',
       target: { low: '8/10 inside 3 ft', mid: '7/10 inside 3 ft', high: '6/10 inside 3 ft' } },
+    { id: 'make_ladder_3_10', title: '3–10 ft make ladder', durationMin: 15,
+      why: 'The 3–10 ft range is where measured putting strokes are actually won and lost.',
+      where: 'Putting green',
+      setup: 'Tees at 3, 5, 7 and 10 ft on one straight-ish putt. 2 balls per station, 8 putts total.',
+      steps: [
+        'Start at 3 ft; move back a station only after both putts drop.',
+        'Miss one → stay at that station and restart its pair.',
+        'Track your finishing station and total makes out of 8.',
+      ],
+      scoring: 'Count makes out of 8 (and note the deepest station you cleared).',
+      target: { low: '7/8 makes', mid: '6/8 makes', high: '5/8 makes' } },
     { id: 'gate_5ft', title: '5-foot gate drill', durationMin: 10,
       why: 'Short putts holed protect every good hole.',
       where: 'Putting green',
@@ -441,6 +515,10 @@ function primaryMetric(w) {
     case 'tough_holes': return { value: w.evidence.hardOver, unit: 'over par', label: 'Hard-hole scoring' }
     case 'back_nine':   return { value: w.evidence.avgFade,  unit: 'strokes', label: 'Back-nine fade' }
     case 'consistency': return { value: w.evidence.stdev,    unit: 'strokes', label: 'Scoring spread' }
+    // SG metrics: stored as strokes LOST per round (positive, lower = better)
+    // so the closed loop's "metric fell = improved" convention holds.
+    case 'sg_putting':  return { value: Math.abs(w.evidence.sgP),  unit: 'strokes/round', label: 'Putting strokes lost' }
+    case 'sg_approach': return { value: Math.abs(w.evidence.sgAPP), unit: 'strokes/round', label: 'Approach strokes lost' }
     default: return null
   }
 }
@@ -495,8 +573,35 @@ function analyze(rawRounds, opts = {}) {
     }
   }
 
-  // Compute every signal, drop nulls, rank by severity.
-  const weaknesses = SIGNALS.map(fn => fn(rounds)).filter(Boolean)
+  // Strokes Gained signals — measured, gated by sample-size thresholds.
+  // Fail-soft: any SG problem must never break the practice plan.
+  let sgAgg = null
+  let sgSignals = []
+  if (Array.isArray(opts.sgRounds) && opts.sgRounds.length) {
+    try {
+      const baselineSetting = opts.sgBaseline ?? 'auto'
+      sgAgg = aggregateSG(opts.sgRounds, baselineSetting, opts.handicap)
+      sgSignals = [
+        signalPuttingSG(sgAgg),
+        signalApproachSG(sgAgg, opts.sgRounds, baselineSetting, opts.handicap),
+      ].filter(Boolean)
+    } catch (e) {
+      sgAgg = null; sgSignals = []
+    }
+  }
+  meta.sg = sgAgg ? {
+    baseline: sgAgg.baseline,
+    roundsWithPutting: sgAgg.roundsWithPutting,
+    roundsWithShots: sgAgg.roundsWithShots,
+    puttGate: SG_PUTT_MIN_ROUNDS,
+    // Surfaced so the client can show "log putts on N more rounds to unlock
+    // measured putting analysis" instead of silent absence.
+    puttRoundsToUnlock: Math.max(0, SG_PUTT_MIN_ROUNDS - sgAgg.roundsWithPutting),
+  } : null
+
+  // Compute every signal, drop nulls, rank by severity. Measured SG signals
+  // compete on the same severity scale as the score-shape signals.
+  const weaknesses = [...SIGNALS.map(fn => fn(rounds)), ...sgSignals].filter(Boolean)
     .sort((a, b) => b.severity - a.severity)
 
   // Focus = signals that are a REAL signal (severity ≥ 0.33), top 3. If NOTHING
@@ -551,8 +656,9 @@ function analyze(rawRounds, opts = {}) {
 }
 
 const DISCLAIMER =
-  'Directional analysis from your scores, pars and stroke index — it points at likely causes, not measured strokes-gained. ' +
-  'Confidence grows as you log more rounds; add shot tracking to sharpen it.'
+  'Score-shape signals are directional — they point at likely causes. ' +
+  'Signals marked "strokes gained" are measured from your logged putt and shot facts against your baseline. ' +
+  'Confidence grows as you log more rounds; logging putts (and later shots) unlocks the measured analysis.'
 
 const CLOSED_LOOP_NOTE =
   "Keep logging rounds — after a few more we'll re-measure these exact numbers and show whether your focus areas improved."
@@ -562,5 +668,6 @@ module.exports = {
   DRILL_IDS,
   // exported for unit tests
   signalParType, signalBlowups, signalToughHoles, signalBackNine, signalConsistency,
+  signalPuttingSG, signalApproachSG, SG_PUTT_MIN_ROUNDS, SG_SHOT_MIN_ROUNDS,
   DRILLS, drillsFor,
 }
