@@ -2313,18 +2313,21 @@ function EditProfileModal({ user, onSave, onClose }) {
         bio: bio.trim() || null,
         ...(hcpVal !== undefined ? { handicap: hcpVal } : {}),
         ...(gender ? { gender } : {}),
-        ...(tendShape ? { shot_shape: tendShape } : {}),
-        ...(tendMiss ? { typical_miss: tendMiss } : {}),
-        ...(tendDist ? { distance_miss: tendDist } : {}),
+        // Tendencies always sent: value = set, '' = explicit clear (the
+        // server treats '' as clear-to-unknown; null state on a never-set
+        // field clears NULL → NULL, a no-op).
+        shot_shape: tendShape ?? '',
+        typical_miss: tendMiss ?? '',
+        distance_miss: tendDist ?? '',
       })
       const parsed = hcpVal ? parseFloat(hcpVal.replace(/^\+/, '')) : user?.handicap
       onSave({
         home_course: course.trim() || null, bio: bio.trim() || null,
         handicap: isNaN(parsed) ? user?.handicap : parsed,
         ...(gender ? { gender } : {}),
-        ...(tendShape ? { shot_shape: tendShape } : {}),
-        ...(tendMiss ? { typical_miss: tendMiss } : {}),
-        ...(tendDist ? { distance_miss: tendDist } : {}),
+        shot_shape: tendShape,
+        typical_miss: tendMiss,
+        distance_miss: tendDist,
       })
       onClose()
     } catch { /* ignore */ }

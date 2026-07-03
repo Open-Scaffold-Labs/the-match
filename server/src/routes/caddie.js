@@ -130,13 +130,21 @@ function buildSystemPrompt(ctx, round) {
     }
   } catch { /* fail-soft */ }
 
-  // Live round context, when the client sends it
+  // Live round context, when the client sends it. Client-supplied strings
+  // are sanitized before entering the SYSTEM prompt (self-injection only,
+  // but cheap hygiene — greenlight review follow-up #1): newlines stripped,
+  // numerics coerced, everything length-capped.
   if (round && typeof round === 'object') {
+    const clean = (s, n) => String(s).replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, n)
+    const num = (v, max) => { const x = Number(v); return Number.isFinite(x) && x > 0 && x <= max ? Math.round(x) : null }
     const rc = []
-    if (round.courseName) rc.push(`Course: ${String(round.courseName).slice(0, 80)}`)
-    if (round.holeNumber) rc.push(`Hole ${round.holeNumber}`)
-    if (round.holePar)    rc.push(`Par ${round.holePar}`)
-    if (round.holeYards)  rc.push(`${round.holeYards} yds`)
+    if (round.courseName) rc.push(`Course: ${clean(round.courseName, 80)}`)
+    const holeNo = num(round.holeNumber, 18)
+    const holePar = num(round.holePar, 6)
+    const holeYds = num(round.holeYards, 800)
+    if (holeNo)  rc.push(`Hole ${holeNo}`)
+    if (holePar) rc.push(`Par ${holePar}`)
+    if (holeYds) rc.push(`${holeYds} yds`)
     if (round.weather && typeof round.weather === 'object') {
       const w = round.weather
       if (w.temperature_2m != null) rc.push(`${Math.round(w.temperature_2m)}°F`)
@@ -167,7 +175,9 @@ router.post('/chat', caddieLimiter, async (req, res) => {
     const ctx = await loadPlayerContext(req.user.id)
     const system = buildSystemPrompt(ctx, round)
     const msg = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      // Greenlight follow-up #2: current Sonnet (the 2025-05 snapshot was a
+      // year old). Env override so prod can pin/roll without a deploy.
+      model: process.env.CADDIE_MODEL || 'claude-sonnet-5',
       max_tokens: 500,
       system,
       messages: clean,

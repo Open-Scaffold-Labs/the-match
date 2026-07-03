@@ -155,9 +155,13 @@ router.post('/update', async (req, res) => {
     const SG_BASELINES = ['auto', 'tour', 'scratch', 'hcp-5', 'hcp-10', 'hcp-15', 'hcp-20']
     const pick = (v, set) => (set.includes(v) ? v : null)
     const cleanSgBaseline = pick(sg_baseline, SG_BASELINES)
-    const cleanShape = pick(shot_shape, ['draw', 'fade', 'straight'])
-    const cleanMiss = pick(typical_miss, ['left', 'right', 'both'])
-    const cleanDist = pick(distance_miss, ['short', 'long', 'pin_high'])
+    // Tendencies (greenlight follow-up #3): empty string = EXPLICIT clear back
+    // to unknown, valid value = set, anything else (incl. absent) = unchanged.
+    // Fixes the COALESCE trap where a tendency could never be un-set.
+    const pickOrClear = (v, set) => (v === '' ? '' : pick(v, set))
+    const cleanShape = pickOrClear(shot_shape, ['draw', 'fade', 'straight'])
+    const cleanMiss = pickOrClear(typical_miss, ['left', 'right', 'both'])
+    const cleanDist = pickOrClear(distance_miss, ['short', 'long', 'pin_high'])
     const user = await db.one(
       `UPDATE tm_users SET
          name        = COALESCE($5, name),
@@ -166,9 +170,9 @@ router.post('/update', async (req, res) => {
          handicap    = CASE WHEN $3::numeric IS NOT NULL THEN $3::numeric ELSE handicap END,
          gender      = COALESCE($6, gender),
          sg_baseline   = COALESCE($7, sg_baseline),
-         shot_shape    = COALESCE($8, shot_shape),
-         typical_miss  = COALESCE($9, typical_miss),
-         distance_miss = COALESCE($10, distance_miss),
+         shot_shape    = CASE WHEN $8 = ''  THEN NULL WHEN $8::text  IS NOT NULL THEN $8  ELSE shot_shape    END,
+         typical_miss  = CASE WHEN $9 = ''  THEN NULL WHEN $9::text  IS NOT NULL THEN $9  ELSE typical_miss  END,
+         distance_miss = CASE WHEN $10 = '' THEN NULL WHEN $10::text IS NOT NULL THEN $10 ELSE distance_miss END,
          updated_at  = NOW()
        WHERE id = $4
        RETURNING ${USER_PUBLIC_COLUMNS}`,
