@@ -1459,3 +1459,9 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Cutover: Vercel DATABASE_URL flipped (blind pipe, secret never surfaced), redeploy `31c095b`; end-to-end proof: /health db:true + outing UDCX served from the target; local .env swapped (old string kept commented as fallback)
 - Daily backups confirmed on the Pro project (nightly physical) — the F.5 data now has real backups for the first time
 - Residuals: retire the old free-tier DB after a clean week; Dale may drop the dead ods_ scaffold tables in the target; CLAUDE.md trust anchor updated (Stack → DB)
+
+## [2026-07-03] merge | PR #1 MERGED — Strokes Gained v2 live on the beta
+- Verified on final head `5f00d40` before merging: all 3 greenlight follow-ups confirmed in the diff (sanitize+bound round ctx, `CADDIE_MODEL` override → claude-sonnet-5, ''-clears tendencies); gates green (client lint/build clean, 10/10; server vitest 70/70); `ANTHROPIC_API_KEY` confirmed present in Vercel prod
+- Merge commit `b434a89` (wiki/log both-append conflict resolved chronologically, both sides kept); post-merge gates green on the merged tree; deployed — `/health` ok, `/api/v1/caddie/chat` + `/api/v1/stats/sg` live (401 unauthed = correctly gated)
+- Anthropic billing: new OSL org in the Console (Dale primary owner, spend cap set, separate prod/dev keys); Matt has an admin invite pending
+- Residuals: Matt accepts the org invite; one authed Caddie message on the beta (Matt); on-course putt chips + ShotSheet pass; ANALYZE un-parking decision now that the keyless root cause is fixed; Elite gating stays OFF until StoreKit
