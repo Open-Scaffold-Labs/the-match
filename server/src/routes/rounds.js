@@ -43,7 +43,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/rounds
 router.post('/', async (req, res) => {
-  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps } = req.body
+  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps, putts, firstPutts } = req.body
   const total = scores?.reduce((s, x) => s + (x ?? 0), 0) ?? 0
 
   // 2026-05-07 PM — holePars accepted from solo client so the
@@ -71,15 +71,34 @@ router.post('/', async (req, res) => {
     ? holeHandicaps.map(h => Number(h))
     : null
 
+  // 2026-07-02 — SG facts (migration 039, docs/SG-DESIGN.md). Putt facts
+  // arrive as parallel arrays (matching the scores/hole_pars convention):
+  // putts = putt count per hole (null entries OK = no data for that hole),
+  // firstPutts = first-putt distance bucket per hole. Facts only — SG is
+  // computed at read time in /api/stats/sg, never stored. Invalid shapes
+  // are dropped, never 400s: putt capture is optional and must not be able
+  // to break round save.
+  const SG_BUCKETS = ['in3', '3-10', '10-25', '25plus']
+  const cleanPutts = Array.isArray(putts) && putts.length > 0
+    && putts.every(p => p == null || (Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 6))
+    ? putts.map(p => (p == null ? null : Number(p)))
+    : null
+  const cleanFirstPutts = cleanPutts && Array.isArray(firstPutts)
+    && firstPutts.every(b => b == null || SG_BUCKETS.includes(b))
+    ? firstPutts.map(b => b ?? null)
+    : null
+
   const row = await db.one(
     `INSERT INTO tm_rounds
-       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars, hole_handicaps)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars, hole_handicaps, putts, first_putts)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING id`,
     [req.user.id, courseName, coursePar ?? 72, courseRating, slopeRating,
      gameType ?? 'stroke', JSON.stringify(scores ?? []), JSON.stringify(shots ?? []), total,
      cleanHolePars ? JSON.stringify(cleanHolePars) : null,
-     cleanHoleHandicaps ? JSON.stringify(cleanHoleHandicaps) : null]
+     cleanHoleHandicaps ? JSON.stringify(cleanHoleHandicaps) : null,
+     cleanPutts ? JSON.stringify(cleanPutts) : null,
+     cleanFirstPutts ? JSON.stringify(cleanFirstPutts) : null]
   )
 
   // 2026-05-05 — AWAITED. Was fire-and-forget which silently failed
@@ -218,6 +237,39 @@ router.get('/:id', async (req, res) => {
   // compatible.
   delete row.outing_state
   res.json({ ...row, co_participants })
+})
+
+// PATCH /api/rounds/:id/putts — add or edit SG putt facts after the fact.
+//
+// This is how OUTING rounds get putt data (docs/SG-DESIGN.md): the F.5 live
+// scoring path stays untouched — after match close fans the outing out into
+// per-player tm_rounds, each player tags their own putts here (works for solo
+// rounds too). Owner-only; same validation as POST /rounds (invalid shapes
+// rejected, but a valid partial array — null entries for unknown holes — is
+// always fine). Facts only; SG stays computed at read time.
+router.patch('/:id/putts', async (req, res) => {
+  const { putts, firstPutts } = req.body || {}
+  const SG_BUCKETS = ['in3', '3-10', '10-25', '25plus']
+  const cleanPutts = Array.isArray(putts) && putts.length > 0
+    && putts.every(p => p == null || (Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 6))
+    ? putts.map(p => (p == null ? null : Number(p)))
+    : null
+  if (!cleanPutts) return res.status(400).json({ error: 'putts must be an array of per-hole counts (nulls allowed)' })
+  const cleanFirstPutts = Array.isArray(firstPutts)
+    && firstPutts.length === cleanPutts.length
+    && firstPutts.every(b => b == null || SG_BUCKETS.includes(b))
+    ? firstPutts.map(b => b ?? null)
+    : cleanPutts.map(() => null)
+
+  const row = await db.one(
+    `UPDATE tm_rounds
+     SET putts = $1, first_putts = $2
+     WHERE id = $3 AND user_id = $4
+     RETURNING id, putts, first_putts`,
+    [JSON.stringify(cleanPutts), JSON.stringify(cleanFirstPutts), req.params.id, req.user.id]
+  )
+  if (!row) return res.status(404).json({ error: 'Not found' }) // wrong id OR not your round
+  res.json(row)
 })
 
 module.exports = router

@@ -11,7 +11,8 @@ router.use(requireAuth)
 async function loadRoundsAndHandicap(uid) {
   const [rounds, userRow] = await Promise.all([
     db.many(
-      `SELECT r.total, r.course_par, r.course_rating, r.slope_rating, r.date, r.scores,
+      `SELECT r.id, r.total, r.course_par, r.course_rating, r.slope_rating, r.date, r.scores,
+              r.putts, r.first_putts, r.shots,
               COALESCE(r.hole_pars, o.hole_pars)           AS hole_pars,
               COALESCE(r.hole_handicaps, o.hole_handicaps) AS hole_handicaps
        FROM tm_rounds r
@@ -21,11 +22,21 @@ async function loadRoundsAndHandicap(uid) {
        LIMIT 20`,
       [uid]
     ),
-    db.one('SELECT handicap FROM tm_users WHERE id = $1', [uid]),
+    db.one('SELECT handicap, sg_baseline FROM tm_users WHERE id = $1', [uid]),
   ])
   const handicap = (userRow && userRow.handicap != null && Number.isFinite(Number(userRow.handicap)))
     ? Number(userRow.handicap) : null
-  return { rounds, handicap }
+  // JSONB columns may arrive as strings depending on the pg type parser —
+  // normalize here so lib/practice + lib/sg always see arrays/objects.
+  const j = v => {
+    if (typeof v !== 'string') return v
+    try { return JSON.parse(v) } catch { return null }
+  }
+  const sgRounds = rounds.map(r => ({
+    ...r, scores: j(r.scores), putts: j(r.putts), first_putts: j(r.first_putts),
+    shots: j(r.shots), hole_pars: j(r.hole_pars),
+  }))
+  return { rounds, sgRounds, handicap, sgBaseline: userRow?.sg_baseline ?? 'auto' }
 }
 
 // GET /api/practice?minutes=60
@@ -34,7 +45,7 @@ async function loadRoundsAndHandicap(uid) {
 router.get('/', async (req, res) => {
   const uid = req.user.id
   try {
-    const { rounds, handicap } = await loadRoundsAndHandicap(uid)
+    const { rounds, sgRounds, handicap, sgBaseline } = await loadRoundsAndHandicap(uid)
     // Prior practice logs → closed-loop progress.
     const priorLogs = await db.many(
       `SELECT weakness_id, metric_value, logged_at
@@ -42,7 +53,7 @@ router.get('/', async (req, res) => {
        ORDER BY logged_at DESC LIMIT 200`,
       [uid]
     )
-    const payload = analyze(rounds, { handicap, minutes: req.query.minutes, priorLogs })
+    const payload = analyze(rounds, { handicap, minutes: req.query.minutes, priorLogs, sgRounds, sgBaseline })
     // Drills logged in the last 7 days → the client pre-checks them so the
     // check-offs persist across reopens.
     const recent = await db.many(
@@ -70,8 +81,8 @@ router.post('/log', async (req, res) => {
   try {
     // Snapshot the CURRENT primary metric for this weakness (authoritative,
     // server-computed — not trusted from the client).
-    const { rounds, handicap } = await loadRoundsAndHandicap(uid)
-    const a = analyze(rounds, { handicap })
+    const { rounds, sgRounds, handicap, sgBaseline } = await loadRoundsAndHandicap(uid)
+    const a = analyze(rounds, { handicap, sgRounds, sgBaseline })
     const w = (a.weaknesses || []).find(x => x.id === weaknessId)
     const m = w ? primaryMetric(w) : null
     const metricValue = m && Number.isFinite(Number(m.value)) ? Number(m.value) : null

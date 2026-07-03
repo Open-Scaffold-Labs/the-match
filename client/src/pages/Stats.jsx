@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { api } from '../lib/api.js'
+import { api, post } from '../lib/api.js'
 import { IconBarChart } from '../components/primitives/Icons.jsx'
 
 function scoreColor(diff) {
@@ -465,24 +465,177 @@ export function StatTile({ label, value, sub, accent, theme = 'light' }) {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────
+// ── Strokes Gained card (docs/SG-DESIGN.md) ──────────────────────────────────
+// Shows SG: Total / Tee-to-Green / Putting vs the user's chosen baseline, plus
+// the OTT/APP/ARG split once complete shot chains exist. THE RULE: the baseline
+// is always named right next to the numbers — SG values are meaningless (and
+// trust-destroying) without their comparison point. The pill row is the toggle;
+// picking one previews instantly and persists to the profile
+// (tm_users.sg_baseline).
+const SG_BASELINE_LABELS = {
+  auto:      'My handicap',
+  tour:      'PGA Tour',
+  scratch:   'Scratch',
+  'hcp-5':   '5 hcp',
+  'hcp-10':  '10 hcp',
+  'hcp-15':  '15 hcp',
+  'hcp-20':  '20 hcp',
+}
+
+function sgColor(v) {
+  if (v == null) return 'rgba(13,31,18,0.30)'
+  if (v > 0.05)  return '#2A7A38'
+  if (v < -0.05) return '#C44536'
+  return 'rgba(13,31,18,0.55)'
+}
+function sgFmt(v) {
+  if (v == null) return '—'
+  if (Math.abs(v) < 0.05) return 'E'
+  return `${v > 0 ? '+' : ''}${v.toFixed(1)}`
+}
+
+function SgCard({ sg, onChangeBaseline }) {
+  if (!sg || !sg.rounds) return null
+  const noPutting = sg.sgP == null
+  const hasCategories = sg.sgOTT != null // complete shot chains exist
+  return (
+    <div style={{
+      borderRadius: 18,
+      background: 'rgba(255,255,255,0.80)',
+      border: '1px solid rgba(27,94,59,0.10)',
+      overflow: 'hidden', marginBottom: 16,
+    }}>
+      <div style={{
+        padding: '14px 18px 10px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(13,31,18,0.70)' }}>
+          Strokes Gained
+        </div>
+        <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.40)' }}>
+          vs <span style={{ fontWeight: 700, color: '#1B5E3B' }}>
+            {SG_BASELINE_LABELS[sg.baseline] ?? sg.baseline}
+          </span> · last {sg.rounds} rounds
+        </div>
+      </div>
+
+      {/* Baseline toggle pills */}
+      <div style={{ display: 'flex', gap: 6, padding: '0 18px 12px', overflowX: 'auto' }}>
+        {Object.entries(SG_BASELINE_LABELS).map(([key, label]) => {
+          const active = sg.setting === key || (key !== 'auto' && sg.setting !== 'auto' && sg.baseline === key)
+          return (
+            <button key={key} onClick={() => onChangeBaseline(key)}
+              style={{
+                flexShrink: 0, padding: '5px 11px', borderRadius: 14,
+                fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: active ? '#1B5E3B' : 'rgba(27,94,59,0.06)',
+                border: '1px solid ' + (active ? '#1B5E3B' : 'rgba(27,94,59,0.14)'),
+                color: active ? '#F5E9C8' : 'rgba(13,31,18,0.55)',
+              }}>{label}</button>
+          )
+        })}
+      </div>
+
+      {/* Row 1: the headline numbers */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+        borderTop: '1px solid rgba(27,94,59,0.08)',
+      }}>
+        {[
+          { label: 'Total', v: sg.sgTotal },
+          { label: 'Tee to Green', v: sg.sgT2G },
+          { label: 'Putting', v: sg.sgP },
+        ].map((c, i) => (
+          <div key={c.label} style={{
+            padding: '14px 8px 16px', textAlign: 'center',
+            borderLeft: i > 0 ? '1px solid rgba(27,94,59,0.08)' : 'none',
+          }}>
+            <div style={{ fontSize: 24, fontWeight: 900, color: sgColor(c.v) }}>{sgFmt(c.v)}</div>
+            <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.40)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 3 }}>
+              {c.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 2: the tee-to-green split — only when shot data exists */}
+      {hasCategories && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          borderTop: '1px solid rgba(27,94,59,0.08)',
+          background: 'rgba(27,94,59,0.025)',
+        }}>
+          {[
+            { label: 'Off the Tee', v: sg.sgOTT },
+            { label: 'Approach', v: sg.sgAPP },
+            { label: 'Around Green', v: sg.sgARG },
+          ].map((c, i) => (
+            <div key={c.label} style={{
+              padding: '11px 8px 13px', textAlign: 'center',
+              borderLeft: i > 0 ? '1px solid rgba(27,94,59,0.08)' : 'none',
+            }}>
+              <div style={{ fontSize: 19, fontWeight: 900, color: sgColor(c.v) }}>{sgFmt(c.v)}</div>
+              <div style={{ fontSize: 9, color: 'rgba(13,31,18,0.40)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>
+                {c.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Coverage hints — say exactly what to log to unlock what */}
+      {(noPutting || !hasCategories) && (
+        <div style={{
+          padding: '10px 18px 13px', borderTop: '1px solid rgba(27,94,59,0.08)',
+          fontSize: 11, color: 'rgba(13,31,18,0.45)', lineHeight: 1.5,
+        }}>
+          {noPutting && (
+            <>Log <span style={{ fontWeight: 700 }}>putts per hole</span> when entering scores
+            to unlock Putting and Tee-to-Green ({sg.roundsWithPutting} of {sg.rounds} recent
+            rounds have putt data).</>
+          )}
+          {!noPutting && !hasCategories && (
+            <>Tag <span style={{ fontWeight: 700 }}>lie + distance</span> when logging shots
+            to unlock Off the Tee / Approach / Around Green
+            ({sg.roundsWithShots ?? 0} of {sg.rounds} recent rounds have full shot data).</>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Stats({ user }) {
   const [summary, setSummary] = useState(null)
   const [rounds,  setRounds]  = useState([])
   const [profile, setProfile] = useState(null)  // includes seeded handicap
   const [loading, setLoading] = useState(true)
+  const [sg, setSg] = useState(null)            // Strokes Gained (docs/SG-DESIGN.md)
 
   useEffect(() => {
     Promise.all([
       api('/api/stats/summary').catch(() => null),
       api('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
       api('/api/profile').catch(() => null),  // seeded handicap when no rounds
-    ]).then(([s, r, p]) => {
+      api('/api/stats/sg').catch(() => null), // persisted baseline applies
+    ]).then(([s, r, p, g]) => {
       setSummary(s)
       setRounds(r?.rounds ?? [])
       setProfile(p)
+      setSg(g)
       setLoading(false)
     })
   }, [])
+
+  // The toggle: preview a baseline via query param, persist via profile.
+  async function changeSgBaseline(setting) {
+    try {
+      const g = await api(`/api/stats/sg?baseline=${encodeURIComponent(setting)}`)
+      setSg(g)
+      // Persist — fire-and-forget; the preview already updated the UI.
+      void post('/api/profile/update', { sg_baseline: setting }).catch(() => {})
+    } catch { /* keep current card on failure */ }
+  }
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -607,6 +760,9 @@ export default function Stats({ user }) {
 
         {/* Trend chart */}
         <MiniTrendBar rounds={rounds} />
+
+        {/* Strokes Gained (docs/SG-DESIGN.md) */}
+        <SgCard sg={sg} onChangeBaseline={changeSgBaseline} />
 
         {/* Club distances */}
         {summary?.topClubs?.length > 0 && (

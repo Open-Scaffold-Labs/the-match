@@ -339,9 +339,19 @@ function SoloScorecardTable({ label, holes, holePars, scores, activeHole, onCell
 // committing. Shot log lives below the picks so the existing per-hole
 // shots data path keeps working — tapping "+ Log Shot" pops the existing
 // ClubSheet, same as the old HoleScorer. (2026-05-07 PM)
-function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave, onAddShot, onClose }) {
+function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], currentPutts = null, currentFirstPutt = null, onSave, onAddShot, onClose }) {
   const [val, setVal] = useState(currentScore || par || 4)
   const [showClubs, setShowClubs] = useState(false)
+  // SG putt facts (migration 039, docs/SG-DESIGN.md) — optional two-tap
+  // capture. null = not recorded (SG simply skips the hole; no fake data).
+  const [puttVal, setPuttVal]     = useState(currentPutts ?? null)
+  const [firstPutt, setFirstPutt] = useState(currentFirstPutt ?? null)
+  const PUTT_BUCKETS = [
+    { key: 'in3',    label: '<3 ft' },
+    { key: '3-10',   label: '3–10' },
+    { key: '10-25',  label: '10–25' },
+    { key: '25plus', label: '25+ ft' },
+  ]
 
   const quickPicks = [
     { label: 'Eagle',  diff: -2 },
@@ -365,7 +375,10 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave
       if (!ok) return
     }
     tmHaptic(15)
-    onSave(val)
+    // Putt facts ride along with the score. A putt count above the hole
+    // score is impossible — drop the facts rather than block the save.
+    const cleanPutts = (puttVal != null && puttVal <= val) ? puttVal : null
+    onSave(val, { putts: cleanPutts, firstPutt: cleanPutts != null ? firstPutt : null })
   }
 
   const cellColorFor = (score, p) => !score || !p ? AUGUSTA_INK : (score - p < 0 ? AUGUSTA_RED : AUGUSTA_INK)
@@ -409,6 +422,44 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave
           ))}
         </div>
 
+        {/* Putt facts — optional two-tap capture that feeds Strokes Gained
+            (docs/SG-DESIGN.md). Putt count first; first-putt distance chips
+            appear once a count is picked. Skipping it is always fine. */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--tm-text-3)', textAlign: 'center', marginBottom: 8 }}>
+            PUTTS <span style={{ fontWeight: 500, letterSpacing: 0 }}>(optional — unlocks strokes gained)</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {[0, 1, 2, 3, 4].map(n => (
+              <button key={n} onClick={() => { setPuttVal(p => p === n ? null : n); if (n === 0) setFirstPutt(null) }}
+                style={{
+                  width: 40, height: 34, borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                  background: puttVal === n ? 'var(--tm-gold-muted)' : 'var(--tm-surface-2)',
+                  border: puttVal === n ? '1.5px solid var(--tm-gold-dim)' : '1px solid var(--tm-border)',
+                  color: puttVal === n ? 'var(--tm-gold-text)' : 'var(--tm-text-3)',
+                }}>{n === 4 ? '4+' : n}</button>
+            ))}
+          </div>
+          {puttVal != null && puttVal > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--tm-text-3)', textAlign: 'center', marginBottom: 6 }}>
+                First putt from…
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {PUTT_BUCKETS.map(b => (
+                  <button key={b.key} onClick={() => setFirstPutt(f => f === b.key ? null : b.key)}
+                    style={{
+                      padding: '7px 12px', borderRadius: 16, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      background: firstPutt === b.key ? 'var(--tm-gold-muted)' : 'var(--tm-surface-2)',
+                      border: firstPutt === b.key ? '1.5px solid var(--tm-gold-dim)' : '1px solid var(--tm-border)',
+                      color: firstPutt === b.key ? 'var(--tm-gold-text)' : 'var(--tm-text-3)',
+                    }}>{b.label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Save button */}
         <button onClick={handleSave} style={{
           width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
@@ -436,8 +487,15 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave
                   <span style={{ color: 'var(--tm-text)' }}>
                     <span style={{ color: 'var(--tm-gold-text)', fontWeight: 700, marginRight: 8 }}>{i + 1}</span>
                     {s.club}
+                    {s.lie && (
+                      <span style={{ color: 'var(--tm-text-3)', fontSize: 10, marginLeft: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {s.lie === 'recovery' ? 'trouble' : s.lie}
+                      </span>
+                    )}
                   </span>
-                  {s.dist && <span style={{ color: 'var(--tm-text-3)' }}>{s.dist}yd</span>}
+                  <span style={{ color: 'var(--tm-text-3)' }}>
+                    {s.toPin ? `${s.toPin}yd to pin` : s.dist ? `${s.dist}yd` : ''}
+                  </span>
                 </div>
               ))}
             </div>
@@ -445,7 +503,13 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], onSave
         </div>
       </div>
 
-      {showClubs && <ClubSheet onSelect={club => { onAddShot({ club, dist: null }); setShowClubs(false) }} onClose={() => setShowClubs(false)} />}
+      {showClubs && (
+        <ShotSheet
+          isFirstShot={shots.length === 0}
+          onAdd={shot => { onAddShot(shot); setShowClubs(false) }}
+          onClose={() => setShowClubs(false)}
+        />
+      )}
     </div>,
     document.body
   )
@@ -589,7 +653,7 @@ function SoloBoardView({ user, config, scores, onTapRow }) {
   )
 }
 
-function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, onAddShot, onSetActiveHole, onFinish, onBack, onGoToEagleEye }) {
+function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = [], hole, gps, onScoreHole, onSavePutts, onAddShot, onSetActiveHole, onFinish, onBack, onGoToEagleEye }) {
   const [editingHole, setEditingHole] = useState(null)
   // 2026-05-07 PM — savedAt timestamp drives the gold "Saved" chip that
   // pops in the bottom-right after every score commit. Same SavedChip
@@ -631,11 +695,13 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
     setEditingHole(idx)
   }
 
-  function handleSaveScore(val) {
+  function handleSaveScore(val, puttFacts) {
     if (editingHole == null) return
     const par = config.pars[editingHole] || 4
     const holeNumberDisplay = editingHole + 1
     onScoreHole(editingHole, val)
+    // SG putt facts ride along with the score save (docs/SG-DESIGN.md).
+    if (onSavePutts && puttFacts) onSavePutts(editingHole, puttFacts)
     setEditingHole(null)
     // Fire the gold "Saved" chip — same UX as LiveOuting. Score is
     // committed locally + persisted to localStorage immediately by
@@ -881,6 +947,8 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
           currentScore={scores[editingHole] || 0}
           holeCount={holeCount}
           shots={shots[editingHole] || []}
+          currentPutts={putts[editingHole] ?? null}
+          currentFirstPutt={firstPutts[editingHole] ?? null}
           onSave={handleSaveScore}
           onAddShot={handleAddShot}
           onClose={() => setEditingHole(null)}
@@ -910,24 +978,108 @@ function SoloScoreboard({ user, config, scores, shots, hole, gps, onScoreHole, o
   )
 }
 
-// ─── Club Sheet ───────────────────────────────────────────────────────────────
-function ClubSheet({ onSelect, onClose }) {
+// ─── Shot Sheet — club + SG phase-2 facts (lie, distance to pin) ─────────────
+// Two steps: pick the club (same grid as the old ClubSheet), then optionally
+// tag the lie + distance-to-pin. "Skip details" logs club-only exactly like
+// before — the SG categorizer simply skips holes whose chains are incomplete
+// (no fake numbers). First shot of a hole pre-selects the Tee lie. Lie keys
+// MUST match server/src/lib/sg/baselines LIES (docs/SG-DESIGN.md).
+const SHOT_LIES = [
+  { key: 'tee',      label: 'Tee' },
+  { key: 'fairway',  label: 'Fairway' },
+  { key: 'rough',    label: 'Rough' },
+  { key: 'sand',     label: 'Sand' },
+  { key: 'recovery', label: 'Trouble' },
+]
+
+function ShotSheet({ isFirstShot, onAdd, onClose }) {
+  const [club, setClub] = useState(null)
+  const [lie, setLie]   = useState(isFirstShot ? 'tee' : null)
+  const [toPin, setToPin] = useState('')
+
+  function commit(withDetails) {
+    const dist = parseInt(toPin, 10)
+    onAdd({
+      club,
+      dist: null,
+      ...(withDetails && lie ? { lie } : {}),
+      ...(withDetails && Number.isFinite(dist) && dist > 0 ? { toPin: dist } : {}),
+    })
+  }
+
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
       <div style={{ background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tm-text)' }}>Which club?</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--tm-text)' }}>
+            {club ? `${club} — where from?` : 'Which club?'}
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tm-text-3)', fontSize: 20 }}>✕</button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          {CLUBS.map(c => (
-            <button key={c.label} onClick={() => onSelect(c.label)}
-              style={{ padding: '12px 4px', borderRadius: 'var(--tm-radius)', background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)', color: 'var(--tm-text)', fontWeight: 700, fontSize: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span>{c.label}</span>
-              <span style={{ fontSize: 9, color: 'var(--tm-text-3)', fontWeight: 400 }}>{c.name.split(' ')[0]}</span>
-            </button>
-          ))}
-        </div>
+
+        {!club && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            {CLUBS.map(c => (
+              <button key={c.label} onClick={() => setClub(c.label)}
+                style={{ padding: '12px 4px', borderRadius: 'var(--tm-radius)', background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)', color: 'var(--tm-text)', fontWeight: 700, fontSize: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <span>{c.label}</span>
+                <span style={{ fontSize: 9, color: 'var(--tm-text-3)', fontWeight: 400 }}>{c.name.split(' ')[0]}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {club && (
+          <>
+            {/* Lie chips */}
+            <div style={{ fontSize: 10, color: 'var(--tm-text-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              Lie <span style={{ opacity: 0.6 }}>· powers Strokes Gained</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+              {SHOT_LIES.map(l => (
+                <button key={l.key} onClick={() => { tmHaptic(8); setLie(k => k === l.key ? null : l.key) }}
+                  style={{
+                    padding: '8px 14px', borderRadius: 16, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                    background: lie === l.key ? 'var(--tm-gold-muted)' : 'var(--tm-surface-2)',
+                    border: lie === l.key ? '1.5px solid var(--tm-gold-dim)' : '1px solid var(--tm-border)',
+                    color: lie === l.key ? 'var(--tm-gold-text)' : 'var(--tm-text-3)',
+                  }}>{l.label}</button>
+              ))}
+            </div>
+
+            {/* Distance to pin */}
+            <div style={{ fontSize: 10, color: 'var(--tm-text-3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              Distance to pin (yds)
+            </div>
+            <input
+              type="text" inputMode="numeric" pattern="[0-9]*" value={toPin}
+              onChange={e => setToPin(e.target.value.replace(/\D/g, '').slice(0, 3))}
+              placeholder="e.g. 165"
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: '12px 14px', marginBottom: 16,
+                borderRadius: 'var(--tm-radius)', background: 'var(--tm-surface-2)',
+                border: '1px solid var(--tm-border)', color: 'var(--tm-text)',
+                fontSize: 16, fontWeight: 700, outline: 'none',
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => commit(false)}
+                style={{ flex: 1, padding: 13, borderRadius: 'var(--tm-radius)', background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)', color: 'var(--tm-text-3)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Skip details
+              </button>
+              <button onClick={() => commit(true)} disabled={!lie || !toPin}
+                style={{
+                  flex: 2, padding: 13, borderRadius: 'var(--tm-radius)', border: 'none',
+                  background: (!lie || !toPin) ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
+                  color: (!lie || !toPin) ? 'var(--tm-text-3)' : 'var(--tm-text-inv)',
+                  fontWeight: 800, fontSize: 14, cursor: (!lie || !toPin) ? 'default' : 'pointer',
+                }}>
+                Add Shot
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>,
     document.body
@@ -1020,6 +1172,8 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
   const [hole, setHole]     = useState(0)     // 0-indexed
   const [scores, setScores] = useState([])    // per-hole strokes
   const [shots, setShots]   = useState([])    // per-hole shot logs: [[{club,dist,gps}...]]
+  const [putts, setPutts]           = useState([])  // SG putt facts: putt count per hole (null = not recorded)
+  const [firstPutts, setFirstPutts] = useState([])  // SG putt facts: first-putt bucket per hole
   const [gps, setGps]       = useState(null)
   const [saving, setSaving] = useState(false)
   const watchRef = useRef(null)
@@ -1043,6 +1197,8 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
         setHole(Number.isFinite(saved.hole) ? saved.hole : 0)
         setScores(Array.isArray(saved.scores) ? saved.scores : new Array(saved.config.pars.length).fill(0))
         setShots(Array.isArray(saved.shots) ? saved.shots : new Array(saved.config.pars.length).fill(null).map(() => []))
+        setPutts(Array.isArray(saved.putts) ? saved.putts : new Array(saved.config.pars.length).fill(null))
+        setFirstPutts(Array.isArray(saved.firstPutts) ? saved.firstPutts : new Array(saved.config.pars.length).fill(null))
       }
     } catch { /* corrupt or disabled — ignore, user starts fresh */ }
   }, [STORAGE_KEY])
@@ -1053,10 +1209,10 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
     if (phase !== 'scoring' || !config) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        phase, config, hole, scores, shots,
+        phase, config, hole, scores, shots, putts, firstPutts,
       }))
     } catch { /* quota / disabled — best-effort, don't crash */ }
-  }, [STORAGE_KEY, phase, config, hole, scores, shots])
+  }, [STORAGE_KEY, phase, config, hole, scores, shots, putts, firstPutts])
 
   function clearSavedRound() {
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
@@ -1077,12 +1233,21 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
     setConfig({ courseName, pars, courseRating, slopeRating, holeHandicaps })
     setScores(new Array(pars.length).fill(0))
     setShots(new Array(pars.length).fill(null).map(() => []))
+    setPutts(new Array(pars.length).fill(null))
+    setFirstPutts(new Array(pars.length).fill(null))
     setHole(0)
     setPhase('scoring')
   }
 
   function setScore(idx, val) {
     setScores(s => { const n = [...s]; n[idx] = val; return n })
+  }
+
+  // SG putt facts from the score modal (docs/SG-DESIGN.md — facts only,
+  // SG computed at read time server-side).
+  function setPuttFacts(idx, { putts: p, firstPutt } = {}) {
+    setPutts(arr => { const n = [...arr]; n[idx] = (p == null ? null : Number(p)); return n })
+    setFirstPutts(arr => { const n = [...arr]; n[idx] = firstPutt ?? null; return n })
   }
 
   function addShot(idx, shot) {
@@ -1125,6 +1290,11 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
         // free-form courses. (Matt: solo must work exactly like any round.)
         holeHandicaps: config.holeHandicaps ?? null,
         shots:        shots,
+        // 2026-07-02 — SG putt facts (migration 039, docs/SG-DESIGN.md).
+        // Parallel arrays; null entries = holes without putt data (SG skips
+        // them). Only sent when at least one hole has data.
+        putts:        putts.some(p => p != null) ? putts : null,
+        firstPutts:   putts.some(p => p != null) ? firstPutts : null,
       })
       // 2026-05-06 (polish task #5) — fire the global achievement event
       // so the toast (mounted at App level) can pop after we navigate
@@ -1144,6 +1314,8 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
       setHole(0)
       setScores([])
       setShots([])
+      setPutts([])
+      setFirstPutts([])
       onBack?.()
     } catch (e) {
       console.error(e)
@@ -1194,9 +1366,12 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
         config={config}
         scores={scores}
         shots={shots}
+        putts={putts}
+        firstPutts={firstPutts}
         hole={hole}
         gps={gps}
         onScoreHole={(idx, val) => setScore(idx, val)}
+        onSavePutts={(idx, facts) => setPuttFacts(idx, facts)}
         onAddShot={(idx, shot) => addShot(idx, shot)}
         onSetActiveHole={(idx) => setHole(idx)}
         onFinish={() => setPhase('summary')}

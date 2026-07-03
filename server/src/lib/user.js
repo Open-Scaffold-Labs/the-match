@@ -52,6 +52,11 @@ const USER_PUBLIC_COLUMNS = [
   'home_course',
   'bio',
   'gender',          // male|female|null — drives tee handling + defaults (migration 030)
+  'sg_baseline',     // Strokes Gained baseline toggle: auto | tour | scratch |
+                     // hcp-5..hcp-20 (migration 039, docs/SG-DESIGN.md).
+  'shot_shape',      // Player tendencies for the AI caddie prompt (migration
+  'typical_miss',    // 040): draw|fade|straight, left|right|both,
+  'distance_miss',   // short|long|pin_high. All nullable = unknown.
 ].join(', ')
 
 // Same as PUBLIC, plus pin_hash for the bcrypt compare in /login.

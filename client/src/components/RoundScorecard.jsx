@@ -421,10 +421,141 @@ function NineHoleGrid({ label, holes, holePars, scores, holeCount }) {
   )
 }
 
-export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
+// ── Putt entry sheet — post-hoc SG putt facts (docs/SG-DESIGN.md) ────────────
+// Hole-by-hole quick entry with auto-advance: pick the putt count, then (for
+// 1+ putts) the first-putt distance; the sheet moves to the next hole on its
+// own. Skip leaves a hole null — SG simply ignores it. This is how OUTING
+// rounds get putt data: match close fans out per-player tm_rounds, and each
+// player tags their own putts here afterwards. Works for solo rounds too.
+const PUTT_SHEET_BUCKETS = [
+  { key: 'in3',    label: '<3 ft' },
+  { key: '3-10',   label: '3–10' },
+  { key: '10-25',  label: '10–25' },
+  { key: '25plus', label: '25+ ft' },
+]
+
+function PuttEntrySheet({ holeCount, initialPutts, initialFirstPutts, saving, onSave, onClose }) {
+  const [putts, setPutts] = useState(() => {
+    const base = new Array(holeCount).fill(null)
+    if (Array.isArray(initialPutts)) initialPutts.slice(0, holeCount).forEach((p, i) => { base[i] = p ?? null })
+    return base
+  })
+  const [firstPutts, setFirstPutts] = useState(() => {
+    const base = new Array(holeCount).fill(null)
+    if (Array.isArray(initialFirstPutts)) initialFirstPutts.slice(0, holeCount).forEach((b, i) => { base[i] = b ?? null })
+    return base
+  })
+  const [idx, setIdx] = useState(() => {
+    const first = putts.findIndex(p => p == null)
+    return first >= 0 ? first : 0
+  })
+  const done = putts.filter(p => p != null).length
+
+  function advance() { setIdx(i => Math.min(i + 1, holeCount - 1)) }
+
+  function pickCount(n) {
+    setPutts(arr => { const c = [...arr]; c[idx] = n; return c })
+    if (n === 0) {
+      setFirstPutts(arr => { const c = [...arr]; c[idx] = null; return c })
+      advance()
+    }
+  }
+  function pickBucket(b) {
+    setFirstPutts(arr => { const c = [...arr]; c[idx] = b; return c })
+    advance()
+  }
+  function skip() {
+    setPutts(arr => { const c = [...arr]; c[idx] = null; return c })
+    setFirstPutts(arr => { const c = [...arr]; c[idx] = null; return c })
+    advance()
+  }
+
+  const chip = (active) => ({
+    padding: '10px 0', borderRadius: 10, fontSize: 14, fontWeight: 800, cursor: 'pointer',
+    background: active ? 'rgba(232,192,90,0.22)' : 'rgba(255,255,255,0.06)',
+    border: active ? '1.5px solid rgba(232,192,90,0.55)' : '1px solid rgba(255,255,255,0.12)',
+    color: active ? '#F5E070' : 'rgba(255,255,255,0.75)',
+  })
+
+  return createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 10000,
+      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 430,
+        background: 'linear-gradient(180deg, #0A1F10 0%, #0D2615 60%, #071209 100%)',
+        border: '1px solid rgba(232,192,90,0.18)', borderRadius: '20px 20px 0 0',
+        padding: '14px 20px calc(20px + env(safe-area-inset-bottom))',
+      }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(232,192,90,0.30)', margin: '0 auto 14px' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#F5E070' }}>Putts — unlock strokes gained</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{done}/{holeCount} holes tagged</div>
+        </div>
+
+        {/* Hole scrubber */}
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 10, marginBottom: 4 }}>
+          {Array.from({ length: holeCount }, (_, i) => (
+            <button key={i} onClick={() => setIdx(i)} style={{
+              flexShrink: 0, width: 30, height: 30, borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer',
+              background: i === idx ? 'rgba(232,192,90,0.25)' : putts[i] != null ? 'rgba(42,122,56,0.30)' : 'rgba(255,255,255,0.05)',
+              border: i === idx ? '1.5px solid rgba(232,192,90,0.60)' : '1px solid rgba(255,255,255,0.10)',
+              color: i === idx ? '#F5E070' : putts[i] != null ? '#8FCB9B' : 'rgba(255,255,255,0.5)',
+            }}>{i + 1}</button>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', margin: '6px 0 8px' }}>
+          Hole {idx + 1} — how many putts?
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 12 }}>
+          {[0, 1, 2, 3, 4].map(n => (
+            <button key={n} onClick={() => pickCount(n)} style={chip(putts[idx] === n)}>
+              {n === 4 ? '4+' : n}
+            </button>
+          ))}
+        </div>
+
+        {putts[idx] != null && putts[idx] > 0 && (
+          <>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', marginBottom: 8 }}>First putt from…</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+              {PUTT_SHEET_BUCKETS.map(b => (
+                <button key={b.key} onClick={() => pickBucket(b.key)} style={chip(firstPutts[idx] === b.key)}>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+          <button onClick={skip} style={{
+            flex: 1, padding: 13, borderRadius: 12, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+            color: 'rgba(255,255,255,0.6)', fontWeight: 700, fontSize: 13,
+          }}>Skip hole</button>
+          <button disabled={saving || done === 0} onClick={() => onSave(putts, firstPutts)} style={{
+            flex: 2, padding: 13, borderRadius: 12, border: 'none',
+            cursor: (saving || done === 0) ? 'default' : 'pointer',
+            background: (saving || done === 0) ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
+            color: (saving || done === 0) ? 'rgba(255,255,255,0.35)' : '#0D1F12',
+            fontWeight: 800, fontSize: 14,
+          }}>{saving ? 'Saving…' : `Save ${done} hole${done === 1 ? '' : 's'}`}</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+export default function RoundScorecard({ roundId, onClose, onOpenFriend, canEditPutts = false }) {
   const [round, setRound] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [puttSheetOpen, setPuttSheetOpen] = useState(false)
+  const [savingPutts, setSavingPutts] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -479,6 +610,33 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
 
   const frontHoles = Array.from({ length: Math.min(9, holeCount) }, (_, i) => i)
   const backHoles  = holeCount > 9 ? Array.from({ length: holeCount - 9 }, (_, i) => i + 9) : []
+
+  // Post-hoc SG putt facts (owner-only; docs/SG-DESIGN.md)
+  const roundPutts = (() => {
+    if (!round?.putts) return null
+    const arr = Array.isArray(round.putts) ? round.putts : (() => { try { return JSON.parse(round.putts) } catch { return null } })()
+    return Array.isArray(arr) ? arr : null
+  })()
+  const roundFirstPutts = (() => {
+    if (!round?.first_putts) return null
+    const arr = Array.isArray(round.first_putts) ? round.first_putts : (() => { try { return JSON.parse(round.first_putts) } catch { return null } })()
+    return Array.isArray(arr) ? arr : null
+  })()
+  const puttHolesTagged = roundPutts ? roundPutts.filter(p => p != null).length : 0
+
+  async function savePutts(putts, firstPutts) {
+    setSavingPutts(true)
+    try {
+      const r = await api(`/api/rounds/${roundId}/putts`, {
+        method: 'PATCH',
+        body: JSON.stringify({ putts, firstPutts }),
+      })
+      setRound(prev => ({ ...prev, putts: r.putts, first_putts: r.first_putts }))
+      setPuttSheetOpen(false)
+    } catch { /* keep the sheet open so nothing is lost */ } finally {
+      setSavingPutts(false)
+    }
+  }
 
   return createPortal(
     <div style={{
@@ -574,6 +732,29 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
           )}
           {!loading && !error && (
             <>
+              {/* Putt facts — owner-only post-hoc entry (docs/SG-DESIGN.md).
+                  This is how outing rounds join the SG dataset: match close
+                  fans out per-player rounds, then each player tags their own
+                  putts here. */}
+              {canEditPutts && scores.length > 0 && (
+                <button onClick={() => setPuttSheetOpen(true)} style={{
+                  width: '100%', textAlign: 'left', cursor: 'pointer',
+                  borderRadius: 12, marginBottom: 12, padding: '11px 14px',
+                  background: puttHolesTagged > 0 ? 'rgba(42,122,56,0.14)' : 'rgba(232,192,90,0.10)',
+                  border: puttHolesTagged > 0 ? '1px solid rgba(42,122,56,0.35)' : '1px solid rgba(232,192,90,0.30)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: puttHolesTagged > 0 ? '#8FCB9B' : '#F5E070' }}>
+                    {puttHolesTagged > 0
+                      ? `Putts tagged on ${puttHolesTagged}/${scores.length} holes`
+                      : 'Add putts — unlock strokes gained'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', flexShrink: 0 }}>
+                    {puttHolesTagged > 0 ? 'Edit' : '+'}
+                  </span>
+                </button>
+              )}
+
               {/* Focal player — the round's owner. Same card template
                   as partners; isFocal=true gives a subtle stronger
                   border. Tapping your own avatar simply closes the
@@ -648,6 +829,18 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend }) {
           )}
         </div>
       </div>
+
+      {/* Putt entry — stacks above via its own portal */}
+      {puttSheetOpen && (
+        <PuttEntrySheet
+          holeCount={scores.length || holeCount}
+          initialPutts={roundPutts}
+          initialFirstPutts={roundFirstPutts}
+          saving={savingPutts}
+          onSave={savePutts}
+          onClose={() => setPuttSheetOpen(false)}
+        />
+      )}
     </div>,
     document.body
   )

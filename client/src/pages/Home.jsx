@@ -7,6 +7,7 @@ import PlayerCard from '../components/PlayerCard.jsx'
 import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
 import Practice from './Practice.jsx'
+import Caddie from './Caddie.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
 import RoundHistory from '../components/RoundHistory.jsx'
 import AdminUsersModal from '../components/AdminUsersModal.jsx'
@@ -2296,6 +2297,11 @@ function EditProfileModal({ user, onSave, onClose }) {
       : ''
   )
   const [gender, setGender] = useState(user?.gender ?? null) // male|female|null (migration 030)
+  // Ball-flight tendencies (migration 040) — feed the AI caddie + Eagle Eye
+  // prompts (docs/SG-DESIGN.md). All optional; tap again to clear.
+  const [tendShape, setTendShape] = useState(user?.shot_shape ?? null)    // draw|fade|straight
+  const [tendMiss, setTendMiss]   = useState(user?.typical_miss ?? null)  // left|right|both
+  const [tendDist, setTendDist]   = useState(user?.distance_miss ?? null) // short|long|pin_high
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -2307,9 +2313,22 @@ function EditProfileModal({ user, onSave, onClose }) {
         bio: bio.trim() || null,
         ...(hcpVal !== undefined ? { handicap: hcpVal } : {}),
         ...(gender ? { gender } : {}),
+        // Tendencies always sent: value = set, '' = explicit clear (the
+        // server treats '' as clear-to-unknown; null state on a never-set
+        // field clears NULL → NULL, a no-op).
+        shot_shape: tendShape ?? '',
+        typical_miss: tendMiss ?? '',
+        distance_miss: tendDist ?? '',
       })
       const parsed = hcpVal ? parseFloat(hcpVal.replace(/^\+/, '')) : user?.handicap
-      onSave({ home_course: course.trim() || null, bio: bio.trim() || null, handicap: isNaN(parsed) ? user?.handicap : parsed, ...(gender ? { gender } : {}) })
+      onSave({
+        home_course: course.trim() || null, bio: bio.trim() || null,
+        handicap: isNaN(parsed) ? user?.handicap : parsed,
+        ...(gender ? { gender } : {}),
+        shot_shape: tendShape,
+        typical_miss: tendMiss,
+        distance_miss: tendDist,
+      })
       onClose()
     } catch { /* ignore */ }
     setSaving(false)
@@ -2374,6 +2393,39 @@ function EditProfileModal({ user, onSave, onClose }) {
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
               borderRadius: 10, color: '#0D1F12', padding: '11px 14px', fontSize: 14, outline: 'none',
             }} />
+          </div>
+        ))}
+        {/* Ball-flight tendencies (migration 040) — the AI caddie factors
+            these into club calls ("aim opposite the typical miss"). Optional;
+            tap a selected chip to clear it. */}
+        {[
+          { label: 'Ball flight', value: tendShape, set: setTendShape, options: [
+            { key: 'draw', t: 'Draw' }, { key: 'fade', t: 'Fade' }, { key: 'straight', t: 'Straight' },
+          ] },
+          { label: 'Typical miss', value: tendMiss, set: setTendMiss, options: [
+            { key: 'left', t: 'Left' }, { key: 'right', t: 'Right' }, { key: 'both', t: 'Both' },
+          ] },
+          { label: 'Distance miss', value: tendDist, set: setTendDist, options: [
+            { key: 'short', t: 'Short' }, { key: 'long', t: 'Long' }, { key: 'pin_high', t: 'Pin high' },
+          ] },
+        ].map(({ label, value, set, options }) => (
+          <div key={label} style={{ marginBottom: 14 }}>
+            <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 6, fontWeight: 600 }}>
+              {label.toUpperCase()} <span style={{ fontWeight: 400, letterSpacing: 0 }}>· helps your AI caddie</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {options.map(({ key, t }) => {
+                const on = value === key
+                return (
+                  <button key={key} type="button" onClick={() => set(on ? null : key)} aria-pressed={on} style={{
+                    flex: 1, minHeight: 40, borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                    background: on ? 'rgba(27,94,59,0.10)' : 'rgba(27,94,59,0.04)',
+                    border: on ? '1.5px solid #2A7A38' : '1px solid rgba(27,94,59,0.15)',
+                    color: on ? '#1B5E3B' : 'rgba(13,31,18,0.6)',
+                  }}>{t}</button>
+                )
+              })}
+            </div>
           </div>
         ))}
         <button onClick={handleSave} disabled={saving} style={{
@@ -2463,7 +2515,7 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // header (big avatar + name + course + handicap + season W-L-T-AVG3 +
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
-function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice }) {
+function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice, onOpenCaddie }) {
   // Golf handicap display convention (matches HcpBadge):
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
@@ -3011,6 +3063,32 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
           </button>
         )}
 
+        {/* The Caddie — AI chat calibrated to the player's bag, handicap,
+            tendencies and strokes-gained profile (whitepaper §5.6). */}
+        {onOpenCaddie && (
+          <button onClick={onOpenCaddie} className="touch-press" style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer',
+            borderRadius: 14, marginBottom: 12, padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(42,122,56,0.20) 0%, rgba(255,255,255,0.03) 70%)',
+            border: '1px solid rgba(42,122,56,0.40)',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(42,122,56,0.25)', border: '1px solid rgba(42,122,56,0.50)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+            }}>⛳</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#8FCB9B' }}>The Caddie</div>
+              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
+                Club calls &amp; game advice from your real numbers
+              </div>
+            </div>
+            <IconChevronRight size={18} color="rgba(255,255,255,0.40)" />
+          </button>
+        )}
+
         {rounds.length > 0 && (
           <div style={{
             borderRadius: 14,
@@ -3140,6 +3218,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
       {selectedRoundId != null && (
         <RoundScorecard
           roundId={selectedRoundId}
+          canEditPutts // own profile → own rounds; PATCH is owner-checked server-side too
           onClose={() => setSelectedRoundId(null)}
           // Tap a co-participant's avatar/name inside the scorecard popup
           // → close the scorecard and bubble up to the parent (Home top-
@@ -3181,6 +3260,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         <RoundHistory
           rounds={rounds}
           title="Recent Rounds"
+          canEditPutts // own profile → own rounds
           onClose={() => setHistoryOpen(false)}
           // Same scope fix as the RoundScorecard above — bubble through
           // ProfileView's onOpenFriend prop instead of referencing the
@@ -3717,6 +3797,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
   const [editOpen, setEditOpen] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
   const [practiceOpen, setPracticeOpen] = useState(false)
+  const [caddieOpen, setCaddieOpen]     = useState(false)
   const [selectedFriend, setSelectedFriend] = useState(null)
   const [games, setGames]               = useState({ incoming: [], confirmed: [] })
   const [teeRequests, setTeeRequests]   = useState({ incoming: [], outgoing: [] })
@@ -3977,6 +4058,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
           onEditProfile={() => setEditOpen(true)}
           onOpenCard={() => setPlayerCardOpen(true)}
           onOpenPractice={() => setPracticeOpen(true)}
+          onOpenCaddie={() => setCaddieOpen(true)}
           // Tap an opponent face inside a rivalry popup → open that
           // user's FriendProfile on top of this view.
           onOpenFriend={setSelectedFriend}
@@ -3989,6 +4071,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
             view's Practice card. Full-screen overlay; fetches /api/practice. */}
         {practiceOpen && (
           <Practice onClose={() => setPracticeOpen(false)} />
+        )}
+
+        {/* The Caddie — AI chat (whitepaper §5.6). Full-screen overlay;
+            POSTs /api/caddie/chat with the running thread. */}
+        {caddieOpen && (
+          <Caddie onClose={() => setCaddieOpen(false)} />
         )}
         {/* Player card overlay — opens from the big avatar in the header */}
         {playerCardOpen && (

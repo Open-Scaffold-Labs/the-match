@@ -148,6 +148,20 @@ router.post('/update', async (req, res) => {
     // Gender — allowlist only; anything else → null = leave unchanged via
     // COALESCE, so an unrelated profile save never wipes it. (migration 030)
     const cleanGender = (gender === 'male' || gender === 'female') ? gender : null
+    // SG baseline toggle (migration 039) + player tendencies for the AI
+    // caddie prompt (migration 040). Closed-set validation; invalid → null =
+    // leave unchanged via COALESCE — optional fields never 400 on this route.
+    const { sg_baseline, shot_shape, typical_miss, distance_miss } = req.body
+    const SG_BASELINES = ['auto', 'tour', 'scratch', 'hcp-5', 'hcp-10', 'hcp-15', 'hcp-20']
+    const pick = (v, set) => (set.includes(v) ? v : null)
+    const cleanSgBaseline = pick(sg_baseline, SG_BASELINES)
+    // Tendencies (greenlight follow-up #3): empty string = EXPLICIT clear back
+    // to unknown, valid value = set, anything else (incl. absent) = unchanged.
+    // Fixes the COALESCE trap where a tendency could never be un-set.
+    const pickOrClear = (v, set) => (v === '' ? '' : pick(v, set))
+    const cleanShape = pickOrClear(shot_shape, ['draw', 'fade', 'straight'])
+    const cleanMiss = pickOrClear(typical_miss, ['left', 'right', 'both'])
+    const cleanDist = pickOrClear(distance_miss, ['short', 'long', 'pin_high'])
     const user = await db.one(
       `UPDATE tm_users SET
          name        = COALESCE($5, name),
@@ -155,10 +169,15 @@ router.post('/update', async (req, res) => {
          bio         = COALESCE($2, bio),
          handicap    = CASE WHEN $3::numeric IS NOT NULL THEN $3::numeric ELSE handicap END,
          gender      = COALESCE($6, gender),
+         sg_baseline   = COALESCE($7, sg_baseline),
+         shot_shape    = CASE WHEN $8 = ''  THEN NULL WHEN $8::text  IS NOT NULL THEN $8  ELSE shot_shape    END,
+         typical_miss  = CASE WHEN $9 = ''  THEN NULL WHEN $9::text  IS NOT NULL THEN $9  ELSE typical_miss  END,
+         distance_miss = CASE WHEN $10 = '' THEN NULL WHEN $10::text IS NOT NULL THEN $10 ELSE distance_miss END,
          updated_at  = NOW()
        WHERE id = $4
        RETURNING ${USER_PUBLIC_COLUMNS}`,
-      [home_course ?? null, bio ?? null, hcp, req.user.id, cleanName || null, cleanGender]
+      [home_course ?? null, bio ?? null, hcp, req.user.id, cleanName || null, cleanGender,
+       cleanSgBaseline, cleanShape, cleanMiss, cleanDist]
     )
     res.json({ user })
   } catch (err) {

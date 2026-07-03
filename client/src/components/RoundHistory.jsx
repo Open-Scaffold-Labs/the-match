@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom'
 import RoundScorecard from './RoundScorecard.jsx'
 import EmptyState from './primitives/EmptyState.jsx'
 
-export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onClose, onOpenFriend }) {
+export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onClose, onOpenFriend, canEditPutts = false }) {
   const [selectedRoundId, setSelectedRoundId] = useState(null)
 
   return createPortal(
@@ -137,6 +137,7 @@ export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onC
       {selectedRoundId != null && (
         <RoundScorecard
           roundId={selectedRoundId}
+          canEditPutts={canEditPutts}
           onClose={() => setSelectedRoundId(null)}
           // Tap a co-participant inside the scorecard → close the
           // scorecard, then bubble up so the parent (Home / FriendProfile)
