@@ -26,3 +26,7 @@ icons-wip/
 # Generated scoring-capability exports — kept local, not tracked
 /The-Match-Scoring-Capabilities.docx
 /The-Match-Scoring-Capabilities.pdf
+
+# Share-format exports of docs/ (source of truth is the .md)
+docs/*.docx
+docs/*.pages

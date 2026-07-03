@@ -73,3 +73,26 @@ Key installed + redeploy verified → merge PR #1 (migrations already on prod, s
 merge order vs. deploy doesn't matter beyond the key) → beta test pass: putt
 chips + ShotSheet on a real round (Matt's next round), Caddie answer quality
 spot-check against the profile facts.
+
+## One more question for you — the database
+
+While we're moving prod infra onto company accounts: the-match's Supabase
+project currently lives on Matt's personal **free tier** — no automated
+backups, and you have no prod visibility (part of why the migration
+verification went sideways). We want it in the shared Open Scaffold Labs org
+(Pro: daily backups, no auto-pause, both of us on the dashboard).
+
+**Which way do you want to go?**
+
+1. **Transfer the existing project into the OSL org** (Supabase self-serve
+   project transfer — cleanest: data, project ref, and connection strings all
+   stay put, ~1–2 min blip, no Vercel env change), or
+2. **Reuse one of the idle projects already sitting in the OSL org** (there
+   are several that look unused — dump/restore the-match into one; changes the
+   connection string, so Vercel's DATABASE_URL gets updated), or
+3. **Create a brand-new project in the org** (same dump/restore + env change
+   as #2, but no archaeology on an old project's leftover tables/roles).
+
+Matt's lean is #1 (least moving parts, zero env churn), but if you'd rather
+consolidate onto an existing project or start clean, say the word. Either way
+we do it now, at 27 users, not after launch.
