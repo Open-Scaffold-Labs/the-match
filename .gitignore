@@ -30,3 +30,6 @@ icons-wip/
 # Share-format exports of docs/ (source of truth is the .md)
 docs/*.docx
 docs/*.pages
+
+# transient migration credentials (2026-07 DB move) — never commit
+.env.migration
