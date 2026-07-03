@@ -2297,6 +2297,11 @@ function EditProfileModal({ user, onSave, onClose }) {
       : ''
   )
   const [gender, setGender] = useState(user?.gender ?? null) // male|female|null (migration 030)
+  // Ball-flight tendencies (migration 040) — feed the AI caddie + Eagle Eye
+  // prompts (docs/SG-DESIGN.md). All optional; tap again to clear.
+  const [tendShape, setTendShape] = useState(user?.shot_shape ?? null)    // draw|fade|straight
+  const [tendMiss, setTendMiss]   = useState(user?.typical_miss ?? null)  // left|right|both
+  const [tendDist, setTendDist]   = useState(user?.distance_miss ?? null) // short|long|pin_high
   const [saving, setSaving] = useState(false)
 
   async function handleSave() {
@@ -2308,9 +2313,19 @@ function EditProfileModal({ user, onSave, onClose }) {
         bio: bio.trim() || null,
         ...(hcpVal !== undefined ? { handicap: hcpVal } : {}),
         ...(gender ? { gender } : {}),
+        ...(tendShape ? { shot_shape: tendShape } : {}),
+        ...(tendMiss ? { typical_miss: tendMiss } : {}),
+        ...(tendDist ? { distance_miss: tendDist } : {}),
       })
       const parsed = hcpVal ? parseFloat(hcpVal.replace(/^\+/, '')) : user?.handicap
-      onSave({ home_course: course.trim() || null, bio: bio.trim() || null, handicap: isNaN(parsed) ? user?.handicap : parsed, ...(gender ? { gender } : {}) })
+      onSave({
+        home_course: course.trim() || null, bio: bio.trim() || null,
+        handicap: isNaN(parsed) ? user?.handicap : parsed,
+        ...(gender ? { gender } : {}),
+        ...(tendShape ? { shot_shape: tendShape } : {}),
+        ...(tendMiss ? { typical_miss: tendMiss } : {}),
+        ...(tendDist ? { distance_miss: tendDist } : {}),
+      })
       onClose()
     } catch { /* ignore */ }
     setSaving(false)
@@ -2375,6 +2390,39 @@ function EditProfileModal({ user, onSave, onClose }) {
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
               borderRadius: 10, color: '#0D1F12', padding: '11px 14px', fontSize: 14, outline: 'none',
             }} />
+          </div>
+        ))}
+        {/* Ball-flight tendencies (migration 040) — the AI caddie factors
+            these into club calls ("aim opposite the typical miss"). Optional;
+            tap a selected chip to clear it. */}
+        {[
+          { label: 'Ball flight', value: tendShape, set: setTendShape, options: [
+            { key: 'draw', t: 'Draw' }, { key: 'fade', t: 'Fade' }, { key: 'straight', t: 'Straight' },
+          ] },
+          { label: 'Typical miss', value: tendMiss, set: setTendMiss, options: [
+            { key: 'left', t: 'Left' }, { key: 'right', t: 'Right' }, { key: 'both', t: 'Both' },
+          ] },
+          { label: 'Distance miss', value: tendDist, set: setTendDist, options: [
+            { key: 'short', t: 'Short' }, { key: 'long', t: 'Long' }, { key: 'pin_high', t: 'Pin high' },
+          ] },
+        ].map(({ label, value, set, options }) => (
+          <div key={label} style={{ marginBottom: 14 }}>
+            <div style={{ color: 'rgba(27,94,59,0.55)', fontSize: 11, letterSpacing: '0.08em', marginBottom: 6, fontWeight: 600 }}>
+              {label.toUpperCase()} <span style={{ fontWeight: 400, letterSpacing: 0 }}>· helps your AI caddie</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {options.map(({ key, t }) => {
+                const on = value === key
+                return (
+                  <button key={key} type="button" onClick={() => set(on ? null : key)} aria-pressed={on} style={{
+                    flex: 1, minHeight: 40, borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                    background: on ? 'rgba(27,94,59,0.10)' : 'rgba(27,94,59,0.04)',
+                    border: on ? '1.5px solid #2A7A38' : '1px solid rgba(27,94,59,0.15)',
+                    color: on ? '#1B5E3B' : 'rgba(13,31,18,0.6)',
+                  }}>{t}</button>
+                )
+              })}
+            </div>
           </div>
         ))}
         <button onClick={handleSave} disabled={saving} style={{

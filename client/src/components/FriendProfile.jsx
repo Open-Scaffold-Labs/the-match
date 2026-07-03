@@ -129,6 +129,81 @@ function toYMD(date) { return date.toISOString().slice(0, 10) }
 function todayYMD() { return toYMD(new Date()) }
 
 // ── H2H Bar ───────────────────────────────────────────────────────────────────
+// ── SG vs rival (docs/SG-DESIGN.md) — Elite feature ──────────────────────────
+// Both players measured against the SAME baseline (the viewer's), shown as
+// side-by-side values + per-category color. 402 → compact Elite upsell.
+// 403/no-data → renders nothing (don't clutter a profile that can't show it).
+function SgRivalCard({ friendId, theirName }) {
+  const [state, setState] = useState({ status: 'loading', data: null })
+
+  useEffect(() => {
+    if (!friendId) return
+    let alive = true
+    api(`/api/stats/sg/rival/${friendId}`)
+      .then(d => { if (alive) setState({ status: 'ok', data: d }) })
+      .catch(e => {
+        if (!alive) return
+        setState({ status: e?.status === 402 ? 'upsell' : 'hidden', data: null })
+      })
+    return () => { alive = false }
+  }, [friendId])
+
+  if (state.status === 'loading' || state.status === 'hidden') return null
+
+  const wrap = (children) => (
+    <div style={{
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(245,215,138,0.18)',
+      borderRadius: 14, padding: '14px 16px', marginBottom: 12,
+    }}>
+      <div style={{ color: 'rgba(245,215,138,0.75)', fontSize: 10, letterSpacing: '0.12em', fontWeight: 700, marginBottom: 10 }}>
+        STROKES GAINED · YOU vs {String(theirName || 'THEM').toUpperCase()}
+      </div>
+      {children}
+    </div>
+  )
+
+  if (state.status === 'upsell') return wrap(
+    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 1.5 }}>
+      See where you gain and lose strokes against {theirName || 'this rival'} —
+      part of <span style={{ color: '#F5D78A', fontWeight: 700 }}>The Match Elite</span>.
+    </div>
+  )
+
+  const { mine, theirs, baseline } = state.data || {}
+  if (!mine?.rounds || !theirs?.rounds) return null
+  const rows = [
+    { label: 'Total', a: mine.sgTotal, b: theirs.sgTotal },
+    { label: 'Off the Tee', a: mine.sgOTT, b: theirs.sgOTT },
+    { label: 'Approach', a: mine.sgAPP, b: theirs.sgAPP },
+    { label: 'Around Green', a: mine.sgARG, b: theirs.sgARG },
+    { label: 'Putting', a: mine.sgP, b: theirs.sgP },
+  ].filter(r => r.a != null || r.b != null)
+  if (!rows.length) return null
+  const fmt = v => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}`)
+  const col = (v, other) => (v == null || other == null) ? 'rgba(255,255,255,0.65)'
+    : v > other ? '#4ADE80' : v < other ? '#F87171' : 'rgba(255,255,255,0.65)'
+
+  return wrap(
+    <>
+      {rows.map((r, i) => (
+        <div key={r.label} style={{
+          display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center',
+          padding: '7px 0',
+          borderBottom: i < rows.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+        }}>
+          <div style={{ textAlign: 'right', fontSize: 16, fontWeight: 900, color: col(r.a, r.b) }}>{fmt(r.a)}</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'center', minWidth: 88 }}>{r.label}</div>
+          <div style={{ textAlign: 'left', fontSize: 16, fontWeight: 900, color: col(r.b, r.a) }}>{fmt(r.b)}</div>
+        </div>
+      ))}
+      <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+        both vs {baseline} baseline · last {Math.min(mine.rounds, theirs.rounds)}–{Math.max(mine.rounds, theirs.rounds)} rounds
+      </div>
+    </>
+  )
+}
+
 function H2HBar({ h2h, myName, theirName }) {
   const total = h2h.my_wins + h2h.their_wins + h2h.ties
   const myPct   = total ? Math.round((h2h.my_wins   / total) * 100) : 0
@@ -1069,6 +1144,10 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
             myName={undefined}
             theirName={friend?.name}
           />
+
+          {/* SG vs rival — Elite (docs/SG-DESIGN.md). Hidden entirely when
+              neither side has SG data; Elite upsell on 402. */}
+          <SgRivalCard friendId={friend?.id} theirName={firstName} />
 
           {/* Upcoming tee times together (from confirmedGames passed in by Home) */}
           {sharedGames.length > 0 && (
