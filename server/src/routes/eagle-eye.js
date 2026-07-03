@@ -4,11 +4,54 @@ const requireAuth = require('../middleware/auth')
 const db         = require('../db')
 
 const client = new Anthropic()
+const { sgPromptBlock } = require('../lib/sg')
+
+// SG phase 3 (docs/SG-DESIGN.md "AI Caddie contract") — build the player
+// profile block for the system prompt: self-reported tendencies (migration
+// 040) + the Strokes Gained summary with worst-APP-bucket detail. Best-effort
+// and fail-soft: any error returns null and the prompt simply omits the
+// block. Never fabricates — unknown fields are left out.
+async function buildPlayerProfile(userId) {
+  try {
+    const [user, rounds] = await Promise.all([
+      db.one(
+        `SELECT handicap, sg_baseline, shot_shape, typical_miss, distance_miss
+         FROM tm_users WHERE id = $1`, [userId]
+      ),
+      db.many(
+        `SELECT id, total, course_par, course_rating, putts, first_putts,
+                scores, shots, hole_pars
+         FROM tm_rounds WHERE user_id = $1 ORDER BY date DESC LIMIT 20`, [userId]
+      ).catch(() => []),
+    ])
+    if (!user) return null
+    const j = v => (typeof v === 'string' ? (() => { try { return JSON.parse(v) } catch { return null } })() : v)
+    const parsed = (rounds || []).map(r => ({
+      ...r, putts: j(r.putts), first_putts: j(r.first_putts),
+      scores: j(r.scores), shots: j(r.shots), hole_pars: j(r.hole_pars),
+    }))
+    const lines = []
+    if (user.handicap != null) lines.push(`Handicap index: ${user.handicap}`)
+    const SHAPE = { draw: 'usually curves right-to-left (draw)', fade: 'usually curves left-to-right (fade)', straight: 'usually flies straight' }
+    const MISS = { left: 'typical miss is LEFT', right: 'typical miss is RIGHT', both: 'misses both directions' }
+    const DIST = { short: 'usually comes up SHORT of the target', long: 'usually flies LONG of the target', pin_high: 'usually pin-high' }
+    const tendencies = [SHAPE[user.shot_shape], MISS[user.typical_miss], DIST[user.distance_miss]].filter(Boolean)
+    if (tendencies.length) lines.push(`Ball flight: ${tendencies.join('; ')}.`)
+    const sg = sgPromptBlock(parsed, user.sg_baseline ?? 'auto', user.handicap)
+    if (sg) lines.push(sg)
+    if (!lines.length) return null
+    return `PLAYER PROFILE (factor this into club choice, aim point, and the caddie note — e.g. aim opposite the typical miss, club up when the player runs short, target their SG weaknesses):\n${lines.join('\n')}`
+  } catch {
+    return null
+  }
+}
 
 // POST /api/eagle-eye/analyze
 router.post('/analyze', requireAuth, async (req, res) => {
   const { image, gps, weather, holeYardage, holePar, holeNumber, courseName } = req.body
   if (!image) return res.status(400).json({ error: 'image required' })
+
+  const playerProfile = await buildPlayerProfile(req.user.id)
 
   const weatherCtx = weather ? [
     `Temperature: ${Math.round(weather.temperature_2m)}°F`,
@@ -58,7 +101,8 @@ Analyze the image and return ONLY valid JSON with this exact shape — no markdo
   "caddieNote": "<1-2 sentences of caddie advice>"
 }
 ${gpsYardsInstruction}
-Adjustments: wind ~1yd/mph per 100yds; temp -1yd per 10F below 70F per 100yds; altitude -2% per 1000ft (ball flies farther, so subtract from plays-like).`
+Adjustments: wind ~1yd/mph per 100yds; temp -1yd per 10F below 70F per 100yds; altitude -2% per 1000ft (ball flies farther, so subtract from plays-like).
+${playerProfile ? `\n${playerProfile}` : ''}`
 
   const userText = [
     holeCtx,
