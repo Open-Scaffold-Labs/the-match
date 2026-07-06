@@ -16,7 +16,7 @@ import {
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
-import { SavedChip, ScorecardTable, TotalsRow, computePositions, findTapHint } from './Outing/LiveOuting.jsx'
+import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, computePositions, findTapHint } from './Outing/LiveOuting.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 import PuttChips from '../components/PuttChips.jsx'
@@ -330,6 +330,9 @@ function SoloScoreModal({ hole, par, currentScore, holeCount, shots = [], curren
 // (2026-05-07 PM — Matt: 'i want solo round to have the same view as the
 // regular scorecard/board view as other matches have but just for one
 // player'.)
+// SoloBoardView DELETED 2026-07-06 (unification S3): solo board = the same
+// MatchScoreboard multiplayer renders, one participant. Fork fully healed.
+
 // ─── Solo Board View — Tour-leaderboard look, single row ──────────────────
 // Mirrors LiveOuting's MatchScoreboard visually (translucent glass card,
 // POS / avatar / PLAYER / TOT / THRU columns, gold leader tint, red/
@@ -492,6 +495,15 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
   const playedDiff = totalScore > 0 ? totalScore - playedPar : null
   const diffStr = playedDiff == null ? '—' : playedDiff === 0 ? 'E' : playedDiff > 0 ? `+${playedDiff}` : `${playedDiff}`
   const diffColor = playedDiff == null ? 'rgba(255,255,255,0.40)' : playedDiff < 0 ? 'var(--tm-birdie)' : playedDiff === 0 ? 'var(--tm-par)' : 'var(--tm-bogey)'
+
+  // Unified-scorecard adapters (2026-07-06 spec): ONE participant list feeds
+  // the SAME ScorecardTable/TotalsRow/MatchScoreboard multiplayer uses. Shared
+  // by both the scorecard and board views.
+  const soloParticipants = [{ user_id: user?.id ?? 'me', name: user?.name || 'You', avatar: user?.avatar ?? null }]
+  const getSoloScores = () => scores
+  const isSelfMarker = () => false
+  const positions = computePositions(soloParticipants, getSoloScores, config.pars)
+  const tapHint = findTapHint({ sorted: soloParticipants, getScores: getSoloScores, isHost: true, isMarkerFor: isSelfMarker, userId: user?.id })
 
   const frontHoles = Array.from({ length: Math.min(9, holeCount) }, (_, i) => i)
   const backHoles  = holeCount > 9 ? Array.from({ length: holeCount - 9 }, (_, i) => i + 9) : []
@@ -662,16 +674,11 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
            The old SoloScorecardTable/SoloScoreCell fork is deleted. */
         <div className="page-scroll" style={{ flex: 1, padding: '12px 8px 16px', overflowY: 'auto' }}>
           {(() => {
-            const soloParticipants = [{ user_id: user?.id ?? 'me', name: user?.name || 'You', avatar: user?.avatar ?? null }]
-            const getSoloScores = () => scores
-            const isSelfMarker = () => false
             // Column + row constants mirror LiveOuting's exactly.
             const RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92
             const PLAYER_COL = RANK_COL + AVATAR_COL + NAME_COL
             const HOLE_COL = 32, SUB_COL = 40, ROW_H = 80
             const fillerRows = 0 // multi's filler rows are seats for players yet to join — solo has none (Matt, 2026-07-06)
-            const positions = computePositions(soloParticipants, getSoloScores, config.pars)
-            const tapHint = findTapHint({ sorted: soloParticipants, getScores: getSoloScores, isHost: true, isMarkerFor: isSelfMarker, userId: user?.id })
             const frontPar = frontHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
             const backPar = backHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
             const shared = {
@@ -725,11 +732,25 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
           })()}
         </div>
       ) : (
-        <SoloBoardView
+        /* Unified board (2026-07-06 spec S3): the SAME MatchScoreboard
+           multiplayer renders, with the one-participant list. */
+        <MatchScoreboard
+          participants={soloParticipants}
+          positions={positions}
+          getScores={getSoloScores}
+          holePars={config.pars}
+          holeCount={holeCount}
+          netMode={false}
+          hcpAllowance={100}
+          outingMeta={{ coursePar: totalPar }}
+          isMatchPlay={false}
+          matchPlayData={null}
+          diffStr={() => diffStr}
+          netDiffStr={() => diffStr}
           user={user}
-          config={config}
-          scores={scores}
-          onTapRow={() => setViewMode('scorecard')}
+          onPlayerTap={() => setViewMode('scorecard')}
+          isSkinsFormat={false}
+          skinsByPlayer={{}} /* indexed unguarded — never null */
         />
       )}
 
