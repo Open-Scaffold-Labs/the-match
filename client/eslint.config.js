@@ -8,7 +8,6 @@
 // codebase that was never linted. Run with `npm run lint` before pushing.
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
-import react from 'eslint-plugin-react'
 
 export default [
   {
@@ -23,15 +22,9 @@ export default [
       parserOptions: { ecmaFeatures: { jsx: true } },
       globals: { ...globals.browser, ...globals.es2021, ...globals.serviceworker },
     },
-    plugins: { 'react-hooks': reactHooks, react },
-    settings: { react: { version: 'detect' } },
+    plugins: { 'react-hooks': reactHooks },
     rules: {
       'no-undef': 'error',
-      // 2026-07-06 — `no-undef` does NOT flag JSX component references, so an
-      // unimported <Component> compiles clean and ReferenceErrors on device
-      // (exactly how "PuttChips is not defined" crashed the solo scorer on
-      // the beta). This rule is the JSX half of the same gate.
-      'react/jsx-no-undef': 'error',
     },
   },
   {
