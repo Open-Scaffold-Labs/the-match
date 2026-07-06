@@ -669,7 +669,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
             const RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92
             const PLAYER_COL = RANK_COL + AVATAR_COL + NAME_COL
             const HOLE_COL = 32, SUB_COL = 40, ROW_H = 80
-            const fillerRows = 3 // MIN_ROWS(4) − 1 player, same as a 1-player outing
+            const fillerRows = 0 // multi's filler rows are seats for players yet to join — solo has none (Matt, 2026-07-06)
             const positions = computePositions(soloParticipants, getSoloScores, config.pars)
             const tapHint = findTapHint({ sorted: soloParticipants, getScores: getSoloScores, isHost: true, isMarkerFor: isSelfMarker, userId: user?.id })
             const frontPar = frontHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
