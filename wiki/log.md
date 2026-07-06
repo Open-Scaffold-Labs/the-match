@@ -1477,3 +1477,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Solo/multi parity: shared PuttChips component (solo refactored to it — zero-drift guarantee); chips render only when scoring YOURSELF; facts ride the existing write/tx/idempotency; /scores/host applies them only for writer===target; /end fan-out re-cleans vs final scores
 - Audit-before-claim caught TWO real wipe-bugs pre-ship (server: score-correction wipes; client: null-count re-save wipes) + tests caught Number([])→0 coercion
 - Gates: server 83/83 (13 new), client lint/build/tests clean. Residuals: on-course pass; Dale review-on-pull (his SG seam)
+
+## [2026-07-06 PM2] verify | Live putt capture e2e-verified on the beta (hedge closed)
+- scripts/e2e-putt-capture*.mjs: JWT minted blind from .env for dedicated test users (#2 host, #14), real HTTP against the deployed beta, real prod DB assertions. Test outing `8L3U` (labeled, closed)
+- 9/9 API steps + data checks: self putts persist; host-scoring-SELF via /scores/host persists (the routing wrinkle); host-scoring-OTHER putt fields ignored (participant + round both NULL); score correction w/o putt fields preserves entries; putts>score dropped, score saved; /end fan-out carries cleaned arrays into tm_rounds. Also confirmed the emitter's existing complete-card gate (incomplete 18-hole card → no round, correct)
+- Remaining residual: human on-course pass only

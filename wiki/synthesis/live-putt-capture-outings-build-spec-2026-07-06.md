@@ -91,7 +91,7 @@ an isolated render block — each slice independently revertible.
 - [x] S3 server ride-along + fan-out carry — plus audit catch #1: score corrections without putt fields never wipe earlier entries (hasOwnProperty guard) — 2026-07-06
 - [x] S4 shared PuttChips + ScoreModal(self) + queue threading — plus audit catch #2: client omits null counts so re-saves can't wipe — 2026-07-06
 - [x] S5 gates green: server 83/83, client lint/build/tests clean; audit caught 2 real wipe-bugs pre-ship — 2026-07-06
-- [x] SHIPPED `833e67e` to main — 2026-07-06. Residual: on-course pass (joins the standing list); Dale review-on-pull. Honest hedge: route-level behavior is code-reviewed + unit-gated, not integration-tested against live Postgres — the beta pass is the end-to-end check.
+- [x] SHIPPED `833e67e` to main — 2026-07-06. Residual: on-course pass (joins the standing list); Dale review-on-pull. UPDATE same-day: hedge CLOSED — full live e2e run against the beta + prod DB (test outing 8L3U, dedicated test users #2/#14, scripts/e2e-putt-capture*.mjs): 9/9 API steps + data verified — self putts land, host-self path lands, on-behalf putt fields ignored (B row+round NULL), score-correction preserves putts, invalid count>score dropped w/ score saved, /end carries facts into tm_rounds ([2,1,2,2,2,2,2,2,null,2×9]). Only remaining residual: the human on-course pass.
 
 ## 5. Scope guardrails
 
