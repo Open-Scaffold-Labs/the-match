@@ -86,12 +86,12 @@ an isolated render block — each slice independently revertible.
 - [x] Code recon: self-score routing wrinkle (host-self via /scores/host), doSelfWrite tx,
       idempotency body, /end fan-out, ScoreModal/BulkScoreModal split — 2026-07-06
 - [x] This spec + risk register
-- [ ] S1 migration 041 (additive, idempotent) + apply to prod
-- [ ] S2 `lib/puttFacts.js` (pure) + unit tests
-- [ ] S3 server: /scores + /scores/host ride-along (writer===target) + /end fan-out carry
-- [ ] S4 client: shared PuttChips + ScoreModal (self only) + saveScore/queue threading
-- [ ] S5 gates: server suite green (70+new), client lint/build/tests, audit-before-claim
-- [ ] Ship to main + wiki log + Dale note; on-course pass joins the standing list
+- [x] S1 migration 041 — applied to prod, columns verified — 2026-07-06
+- [x] S2 `lib/puttFacts.js` + 13 tests (incl. Number([])→0 coercion catch) — 2026-07-06
+- [x] S3 server ride-along + fan-out carry — plus audit catch #1: score corrections without putt fields never wipe earlier entries (hasOwnProperty guard) — 2026-07-06
+- [x] S4 shared PuttChips + ScoreModal(self) + queue threading — plus audit catch #2: client omits null counts so re-saves can't wipe — 2026-07-06
+- [x] S5 gates green: server 83/83, client lint/build/tests clean; audit caught 2 real wipe-bugs pre-ship — 2026-07-06
+- [x] SHIPPED `833e67e` to main — 2026-07-06. Residual: on-course pass (joins the standing list); Dale review-on-pull. Honest hedge: route-level behavior is code-reviewed + unit-gated, not integration-tested against live Postgres — the beta pass is the end-to-end check.
 
 ## 5. Scope guardrails
 
