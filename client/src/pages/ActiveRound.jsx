@@ -16,7 +16,7 @@ import {
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
-import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, computePositions, findTapHint } from './Outing/LiveOuting.jsx'
+import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from './Outing/LiveOuting.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 import PuttChips from '../components/PuttChips.jsx'
@@ -703,6 +703,8 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
             }
             return (
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                {/* Same chrome as multiplayer: LEADERS plaque above, Augusta footer below */}
+                <LeadersPlaque />
                 <ScorecardTable label="FRONT 9" holes={frontHoles} subtotalPar={frontPar} {...shared} />
                 {backHoles.length > 0 && (
                   <ScorecardTable label="BACK 9" holes={backHoles} subtotalPar={backPar} {...shared} />
@@ -727,6 +729,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
                   activeHole={hole}
                   tapHint={tapHint}
                 />
+                <AugustaPlaqueFooter />
               </div>
             )
           })()}

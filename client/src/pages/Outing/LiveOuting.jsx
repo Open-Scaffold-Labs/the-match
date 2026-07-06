@@ -120,6 +120,63 @@ function HcpHelpPopover({ onClose }) {
 // is about to see: the dark-green header band with a back chevron and
 // a course-title placeholder, followed by 4 row-shaped placeholders
 // for the leaderboard. Reduces "page jump" feel when data lands.
+// ─── Shared scorecard chrome (2026-07-06 unification) — the LEADERS plaque +
+// Augusta footer that frame the scorecard, extracted so SOLO renders the
+// exact same chrome. JSX moved verbatim from the LiveOuting return. ───
+export function LeadersPlaque() {
+  return (
+        <div style={{
+          background: `linear-gradient(180deg, ${AUGUSTA_CREAM} 0%, #DDD2A8 100%)`,
+          borderBottom: '1px solid ' + AUGUSTA_GREEN,
+          textAlign: 'center', padding: '10px 0 8px',
+          flexShrink: 0, position: 'relative',
+          boxShadow: 'inset 0 -1px 2px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.6)',
+        }}>
+          {/* Top gold rule */}
+          <div style={{
+            position: 'absolute', top: 0, left: '12%', right: '12%',
+            height: 1, background: AUGUSTA_GOLD_DIM, opacity: 0.7,
+          }} />
+          <div style={{
+            fontSize: 36, fontWeight: 900, lineHeight: 1, color: AUGUSTA_GREEN,
+            letterSpacing: '0.20em',
+            fontFamily: '"Georgia", "Times New Roman", serif',
+            textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 -1px 0 rgba(0,0,0,0.20)',
+          }}>LEADERS</div>
+          {/* Bottom gold rule */}
+          <div style={{
+            position: 'absolute', bottom: 4, left: '20%', right: '20%',
+            height: 1, background: AUGUSTA_GOLD_DIM, opacity: 0.55,
+          }} />
+        </div>
+  )
+}
+
+export function AugustaPlaqueFooter() {
+  return (
+        <div style={{
+          background: AUGUSTA_GREEN,
+          padding: '8px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          borderTop: '2px solid ' + AUGUSTA_WOOD,
+          flexShrink: 0,
+        }}>
+          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
+          }}>M</span>
+          <div style={{
+            fontFamily: '"Georgia", "Times New Roman", serif',
+            fontSize: 14, color: AUGUSTA_TEXT, fontStyle: 'italic', letterSpacing: '0.10em',
+          }}>Augusta National Club Golf</div>
+          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
+          }}>M</span>
+        </div>
+  )
+}
+
 function ScorecardSkeleton({ onBack }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent' }}>
@@ -3297,31 +3354,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
         }}>
-        {/* LEADERS plaque — embossed cream banner with gold rules above & below */}
-        <div style={{
-          background: `linear-gradient(180deg, ${AUGUSTA_CREAM} 0%, #DDD2A8 100%)`,
-          borderBottom: '1px solid ' + AUGUSTA_GREEN,
-          textAlign: 'center', padding: '10px 0 8px',
-          flexShrink: 0, position: 'relative',
-          boxShadow: 'inset 0 -1px 2px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.6)',
-        }}>
-          {/* Top gold rule */}
-          <div style={{
-            position: 'absolute', top: 0, left: '12%', right: '12%',
-            height: 1, background: AUGUSTA_GOLD_DIM, opacity: 0.7,
-          }} />
-          <div style={{
-            fontSize: 36, fontWeight: 900, lineHeight: 1, color: AUGUSTA_GREEN,
-            letterSpacing: '0.20em',
-            fontFamily: '"Georgia", "Times New Roman", serif',
-            textShadow: '0 1px 0 rgba(255,255,255,0.7), 0 -1px 0 rgba(0,0,0,0.20)',
-          }}>LEADERS</div>
-          {/* Bottom gold rule */}
-          <div style={{
-            position: 'absolute', bottom: 4, left: '20%', right: '20%',
-            height: 1, background: AUGUSTA_GOLD_DIM, opacity: 0.55,
-          }} />
-        </div>
+        <LeadersPlaque />
 
         {/* Scorecard tables — scroll horizontally if needed, vertically as one body */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -3445,27 +3478,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           )}
         </div>
 
-        {/* Augusta plaque footer */}
-        <div style={{
-          background: AUGUSTA_GREEN,
-          padding: '8px 20px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
-          borderTop: '2px solid ' + AUGUSTA_WOOD,
-          flexShrink: 0,
-        }}>
-          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
-          }}>M</span>
-          <div style={{
-            fontFamily: '"Georgia", "Times New Roman", serif',
-            fontSize: 14, color: AUGUSTA_TEXT, fontStyle: 'italic', letterSpacing: '0.10em',
-          }}>Augusta National Club Golf</div>
-          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
-          }}>M</span>
-        </div>
+        <AugustaPlaqueFooter />
         </div>
       </div>
       )}
