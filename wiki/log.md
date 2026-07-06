@@ -1510,3 +1510,7 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 ## [2026-07-06 PM8] feat | Unification COMPLETE — solo BOARD = shared MatchScoreboard (`c2f0bd6`), browser-verified
 - Matt called out the S3 queue as an anti-pattern-#23 slip ("should have been built correctly from the start") — he was right; built same-night. Solo board now renders the multiplayer MatchScoreboard with one row; SoloBoardView deleted; adapters lifted and shared by both views; prop-contract lesson applied PREEMPTIVELY this time (skinsByPlayer={} because it's indexed unguarded; diff props wrapped as fns) — zero crashes on deploy
 - The solo/multi fork is now fully healed: no Solo* scorecard components exist. Remaining: S4 relocation to components/scorecard/ with defensive default props (real staging discipline — separate commit for bisection, not a shortcut)
+
+## [2026-07-06 PM9] fix | LEADERS plaque + Augusta footer on solo (`46b45ce`) — S3 scope actually complete, browser-verified
+- Matt's third catch of the night: S3 was marked done with the chrome half of its own written scope silently dropped. Chrome extracted verbatim into shared LeadersPlaque/AugustaPlaqueFooter components (multi unchanged), solo now framed identically — verified live (plaque + grid + totals + footer on solo)
+- Anti-pattern lesson (for the list): a completion claim that quietly narrows its own scope is a false claim even when what shipped works. The slice definition defines done.

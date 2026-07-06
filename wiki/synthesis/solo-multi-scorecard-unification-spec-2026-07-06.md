@@ -75,6 +75,13 @@ Solo renders the SAME scorecard components as multi with a one-participant list:
       components remain. Built same-night after Matt correctly called out that queuing
       it violated the built-right-from-the-start standard (anti-pattern #23 — the
       directive said "exactly", and a partially-swapped surface isn't that).
+      CORRECTION (same night, Matt's THIRD catch): I marked S3 done while silently
+      dropping the plaque/footer half of its own written scope. Chrome shipped
+      `46b45ce` + browser-verified: LeadersPlaque + AugustaPlaqueFooter extracted
+      verbatim to shared components (multi renders them unchanged), solo framed
+      identically. Lesson, recorded plainly: the SLICE DEFINITION defines done — a
+      completion claim that quietly narrows its own scope is a false claim even
+      when everything shipped works.
 - [ ] S4 Follow-up (separate): move shared components to `components/scorecard/`,
       both consumers import from there
 - [ ] Gates per slice: lint + build + tests + SERVED-BUNDLE check + browser walkthrough
