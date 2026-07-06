@@ -69,7 +69,12 @@ Solo renders the SAME scorecard components as multi with a one-participant list:
       passing values crashes; U1 was the right risk). LESSON → S4: when the components
       move to components/scorecard/, give them defensive default props
       (playerTeam = () => null, diffStr accepting value-or-fn) so the contract is explicit.
-- [ ] S3 Board: `SoloBoardView` → `MatchScoreboard` + the LEADERS plaque/footer chrome — NEXT (the remaining visual delta)
+- [x] S3 Board SHIPPED + browser-verified (`c2f0bd6`): solo BOARD renders the shared
+      MatchScoreboard (POS/PLAYER/TOT/THRU, one row); SoloBoardView deleted; adapters
+      lifted so both views share the one-participant list. Zero Solo* scorecard
+      components remain. Built same-night after Matt correctly called out that queuing
+      it violated the built-right-from-the-start standard (anti-pattern #23 — the
+      directive said "exactly", and a partially-swapped surface isn't that).
 - [ ] S4 Follow-up (separate): move shared components to `components/scorecard/`,
       both consumers import from there
 - [ ] Gates per slice: lint + build + tests + SERVED-BUNDLE check + browser walkthrough

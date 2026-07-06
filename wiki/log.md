@@ -1506,3 +1506,7 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 
 ## [2026-07-06 PM7] fix | Solo grid shows exactly one row (`16a8e60`) — browser-verified
 - Matt's design correction: multi's filler rows are seats for players yet to join; solo has none → fillerRows 0. Verified live: single LAVIN row front/back + TOTALS strip, scores entering cleanly (Matt scored 3 holes through the unified grid during verification)
+
+## [2026-07-06 PM8] feat | Unification COMPLETE — solo BOARD = shared MatchScoreboard (`c2f0bd6`), browser-verified
+- Matt called out the S3 queue as an anti-pattern-#23 slip ("should have been built correctly from the start") — he was right; built same-night. Solo board now renders the multiplayer MatchScoreboard with one row; SoloBoardView deleted; adapters lifted and shared by both views; prop-contract lesson applied PREEMPTIVELY this time (skinsByPlayer={} because it's indexed unguarded; diff props wrapped as fns) — zero crashes on deploy
+- The solo/multi fork is now fully healed: no Solo* scorecard components exist. Remaining: S4 relocation to components/scorecard/ with defensive default props (real staging discipline — separate commit for bisection, not a shortcut)
