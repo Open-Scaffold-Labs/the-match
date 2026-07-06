@@ -178,12 +178,23 @@ router.post('/chat', caddieLimiter, async (req, res) => {
       // Greenlight follow-up #2: current Sonnet (the 2025-05 snapshot was a
       // year old). Env override so prod can pin/roll without a deploy.
       model: process.env.CADDIE_MODEL || 'claude-sonnet-5',
-      max_tokens: 500,
+      max_tokens: 1000,
       system,
       messages: clean,
     })
-    const reply = msg.content?.[0]?.text?.trim()
-    if (!reply) throw new Error('empty completion')
+    // Robust extraction (2026-07-06 prod fix): newer models can return
+    // non-text blocks (e.g. thinking) ahead of the text, so content[0].text
+    // is not guaranteed — join ALL text blocks. max_tokens raised 500→1000 so
+    // a reasoning-heavy turn can't burn the whole budget before the answer.
+    const reply = (msg.content ?? [])
+      .filter(b => b?.type === 'text' && typeof b.text === 'string')
+      .map(b => b.text).join('').trim()
+    if (!reply) {
+      // Name the failure for the logs instead of a blind "empty completion".
+      console.error('[caddie] no text in completion — stop_reason:', msg.stop_reason,
+        'blocks:', (msg.content ?? []).map(b => b?.type).join(','))
+      throw new Error('empty completion')
+    }
     res.json({ reply })
   } catch (e) {
     console.error('[caddie]', e.message)

@@ -126,7 +126,11 @@ ${playerProfile ? `\n${playerProfile}` : ''}`
       }],
     })
 
-    const raw = msg.content[0]?.text?.trim()
+    // Robust extraction (2026-07-06, same fix as caddie.js): join ALL text
+    // blocks — content[0] isn't guaranteed to be the text block on newer models.
+    const raw = (msg.content ?? [])
+      .filter(b => b?.type === 'text' && typeof b.text === 'string')
+      .map(b => b.text).join('').trim()
     const json = JSON.parse(raw.replace(/^```json?\n?/, '').replace(/\n?```$/, ''))
     res.json(json)
   } catch (e) {
