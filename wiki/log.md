@@ -1503,3 +1503,6 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Matt's directive executed same-night (Dale gate removed — Matt's call: his app). LiveOuting exports 6 scorecard pieces (export-only diff); solo renders ScorecardTable+TotalsRow with a 1-participant list; 161-line Solo fork deleted. Verified live in Matt's browser: rank/avatar/LAVIN row, same cells, 4-row fill, cell-tap → score modal w/ putt chips intact
 - Two prop-contract crashes during rollout, each caught+fixed in minutes via the walkthrough loop: playerTeam(p) and diffStr(p)/diffColor(p) are per-player FUNCTIONS in the shared components — passing plain values crashes (risk U1 realized). Hardening note filed on S4 (defensive default props when components move to components/scorecard/)
 - Remaining: S3 — SoloBoardView → MatchScoreboard + LEADERS plaque/footer chrome (the last visual delta); then S4 relocation
+
+## [2026-07-06 PM7] fix | Solo grid shows exactly one row (`16a8e60`) — browser-verified
+- Matt's design correction: multi's filler rows are seats for players yet to join; solo has none → fillerRows 0. Verified live: single LAVIN row front/back + TOTALS strip, scores entering cleanly (Matt scored 3 holes through the unified grid during verification)

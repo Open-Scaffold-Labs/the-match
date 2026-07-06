@@ -63,7 +63,7 @@ Solo renders the SAME scorecard components as multi with a one-participant list:
 - [x] S0 REMOVED as a gate (Matt: his app, Dale contributes — courtesy heads-up only)
 - [x] S1 six exports (incl. computePositions/findTapHint), export-only diff — 2026-07-06
 - [x] S2 grid swap SHIPPED + browser-verified (`c99f0a5`→`883fe04`): solo renders the multi
-      grid (rank/avatar/name, same cells, 4-row fill, TotalsRow); 161-line fork deleted.
+      grid (rank/avatar/name, same cells, TotalsRow); 161-line fork deleted. Design correction same night (Matt): NO filler rows solo — they are seats for players yet to join (`16a8e60`).
       TWO prop-contract crashes caught in the live walkthrough loop and fixed within
       minutes each (playerTeam and diffStr/diffColor are FUNCTIONS called per-player —
       passing values crashes; U1 was the right risk). LESSON → S4: when the components
