@@ -19,6 +19,7 @@ import { CoursePicker } from './Outing/CreateWizard.jsx'
 import { SavedChip } from './Outing/LiveOuting.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
+import PuttChips from '../components/PuttChips.jsx'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
