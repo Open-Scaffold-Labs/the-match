@@ -305,7 +305,7 @@ function cellBorder(score, par) {
 // (matches the header rows' borderLeft scheme; otherwise body cells stacked
 // 2px between them and looked misaligned with headers when scrolled).
 // (2026-04-30 PM border-cleanup)
-function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrideBg, overrideBorder, overrideColor, w = 32, h = 36, skinsBadge = null }) {
+export function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrideBg, overrideBorder, overrideColor, w = 32, h = 36, skinsBadge = null }) {
   // Subtotal cells used to be `w + 4` for visual emphasis, but that made
   // the body OUT/IN column 4px wider than the header OUT/IN column —
   // so the body subtotal cells (LAVIN's 12, filler rows) stuck out past
@@ -805,7 +805,7 @@ function BulkScoreModal({ hole, par, participants, getScores, holeCount, onClose
 // for each player the user can edit, picks the first unscored hole.
 // Returns { userId, hole } or null when nothing's tappable. Skips the hint
 // once any score has been entered (the empty-board prompt only). (2026-04-30 PM round 11)
-function findTapHint({ sorted, getScores, isHost, isMarkerFor, userId }) {
+export function findTapHint({ sorted, getScores, isHost, isMarkerFor, userId }) {
   if (!Array.isArray(sorted) || sorted.length === 0) return null
   // If any score exists anywhere, no hint — the user already knows.
   const anyScored = sorted.some(p => (getScores(p) || []).some(s => s > 0))
@@ -867,7 +867,7 @@ function tiebreakReason(a, b, holePars) {
 // comparison comes out equal — i.e. same total AND same card-back
 // AND same last-6/3/last-hole. If any tiebreaker separated them, the
 // earlier one gets the cleaner rank. (2026-05-01 — league must-have B1.)
-function computePositions(sorted, getScores, holePars) {
+export function computePositions(sorted, getScores, holePars) {
   const holeCount = holePars.length
   const lastIdx   = holeCount - 1
   // All four tiebreaker key ranges, computed once per call.
@@ -1258,7 +1258,7 @@ function computeMatchPlay(p1, p2, getScores, holePars, holeStrokes = null) {
 //
 // Read-only. Tapping a row asks the parent to switch back to the SCORECARD
 // view focused on that player (handled by the parent via onPlayerTap).
-function MatchScoreboard({
+export function MatchScoreboard({
   participants,            // already-sorted by leaderboardSort
   positions,               // computed by computePositions()
   getScores,
@@ -3736,7 +3736,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, onHoleHeaderTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
+export function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam, onCellTap, onHoleHeaderTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -4105,7 +4105,7 @@ function ScorecardTable({ label, holes, holePars, subtotalPar, participants, get
 }
 
 // ─── Totals row ───────────────────────────────────────────────────────────────
-function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, positions = [] }) {
+export function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr, diffColor, playerTeam, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, positions = [] }) {
   // Augusta-style: dark green strip with white block-letter "TOTALS" + numbers
   return (
     <div style={{ background: AUGUSTA_GREEN, borderTop: '2px solid ' + AUGUSTA_WOOD }}>

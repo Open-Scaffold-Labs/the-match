@@ -16,7 +16,7 @@ import {
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
-import { SavedChip } from './Outing/LiveOuting.jsx'
+import { SavedChip, ScorecardTable, TotalsRow, computePositions, findTapHint } from './Outing/LiveOuting.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 import PuttChips from '../components/PuttChips.jsx'
@@ -172,166 +172,10 @@ function SetupSheet({ onStart, onBack }) {
 // red circle, bogey = single black square, double+ = double black square.
 // Active hole gets a soft gold ring so the user can see where they are.
 // (2026-05-07 PM — board-style live scoring view for solo rounds.)
-function SoloScoreCell({ score, par, isSubtotal, onTap, isActive, w = 32, h = 36 }) {
-  const bg = isSubtotal ? AUGUSTA_GREEN_DEEP : AUGUSTA_TILE
-  const color = isSubtotal
-    ? '#fff'
-    : (!score || !par ? AUGUSTA_INK : (score - par < 0 ? AUGUSTA_RED : AUGUSTA_INK))
-  const diff = (!isSubtotal && score && par) ? score - par : null
-  const canTap = !isSubtotal && typeof onTap === 'function'
-  return (
-    <div
-      onClick={canTap ? onTap : undefined}
-      style={{
-        minWidth: w, width: w, height: h,
-        background: bg,
-        borderLeft: '1px solid rgba(0,0,0,0.20)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: isSubtotal ? 14 : 15, fontWeight: 900,
-        fontFamily: '"Arial Black", "Arial Bold", Arial, sans-serif',
-        color, cursor: canTap ? 'pointer' : 'default',
-        flexShrink: 0, userSelect: 'none', position: 'relative',
-        boxShadow: isSubtotal
-          ? 'inset 0 1px 2px rgba(0,0,0,0.50)'
-          : isActive
-            ? 'inset 0 0 0 2px rgba(232,192,90,0.85), inset 0 1px 2px rgba(0,0,0,0.18)'
-            : 'inset 0 1px 2px rgba(0,0,0,0.18)',
-      }}
-    >
-      {diff === -1 && <div style={{ position: 'absolute', inset: 3, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />}
-      {diff != null && diff <= -2 && <>
-        <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: '1.6px solid ' + AUGUSTA_RED, pointerEvents: 'none' }} />
-      </>}
-      {diff === 1 && <div style={{ position: 'absolute', inset: 3, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />}
-      {diff != null && diff >= 2 && <>
-        <div style={{ position: 'absolute', inset: 2, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 6, border: '1.6px solid ' + AUGUSTA_INK, pointerEvents: 'none' }} />
-      </>}
-      {(score || isSubtotal) ? (
-        <span style={{ display: 'inline-block', position: 'relative' }}>{score || ''}</span>
-      ) : (
-        !isSubtotal && <span style={{ color: 'rgba(0,0,0,0.18)', fontSize: 14 }}>·</span>
-      )}
-    </div>
-  )
-}
-
-// ─── Solo Scorecard Table — front 9 or back 9 stacked grid ────────────────
-// Three rows: HOLE numerals, gold PAR numerals, tappable SCORE cells. The
-// active hole gets a small gold flag pin in the HOLE header (same SVG as
-// LiveOuting's ScorecardTable). Designed for a single player so the left
-// column is just a label ("HOLE" / "PAR" / "YOU"); avatar + name lives in
-// the page-level header above the boards. Fits a 390px viewport with no
-// horizontal scroll. (2026-05-07 PM)
-function SoloScorecardTable({ label, holes, holePars, scores, activeHole, onCellTap }) {
-  const subtotalPar = holes.reduce((s, h) => s + (holePars[h] || 4), 0)
-  const subtotalScore = holes.reduce((s, h) => s + (Number(scores[h]) || 0), 0)
-  const LABEL_W = 56
-  const HOLE_W = 30
-  const TOT_W = 38
-
-  const panelGradient = `linear-gradient(180deg, ${AUGUSTA_PANEL_HI} 0%, ${AUGUSTA_PANEL} 100%)`
-  const headerHoleCell = {
-    minWidth: HOLE_W, width: HOLE_W, height: 32,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, fontWeight: 900, color: AUGUSTA_TEXT,
-    fontFamily: '"Arial Black", Arial, sans-serif',
-    flexShrink: 0,
-    borderLeft: '1px solid rgba(0,0,0,0.20)',
-    position: 'relative',
-  }
-  const labelCell = {
-    minWidth: LABEL_W, width: LABEL_W, height: 32,
-    padding: '0 10px',
-    display: 'flex', alignItems: 'center',
-    fontSize: 11, fontWeight: 900,
-    fontFamily: '"Arial Black", Arial, sans-serif',
-    textTransform: 'uppercase', letterSpacing: '0.08em',
-    color: AUGUSTA_TEXT, flexShrink: 0,
-  }
-  const subtotalHeaderCell = {
-    minWidth: TOT_W, width: TOT_W, height: 32,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 12, fontWeight: 900, color: AUGUSTA_GOLD,
-    fontFamily: '"Arial Black", Arial, sans-serif',
-    background: AUGUSTA_GREEN_DEEP, letterSpacing: '0.06em',
-    flexShrink: 0,
-    textShadow: '0 1px 1px rgba(0,0,0,0.50)',
-    borderLeft: '1px solid rgba(0,0,0,0.50)',
-  }
-  const dividerColor = 'rgba(0,0,0,0.50)'
-
-  return (
-    <div style={{ marginBottom: 0 }}>
-      {/* HOLE row */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        borderBottom: '1px solid ' + dividerColor,
-        background: panelGradient,
-      }}>
-        <div style={labelCell}>{label}</div>
-        {holes.map(h => (
-          <div key={h} style={headerHoleCell}>
-            {h + 1}
-            {activeHole === h && (
-              <span style={{
-                position: 'absolute', top: -6, right: 2,
-                width: 9, height: 12, pointerEvents: 'none',
-              }} aria-label="Active hole">
-                <svg width="9" height="12" viewBox="0 0 9 12" fill="none">
-                  <line x1="1" y1="0" x2="1" y2="12" stroke="#fff" strokeWidth="1" />
-                  <path d="M1 1 L8 3 L1 5 Z" fill={AUGUSTA_GOLD} stroke="#000" strokeWidth="0.5" strokeLinejoin="round" />
-                </svg>
-              </span>
-            )}
-          </div>
-        ))}
-        <div style={subtotalHeaderCell}>{label === 'BACK 9' ? 'IN' : 'OUT'}</div>
-      </div>
-
-      {/* PAR row */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        borderBottom: '2px solid ' + dividerColor,
-        background: panelGradient,
-      }}>
-        <div style={{ ...labelCell, color: AUGUSTA_GOLD }}>PAR</div>
-        {holes.map(h => (
-          <div key={h} style={{ ...headerHoleCell, color: AUGUSTA_GOLD }}>{holePars[h] || 4}</div>
-        ))}
-        <div style={{ ...subtotalHeaderCell, color: AUGUSTA_GOLD }}>{subtotalPar}</div>
-      </div>
-
-      {/* SCORE row — tappable cells */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
-        background: AUGUSTA_PANEL_HOVER,
-      }}>
-        <div style={{ ...labelCell, height: 44 }}>YOU</div>
-        {holes.map(h => (
-          <SoloScoreCell
-            key={h}
-            score={scores[h] || 0}
-            par={holePars[h] || 4}
-            isActive={activeHole === h}
-            onTap={() => onCellTap(h)}
-            w={HOLE_W}
-            h={44}
-          />
-        ))}
-        <SoloScoreCell
-          score={subtotalScore || null}
-          par={null}
-          isSubtotal={true}
-          w={TOT_W}
-          h={44}
-        />
-      </div>
-    </div>
-  )
-}
+// SoloScoreCell + SoloScorecardTable DELETED 2026-07-06 (solo/multi scorecard
+// unification spec): solo now renders the SAME ScorecardTable/TotalsRow as
+// LiveOuting with a one-participant list — the May fork is healed; one grid,
+// two consumers, zero drift.
 
 // ─── Solo Score Modal — stepper + quick picks for one hole ─────────────────
 // Pulled from LiveOuting's ScoreModal pattern but stripped to the solo
@@ -810,38 +654,75 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
           scores). Board is the Tour-leaderboard single-row view (read
           only; tap the row to flip back to scorecard). */}
       {viewMode === 'scorecard' ? (
+        /* Unified scorecard (2026-07-06, solo/multi-scorecard-unification spec):
+           solo renders the SAME ScorecardTable + TotalsRow LiveOuting uses,
+           with a one-participant list — a solo round IS a 1-player outing
+           visually. Same columns (rank/avatar/name), same cells, same 4-row
+           fill (3 empty filler rows, exactly what a 1-player outing shows).
+           The old SoloScorecardTable/SoloScoreCell fork is deleted. */
         <div className="page-scroll" style={{ flex: 1, padding: '12px 8px 16px', overflowY: 'auto' }}>
-          <div style={{
-            borderRadius: 12, overflow: 'hidden',
-            border: '1px solid rgba(0,0,0,0.30)',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-            marginBottom: backHoles.length > 0 ? 12 : 0,
-          }}>
-            <SoloScorecardTable
-              label="FRONT 9"
-              holes={frontHoles}
-              holePars={config.pars}
-              scores={scores}
-              activeHole={hole}
-              onCellTap={openScoreModal}
-            />
-          </div>
-          {backHoles.length > 0 && (
-            <div style={{
-              borderRadius: 12, overflow: 'hidden',
-              border: '1px solid rgba(0,0,0,0.30)',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-            }}>
-              <SoloScorecardTable
-                label="BACK 9"
-                holes={backHoles}
-                holePars={config.pars}
-                scores={scores}
-                activeHole={hole}
-                onCellTap={openScoreModal}
-              />
-            </div>
-          )}
+          {(() => {
+            const soloParticipants = [{ user_id: user?.id ?? 'me', name: user?.name || 'You', avatar: user?.avatar ?? null }]
+            const getSoloScores = () => scores
+            const isSelfMarker = () => false
+            // Column + row constants mirror LiveOuting's exactly.
+            const RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92
+            const PLAYER_COL = RANK_COL + AVATAR_COL + NAME_COL
+            const HOLE_COL = 32, SUB_COL = 40, ROW_H = 80
+            const fillerRows = 3 // MIN_ROWS(4) − 1 player, same as a 1-player outing
+            const positions = computePositions(soloParticipants, getSoloScores, config.pars)
+            const tapHint = findTapHint({ sorted: soloParticipants, getScores: getSoloScores, isHost: true, isMarkerFor: isSelfMarker, userId: user?.id })
+            const frontPar = frontHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
+            const backPar = backHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
+            const shared = {
+              holePars: config.pars,
+              participants: soloParticipants,
+              getScores: getSoloScores,
+              isHost: true,
+              userId: user?.id,
+              isMarkerFor: isSelfMarker,
+              playerTeam: null,
+              onCellTap: (_p, h) => openScoreModal(h),
+              onHoleHeaderTap: null,
+              matchPlayData: null,
+              isP1: () => false,
+              PLAYER_COL, RANK_COL, AVATAR_COL, NAME_COL, HOLE_COL, SUB_COL,
+              positions,
+              activeHole: hole,
+              tapHint,
+              rowH: ROW_H,
+              fillerRows,
+              skinsOutcomes: null,
+            }
+            return (
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <ScorecardTable label="FRONT 9" holes={frontHoles} subtotalPar={frontPar} {...shared} />
+                {backHoles.length > 0 && (
+                  <ScorecardTable label="BACK 9" holes={backHoles} subtotalPar={backPar} {...shared} />
+                )}
+                <TotalsRow
+                  participants={soloParticipants}
+                  holePars={config.pars}
+                  holeCount={holeCount}
+                  coursePar={totalPar}
+                  getScores={getSoloScores}
+                  diffStr={diffStr}
+                  diffColor={diffColor}
+                  playerTeam={null}
+                  netMode={false}
+                  netTotal={null}
+                  isMatchPlay={false}
+                  matchPlayData={null}
+                  isP1={() => false}
+                  PLAYER_COL={PLAYER_COL} RANK_COL={RANK_COL} AVATAR_COL={AVATAR_COL} NAME_COL={NAME_COL}
+                  HOLE_COL={HOLE_COL} SUB_COL={SUB_COL}
+                  positions={positions}
+                  activeHole={hole}
+                  tapHint={tapHint}
+                />
+              </div>
+            )
+          })()}
         </div>
       ) : (
         <SoloBoardView
