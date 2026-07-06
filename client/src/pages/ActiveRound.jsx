@@ -672,7 +672,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
            visually. Same columns (rank/avatar/name), same cells, same 4-row
            fill (3 empty filler rows, exactly what a 1-player outing shows).
            The old SoloScorecardTable/SoloScoreCell fork is deleted. */
-        <div className="page-scroll" style={{ flex: 1, padding: '12px 8px 16px', overflowY: 'auto' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {(() => {
             // Column + row constants mirror LiveOuting's exactly.
             const RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92
@@ -702,10 +702,15 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
               skinsOutcomes: null,
             }
             return (
-              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                {/* Same chrome as multiplayer: LEADERS plaque above, Augusta footer below */}
+              /* Tournament-board frame, same structure as multi: plaque pinned
+                 full-width on top, grid scrolls BETWEEN the chrome, footer pinned
+                 full-width below. Chrome never rides the horizontal scroller —
+                 that clipped it mid-screen (Matt's design-audit catch). */
+              <>
                 <LeadersPlaque />
-                <ScorecardTable label="FRONT 9" holes={frontHoles} subtotalPar={frontPar} {...shared} />
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <ScorecardTable label="FRONT 9" holes={frontHoles} subtotalPar={frontPar} {...shared} />
                 {backHoles.length > 0 && (
                   <ScorecardTable label="BACK 9" holes={backHoles} subtotalPar={backPar} {...shared} />
                 )}
@@ -729,8 +734,10 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
                   activeHole={hole}
                   tapHint={tapHint}
                 />
+                  </div>
+                </div>
                 <AugustaPlaqueFooter />
-              </div>
+              </>
             )
           })()}
         </div>
