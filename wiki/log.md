@@ -1482,3 +1482,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - scripts/e2e-putt-capture*.mjs: JWT minted blind from .env for dedicated test users (#2 host, #14), real HTTP against the deployed beta, real prod DB assertions. Test outing `8L3U` (labeled, closed)
 - 9/9 API steps + data checks: self putts persist; host-scoring-SELF via /scores/host persists (the routing wrinkle); host-scoring-OTHER putt fields ignored (participant + round both NULL); score correction w/o putt fields preserves entries; putts>score dropped, score saved; /end fan-out carries cleaned arrays into tm_rounds. Also confirmed the emitter's existing complete-card gate (incomplete 18-hole card → no round, correct)
 - Remaining residual: human on-course pass only
+
+## [2026-07-06 PM3] fix | Solo score modal crash — PuttChips import missed + JSX lint gap closed (`5c8f188`)
+- The shared-component extraction imported PuttChips in LiveOuting but NOT ActiveRound → "PuttChips is not defined" crashed the solo score modal on the beta (Matt hit it live during the browser walkthrough; error boundary held)
+- ROOT CAUSE OF THE GATE MISS: `no-undef` does not flag JSX component references — anti-pattern #23's class (clean build ships a ReferenceError) recurring through the JSX half of the gap. Closed: `react/jsx-no-undef` added to the client lint gate (eslint-plugin-react, --legacy-peer-deps for React 19); regression-PROVEN — lint on the stashed broken state fails with exactly this error
+- Lesson for anti-patterns: extracting a shared component = TWO import sites; verify every consumer renders, not just builds. The browser walkthrough (Matt logging in + Claude driving) caught in minutes what the gates structurally couldn't

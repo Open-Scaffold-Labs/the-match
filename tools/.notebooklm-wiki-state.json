@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783119709.2218642,
-    "source_id": "4e282573-e896-4526-95f7-3114b21040ec",
-    "verified_at": 1783119734.5975208
+    "mtime": 1783376071.7792993,
+    "source_id": "54f4886a-be70-4e65-8a78-9c621a13f202",
+    "verified_at": 1783376102.523773
   },
   "wiki/index.md": {
-    "mtime": 1783034649.8004901,
-    "source_id": "7098cac5-3ee2-47c1-adec-d6e2705f0de6",
-    "verified_at": 1783034718.171398
+    "mtime": 1783375383.788955,
+    "source_id": "91070ae6-3795-44f9-bef6-9c79f6703007",
+    "verified_at": 1783375427.226437
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -209,5 +209,10 @@
     "mtime": 1783119566.6748734,
     "source_id": "9d175809-a49a-487d-a7fd-472e7ca89369",
     "verified_at": 1783119741.498636
+  },
+  "wiki/synthesis/live-putt-capture-outings-build-spec-2026-07-06.md": {
+    "mtime": 1783376071.7762213,
+    "source_id": "db609024-faf0-441c-95d5-50ea6fb1d1d9",
+    "verified_at": 1783376117.5274491
   }
 }
