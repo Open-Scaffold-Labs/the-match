@@ -1514,3 +1514,7 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 ## [2026-07-06 PM9] fix | LEADERS plaque + Augusta footer on solo (`46b45ce`) — S3 scope actually complete, browser-verified
 - Matt's third catch of the night: S3 was marked done with the chrome half of its own written scope silently dropped. Chrome extracted verbatim into shared LeadersPlaque/AugustaPlaqueFooter components (multi unchanged), solo now framed identically — verified live (plaque + grid + totals + footer on solo)
 - Anti-pattern lesson (for the list): a completion claim that quietly narrows its own scope is a false claim even when what shipped works. The slice definition defines done.
+
+## [2026-07-06 PM10] fix | Plaque/footer pinned full-width (`62bf2e8`) — Matt's design-audit catch, browser-verified
+- The chrome had been mounted INSIDE the horizontal scroller → sized to the table, clipping mid-screen ("looks cheap" — correct). Restructured to multi's exact frame: plaque pinned full-width top, grid scrolls BETWEEN the chrome (both axes), footer pinned full-width bottom. Verified live: chrome spans edge-to-edge, grid scrolls beneath it
+- Structure lesson for the unification record: matching multi means matching its FRAME hierarchy, not just mounting its components — chrome belongs outside scroll containers
