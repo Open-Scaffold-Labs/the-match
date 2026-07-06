@@ -681,7 +681,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
               isHost: true,
               userId: user?.id,
               isMarkerFor: isSelfMarker,
-              playerTeam: null,
+              playerTeam: () => null, // ScorecardTable calls playerTeam(p.user_id) unconditionally
               onCellTap: (_p, h) => openScoreModal(h),
               onHoleHeaderTap: null,
               matchPlayData: null,
@@ -708,7 +708,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
                   getScores={getSoloScores}
                   diffStr={diffStr}
                   diffColor={diffColor}
-                  playerTeam={null}
+                  playerTeam={() => null}
                   netMode={false}
                   netTotal={null}
                   isMatchPlay={false}
