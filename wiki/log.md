@@ -1498,3 +1498,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Matt: solo must look EXACTLY like multi; only difference = player count. Recon confirmed the May solo overhaul forked LiveOuting's scorecard (SoloScoreCell/SoloScorecardTable/SoloBoardView are drifted copies of ScorecardCell/ScorecardTable/MatchScoreboard)
 - Cure = delete the fork: export the multi components, solo renders them with a 1-participant list; Solo copies removed. Spec: [[synthesis/solo-multi-scorecard-unification-spec-2026-07-06]] (risk register incl. U2 export-only touch on the F.5 surface, U5 flag-to-Dale, U6 served-bundle ship gate)
 - Deliberately sequenced to a fresh session (hero-surface surgery on both partners' fresh work + tonight's deploy-saga pipeline lesson) — sequencing, not deferral
+
+## [2026-07-06 PM6] feat | Solo/multi scorecard unification S1+S2 SHIPPED + browser-verified (`883fe04`)
+- Matt's directive executed same-night (Dale gate removed — Matt's call: his app). LiveOuting exports 6 scorecard pieces (export-only diff); solo renders ScorecardTable+TotalsRow with a 1-participant list; 161-line Solo fork deleted. Verified live in Matt's browser: rank/avatar/LAVIN row, same cells, 4-row fill, cell-tap → score modal w/ putt chips intact
+- Two prop-contract crashes during rollout, each caught+fixed in minutes via the walkthrough loop: playerTeam(p) and diffStr(p)/diffColor(p) are per-player FUNCTIONS in the shared components — passing plain values crashes (risk U1 realized). Hardening note filed on S4 (defensive default props when components move to components/scorecard/)
+- Remaining: S3 — SoloBoardView → MatchScoreboard + LEADERS plaque/footer chrome (the last visual delta); then S4 relocation

@@ -60,11 +60,16 @@ Solo renders the SAME scorecard components as multi with a one-participant list:
 
 ## 4. Slices
 
-- [ ] S0 Flag this spec to Dale (his two surfaces) — before build
-- [ ] S1 Export the four components from LiveOuting (export-only diff; gates)
-- [ ] S2 ActiveRound: swap grid (`SoloScorecardTable` → `ScorecardTable` + `TotalsRow`,
-      one participant; delete Solo copies) — browser-verify solo AND an outing scorecard
-- [ ] S3 Board: `SoloBoardView` → `MatchScoreboard` (N=1 presentation decisions inline)
+- [x] S0 REMOVED as a gate (Matt: his app, Dale contributes — courtesy heads-up only)
+- [x] S1 six exports (incl. computePositions/findTapHint), export-only diff — 2026-07-06
+- [x] S2 grid swap SHIPPED + browser-verified (`c99f0a5`→`883fe04`): solo renders the multi
+      grid (rank/avatar/name, same cells, 4-row fill, TotalsRow); 161-line fork deleted.
+      TWO prop-contract crashes caught in the live walkthrough loop and fixed within
+      minutes each (playerTeam and diffStr/diffColor are FUNCTIONS called per-player —
+      passing values crashes; U1 was the right risk). LESSON → S4: when the components
+      move to components/scorecard/, give them defensive default props
+      (playerTeam = () => null, diffStr accepting value-or-fn) so the contract is explicit.
+- [ ] S3 Board: `SoloBoardView` → `MatchScoreboard` + the LEADERS plaque/footer chrome — NEXT (the remaining visual delta)
 - [ ] S4 Follow-up (separate): move shared components to `components/scorecard/`,
       both consumers import from there
 - [ ] Gates per slice: lint + build + tests + SERVED-BUNDLE check + browser walkthrough
