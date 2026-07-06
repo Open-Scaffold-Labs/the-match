@@ -18,5 +18,10 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "overrides": {
+    "eslint-plugin-react": {
+      "eslint": "^10.5.0"
+    }
   }
 }
