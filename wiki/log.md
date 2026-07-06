@@ -1493,3 +1493,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Unblock: deps reverted byte-for-byte to the last deployable state (6ca0e4c), import fix kept; verified THE SERVED CDN BUNDLE (new hash, 0 bare PuttChips refs) + the solo score modal opening live in the browser with chips rendering
 - LESSONS: (1) "deployed" claims must check `vercel ls` status + the served asset, not local gates + push success; (2) any dependency install on this monorepo needs a lockfile-diff review + build-from-clean-install before commit; (3) jsx-no-undef hardening (regression-proven) returns as a follow-up with a carefully regenerated lockfile — TODO
 - Also: Matt flagged solo vs multiplayer scorecard visual divergence (different surfaces/eras) — candidate for a unification design spec with Dale
+
+## [2026-07-06 PM5] spec | Solo/multi scorecard unification specced (Matt's directive) — next session's first build
+- Matt: solo must look EXACTLY like multi; only difference = player count. Recon confirmed the May solo overhaul forked LiveOuting's scorecard (SoloScoreCell/SoloScorecardTable/SoloBoardView are drifted copies of ScorecardCell/ScorecardTable/MatchScoreboard)
+- Cure = delete the fork: export the multi components, solo renders them with a 1-participant list; Solo copies removed. Spec: [[synthesis/solo-multi-scorecard-unification-spec-2026-07-06]] (risk register incl. U2 export-only touch on the F.5 surface, U5 flag-to-Dale, U6 served-bundle ship gate)
+- Deliberately sequenced to a fresh session (hero-surface surgery on both partners' fresh work + tonight's deploy-saga pipeline lesson) — sequencing, not deferral
