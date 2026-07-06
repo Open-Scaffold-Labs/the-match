@@ -1015,11 +1015,24 @@ router.put('/:code/scores', async (req, res) => {
     s[hole] = score
     const t  = s.reduce((acc, x) => acc + (x || 0), 0)
     const hp = s.filter(x => x > 0).length
+    // Live putt capture (2026-07-06, live-putt-capture spec): optional SELF-
+    // entered putt facts ride the same row write + transaction. Arrays are
+    // touched ONLY when the body carries a `putts` key — a plain score
+    // correction never wipes earlier putt entries. Invalid shapes are
+    // DROPPED by cleanPuttEntry, never 400 — putt capture can never break a
+    // score write. SG never reads these columns; they flow into tm_rounds
+    // at /end (re-cleaned against final scores there — spec risk P3).
+    const { cleanPuttEntry, setPuttAtHole } = require('../lib/puttFacts')
+    const j = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
+    const pf = Object.prototype.hasOwnProperty.call(req.body, 'putts')
+      ? setPuttAtHole(j(existing.putts), j(existing.first_putts), hole,
+          cleanPuttEntry(req.body.putts, req.body.firstPutt, score))
+      : { putts: j(existing.putts) ?? null, firstPutts: j(existing.first_putts) ?? null }
     await q(
       // F.5 S1a: bump score_version on every row score write so an on-behalf
       // writer sees the change. Self-scoring stays last-write-wins.
-      'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
-      [JSON.stringify(s), t, outing.id, req.user.id]
+      'UPDATE tm_outing_participants SET scores=$1, total=$2, putts=$5, first_putts=$6, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
+      [JSON.stringify(s), t, outing.id, req.user.id, JSON.stringify(pf.putts), JSON.stringify(pf.firstPutts)]
     )
     // Sync to state JSONB so leaderboard reads are fast. String() both sides
     // (see /:code/join) — on a -1 miss the row still has the score; the S1b
@@ -1281,9 +1294,22 @@ router.put('/:code/scores/host', async (req, res) => {
     // and nothing is lost. A genuine same-hole/different-value collision
     // surfaces via the value guard, carrying current_version + who/when for
     // the inline conflict chip.
+    // Live putt capture (2026-07-06 spec): putt facts are applied ONLY when
+    // the WRITER IS THE TARGET (host/marker scoring themselves — the client
+    // routes their self-edits through this endpoint). On-behalf writers'
+    // putt fields are silently ignored: nobody enters your putts but you.
+    const jPf = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
+    const wantsPutts = isSelfEdit && Object.prototype.hasOwnProperty.call(req.body, 'putts')
+    const puttArraysFor = (curPutts, curFirst) => {
+      const { cleanPuttEntry, setPuttAtHole } = require('../lib/puttFacts')
+      return wantsPutts
+        ? setPuttAtHole(jPf(curPutts), jPf(curFirst), hole, cleanPuttEntry(req.body.putts, req.body.firstPutt, score))
+        : { putts: jPf(curPutts) ?? null, firstPutts: jPf(curFirst) ?? null }
+    }
+
     const applyOnBehalf = async (client) => {
       const { rows } = await client.query(
-        'SELECT id, scores, score_version FROM tm_outing_participants WHERE outing_id=$1 AND user_id=$2 FOR UPDATE',
+        'SELECT id, scores, score_version, putts, first_putts FROM tm_outing_participants WHERE outing_id=$1 AND user_id=$2 FOR UPDATE',
         [outing.id, user_id]
       )
       const row = rows[0]
@@ -1309,9 +1335,10 @@ router.put('/:code/scores/host', async (req, res) => {
       // so it matches; AND score_version=$ is a belt — if it somehow doesn't,
       // 409 rather than clobber. Comparison lives in the bound SQL param to
       // dodge the pg-string-vs-JS-number trap.
+      const pf = puttArraysFor(row.putts, row.first_putts)
       const upd = await client.query(
-        'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE id=$3 AND score_version=$4',
-        [JSON.stringify(s), t, row.id, row.score_version]
+        'UPDATE tm_outing_participants SET scores=$1, total=$2, putts=$5, first_putts=$6, score_version=score_version+1 WHERE id=$3 AND score_version=$4',
+        [JSON.stringify(s), t, row.id, row.score_version, JSON.stringify(pf.putts), JSON.stringify(pf.firstPutts)]
       )
       if (upd.rowCount === 0) {
         const writer = await resolveLastWriterName(state, outing.id, user_id, hole)
@@ -1368,10 +1395,11 @@ router.put('/:code/scores/host', async (req, res) => {
       s[hole] = score
       const t  = s.reduce((acc, x) => acc + (x || 0), 0)
       const hp = s.filter(x => x > 0).length
+      const pf = puttArraysFor(existing.putts, existing.first_putts) // self-edit only; see wantsPutts
       await db.query(
         // F.5 S1a: bump score_version on the on-behalf row write too.
-        'UPDATE tm_outing_participants SET scores=$1, total=$2, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
-        [JSON.stringify(s), t, outing.id, user_id]
+        'UPDATE tm_outing_participants SET scores=$1, total=$2, putts=$5, first_putts=$6, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
+        [JSON.stringify(s), t, outing.id, user_id, JSON.stringify(pf.putts), JSON.stringify(pf.firstPutts)]
       )
       // F.5 S7: same as the OCC path — skip the score sync when state writes
       // are off, keep the no_show config flip, write state only if config moved.
@@ -2236,12 +2264,20 @@ router.post('/:code/end', async (req, res) => {
         if (!scores.every(s => s != null && Number(s) > 0)) continue
         const total = Number(p.total)
         if (!Number.isFinite(total) || total <= 0) continue
+        // Live putt capture (2026-07-06 spec): carry the player's self-entered
+        // putt facts into their round. RE-CLEANED against the FINAL scores —
+        // a conflict resolution may have lowered a score below an earlier
+        // putt count (spec risk P3). No usable data → null columns, never [].
+        const { cleanPuttArraysForRound } = require('../lib/puttFacts')
+        const jj = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
+        const pf = cleanPuttArraysForRound(scores, jj(p.putts), jj(p.first_putts))
         await db.query(
           `INSERT INTO tm_rounds (
              user_id, outing_id, course_name, course_par,
-             course_rating, slope_rating, game_type, scores, total, date
+             course_rating, slope_rating, game_type, scores, total, date,
+             putts, first_putts
            )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11)
            ON CONFLICT (user_id, outing_id) DO NOTHING`,
           [
             p.user_id, outing.id,
@@ -2252,6 +2288,8 @@ router.post('/:code/end', async (req, res) => {
             (outing.scoring_formats?.[0] ?? 'stroke'),
             JSON.stringify(scores),
             total,
+            pf.putts ? JSON.stringify(pf.putts) : null,
+            pf.firstPutts ? JSON.stringify(pf.firstPutts) : null,
           ]
         )
         // 2026-05-05 — AWAITED. Was fire-and-forget which Vercel killed

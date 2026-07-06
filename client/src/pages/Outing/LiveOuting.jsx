@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post, put } from '../../lib/api.js'
 import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/offline-queue.js'
+import PuttChips from '../../components/PuttChips.jsx'
 import { warn } from '../../lib/logger.js'
 import { scoreColor as scoreToParColor } from '../../lib/scoreColors.js'
 import { courseHandicap, playerTeeRatings } from '../../lib/handicapClient.js'
@@ -401,8 +402,19 @@ function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, overrid
 }
 
 // Score entry modal — stepper + quick picks
-function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, onSaveAndEagleEye, onClose }) {
+function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = false, onSave, onSaveAndEagleEye, onClose }) {
   const [val, setVal] = useState(currentScore || par || 4)
+  // Live putt capture (2026-07-06 spec): SELF-scoring only — the shared
+  // PuttChips render solely when this modal targets the signed-in user.
+  // Optional-always; a putt count above the hole score is dropped, never
+  // blocks the save (same rule as the solo scorer + server lib/puttFacts).
+  const [puttVal, setPuttVal]     = useState(null)
+  const [firstPutt, setFirstPutt] = useState(null)
+  const puttFactsFor = (score) => {
+    if (!isSelf) return null
+    const clean = (puttVal != null && puttVal <= score) ? puttVal : null
+    return { putts: clean, firstPutt: clean != null && clean > 0 ? firstPutt : null }
+  }
 
   // 2026-05-06 — score=1 is a HOLE-IN-ONE regardless of par (a 1 on a
   // par-3 was previously labeled 'Eagle' since diff = -2, which is
@@ -467,6 +479,12 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
           ))}
         </div>
 
+        {/* Putt facts — self-scoring only (shared component with the solo
+            scorer; live-putt-capture spec 2026-07-06). Optional-always. */}
+        {isSelf && (
+          <PuttChips puttVal={puttVal} setPuttVal={setPuttVal} firstPutt={firstPutt} setFirstPutt={setFirstPutt} />
+        )}
+
         <button onClick={() => {
           // Typo guard — most "11 on a par-3" entries are mis-taps.
           // Warn when score is more than +5 over par (or 2× par,
@@ -484,7 +502,7 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
           // the unusual-score confirm so a mis-tap that gets cancelled
           // doesn't lie to the user. (2026-05-06 — polish task #1)
           tmHaptic(15)
-          onSave(val)
+          onSave(val, puttFactsFor(val))
         }} style={{
           width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
           background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
@@ -497,7 +515,7 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, onSave, on
             renders when parent supplied the callback (user scoring own
             hole + next hole exists). (2026-05-01) */}
         {onSaveAndEagleEye && (
-          <button onClick={() => { tmHaptic(15); onSaveAndEagleEye(val) }} style={{
+          <button onClick={() => { tmHaptic(15); onSaveAndEagleEye(val, puttFactsFor(val)) }} style={{
             width: '100%', padding: 14, marginTop: 10, borderRadius: 'var(--tm-radius-lg)',
             // Solid green gradient + white text — matches the primary green
             // button pattern used elsewhere in the app (CreateWizard "Next →",
@@ -1841,7 +1859,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // catching errors INSIDE saveScore (so the per-row banner still
   // pops) is fine, but a bulk caller still needs to know not to keep
   // saving when the previous row blew up. (Round 12 edge-case audit.)
-  async function saveScore(hole, score, targetUserId) {
+  async function saveScore(hole, score, targetUserId, puttFacts = null) {
     setSaving(true)
     // 2026-05-06 — capture the OLD score from local state before the
     // write, so we can detect no-op re-taps. The highlight modal
@@ -1864,9 +1882,20 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
       const targetUrl = isSelfEdit && String(outing?.host_id) !== String(user?.id) && !isMarkerFor(String(user?.id), String(targetUserId))
         ? `/api/outings/${code}/scores`
         : `/api/outings/${code}/scores/host`
+      // Live putt capture (2026-07-06 spec): putt fields ride the body ONLY
+      // when the writer IS the target (chips only render for self, but guard
+      // here too). Present on BOTH endpoints — a host/marker scoring
+      // themselves routes through /scores/host, where the server applies
+      // putts only for writer===target. Fields inside the idempotency-keyed
+      // body ⇒ offline replays are automatically putt-consistent.
+      // Ride ONLY when a count was actually picked — the modal has no putt
+      // prefill, so sending putts:null on a later score re-save would wipe an
+      // earlier entry (audit catch). Explicit clears live in the post-hoc editor.
+      const puttRide = (isSelfEdit && puttFacts && puttFacts.putts != null)
+        ? { putts: puttFacts.putts, firstPutt: puttFacts.firstPutt } : null
       const baseBody = isSelfEdit && targetUrl.endsWith('/scores')
-        ? { hole, score }
-        : { hole, score, user_id: targetUserId }
+        ? { hole, score, ...(puttRide || {}) }
+        : { hole, score, user_id: targetUserId, ...(puttRide || {}) }
 
       // F.5 S3 — idempotency key generated ONCE here, at the moment of the
       // user's action, and carried by both the immediate attempt and (if the
@@ -3454,6 +3483,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             par={par}
             currentScore={current}
             holeCount={holeCount}
+            isSelf={String(scoreModal.userId) === String(user?.id)}
             // "Save & Eagle Eye →" only available when:
             //   1. parent supplied the cross-tab nav callback
             //   2. user is scoring their OWN hole (not host scoring someone else)
@@ -3465,17 +3495,17 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               onGoToEagleEye
               && String(scoreModal.userId) === String(user?.id)
               && scoreModal.hole + 1 < holeCount
-                ? async val => {
+                ? async (val, puttFacts) => {
                     const nextHole = scoreModal.hole + 2  // 1-indexed
                     setScoreModal(null)
-                    await saveScore(scoreModal.hole, val, scoreModal.userId)
+                    await saveScore(scoreModal.hole, val, scoreModal.userId, puttFacts)
                     onGoToEagleEye(nextHole)
                   }
                 : null
             }
-            onSave={async val => {
+            onSave={async (val, puttFacts) => {
               setScoreModal(null)
-              await saveScore(scoreModal.hole, val, scoreModal.userId)
+              await saveScore(scoreModal.hole, val, scoreModal.userId, puttFacts)
             }}
             onClose={() => setScoreModal(null)}
           />
