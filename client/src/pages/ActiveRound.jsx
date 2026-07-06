@@ -706,8 +706,8 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
                   holeCount={holeCount}
                   coursePar={totalPar}
                   getScores={getSoloScores}
-                  diffStr={diffStr}
-                  diffColor={diffColor}
+                  diffStr={() => diffStr}   /* TotalsRow calls diffStr(p)/diffColor(p) per player */
+                  diffColor={() => diffColor}
                   playerTeam={() => null}
                   netMode={false}
                   netTotal={null}
