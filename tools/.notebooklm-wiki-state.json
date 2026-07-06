@@ -5,9 +5,9 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783111186.0394793,
-    "source_id": "74d74575-3b8d-437b-81af-aa15bda6404c",
-    "verified_at": 1783111213.371706
+    "mtime": 1783119709.2218642,
+    "source_id": "4e282573-e896-4526-95f7-3114b21040ec",
+    "verified_at": 1783119734.5975208
   },
   "wiki/index.md": {
     "mtime": 1783034649.8004901,
@@ -204,5 +204,10 @@
     "mtime": 1783034638.2819545,
     "source_id": "feede955-572b-4184-af9a-651fdab099a2",
     "verified_at": 1783034725.071815
+  },
+  "wiki/synthesis/sg-map-tap-capture-build-spec-2026-07-02.md": {
+    "mtime": 1783119566.6748734,
+    "source_id": "9d175809-a49a-487d-a7fd-472e7ca89369",
+    "verified_at": 1783119741.498636
   }
 }
