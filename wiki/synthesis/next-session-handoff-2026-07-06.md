@@ -47,7 +47,7 @@ per-item detail. Everything below is SHIPPED AND LIVE unless marked open.
    and DROPPED `onnxruntime-web`, breaking Vercel builds. Redo: install plugin, then
    verify `npm install` from a CLEAN node_modules builds, diff the lockfile for dropped
    packages (grep onnxruntime), THEN commit. The `.npmrc`/overrides attempts were reverted.
-3. **One glance at a real multiplayer match** — plaque/footer confirmed structurally
+3. ~~**One glance at a real multiplayer match**~~ ✅ DONE 2026-07-06 PM (throwaway outing 7EAX) — plaque/footer confirmed structurally
    unchanged (verbatim component swap, diff-verified) but not eyeballed on a live match.
 4. **Matt's on-course round** (POST-LAUNCH #25 umbrella): putt chips both modes, ShotSheet,
    rings/dispersion clutter check, tokenized EE eyeball, unified scorecard in the field.

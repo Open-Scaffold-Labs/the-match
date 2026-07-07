@@ -1544,3 +1544,9 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Hard-refresh on the beta (new bundle), Matt's session: solo scorecard renders the full unified surface post-S4 — LEADERS plaque + Augusta footer pinned full-width, single LAVIN row w/ score decorations (birdie circle, bogey squares), TOTALS strip, THRU 4
 - Cell tap → score modal w/ PuttChips + Shot Log renders (the 07-06 crash class exercised, no crash); BOARD toggle → shared MatchScoreboard one-row glass card renders (skinsByPlayer/diffStr prop paths resolved); console: 0 app errors (1 extension-noise message only)
 - STILL OPEN: multiplayer glance — closed test outings won't reopen (?join=8L3U resumes the active solo round); needs a live outing or a fresh test outing (Matt's call). Structural risk remains LOW (multi diff was a verbatim component swap)
+
+## [2026-07-06 PM17] verify | S4 walkthrough COMPLETE — multiplayer glance done (throwaway outing 7EAX)
+- Created "S4 WALKTHROUGH THROWAWAY (safe to delete)" via the e2e JWT pattern (Test User #2 hosts, Demo Tester #14 joins, 5 holes each); Matt joined via ?join=7EAX in the browser
+- Multi scorecard verified live post-S4: plaque, 3 player rows + filler row (correctly RETAINED on multi — seats for joiners; only solo drops them), rank badges, THRU, score decorations, TOTALS (22/+2, 23/+3, — for Matt), Augusta footer full-width. Console: 0 app errors
+- Note: first ?join= attempt showed the solo round (join effect races the solo-restore on first load; second load landed in the outing) — worth an eye if users report "QR didn't take me to the match"; not S4-related (join flow predates it)
+- Outing 7EAX left in place, clearly labeled safe-to-delete (no client delete path; DB cleanup whenever)
