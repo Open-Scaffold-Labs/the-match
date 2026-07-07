@@ -360,14 +360,15 @@ function DistanceInstrument({ yards, label, accent = 'var(--tm-ee-green)' }) {
       {/* number + unit, centred */}
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
+        {/* C2 (2026-07-07): micro-labels raised to the 11px outdoor floor */}
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.14em',
           color: has ? accent : 'rgb(var(--tm-ee-white-rgb) / 0.45)', marginBottom: -2 }}>{label}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-          <span style={{ fontSize: 46, fontWeight: 900, letterSpacing: '-2px', color: '#fff',
+          <span style={{ fontSize: 46, fontWeight: 900, letterSpacing: '-2px', color: 'var(--tm-ee-raw)',
             lineHeight: 0.9, fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"',
             textShadow: '0 2px 12px rgb(var(--tm-ee-black-rgb) / 0.5)' }}>{display}</span>
         </div>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em',
           color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', marginTop: 1 }}>YDS</div>
       </div>
     </div>
@@ -994,7 +995,8 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
           <div>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.8)' }}>PLAYS LIKE</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{view.total}</span>
+              {/* C1 (2026-07-07): computed plays-like wears the ADJUSTED semantic (green) */}
+              <span style={{ fontSize: 52, fontWeight: 900, lineHeight: 1, color: 'var(--tm-ee-adjusted)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{view.total}</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>yds</span>
             </div>
           </div>
@@ -1591,15 +1593,17 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // distance follows it (a real shot), else the pin distance (Option A).
   const displayYards = userAim ? userAim.teeAimYds : pinYards
 
-  // Hero-instrument label + accent (Phase 2.3). Gold when aimed at a user target;
-  // green for a trusted live GPS-to-green read; amber while acquiring; muted for
-  // the static tee/remaining fallback.
+  // Hero-instrument label + accent (Phase 2.3; accents re-ruled Stage C1
+  // 2026-07-07). Gold-light when aimed at a user target; ALIGNED gold for a
+  // trusted live GPS-to-green read (locked = gold, we own it); ACQUIRING is
+  // dim — unverified data never wears a reward color; muted gold for the
+  // static tee/remaining fallback.
   const distLabel = userAim ? 'TO AIM'
     : gpsToGreen != null ? 'TO GREEN'
     : gpsAcquiring ? 'ACQUIRING'
     : (gpsTrusted && distanceWalked > 10 && remainingYards != null) ? 'REMAINING'
     : 'FROM TEE'
-  const distAccent = userAim ? 'var(--tm-ee-gold-light)' : gpsToGreen != null ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'var(--tm-ee-gold)'
+  const distAccent = userAim ? 'var(--tm-ee-gold-light)' : gpsToGreen != null ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'var(--tm-ee-gold)'
 
   // "Plays like" wind needs a shot DIRECTION. Prefer the live player→green
   // bearing once we have a trusted GPS fix; otherwise fall back to the
@@ -1754,18 +1758,19 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               title={gpsTrusted ? 'GPS locked — tap to refresh' : gpsAcquiring ? 'Acquiring GPS — tap to refresh' : 'Tap to turn on GPS'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                background: gpsTrusted ? 'rgb(var(--tm-ee-green-deep-rgb) / 0.18)' : gpsAcquiring ? 'rgb(var(--tm-ee-amber-rgb) / 0.14)' : 'rgb(var(--tm-ee-white-rgb) / 0.06)',
-                border: `1px solid ${gpsTrusted ? 'rgb(var(--tm-ee-green-deep-rgb) / 0.35)' : gpsAcquiring ? 'rgb(var(--tm-ee-amber-rgb) / 0.35)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
+                // C1 (2026-07-07): locked = gold (aligned), acquiring = dim white
+                background: gpsTrusted ? 'rgb(var(--tm-ee-gold-rgb) / 0.16)' : gpsAcquiring ? 'rgb(var(--tm-ee-white-rgb) / 0.08)' : 'rgb(var(--tm-ee-white-rgb) / 0.06)',
+                border: `1px solid ${gpsTrusted ? 'rgb(var(--tm-ee-gold-rgb) / 0.35)' : gpsAcquiring ? 'rgb(var(--tm-ee-white-rgb) / 0.18)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
                 borderRadius: 20, padding: '4px 8px', cursor: 'pointer',
                 fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
               }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%',
-                background: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgb(var(--tm-ee-white-rgb) / 0.2)',
+                background: gpsTrusted ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.2)',
                 animation: gpsAcquiring ? 'ee-acq-pulse 1.1s ease-in-out infinite' : 'none' }} />
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-                color: gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)' }}>GPS</span>
+                color: gpsTrusted ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)' }}>GPS</span>
               {/* refresh glyph — signals the pill is tappable */}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? 'var(--tm-ee-green)' : gpsAcquiring ? 'var(--tm-ee-amber)' : 'rgb(var(--tm-ee-white-rgb) / 0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
                 <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
@@ -2029,22 +2034,23 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               <DistanceInstrument yards={displayYards} label={distLabel} accent={distAccent} />
               {/* GPS ready / acquiring chip (Phase 1.1; ± margin removed
                   2026-06-30 — Matt: don't narrate the GPS's error on screen).
-                  Locked: a calm green "GPS" dot = the read is ready, no margin
-                  shown. Acquiring: amber + pulsing = the live number isn't
-                  ready yet and the shown figure is the static tee yardage. The
-                  accuracy gate still uses coords.accuracy under the hood; we
-                  just never quantify the uncertainty to the user. */}
+                  C1 re-rule 2026-07-07: Locked = a calm GOLD "GPS" dot (gold =
+                  locked/trusted, we own it). Acquiring = DIM white + pulsing —
+                  unverified data never wears a reward color; the pulse alone
+                  says "working on it". The accuracy gate still uses
+                  coords.accuracy under the hood; we just never quantify the
+                  uncertainty to the user. */}
               {gpsTrusted ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 6px rgb(var(--tm-ee-green-rgb) / 0.8)' }} />
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-green-rgb) / 0.85)' }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-aligned)', boxShadow: '0 0 6px rgb(var(--tm-ee-gold-rgb) / 0.8)' }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-gold-rgb) / 0.85)' }}>
                     GPS
                   </span>
                 </div>
               ) : gpsAcquiring ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-amber)', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
-                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-amber-rgb) / 0.95)' }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-acquiring)', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.6)' }}>
                     ACQUIRING
                   </span>
                 </div>
