@@ -2240,24 +2240,28 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
           {/* ── Big-Numbers glance overlay (C4, 2026-07-07) — a full-screen
               takeover of the satellite view: giant centre-to-green with
-              FRONT/BACK promoted to labels (Front-top/Back-bottom to mirror the
-              green), on a dark scrim so the numbers hold contrast in sunlight
-              (text over raw imagery fails WCAG F83). The header (hole nav + GPS
-              state) stays; map-overlay controls hide. Reads at arm's length. ── */}
+              BACK/FRONT promoted to labels — BACK on top, FRONT on the bottom, so
+              the stack descends toward you and matches BOTH the satellite map
+              (green is ahead = up = back edge highest) and the universal
+              rangefinder convention (every surveyed leader stacks back→center→front
+              top-to-bottom). Dark scrim so the numbers hold sunlight contrast (text
+              over raw imagery fails WCAG F83) AND the map/aim-line don't bleed
+              through. Header (hole nav + GPS) stays. Reads at arm's length. ── */}
           {bigMode && (
             <div style={{
               position: 'absolute', inset: 0, zIndex: 12,
-              background: 'linear-gradient(180deg, rgb(var(--tm-ee-bg-rgb) / 0.90) 0%, rgb(var(--tm-ee-bg-rgb) / 0.82) 52%, rgb(var(--tm-ee-bg-rgb) / 0.92) 100%)',
-              backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+              background: 'linear-gradient(180deg, rgb(var(--tm-ee-bg-rgb) / 0.96) 0%, rgb(var(--tm-ee-bg-rgb) / 0.90) 50%, rgb(var(--tm-ee-bg-rgb) / 0.96) 100%)',
+              backdropFilter: 'blur(7px) saturate(120%)', WebkitBackdropFilter: 'blur(7px) saturate(120%)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               padding: 'calc(env(safe-area-inset-top, 44px) + 104px) 20px calc(env(safe-area-inset-bottom, 0px) + 104px)',
               animation: 'ee-fade-in 0.24s ease-out', pointerEvents: 'none',
             }}>
-              {/* FRONT — near edge, above the hero to mirror the green geometry */}
-              {fcb && fcb.front != null && (
+              {/* BACK — far edge, on TOP (green is ahead/up, so the farthest edge
+                  sits highest — matches the map and every rangefinder leader) */}
+              {fcb && fcb.back != null && (
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
-                  <span style={{ width: 66, textAlign: 'right', fontSize: 13, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-green-rgb) / 0.9)' }}>FRONT</span>
-                  <span style={{ minWidth: 92, textAlign: 'left', fontSize: 'clamp(30px, 10vw, 42px)', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' }}>{fcb.front}</span>
+                  <span style={{ width: 66, textAlign: 'right', fontSize: 13, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-white-rgb) / 0.6)' }}>BACK</span>
+                  <span style={{ minWidth: 100, textAlign: 'left', fontSize: 'clamp(34px, 12vw, 48px)', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' }}>{fcb.back}</span>
                 </div>
               )}
 
@@ -2290,11 +2294,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 ) : null}
               </div>
 
-              {/* BACK — far edge, below the hero */}
-              {fcb && fcb.back != null && (
+              {/* FRONT — near edge, on the BOTTOM (nearest to you) */}
+              {fcb && fcb.front != null && (
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
-                  <span style={{ width: 66, textAlign: 'right', fontSize: 13, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)' }}>BACK</span>
-                  <span style={{ minWidth: 92, textAlign: 'left', fontSize: 'clamp(30px, 10vw, 42px)', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' }}>{fcb.back}</span>
+                  <span style={{ width: 66, textAlign: 'right', fontSize: 13, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-white-rgb) / 0.6)' }}>FRONT</span>
+                  <span style={{ minWidth: 100, textAlign: 'left', fontSize: 'clamp(34px, 12vw, 48px)', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' }}>{fcb.front}</span>
                 </div>
               )}
 
