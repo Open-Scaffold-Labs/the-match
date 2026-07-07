@@ -1597,3 +1597,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - C2: gauge label + YDS 9/10→11px (Apple 11pt floor + sunlight legibility). C3 soft-halo staged behind localStorage `tm-ee-halo-soft` (default OFF byte-identical) for on-course A/B
 - Headless-verified: labels 11px, hero resolves white via --tm-ee-raw, FROM TEE accent gold. NOT yet eyeballed: GPS-locked gold / acquiring dim (needs real GPS), sheet hero green — folded into Matt's on-course pass. Deploy watched: /health ok, served bundle grep-confirmed carrying tm-ee-flag/tm-ee-halo-soft/tm-ee-adjusted
 - Follow-up logged: C4 "Big Numbers" glance mode (the one structural gap vs the category leader). Pre-existing finding surfaced, untouched: duplicate `display` key ×2 in components/scorecard/index.jsx (esbuild warning)
+
+## [2026-07-07 PM3] verify | HoleMapGL tokenization CONFIRMED on prod (Matt's PWA screenshot)
+- Matt's on-phone PWA screenshot (Pebble Creek hole 1): fairway aim line, green outline+fill, pin flag, aim ring, distEl labels + flag glyph, tee dot all rendering correctly post-conversion — closes the Slice-1 prod-eyeball residual
+- Still on-course items (unchanged): GPS-locked gold / acquiring dim states, plays-like sheet hero green, C3 halo A/B
+- Side finding: browser-Chrome view looked "crammed" vs PWA — diagnosed as a browser-side zoom/text-scale (reflowed layout = layout zoom, not app CSS; viewport meta verified correct). Matt's call: not worrying about it — the PWA/WKWebView shell is the product surface
