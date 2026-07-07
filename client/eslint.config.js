@@ -8,6 +8,15 @@
 // codebase that was never linted. Run with `npm run lint` before pushing.
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
+// jsx-no-undef (2026-07-07 re-land): `no-undef` does NOT flag JSX component
+// references — that gap shipped the PuttChips crash on 2026-07-06 (clean
+// build + clean lint, ReferenceError on device). This rule closes the JSX
+// half. NOTE: the plugin declares peer eslint <=9.7 (no eslint-10 release
+// exists as of 2026-07-07); the committed .npmrc's legacy-peer-deps handles
+// resolution, and onnxruntime-web is pinned as a direct client dep because
+// legacy mode does not auto-install peers (the exact mechanism that dropped
+// it and broke Vercel builds on the first landing attempt).
+import react from 'eslint-plugin-react'
 
 export default [
   {
@@ -22,9 +31,10 @@ export default [
       parserOptions: { ecmaFeatures: { jsx: true } },
       globals: { ...globals.browser, ...globals.es2021, ...globals.serviceworker },
     },
-    plugins: { 'react-hooks': reactHooks },
+    plugins: { 'react-hooks': reactHooks, react },
     rules: {
       'no-undef': 'error',
+      'react/jsx-no-undef': 'error',
     },
   },
   {
