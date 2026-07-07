@@ -63,8 +63,7 @@ function ClubHead({ slot, cx, cy }) {
     // Driver / fairway: rounded teardrop head
     return (
       <g>
-        <ellipse cx={cx + 6} cy={cy - 6} rx={slot === 'driver' ? 14 : 11} ry={slot === 'driver' ? 11 : 9}
-          fill="url(#bp-wood)" stroke="#C9A040" strokeWidth="0.5" />
+        <ellipse cx={cx + 6} cy={cy - 6} rx={slot === 'driver' ? 14 : 11} ry={slot === 'driver' ? 11 : 9} fill="url(#bp-wood)" strokeWidth="0.5" style={{ stroke: 'var(--tm-gold)' }}/>
         {/* Face line */}
         <line x1={cx - 5} y1={cy - 8} x2={cx + 1} y2={cy - 14}
           stroke="rgba(245,215,138,0.7)" strokeWidth="1.2" strokeLinecap="round" />
@@ -74,8 +73,7 @@ function ClubHead({ slot, cx, cy }) {
   if (cat === 'hybrid') {
     return (
       <g>
-        <ellipse cx={cx + 5} cy={cy - 5} rx="9" ry="7"
-          fill="url(#bp-wood)" stroke="#C9A040" strokeWidth="0.5" />
+        <ellipse cx={cx + 5} cy={cy - 5} rx="9" ry="7" fill="url(#bp-wood)" strokeWidth="0.5" style={{ stroke: 'var(--tm-gold)' }}/>
       </g>
     )
   }
@@ -179,7 +177,7 @@ function BagShell({ children, empty = false, userName = null }) {
       <svg viewBox="0 0 360 540" style={{ width: '100%', height: 'auto', display: 'block' }}>
         <defs>
           <linearGradient id="bp-bag" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"  stopColor="#1B5E3B" />
+            <stop offset="0%" style={{ stopColor: 'var(--tm-green)' }}/>
             <stop offset="55%" stopColor="#0E1F13" />
             <stop offset="100%" stopColor="#070C09" />
           </linearGradient>
@@ -191,8 +189,8 @@ function BagShell({ children, empty = false, userName = null }) {
           </linearGradient>
           <linearGradient id="bp-trim" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"  stopColor="#F5E070" />
-            <stop offset="50%" stopColor="#C9A040" />
-            <stop offset="100%" stopColor="#7A5800" />
+            <stop offset="50%" style={{ stopColor: 'var(--tm-gold)' }}/>
+            <stop offset="100%" style={{ stopColor: 'var(--tm-gold-text)' }}/>
           </linearGradient>
           <linearGradient id="bp-shaft" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"  stopColor="#E8E8EC" />

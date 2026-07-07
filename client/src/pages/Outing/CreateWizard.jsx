@@ -550,7 +550,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
           }}>
             {/* Round 27 audit — emoji 🏆 replaced with bespoke SVG to
                 match the rest of the app's Augusta iconography. */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9A040" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-gold)' }}>
               <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/>
               <path d="M8 6H6a2 2 0 0 0 2 2"/>
               <path d="M16 6h2a2 2 0 0 1-2 2"/>

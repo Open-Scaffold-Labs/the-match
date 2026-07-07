@@ -811,7 +811,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
             }}
           >
             DISTANCES
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-text)' }}><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         )}
       </div>

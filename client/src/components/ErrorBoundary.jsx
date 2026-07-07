@@ -27,10 +27,10 @@ export default class ErrorBoundary extends Component {
       }}>
         {/* Bespoke pin-flag glyph — high-quality replacement for ⛳.
             Hand-drawn at 64px so it reads like an icon, not an emoji. */}
-        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#E8C05A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-gold-bright)' }}>
           <line x1="22" y1="8" x2="22" y2="54"/>
-          <path d="M22 10 L52 17 L22 24 Z" fill="#E8C05A" stroke="#E8C05A"/>
-          <ellipse cx="22" cy="56" rx="6" ry="2" fill="#E8C05A" stroke="none" opacity="0.4"/>
+          <path d="M22 10 L52 17 L22 24 Z" style={{ fill: 'var(--tm-gold-bright)', stroke: 'var(--tm-gold-bright)' }}/>
+          <ellipse cx="22" cy="56" rx="6" ry="2" stroke="none" opacity="0.4" style={{ fill: 'var(--tm-gold-bright)' }}/>
         </svg>
         <div style={{ fontSize: 22, fontWeight: 800 }}>Hooked left.</div>
         <div style={{ color: 'rgba(232,192,90,0.7)', fontSize: 14, lineHeight: 1.5, maxWidth: 320 }}>

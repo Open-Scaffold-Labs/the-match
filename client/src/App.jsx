@@ -738,9 +738,9 @@ function Splash() {
       }}>
         <svg width="40" height="40" viewBox="0 0 48 48" fill="none">
           <circle cx="24" cy="24" r="22" stroke="#5ED47A" strokeWidth="1.5" opacity="0.5" />
-          <line x1="20" y1="34" x2="20" y2="16" stroke="#E8C05A" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M20 16 L32 20 L20 24 Z" fill="#E8C05A" opacity="0.9" />
-          <ellipse cx="24" cy="34" rx="8" ry="2" fill="#E8C05A" opacity="0.12" />
+          <line x1="20" y1="34" x2="20" y2="16" strokeWidth="1.8" strokeLinecap="round" style={{ stroke: 'var(--tm-gold-bright)' }}/>
+          <path d="M20 16 L32 20 L20 24 Z" opacity="0.9" style={{ fill: 'var(--tm-gold-bright)' }}/>
+          <ellipse cx="24" cy="34" rx="8" ry="2" opacity="0.12" style={{ fill: 'var(--tm-gold-bright)' }}/>
         </svg>
       </div>
       <div style={{

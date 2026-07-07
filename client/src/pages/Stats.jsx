@@ -180,7 +180,7 @@ function HandicapTrendLine({ rounds }) {
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }} preserveAspectRatio="none">
         <defs>
           <linearGradient id="hcpTrendStroke" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#C9A040" />
+            <stop offset="0%" style={{ stopColor: 'var(--tm-gold)' }}/>
             <stop offset="100%" stopColor="#F5E070" />
           </linearGradient>
           <linearGradient id="hcpTrendFill" x1="0" y1="0" x2="0" y2="1">
@@ -403,7 +403,7 @@ export function MiniTrendBar({ rounds }) {
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
         <defs>
           <linearGradient id="trendLine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#C9A040" />
+            <stop offset="0%" style={{ stopColor: 'var(--tm-gold)' }}/>
             <stop offset="100%" stopColor="#5ED47A" />
           </linearGradient>
         </defs>

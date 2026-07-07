@@ -534,10 +534,10 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
           border: '1px dashed rgba(27,94,59,0.20)',
         }}>
           <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
-            <svg width="42" height="42" viewBox="0 0 64 64" fill="none" stroke="#0D1F12" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="42" height="42" viewBox="0 0 64 64" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-text)' }}>
               <line x1="22" y1="8" x2="22" y2="54"/>
-              <path d="M22 10 L52 17 L22 24 Z" fill="#0D1F12" stroke="#0D1F12"/>
-              <ellipse cx="22" cy="56" rx="6" ry="2" fill="#0D1F12" stroke="none" opacity="0.25"/>
+              <path d="M22 10 L52 17 L22 24 Z" style={{ fill: 'var(--tm-text)', stroke: 'var(--tm-text)' }}/>
+              <ellipse cx="22" cy="56" rx="6" ry="2" stroke="none" opacity="0.25" style={{ fill: 'var(--tm-text)' }}/>
             </svg>
           </div>
           <div style={{ color: 'var(--tm-text)', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No playing partners yet</div>
@@ -1765,7 +1765,7 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
             background: 'rgba(27,94,59,0.14)', border: '1.5px solid rgba(27,94,59,0.35)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-green)' }}>
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
             </svg>
@@ -2612,7 +2612,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
         backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
       }}>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45))' }} />
-        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" /></svg>
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" style={{ fill: 'var(--tm-gold)' }}/></svg>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.45), transparent)' }} />
       </div>
 
@@ -4180,7 +4180,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               height: 32,
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7A5800" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-gold-text)' }}>
                 <circle cx="12" cy="12" r="3"/>
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
               </svg>
@@ -4197,7 +4197,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             height: 32, width: 32,
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-green)' }}>
               <circle cx="11" cy="11" r="7"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
@@ -4219,7 +4219,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             height: 32, width: 32,
           }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="#1B5E3B">
+            <svg width="15" height="15" viewBox="0 0 24 24" style={{ fill: 'var(--tm-green)' }}>
               <circle cx="5" cy="12" r="2"/>
               <circle cx="12" cy="12" r="2"/>
               <circle cx="19" cy="12" r="2"/>
@@ -4238,7 +4238,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
         gap: 10, padding: '0 20px', marginBottom: 12,
       }}>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,160,64,0.45))' }} />
-        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" fill="#C9A040" /></svg>
+        <svg width="6" height="6" viewBox="0 0 6 6"><polygon points="3,0 6,3 3,6 0,3" style={{ fill: 'var(--tm-gold)' }}/></svg>
         <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, rgba(201,160,64,0.45), transparent)' }} />
       </div>
       {adminOpen && <AdminUsersModal onClose={() => setAdminOpen(false)} />}
@@ -4427,7 +4427,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                 background: 'rgba(27,94,59,0.14)', border: '1.5px solid rgba(27,94,59,0.35)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-green)' }}>
                   <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                   <line x1="16" y1="2" x2="16" y2="6"/>
                   <line x1="8" y1="2" x2="8" y2="6"/>

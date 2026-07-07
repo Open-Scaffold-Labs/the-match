@@ -512,7 +512,7 @@ function DeclareBetSheet({ outing, onDone, onCancel }) {
                 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-text)' }}>{p.name}</span>
                   {sel && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B5E3B" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-green)' }}>
                       <polyline points="20 6 9 17 4 12"/>
                     </svg>
                   )}
