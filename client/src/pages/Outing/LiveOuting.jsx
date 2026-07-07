@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { api, post, put } from '../../lib/api.js'
 import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/offline-queue.js'
 import PuttChips from '../../components/scorecard/PuttChips.jsx'
+import { ShotSheet } from '../../components/scorecard/ShotSheet.jsx'
 import { warn } from '../../lib/logger.js'
 import { courseHandicap, playerTeeRatings } from '../../lib/handicapClient.js'
 import GuestModal from './GuestModal.jsx'
@@ -220,6 +221,13 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
     const clean = (puttVal != null && puttVal <= score) ? puttVal : null
     return { putts: clean, firstPutt: clean != null && clean > 0 ? firstPutt : null }
   }
+  // Live shot capture (2026-07-07): SELF-scoring only, opt-in, add-only — the
+  // same ShotSheet the solo round uses. Rides the save ONLY when a shot was
+  // logged (no prefill, so a plain score re-save can never wipe an earlier log,
+  // exactly like putts). Powers OTT/APP/ARG once the outing syncs to the round.
+  const [holeShots, setHoleShots]       = useState([])
+  const [showShotSheet, setShowShotSheet] = useState(false)
+  const shotFactsFor = () => (isSelf && holeShots.length > 0 ? holeShots : null)
 
   // 2026-05-06 — score=1 is a HOLE-IN-ONE regardless of par (a 1 on a
   // par-3 was previously labeled 'Eagle' since diff = -2, which is
@@ -307,7 +315,7 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
           // the unusual-score confirm so a mis-tap that gets cancelled
           // doesn't lie to the user. (2026-05-06 — polish task #1)
           tmHaptic(15)
-          onSave(val, puttFactsFor(val))
+          onSave(val, puttFactsFor(val), shotFactsFor())
         }} style={{
           width: '100%', padding: 16, borderRadius: 'var(--tm-radius-lg)',
           background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
@@ -320,7 +328,7 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
             renders when parent supplied the callback (user scoring own
             hole + next hole exists). (2026-05-01) */}
         {onSaveAndEagleEye && (
-          <button onClick={() => { tmHaptic(15); onSaveAndEagleEye(val, puttFactsFor(val)) }} style={{
+          <button onClick={() => { tmHaptic(15); onSaveAndEagleEye(val, puttFactsFor(val), shotFactsFor()) }} style={{
             width: '100%', padding: 14, marginTop: 10, borderRadius: 'var(--tm-radius-lg)',
             // Solid green gradient + white text — matches the primary green
             // button pattern used elsewhere in the app (CreateWizard "Next →",
@@ -334,6 +342,49 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
             Save &amp; Eagle Eye · Hole {nextHoleDisplay}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
+        )}
+
+        {/* Shot log — SELF-scoring only, optional. Powers OTT/APP/ARG Strokes
+            Gained once the outing syncs into your round; never gates the save.
+            Add-only + no prefill (like putts) so a plain re-save can't wipe it. */}
+        {isSelf && (
+          <div style={{ marginTop: 14, background: 'var(--tm-surface-2)', borderRadius: 'var(--tm-radius)', border: '1px solid var(--tm-border)', overflow: 'hidden' }}>
+            <div style={{ padding: '10px 14px', borderBottom: holeShots.length ? '1px solid var(--tm-border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--tm-text-2)' }}>
+                Shot Log {holeShots.length > 0 && <span style={{ color: 'var(--tm-text-3)', fontWeight: 500 }}>· {holeShots.length}</span>}
+              </div>
+              <button onClick={() => setShowShotSheet(true)}
+                style={{ padding: '4px 12px', borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-gold-muted)', border: '1px solid var(--tm-gold-dim)', color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                + Log Shot
+              </button>
+            </div>
+            {holeShots.length > 0 && (
+              <div style={{ padding: '4px 0' }}>
+                {holeShots.map((s, i) => (
+                  <div key={i} style={{ padding: '6px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                    <span style={{ color: 'var(--tm-text)' }}>
+                      <span style={{ color: 'var(--tm-gold-text)', fontWeight: 700, marginRight: 8 }}>{i + 1}</span>
+                      {s.club}
+                      {s.lie && (
+                        <span style={{ color: 'var(--tm-text-3)', fontSize: 10, marginLeft: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {s.lie === 'recovery' ? 'trouble' : s.lie}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ color: 'var(--tm-text-3)' }}>{s.toPin ? `${s.toPin}yd to pin` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isSelf && showShotSheet && (
+          <ShotSheet
+            isFirstShot={holeShots.length === 0}
+            onAdd={shot => { setHoleShots(a => [...a, shot]); setShowShotSheet(false) }}
+            onClose={() => setShowShotSheet(false)}
+          />
         )}
       </div>
     </div>,
@@ -1167,7 +1218,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // catching errors INSIDE saveScore (so the per-row banner still
   // pops) is fine, but a bulk caller still needs to know not to keep
   // saving when the previous row blew up. (Round 12 edge-case audit.)
-  async function saveScore(hole, score, targetUserId, puttFacts = null) {
+  async function saveScore(hole, score, targetUserId, puttFacts = null, shots = null) {
     setSaving(true)
     // 2026-05-06 — capture the OLD score from local state before the
     // write, so we can detect no-op re-taps. The highlight modal
@@ -1201,9 +1252,14 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
       // earlier entry (audit catch). Explicit clears live in the post-hoc editor.
       const puttRide = (isSelfEdit && puttFacts && puttFacts.putts != null)
         ? { putts: puttFacts.putts, firstPutt: puttFacts.firstPutt } : null
+      // Live shot capture (2026-07-07): the self-entered per-hole shot log rides
+      // ONLY when the writer IS the target AND a shot was logged (no prefill ⇒ a
+      // plain re-save never wipes it). The server applies shots self-only too.
+      const shotRide = (isSelfEdit && Array.isArray(shots) && shots.length > 0)
+        ? { shots } : null
       const baseBody = isSelfEdit && targetUrl.endsWith('/scores')
-        ? { hole, score, ...(puttRide || {}) }
-        : { hole, score, user_id: targetUserId, ...(puttRide || {}) }
+        ? { hole, score, ...(puttRide || {}), ...(shotRide || {}) }
+        : { hole, score, user_id: targetUserId, ...(puttRide || {}), ...(shotRide || {}) }
 
       // F.5 S3 — idempotency key generated ONCE here, at the moment of the
       // user's action, and carried by both the immediate attempt and (if the
@@ -2759,17 +2815,17 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               onGoToEagleEye
               && String(scoreModal.userId) === String(user?.id)
               && scoreModal.hole + 1 < holeCount
-                ? async (val, puttFacts) => {
+                ? async (val, puttFacts, shots) => {
                     const nextHole = scoreModal.hole + 2  // 1-indexed
                     setScoreModal(null)
-                    await saveScore(scoreModal.hole, val, scoreModal.userId, puttFacts)
+                    await saveScore(scoreModal.hole, val, scoreModal.userId, puttFacts, shots)
                     onGoToEagleEye(nextHole)
                   }
                 : null
             }
-            onSave={async (val, puttFacts) => {
+            onSave={async (val, puttFacts, shots) => {
               setScoreModal(null)
-              await saveScore(scoreModal.hole, val, scoreModal.userId, puttFacts)
+              await saveScore(scoreModal.hole, val, scoreModal.userId, puttFacts, shots)
             }}
             onClose={() => setScoreModal(null)}
           />

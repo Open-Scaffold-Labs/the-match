@@ -1037,16 +1037,24 @@ router.put('/:code/scores', async (req, res) => {
     // score write. SG never reads these columns; they flow into tm_rounds
     // at /end (re-cleaned against final scores there — spec risk P3).
     const { cleanPuttEntry, setPuttAtHole } = require('../lib/puttFacts')
+    const { cleanHoleShots, setShotsAtHole } = require('../lib/shotFacts')
     const j = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
     const pf = Object.prototype.hasOwnProperty.call(req.body, 'putts')
       ? setPuttAtHole(j(existing.putts), j(existing.first_putts), hole,
           cleanPuttEntry(req.body.putts, req.body.firstPutt, score))
       : { putts: j(existing.putts) ?? null, firstPutts: j(existing.first_putts) ?? null }
+    // Live shot capture (2026-07-07, migration 042): the SELF-entered per-hole
+    // shot log rides this same self-write, touched ONLY when the body carries a
+    // `shots` key (a plain score correction never wipes it). Fail-soft cleaning.
+    // SG never reads this column; it flows into tm_rounds.shots at /end.
+    const sf = Object.prototype.hasOwnProperty.call(req.body, 'shots')
+      ? setShotsAtHole(j(existing.shots), hole, cleanHoleShots(req.body.shots))
+      : (j(existing.shots) ?? null)
     await q(
       // F.5 S1a: bump score_version on every row score write so an on-behalf
       // writer sees the change. Self-scoring stays last-write-wins.
-      'UPDATE tm_outing_participants SET scores=$1, total=$2, putts=$5, first_putts=$6, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
-      [JSON.stringify(s), t, outing.id, req.user.id, JSON.stringify(pf.putts), JSON.stringify(pf.firstPutts)]
+      'UPDATE tm_outing_participants SET scores=$1, total=$2, putts=$5, first_putts=$6, shots=$7, score_version=score_version+1 WHERE outing_id=$3 AND user_id=$4',
+      [JSON.stringify(s), t, outing.id, req.user.id, JSON.stringify(pf.putts), JSON.stringify(pf.firstPutts), JSON.stringify(sf)]
     )
     // Sync to state JSONB so leaderboard reads are fast. String() both sides
     // (see /:code/join) — on a -1 miss the row still has the score; the S1b
@@ -2295,9 +2303,9 @@ router.post('/:code/end', async (req, res) => {
           `INSERT INTO tm_rounds (
              user_id, outing_id, course_name, course_par,
              course_rating, slope_rating, game_type, scores, total, date,
-             putts, first_putts
+             putts, first_putts, shots
            )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11,$12)
            ON CONFLICT (user_id, outing_id) DO NOTHING`,
           [
             p.user_id, outing.id,
@@ -2310,6 +2318,9 @@ router.post('/:code/end', async (req, res) => {
             total,
             pf.putts ? JSON.stringify(pf.putts) : null,
             pf.firstPutts ? JSON.stringify(pf.firstPutts) : null,
+            // Live shot capture (042): the SELF-entered per-hole shot log flows
+            // into the round so the SG engine can walk complete chains → OTT/APP/ARG.
+            jj(p.shots) ? JSON.stringify(jj(p.shots)) : null,
           ]
         )
         // 2026-05-05 — AWAITED. Was fire-and-forget which Vercel killed
