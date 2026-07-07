@@ -96,9 +96,13 @@
        VALUES ARE FROZEN to the exact literals shipped in EagleEye.jsx on
        2026-07-02 — the Stage A/B tokenization is pixel-identical by
        contract; value elevation is Stage C, reviewed per-change.
-       Semantics (Arccos precedent: white numbers = raw GPS, green = plays-
-       like adjusted): gold-light = raw readouts · green = aligned /
-       GPS-locked / plays-shorter · amber = acquiring / plays-longer.
+       Semantics RE-RULED 2026-07-07 (Stage C1, Matt-approved; grounded in
+       the 2026-07-07 competitive research): white = measured truth (raw
+       GPS) · green = computed (plays-like adjusted) · gold = locked /
+       aligned / trusted (unclaimed by every surveyed leader — we own it) ·
+       dim white = acquiring (unverified data NEVER wears a reward color —
+       instrument-panel convention). Amber remains for plays-longer deltas
+       (a direction cue, not a confidence state).
        Standing rule: NEVER add a ±margin/confidence chip to the hero. */
     --tm-ee-bg:           #070C09;  /* instrument background (NOT --tm-dark-0) */
     --tm-ee-bg-sheet:     #07100C;  /* course-picker panel bg */
@@ -114,6 +118,9 @@
     --tm-ee-green-grad-b: #2E9E45;  /* "Use This Course" CTA gradient end */
     --tm-ee-amber:        #F0A868;  /* acquiring / plays-longer warm */
     --tm-ee-red:          #F87171;  /* GPS-error accent */
+    --tm-ee-flag:         #E53935;  /* pin-flag red (HoleMapGL green marker + distEl flag glyph) */
+    --tm-ee-map-bg:       #0c1a10;  /* map base under NAIP imagery (HoleMapGL) */
+    --tm-ee-map-tint:     #0E3B23;  /* map green tint wash at 0.05 opacity (HoleMapGL) */
 
     /* RGB triplets — call sites use rgb(var(--tm-ee-*-rgb) / alpha).
        Space-separated + slash-alpha is CSS Color 4, WebKit since iOS 12.2 —
@@ -135,12 +142,12 @@
     --tm-ee-white-rgb:       255 255 255;
     --tm-ee-black-rgb:       0 0 0;
 
-    /* Semantic aliases — name the MEANING; Stage C elevates values behind
-       these stable names without another literal-hunt. */
-    --tm-ee-raw:       var(--tm-ee-gold-light);
-    --tm-ee-adjusted:  var(--tm-ee-green);
-    --tm-ee-aligned:   var(--tm-ee-green);
-    --tm-ee-acquiring: var(--tm-ee-amber);
+    /* Semantic aliases — name the MEANING; values re-ruled Stage C1
+       (2026-07-07, Matt-approved). Revert = restore these 4 lines. */
+    --tm-ee-raw:       #fff;                              /* measured truth */
+    --tm-ee-adjusted:  var(--tm-ee-green);                /* computed plays-like */
+    --tm-ee-aligned:   var(--tm-ee-gold);                 /* locked / trusted */
+    --tm-ee-acquiring: rgb(var(--tm-ee-white-rgb) / 0.6); /* unverified — dim, no reward color */
 
     /* — Layered, hue-tinted depth shadow — stacked low-opacity shadows with
        one consistent light direction (reads premium vs a single grey blur). */

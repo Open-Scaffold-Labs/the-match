@@ -136,26 +136,41 @@ function getDefaultAim({ par, totalYards, teePt, greenPt, geometry }) {
 // Small DOM helper for a glassy yardage pill used as a map marker.
 function pillEl(text, primary) {
   const el = document.createElement('div')
-  el.style.cssText = `background:${primary ? 'rgba(7,12,9,0.95)' : 'rgba(7,12,9,0.82)'};color:#fff;`
+  el.style.cssText = `background:${primary ? 'rgb(var(--tm-ee-bg-rgb) / 0.95)' : 'rgb(var(--tm-ee-bg-rgb) / 0.82)'};color:#fff;`
     + `font-weight:800;font-size:${primary ? 14 : 12}px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;`
     + `padding:${primary ? '4px 11px' : '3px 9px'};border-radius:999px;white-space:nowrap;`
-    + `border:1px solid rgba(255,255,255,0.45);box-shadow:0 2px 8px rgba(0,0,0,0.5)`
+    + `border:1px solid rgb(var(--tm-ee-white-rgb) / 0.45);box-shadow:0 2px 8px rgb(var(--tm-ee-black-rgb) / 0.5)`
   el.textContent = text
   return el
 }
 
 // ── Design-token bridge for MapLibre paint (Phase 4.3 pattern, established
-// 2026-07-02): MapLibre paint properties do NOT resolve CSS var(), so new
-// layers read the --tm-ee-* tokens via getComputedStyle at layer-creation.
-// `name` may be a solid token (returns its value) or a `-rgb` triplet token
-// (combined with `alpha` into an rgba() string). Literal fallbacks guarantee
-// a failed read can never blank a layer. Existing layers keep their literals
-// until the full HoleMapGL tokenization slice.
+// 2026-07-02; full HoleMapGL conversion 2026-07-07): MapLibre paint
+// properties do NOT resolve CSS var(), so layers read the --tm-ee-* tokens
+// via getComputedStyle at layer-creation. `name` may be a solid token
+// (returns its value) or a `-rgb` triplet token (combined with `alpha` into
+// a comma-form rgba() string — the safest MapLibre interchange format).
+// Literal fallbacks are load-bearing, not decoration: an invalid color at
+// addLayer SILENTLY DROPS THE WHOLE LAYER (maplibre-style-spec validation
+// returns early — no exception, only an ErrorEvent). The computed-style
+// object is cached module-level (documentElement never detaches; the object
+// is live, so reads stay correct) — one style-resolution force per session.
+let eeStyles = null
 function eeColor(name, alpha, fallback) {
   try {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-    if (!v) return fallback
+    eeStyles ||= getComputedStyle(document.documentElement)
+    const v = eeStyles.getPropertyValue(name).trim()   // .trim() guards WebKit leading-whitespace serialization
+    if (!v) {
+      if (import.meta.env?.DEV) console.warn('[HoleMapGL] token read empty, using fallback:', name)
+      return fallback
+    }
     if (alpha == null) return v
+    if (v.startsWith('#')) {
+      // Alpha path requires a `-rgb` triplet token; a hex value would emit
+      // invalid `rgba(#hex,a)` and silently drop the layer. Fall back loud.
+      if (import.meta.env?.DEV) console.warn('[HoleMapGL] alpha needs a -rgb triplet token, got hex:', name)
+      return fallback
+    }
     return `rgba(${v.split(/\s+/).join(',')},${alpha})`
   } catch { return fallback }
 }
@@ -170,17 +185,26 @@ function distEl(numText, toGreen) {
   el.style.cssText = 'display:flex;align-items:center;gap:3px;white-space:nowrap;pointer-events:none'
   if (toGreen) {
     const flag = document.createElement('span')
-    flag.style.cssText = 'display:inline-flex;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.8))'
-    flag.innerHTML = '<svg width="12" height="14" viewBox="0 0 22 28"><line x1="4" y1="3" x2="4" y2="26" stroke="#E53935" stroke-width="2.4" stroke-linecap="round"/><polygon points="4,2.5 19,8 4,13.5" fill="#E53935"/></svg>'
+    flag.style.cssText = 'display:inline-flex;filter:drop-shadow(0 1px 2px rgb(var(--tm-ee-black-rgb) / 0.8))'
+    // Token colors via style= declarations, NOT presentation attrs: var() is
+    // only guaranteed to substitute in CSS declarations (2026-07-07 research).
+    flag.innerHTML = '<svg width="12" height="14" viewBox="0 0 22 28"><line x1="4" y1="3" x2="4" y2="26" stroke-width="2.4" stroke-linecap="round" style="stroke:var(--tm-ee-flag)"/><polygon points="4,2.5 19,8 4,13.5" style="fill:var(--tm-ee-flag)"/></svg>'
     el.appendChild(flag)
   }
   const num = document.createElement('span')
   num.className = 'ee-dist-num'
   num.textContent = numText
+  // C3 staged A/B (2026-07-07, Matt: tune on device, don't ship blind):
+  // localStorage 'tm-ee-halo-soft' = '1' swaps the hard 0.75px text-stroke
+  // for a soft blurred dark casing (cartography guidance: soft 40-60% halo
+  // beats a hard stroke over imagery). Default OFF = today's halo, untouched.
+  const softHalo = (() => { try { return localStorage.getItem('tm-ee-halo-soft') === '1' } catch { return false } })()
   num.style.cssText = 'color:#fff;font-weight:800;font-size:' + size + 'px;line-height:1;'
     + 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-variant-numeric:tabular-nums;'
-    + '-webkit-text-stroke:0.75px rgba(0,0,0,0.55);'
-    + 'text-shadow:0 0 3px rgba(0,0,0,0.85),0 1px 3px rgba(0,0,0,0.9)'
+    + (softHalo
+      ? 'text-shadow:0 0 4px rgb(var(--tm-ee-black-rgb) / 0.6),0 0 8px rgb(var(--tm-ee-black-rgb) / 0.5),0 1px 3px rgb(var(--tm-ee-black-rgb) / 0.55)'
+      : '-webkit-text-stroke:0.75px rgb(var(--tm-ee-black-rgb) / 0.55);'
+        + 'text-shadow:0 0 3px rgb(var(--tm-ee-black-rgb) / 0.85),0 1px 3px rgb(var(--tm-ee-black-rgb) / 0.9)')
   el.appendChild(num)
   return el
 }
@@ -261,9 +285,9 @@ export default function HoleMapGL({
             version: 8,
             sources: { naip: { type: 'raster', tiles: [NAIP_TILES], tileSize: 256, maxzoom: 18, attribution: 'Imagery: USDA NAIP' } },
             layers: [
-              { id: 'bg', type: 'background', paint: { 'background-color': '#0c1a10' } },
+              { id: 'bg', type: 'background', paint: { 'background-color': eeColor('--tm-ee-map-bg', null, '#0c1a10') } },
               { id: 'naip', type: 'raster', source: 'naip' },
-              { id: 'tint', type: 'background', paint: { 'background-color': '#0E3B23', 'background-opacity': 0.05 } },
+              { id: 'tint', type: 'background', paint: { 'background-color': eeColor('--tm-ee-map-tint', null, '#0E3B23'), 'background-opacity': 0.05 } },
             ],
           },
           center: lngLat(geocoded), zoom: 16, pitch: 0, bearing: 0,
@@ -325,12 +349,12 @@ export default function HoleMapGL({
         map.addSource('fairway', { type: 'geojson', data: fc([]) })
         map.addSource('green', { type: 'geojson', data: fc([]) })
         map.addSource('halo', { type: 'geojson', data: fc([]) })
-        map.addLayer({ id: 'fairway-glow', type: 'line', source: 'fairway', paint: { 'line-color': '#F5E070', 'line-width': 7, 'line-opacity': 0.22, 'line-blur': 4 }, layout: { 'line-cap': 'round' } })
-        map.addLayer({ id: 'fairway', type: 'line', source: 'fairway', paint: { 'line-color': '#F5E070', 'line-width': 2.5, 'line-opacity': 0.9, 'line-dasharray': [2, 1.4] }, layout: { 'line-cap': 'round' } })
-        map.addLayer({ id: 'green-fill', type: 'fill', source: 'green', paint: { 'fill-color': '#5ED47A', 'fill-opacity': 0.20 } })
-        map.addLayer({ id: 'green-line', type: 'line', source: 'green', paint: { 'line-color': '#5ED47A', 'line-width': 2, 'line-opacity': 0.85 } })
-        map.addLayer({ id: 'halo-fill', type: 'fill', source: 'halo', paint: { 'fill-color': '#F5D78A', 'fill-opacity': 0.08 } })
-        map.addLayer({ id: 'halo-line', type: 'line', source: 'halo', paint: { 'line-color': '#F5D78A', 'line-width': 1, 'line-opacity': 0.30 } })
+        map.addLayer({ id: 'fairway-glow', type: 'line', source: 'fairway', paint: { 'line-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'line-width': 7, 'line-opacity': 0.22, 'line-blur': 4 }, layout: { 'line-cap': 'round' } })
+        map.addLayer({ id: 'fairway', type: 'line', source: 'fairway', paint: { 'line-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'line-width': 2.5, 'line-opacity': 0.9, 'line-dasharray': [2, 1.4] }, layout: { 'line-cap': 'round' } })
+        map.addLayer({ id: 'green-fill', type: 'fill', source: 'green', paint: { 'fill-color': eeColor('--tm-ee-green', null, '#5ED47A'), 'fill-opacity': 0.20 } })
+        map.addLayer({ id: 'green-line', type: 'line', source: 'green', paint: { 'line-color': eeColor('--tm-ee-green', null, '#5ED47A'), 'line-width': 2, 'line-opacity': 0.85 } })
+        map.addLayer({ id: 'halo-fill', type: 'fill', source: 'halo', paint: { 'fill-color': eeColor('--tm-ee-gold-light', null, '#F5D78A'), 'fill-opacity': 0.08 } })
+        map.addLayer({ id: 'halo-line', type: 'line', source: 'halo', paint: { 'line-color': eeColor('--tm-ee-gold-light', null, '#F5D78A'), 'line-width': 1, 'line-opacity': 0.30 } })
         // Layup range-arcs (2.5, market-corrected form 2026-07-02): green-anchored
         // 100/150/200/250 arcs, opt-in via the RINGS toggle. Stroke-only (never
         // fill — hazards must stay readable through them) in the white=raw-distance
@@ -359,8 +383,8 @@ export default function HoleMapGL({
         // Landing ZONE (2026-07-02): now the honest dispersionEllipse shape, drawn
         // soft — feathered blurred edge, no crisp outline (a hard 2.5px line read
         // as false precision; risk D1 in the range-rings/dispersion spec).
-        map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': '#F5E070', 'fill-opacity': 0.14 } })
-        map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': '#F5E070', 'line-width': 5, 'line-blur': 6, 'line-opacity': 0.35 } })
+        map.addLayer({ id: 'landing-fill', type: 'fill', source: 'landing', paint: { 'fill-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'fill-opacity': 0.14 } })
+        map.addLayer({ id: 'landing-line', type: 'line', source: 'landing', paint: { 'line-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'line-width': 5, 'line-blur': 6, 'line-opacity': 0.35 } })
         // Bag arcs (Phase 3.3, rebuilt 2026-06-26): own-club distance ARCS — a
         // curved band per club at its true-ground yardage, swept across the line
         // of play. Drawn as LineStrings. A wide low-opacity glow under a crisp
@@ -368,13 +392,13 @@ export default function HoleMapGL({
         // thicker. Data-driven from the player's REAL bag only.
         map.addSource('bagArcs', { type: 'geojson', data: fc([]) })
         map.addLayer({ id: 'bagArcs-glow', type: 'line', source: 'bagArcs', paint: {
-          'line-color': ['case', ['get', 'highlight'], '#F5E070', '#F5D78A'],
+          'line-color': ['case', ['get', 'highlight'], eeColor('--tm-ee-gold-pulse', null, '#F5E070'), eeColor('--tm-ee-gold-light', null, '#F5D78A')],
           'line-width': ['case', ['get', 'highlight'], 9, 6],
           'line-opacity': ['case', ['get', 'highlight'], 0.28, 0.14],
           'line-blur': 4,
         }, layout: { 'line-cap': 'round' } })
         map.addLayer({ id: 'bagArcs-line', type: 'line', source: 'bagArcs', paint: {
-          'line-color': ['case', ['get', 'highlight'], '#F5E070', 'rgba(245,224,112,0.62)'],
+          'line-color': ['case', ['get', 'highlight'], eeColor('--tm-ee-gold-pulse', null, '#F5E070'), eeColor('--tm-ee-gold-pulse-rgb', 0.62, 'rgba(245,224,112,0.62)')],
           'line-width': ['case', ['get', 'highlight'], 3.5, 2],
           'line-opacity': 0.95,
         }, layout: { 'line-cap': 'round' } })
@@ -443,7 +467,7 @@ export default function HoleMapGL({
     if (tee) {
       if (!teeMarkerRef.current) {
         const el = document.createElement('div')
-        el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#C9A040;border:2px solid #fff;box-shadow:0 0 8px rgba(201,160,64,0.8)'
+        el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--tm-ee-gold);border:2px solid #fff;box-shadow:0 0 8px rgb(var(--tm-ee-gold-rgb) / 0.8)'
         teeMarkerRef.current = new gl.Marker({ element: el }).setLngLat([tee.lon, tee.lat]).addTo(map)
       } else teeMarkerRef.current.setLngLat([tee.lon, tee.lat])
     } else if (teeMarkerRef.current) { teeMarkerRef.current.remove(); teeMarkerRef.current = null }
@@ -451,8 +475,9 @@ export default function HoleMapGL({
       if (!greenMarkerRef.current) {
         // Red pin-flag (matches the Leaflet map's flag), anchored at the pole base.
         const el = document.createElement('div')
-        el.style.cssText = 'width:22px;height:28px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.6))'
-        el.innerHTML = '<svg width="22" height="28" viewBox="0 0 22 28"><line x1="4" y1="2" x2="4" y2="27" stroke="white" stroke-width="1.8" stroke-linecap="round"/><polygon points="4,2 20,8 4,14" fill="#E53935" stroke="white" stroke-width="0.8"/><circle cx="4" cy="27" r="2.5" fill="#E53935" stroke="white" stroke-width="1.2"/></svg>'
+        el.style.cssText = 'width:22px;height:28px;filter:drop-shadow(0 2px 3px rgb(var(--tm-ee-black-rgb) / 0.6))'
+        // Flag red via style= declarations (var() in presentation attrs is not guaranteed).
+        el.innerHTML = '<svg width="22" height="28" viewBox="0 0 22 28"><line x1="4" y1="2" x2="4" y2="27" stroke="white" stroke-width="1.8" stroke-linecap="round"/><polygon points="4,2 20,8 4,14" stroke="white" stroke-width="0.8" style="fill:var(--tm-ee-flag)"/><circle cx="4" cy="27" r="2.5" stroke="white" stroke-width="1.2" style="fill:var(--tm-ee-flag)"/></svg>'
         greenMarkerRef.current = new gl.Marker({ element: el, anchor: 'bottom', offset: [7, 0] }).setLngLat([green.lon, green.lat]).addTo(map)
       } else greenMarkerRef.current.setLngLat([green.lon, green.lat])
     } else if (greenMarkerRef.current) { greenMarkerRef.current.remove(); greenMarkerRef.current = null }
@@ -466,7 +491,7 @@ export default function HoleMapGL({
         // 44px transparent hit area (touch-target min) wrapping a 26px visual.
         const el = document.createElement('div')
         el.style.cssText = 'width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:grab'
-        el.innerHTML = '<div style="width:26px;height:26px;border-radius:50%;background:rgba(245,224,112,0.16);border:2px solid #F5E070;box-shadow:0 0 10px rgba(245,224,112,0.7);display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;border-radius:50%;background:#F5E070"></div></div>'
+        el.innerHTML = '<div style="width:26px;height:26px;border-radius:50%;background:rgb(var(--tm-ee-gold-pulse-rgb) / 0.16);border:2px solid var(--tm-ee-gold-pulse);box-shadow:0 0 10px rgb(var(--tm-ee-gold-pulse-rgb) / 0.7);display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;border-radius:50%;background:var(--tm-ee-gold-pulse)"></div></div>'
         aimMarkerRef.current = new gl.Marker({ element: el, draggable: true }).setLngLat([aim.lon, aim.lat]).addTo(map)
         aimMarkerRef.current.on('drag', () => {
           const ll = aimMarkerRef.current.getLngLat()
@@ -723,7 +748,7 @@ export default function HoleMapGL({
 
     if (!puckRef.current) {
       const el = document.createElement('div')
-      el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#F5D78A;border:3px solid #fff;box-shadow:0 0 10px rgba(245,215,138,0.9)'
+      el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:var(--tm-ee-gold-light);border:3px solid #fff;box-shadow:0 0 10px rgb(var(--tm-ee-gold-light-rgb) / 0.9)'
       puckRef.current = new gl.Marker({ element: el }).setLngLat([target.lon, target.lat]).addTo(map)
       puckPosRef.current = target
     }
@@ -769,16 +794,16 @@ export default function HoleMapGL({
   // iOS app (WKWebView on iOS 15+ has WebGL2); the realistic trigger is a
   // transient network failure loading the map chunk or tiles.
   if (failed) return (
-    <div style={{ position: 'absolute', inset: 0, background: '#0c1a10', display: 'flex',
+    <div style={{ position: 'absolute', inset: 0, background: 'var(--tm-ee-map-bg)', display: 'flex',
       flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
-      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
+      <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.6)', fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
         The course map didn’t load.<br />Check your connection and try again.
       </div>
       <button onClick={() => window.location.reload()} style={{
-        background: 'linear-gradient(135deg, #C9A040, #E8C05A)', border: '1px solid rgba(245,215,138,0.85)',
-        borderRadius: 999, padding: '10px 22px', color: '#070C09', fontWeight: 900, fontSize: 13,
+        background: 'linear-gradient(135deg, var(--tm-ee-gold), var(--tm-ee-gold-bright))', border: '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.85)',
+        borderRadius: 999, padding: '10px 22px', color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 13,
         letterSpacing: '0.04em', cursor: 'pointer',
-        boxShadow: '0 8px 22px rgba(201,160,64,0.45), inset 0 1px 0 rgba(255,255,255,0.5)' }}>
+        boxShadow: '0 8px 22px rgb(var(--tm-ee-gold-rgb) / 0.45), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.5)' }}>
         Retry
       </button>
     </div>
@@ -787,24 +812,24 @@ export default function HoleMapGL({
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <style>{`
-        .ee-gl-pop .maplibregl-popup-content{background:rgba(7,12,9,0.92);color:#fff;font-weight:800;font-size:12px;
+        .ee-gl-pop .maplibregl-popup-content{background:rgb(var(--tm-ee-bg-rgb) / 0.92);color:#fff;font-weight:800;font-size:12px;
           font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:4px 10px;border-radius:999px;
-          border:1px solid rgba(255,255,255,0.55);box-shadow:0 2px 8px rgba(0,0,0,0.55);white-space:nowrap}
+          border:1px solid rgb(var(--tm-ee-white-rgb) / 0.55);box-shadow:0 2px 8px rgb(var(--tm-ee-black-rgb) / 0.55);white-space:nowrap}
         .ee-gl-pop .maplibregl-popup-tip{display:none}
-        .maplibregl-ctrl-group{background:rgba(7,12,9,0.66)!important;border:none!important;border-radius:14px!important;
-          box-shadow:0 6px 18px rgba(0,0,0,0.45)!important;overflow:hidden;backdrop-filter:blur(14px) saturate(150%)}
+        .maplibregl-ctrl-group{background:rgb(var(--tm-ee-bg-rgb) / 0.66)!important;border:none!important;border-radius:14px!important;
+          box-shadow:0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)!important;overflow:hidden;backdrop-filter:blur(14px) saturate(150%)}
         .maplibregl-ctrl-group button{background:transparent!important;width:34px!important;height:34px!important}
-        .maplibregl-ctrl-group button+button{border-top:1px solid rgba(245,215,138,0.18)!important}
+        .maplibregl-ctrl-group button+button{border-top:1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.18)!important}
         .maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:invert(78%) sepia(38%) saturate(560%) hue-rotate(2deg) brightness(101%)}
-        .maplibregl-ctrl-attrib{background:rgba(7,12,9,0.50)!important;color:rgba(255,255,255,0.45)!important}
-        .maplibregl-ctrl-attrib a{color:rgba(245,215,138,0.65)!important}
+        .maplibregl-ctrl-attrib{background:rgb(var(--tm-ee-bg-rgb) / 0.50)!important;color:rgb(var(--tm-ee-white-rgb) / 0.45)!important}
+        .maplibregl-ctrl-attrib a{color:rgb(var(--tm-ee-gold-light-rgb) / 0.65)!important}
         .maplibregl-canvas{outline:none}
         /* Push the zoom control to the mid-left so it clears the top-left
            glass instrument card (was hidden behind it). Mirrors the Leaflet
            map's mid-left zoom placement. */
         .maplibregl-ctrl-top-left{top:42%!important}
       `}</style>
-      <div ref={containerRef} style={{ width: '100%', height: '100%', background: '#0c1a10' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '100%', background: 'var(--tm-ee-map-bg)' }} />
     </div>
   )
 }
