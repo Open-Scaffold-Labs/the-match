@@ -912,6 +912,20 @@ router.post('/:code/join', async (req, res) => {
     assignParticipantToGroup(state, entry)
     state.participants = [...(state.participants || []), entry]
     await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), outing.id])
+  } else if (exists.withdrawn && exists.withdrawn_by !== 'host') {
+    // 2026-07-07 — re-joining via code/QR is an explicit intent signal:
+    // reinstate a SELF-withdrawn player (the one-active-match guard's
+    // "Leave it & continue"). Without this, a returning player joins
+    // "successfully" but stays invisible on the board and 403s on every
+    // score write, with no path back except finding the host — a dead-end
+    // discovered tracing the 7EAX withdrawn-row mystery. A player the HOST
+    // withdrew stays withdrawn: the commissioner's decision wins until the
+    // host reinstates from Manage. Legacy rows with no withdrawn_by
+    // provenance (pre-2026-07-07) are treated as self-withdrawn — the
+    // player-friendly reading of ambiguous history.
+    exists.withdrawn = false
+    delete exists.withdrawn_by
+    await db.query('UPDATE tm_outings SET state = $1 WHERE id = $2', [JSON.stringify(state), outing.id])
   }
 
   res.json({ outing: { ...outing, state } })
@@ -2020,6 +2034,12 @@ router.post('/:code/withdraw', async (req, res) => {
     if (idx < 0) return res.status(404).json({ error: 'Participant not found' })
 
     state.participants[idx].withdrawn = !!withdrawn
+    // 2026-07-07 — record WHO withdrew (self via the one-active-match
+    // guard vs host via the commissioner panel). /join uses this to
+    // auto-reinstate self-withdrawn players on an explicit re-join while
+    // preserving host-withdraw authority. Cleared on reinstate.
+    if (withdrawn) state.participants[idx].withdrawn_by = isSelf ? 'self' : 'host'
+    else delete state.participants[idx].withdrawn_by
     await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(state), outing.id])
     res.json({ ok: true })
   } catch (err) {
