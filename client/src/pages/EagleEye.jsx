@@ -383,6 +383,48 @@ function DistanceInstrument({ yards, label, accent = 'var(--tm-ee-green)' }) {
   )
 }
 
+// Primary readout view switch — DIAL (arc instrument) vs BIG (arm's-length
+// glance). A labeled 2-segment control: the canonical pattern for switching
+// between mutually-exclusive views of the same content (cf. the Maps
+// Map/Satellite switcher), kept visible so it stays discoverable — a hidden
+// gesture measurably hurts use. Each segment clears the 44pt touch floor.
+// (C4, 2026-07-07)
+function ModeToggle({ mode, onChange }) {
+  const seg = (id, label) => {
+    const active = mode === id
+    return (
+      <button
+        key={id}
+        onClick={() => onChange(id)}
+        aria-pressed={active}
+        aria-label={id === 'big' ? 'Big Numbers view' : 'Dial view'}
+        style={{
+          minWidth: 64, height: 44, padding: '0 16px', borderRadius: 999, border: 'none',
+          background: active
+            ? 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.32), rgb(var(--tm-ee-gold-rgb) / 0.18))'
+            : 'transparent',
+          color: active ? 'var(--tm-ee-gold-light)' : 'rgb(var(--tm-ee-white-rgb) / 0.5)',
+          fontSize: 12, fontWeight: 800, letterSpacing: '0.10em', cursor: 'pointer',
+          fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
+          boxShadow: active ? 'inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.18)' : 'none',
+          transition: 'color 0.18s var(--tm-ease), background 0.18s var(--tm-ease)',
+        }}>{label}</button>
+    )
+  }
+  return (
+    <div role="group" aria-label="Distance readout view" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3, padding: 3,
+      background: 'rgb(var(--tm-ee-glass-rgb) / 0.62)',
+      backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+      border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', borderRadius: 999,
+      boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.12)',
+    }}>
+      {seg('dial', 'DIAL')}
+      {seg('big', 'BIG')}
+    </div>
+  )
+}
+
 // ─── Camera modal (overlays the distance view) ────────────────────────────────
 function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos, onClose, onResult }) {
   const videoRef   = useRef(null)
@@ -1110,6 +1152,19 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     try { localStorage.setItem('tm-eye-rings', next ? '1' : '0') } catch { /* private mode */ }
     return next
   })
+  // C4 "Big Numbers" glance mode (2026-07-07) — a stripped, arm's-length
+  // readout: giant centre-to-green with FRONT/BACK promoted to labels, the map
+  // scrimmed for sunlight contrast. Opt-in + persisted (tm-eye-bignums),
+  // mirroring the rings/halo pattern; the DIAL|BIG segmented switch lives
+  // bottom-centre in the thumb zone. Cheap revert: this flag + the bigMode
+  // branch in the distance-view render.
+  const [bigMode, setBigMode] = useState(() => {
+    try { return localStorage.getItem('tm-eye-bignums') === '1' } catch { return false }
+  })
+  const setBig = (on) => {
+    try { localStorage.setItem('tm-eye-bignums', on ? '1' : '0') } catch { /* private mode */ }
+    setBigMode(on)
+  }
   useEffect(() => {
     let alive = true
     api('/api/clubs/bag').then(d => {
@@ -2038,6 +2093,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 tabular numeral with a soft shadow so it stays legible over
                 bright satellite imagery. Compact enough not to occlude the
                 map/markers. (2026-06-23 — premium pass, first visual slice.) */}
+            {/* C4 (2026-07-07): the DIAL instrument renders only when NOT in
+                Big-Numbers glance mode; BIG swaps to the full-screen readout below. */}
+            {!bigMode && (<>
             <div style={{ alignSelf: 'center', order: 2, pointerEvents: 'auto', textAlign: 'center',
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'rgb(var(--tm-ee-glass-rgb) / 0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
@@ -2168,7 +2226,96 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   chance a future code path wants to capture a custom
                   shot origin, but is no longer surfaced in the UI. */}
             </div>
+            </>)}
+
+            {/* DIAL | BIG view switch — the primary readout mode toggle. Bottom-
+                centre = the one-handed thumb-reach zone; a labeled segmented
+                control keeps it discoverable (vs a hidden gesture) and reads as
+                the canonical mutually-exclusive-view switch. Persisted; present
+                in both modes. (C4, 2026-07-07) */}
+            <div style={{ order: 3, alignSelf: 'center', marginTop: 12, pointerEvents: 'auto', zIndex: 810 }}>
+              <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
+            </div>
           </div>
+
+          {/* ── Big-Numbers glance overlay (C4, 2026-07-07) — a full-screen
+              takeover of the satellite view: giant centre-to-green with
+              FRONT/BACK promoted to labels (Front-top/Back-bottom to mirror the
+              green), on a dark scrim so the numbers hold contrast in sunlight
+              (text over raw imagery fails WCAG F83). The header (hole nav + GPS
+              state) stays; map-overlay controls hide. Reads at arm's length. ── */}
+          {bigMode && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 12,
+              background: 'linear-gradient(180deg, rgb(var(--tm-ee-bg-rgb) / 0.90) 0%, rgb(var(--tm-ee-bg-rgb) / 0.82) 52%, rgb(var(--tm-ee-bg-rgb) / 0.92) 100%)',
+              backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: 'calc(env(safe-area-inset-top, 44px) + 104px) 20px calc(env(safe-area-inset-bottom, 0px) + 104px)',
+              animation: 'ee-fade-in 0.24s ease-out', pointerEvents: 'none',
+            }}>
+              {/* FRONT — near edge, above the hero to mirror the green geometry */}
+              {fcb && fcb.front != null && (
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
+                  <span style={{ width: 66, textAlign: 'right', fontSize: 13, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-green-rgb) / 0.9)' }}>FRONT</span>
+                  <span style={{ minWidth: 92, textAlign: 'left', fontSize: 'clamp(30px, 10vw, 42px)', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' }}>{fcb.front}</span>
+                </div>
+              )}
+
+              {/* CENTRE — the hero. Same value + label + accent as the dial, just
+                  sized for a glance; white = measured truth (C1 semantics). */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '6px 0' }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.22em', color: distAccent, marginBottom: 2 }}>{distLabel}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: 'clamp(76px, 27vw, 132px)', fontWeight: 900, color: 'var(--tm-ee-raw)', fontVariantNumeric: 'tabular-nums', fontFeatureSettings: '"tnum"', lineHeight: 0.88, letterSpacing: '-4px', textShadow: '0 4px 24px rgb(var(--tm-ee-black-rgb) / 0.6)' }}>
+                    {typeof displayYards === 'number' ? Math.round(displayYards) : '—'}
+                  </span>
+                  <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '0.10em', color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>YDS</span>
+                </div>
+                {/* GPS state chip — same semantics as the dial (C1 re-rule) */}
+                {gpsUsable ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-ee-aligned)', boxShadow: '0 0 6px rgb(var(--tm-ee-gold-rgb) / 0.8)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', color: 'rgb(var(--tm-ee-gold-rgb) / 0.85)' }}>GPS</span>
+                  </div>
+                ) : gpsOutOfRange ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgb(var(--tm-ee-white-rgb) / 0.25)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)' }}>GPS · OUT OF RANGE</span>
+                  </div>
+                ) : gpsAcquiring ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-ee-acquiring)', animation: 'ee-acq-pulse 1.1s ease-in-out infinite' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.10em', color: 'rgb(var(--tm-ee-white-rgb) / 0.6)' }}>ACQUIRING</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* BACK — far edge, below the hero */}
+              {fcb && fcb.back != null && (
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 12 }}>
+                  <span style={{ width: 66, textAlign: 'right', fontSize: 13, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)' }}>BACK</span>
+                  <span style={{ minWidth: 92, textAlign: 'left', fontSize: 'clamp(30px, 10vw, 42px)', fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, letterSpacing: '-1px' }}>{fcb.back}</span>
+                </div>
+              )}
+
+              {/* PLAYS LIKE — one subordinate line; still opens the breakdown sheet */}
+              {plView && (
+                <button onClick={() => setPlSheetOpen(true)} style={{
+                  pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 8, marginTop: 26, padding: '8px 16px',
+                  background: 'rgb(var(--tm-ee-gold-rgb) / 0.16)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.38)', borderRadius: 12,
+                  cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.85)' }}>PLAYS LIKE</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{plView.total}</span>
+                  {plView.adj !== 0 && (
+                    <span style={{ fontSize: 12, fontWeight: 800, color: plView.adj > 0 ? 'var(--tm-ee-amber)' : 'var(--tm-ee-green)', fontVariantNumeric: 'tabular-nums' }}>
+                      {plView.adj > 0 ? `+${plView.adj}` : plView.adj}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -2230,7 +2377,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           over with ▲ (longer) and ▼ (shorter) arrows around the
           selected club. Each toggle press updates the landing-zone
           ring on the map. Tap the center to clear. (2026-05-01) */}
-      {!showCamera && !showPicker && courseCtx && (
+      {!showCamera && !showPicker && courseCtx && !bigMode && (
         <ClubToggle
           bag={myBag}
           selected={selectedClub}
@@ -2243,7 +2390,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
       {/* My-bag arcs toggle (Phase 3.3) — summon the own-club distance zones.
           Calm by default; mutually exclusive with single-club selection. */}
-      {!showCamera && !showPicker && courseCtx && (
+      {!showCamera && !showPicker && courseCtx && !bigMode && (
         <button
           onClick={() => {
             const turningOn = !bagArcsOn
@@ -2277,7 +2424,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           (tm-eye-rings); default off keeps the map clean (the market's #1
           documented overlay failure is clutter). Sits above ARCS on the same
           right-edge control rail — one coherent glass column. */}
-      {!showCamera && !showPicker && courseCtx && (
+      {!showCamera && !showPicker && courseCtx && !bigMode && (
         <button
           onClick={toggleRings}
           aria-pressed={ringsOn}
