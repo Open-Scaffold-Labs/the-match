@@ -61,11 +61,25 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
   useEffect(() => {
     if (soloResumeCheckedRef.current) return
     if (!user?.id) return
+    // 2026-07-06 — a pending ?join= code is an EXPLICIT intent (QR scan /
+    // shared link) and outranks the silent solo auto-resume. Without this
+    // guard the resume wins the mount race; the join then flips the view to
+    // 'live' late (jank), and if the join FAILS the error toast renders in
+    // the hub view that ActiveRound's early-return makes unreachable — the
+    // user lands in their solo round with zero feedback about the code they
+    // scanned. Seen on the S4 walkthrough (outing 7EAX, first load). We mark
+    // the resume as consumed so a failed join lands on the hub, where the
+    // toast is visible AND the resume-solo card offers the way back into
+    // the saved round.
+    if (pendingJoinCode) {
+      soloResumeCheckedRef.current = true
+      return
+    }
     soloResumeCheckedRef.current = true
     if (readSavedSoloRound(user.id)) {
       setView('solo')
     }
-  }, [user?.id])
+  }, [user?.id, pendingJoinCode])
 
   // 2026-05-05 — QR-scan auto-join. App.jsx parses ?join=ABCD off the
   // URL (or pulls a stash from localStorage post-onboarding) and
