@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-07-06
-updated: 2026-07-06
+updated: 2026-07-07
 tags: [the-match, handoff, rollup]
 ---
 
@@ -15,19 +15,31 @@ written (newest/ACTIVE first). Everything below the first section is
 SUPERSEDED history — trust the ACTIVE section.
 
 
-
-
-
-
-======================================================================
 # [ACTIVE] next-session-handoff-2026-07-07.md
-======================================================================
 
 # Next-Session Handoff — 2026-07-07 (ACTIVE; supersedes 2026-07-06)
 
 Start with the mandatory CLAUDE.md first actions (roll-call → wiki/index.md → this file +
-`wiki/log.md`'s 07-06 PM13 → 07-07 AM4 entries). Everything below is SHIPPED AND
+`wiki/log.md`'s 07-06 PM13 → 07-07 PM2 entries). Everything below is SHIPPED AND
 VERIFIED unless marked open.
+
+## UPDATE 2026-07-07 PM — EE tokenization COMPLETE (Slice 1 + Stage C1/C2 live; C3 staged)
+
+Open item #2 from the list below is CLOSED. Shipped `7c260d4` + `a70a1b7`, deploy watched,
+served-bundle grep-confirmed:
+- **HoleMapGL → tokens (pixel-identical)**: paint props via hardened eeColor bridge (fallbacks
+  are load-bearing — invalid color at addLayer silently DROPS the layer); DOM/CSS via var();
+  injected-SVG via `style=`. Equivalence 57/57 order-exact; gates ×3 green.
+- **C1 semantic re-rule (Matt-approved)**: white=measured, green=computed, gold=locked (unclaimed
+  by every surveyed leader), dim=acquiring. Plays-like sheet hero now GREEN; GPS locked now GOLD.
+- **C2**: hero micro-labels 9/10 → 11px outdoor floor. **C3**: soft map-label halo staged behind
+  localStorage `tm-ee-halo-soft`='1' (default OFF) — A/B on the course.
+- Full spec + research + risk register: [[synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07]]
+- **Folded into Matt's on-course pass (open #1)**: prod eyeball of map layers/markers (worst case
+  = yesterday's colors via fallbacks), GPS-locked gold + acquiring dim states, sheet-hero green,
+  C3 A/B. **New follow-up**: C4 "Big Numbers" glance mode (structural gap vs category leader).
+- Watch: duplicate `display` key ×2 in `components/scorecard/index.jsx` (esbuild warning,
+  pre-existing, surfaced not fixed — S4-unification vintage).
 
 ## Shipped this session (07-06 PM → 07-07 AM; every item live + evidence-verified)
 
@@ -100,10 +112,7 @@ on ANY npm install · browser-walkthrough with a VISIBLE window for map work · 
 reload races the first post-deploy page load (retry before diagnosing) · slice definition
 defines done · same-target probes prove nothing tool-wide (anti-pattern #27).
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-07-06.md
-======================================================================
 
 # Next-Session Handoff — 2026-07-06 (SUPERSEDED by 2026-07-07)
 
@@ -187,10 +196,7 @@ DB OSL/bqjd :6543, ANTHROPIC_API_KEY = the-match-prod-2, all SCORING_* flags on.
 Test accounts: #2 Test User, #14 Demo Tester; test outings 8L3U/UDCX (closed, keep).
 e2e harness: `scripts/e2e-putt-capture*.mjs` (JWT minted blind from .env).
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-07-02.md
-======================================================================
 
 # Next-Session Handoff — Eagle Eye + Bulletproof Build (2026-07-02)
 
@@ -379,10 +385,7 @@ crashes; lint is what catches them.
 - If wiki/CLAUDE.md changed, run the NotebookLM refresh + preflight per the CLAUDE.md
   end-of-session checklist.
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-06-30.md
-======================================================================
 
 # The Match — Next-Session Handoff (2026-06-30)
 
@@ -425,10 +428,7 @@ We're already visually ahead of the field (research-confirmed: no competitor doc
 ## Standing rules (unchanged)
 Roll Call first. Beta = `main` (gate every push: `npm --prefix client run build` + `run lint` + `node --check` changed server files + `npm test`; math via `node client/src/lib/geo.test.mjs`). audit-before-claim every claim. Framing check (anti-pattern #26). Never advertise/​show a precision figure.
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-06-29.md
-======================================================================
 
 # The Match — Next-Session Handoff (2026-06-29) → Eagle Eye accuracy + visual flow
 
@@ -503,10 +503,7 @@ Supersedes `next-session-handoff-2026-06-28.md`. Read this first, then the two l
 
 **First decision for the next session to get from Matt:** Phase 0 foundation pass alone (fast, whole-app lift), or Phase 0 + the accuracy-polish slice together? Recommend Phase 0 first — it derisks and visibly lifts everything, and the token/type system is the substrate the accuracy chips + dispersion bands render on.
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-06-28.md
-======================================================================
 
 # The Match — Next-Session Handoff (2026-06-28)
 
@@ -561,10 +558,7 @@ Then create a DB and `psql -f` the migrations. This is how F.6 parity and the 37
 - `migrations/004_tm_games.sql` (repair), `035_*` (indexes), `036_*` (score_version).
 - Specs: `f5-never-lose-your-round-build-spec-2026-06-28.md`, `foundation-lock-build-spec-2026-06-27.md`, `audit-2026-06-27.md`.
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-06-27.md
-======================================================================
 
 # The Match — Next-Session Handoff (2026-06-27)
 
@@ -627,10 +621,7 @@ Commits: `bb355a5`→`4b15d9f`. build + lint + `node --check` clean throughout. 
 - `client/src/pages/HoleMapGL.jsx` — GL hole renderer (now with `ResizeObserver`).
 - `wiki/POST-LAUNCH-TODO.md` **#24** — the native safe-area fix.
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-06-26.md
-======================================================================
 
 # The Match — Next-Session Handoff (2026-06-26)
 
@@ -672,10 +663,7 @@ Eagle Eye's hero-instrument work (Phase 1 + 2) is done and device-verified: MapL
 - `client/src/pages/Outing/{CreateWizard,LiveOuting}.jsx` — match net strokes, CH chip, allowances.
 - Migrations 029–033. Audit: `handicap-accuracy-audit-2026-06-25.md`.
 
-
-======================================================================
 # [SUPERSEDED] next-session-handoff-2026-06-24.md
-======================================================================
 
 # The Match — Next-Session Handoff
 *Written 2026-06-24 (end of a long Cowork session). Read this, then the two plan docs alongside it in `wiki/synthesis/`.*
@@ -739,10 +727,7 @@ One small held item: **concentric yardage range-rings** on the map (held pending
 ## 5. End-of-session checklist (for when YOU wrap)
 `wiki/log.md` entry → refresh trust anchors (CLAUDE.md / index.md) → commit+push `the-match` → `python3.11 tools/notebooklm-wiki-refresh.py` → verify `verify_failed: 0` → preflight green.
 
-
-======================================================================
 # [SUPERSEDED] eagle-eye-tile-grid-handoff-2026-05-01.md
-======================================================================
 
 # Handoff — Eagle Eye satellite tile grid lines (open issue)
 

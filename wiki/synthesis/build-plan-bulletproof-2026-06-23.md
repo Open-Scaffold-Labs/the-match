@@ -145,7 +145,7 @@ Principle: **every step ships independently, builds + lints clean, and is device
 **Phase 4 — Polish**
 - ☐ 4.1 Skeletons + view transitions
 - ☐ 4.2 Perf budgets + `content-visibility`
-- ◐ 4.3 Eagle Eye inline-style → token component refactor — **Stage A+B SHIPPED 2026-07-02→06**: 34-token `--tm-ee-*` palette in tokens.css, EagleEye.jsx converted, **pixel-identical (244/244 equivalence)**; `eeColor` getComputedStyle bridge established for MapLibre paint props (they don't resolve `var()`). **OPEN:** Stage C (reviewed value elevation) + HoleMapGL/other-file conversion (use the eeColor bridge).
+- ◐ 4.3 Eagle Eye inline-style → token component refactor — **Stage A+B SHIPPED 2026-07-02→06** (EagleEye.jsx, 244/244 equivalence); **HoleMapGL conversion + Stage C1/C2 SHIPPED 2026-07-07** (`7c260d4`+`a70a1b7`): all HoleMapGL colors through the hardened `eeColor` bridge (57/57 equivalence, +3 tokens flag/map-bg/map-tint), C1 semantic re-rule live (white=measured/green=computed/gold=locked/dim=acquiring), C2 11px label floor, C3 soft-halo staged (`tm-ee-halo-soft`). Spec: `ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md`. **OPEN:** the same instrument literals in ~33 other files (Login, Stats, Outing suite — future slices); Stage C type/spacing scale; C4 "Big Numbers" mode.
 
 **Track F — Scale & Foundations Hardening** (added 2026-06-27 from `synthesis/audit-2026-06-27.md` — the "expensive to change after the App Store freezes clients" class. Sequence: cheap foundationals → data model → security → native shell.)
 

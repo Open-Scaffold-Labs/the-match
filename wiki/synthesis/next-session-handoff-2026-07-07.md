@@ -8,8 +8,26 @@ tags: [the-match, handoff, active]
 # Next-Session Handoff — 2026-07-07 (ACTIVE; supersedes 2026-07-06)
 
 Start with the mandatory CLAUDE.md first actions (roll-call → wiki/index.md → this file +
-`wiki/log.md`'s 07-06 PM13 → 07-07 AM4 entries). Everything below is SHIPPED AND
+`wiki/log.md`'s 07-06 PM13 → 07-07 PM2 entries). Everything below is SHIPPED AND
 VERIFIED unless marked open.
+
+## UPDATE 2026-07-07 PM — EE tokenization COMPLETE (Slice 1 + Stage C1/C2 live; C3 staged)
+
+Open item #2 from the list below is CLOSED. Shipped `7c260d4` + `a70a1b7`, deploy watched,
+served-bundle grep-confirmed:
+- **HoleMapGL → tokens (pixel-identical)**: paint props via hardened eeColor bridge (fallbacks
+  are load-bearing — invalid color at addLayer silently DROPS the layer); DOM/CSS via var();
+  injected-SVG via `style=`. Equivalence 57/57 order-exact; gates ×3 green.
+- **C1 semantic re-rule (Matt-approved)**: white=measured, green=computed, gold=locked (unclaimed
+  by every surveyed leader), dim=acquiring. Plays-like sheet hero now GREEN; GPS locked now GOLD.
+- **C2**: hero micro-labels 9/10 → 11px outdoor floor. **C3**: soft map-label halo staged behind
+  localStorage `tm-ee-halo-soft`='1' (default OFF) — A/B on the course.
+- Full spec + research + risk register: [[synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07]]
+- **Folded into Matt's on-course pass (open #1)**: prod eyeball of map layers/markers (worst case
+  = yesterday's colors via fallbacks), GPS-locked gold + acquiring dim states, sheet-hero green,
+  C3 A/B. **New follow-up**: C4 "Big Numbers" glance mode (structural gap vs category leader).
+- Watch: duplicate `display` key ×2 in `components/scorecard/index.jsx` (esbuild warning,
+  pre-existing, surfaced not fixed — S4-unification vintage).
 
 ## Shipped this session (07-06 PM → 07-07 AM; every item live + evidence-verified)
 

@@ -270,8 +270,13 @@ inert (defining unused tokens changes nothing) so it can sit safely even if B is
 
 **Stage C — visual elevation (separate, optional, reviewed)**
 - [ ] Type/spacing/letter-spacing scale as a design-system decision
-- [ ] Elevate values behind stable token names (big-number hero, white=raw/green=adjusted)
-- [ ] Per-change review with Matt + on-device verification
+- [x] Elevate values behind stable token names — **C1 SHIPPED 2026-07-07** (`a70a1b7`): aliases
+      re-ruled white=measured/green=computed/gold=locked/dim=acquiring + wired (heroes,
+      distAccent, GPS pill/chip); C2 11px label floor shipped; C3 soft-halo staged behind
+      `tm-ee-halo-soft`. Spec: `ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md`
+      (also closes §"HoleMapGL trap" — converted via the bridge same day, 57/57 equivalence)
+- [◐] Per-change review with Matt: C1/C2 approved + shipped 2026-07-07; on-device eyeball
+      folded into the on-course pass (POST-LAUNCH #25); C3 A/B pending on-device
 
 ---
 
