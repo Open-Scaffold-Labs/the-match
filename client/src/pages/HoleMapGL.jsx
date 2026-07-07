@@ -235,10 +235,15 @@ export default function HoleMapGL({
     if (!containerRef.current || !geocoded || mapRef.current) return
     let cancelled = false
     let loadTimer = 0
+    let onStallVis = null
+    const dropStallGuard = () => {
+      clearTimeout(loadTimer)
+      if (onStallVis) { document.removeEventListener('visibilitychange', onStallVis); onStallVis = null }
+    }
     const fail = (e) => {
       if (cancelled) return
       console.error('[HoleMapGL] init failed:', e?.message || e)
-      clearTimeout(loadTimer)
+      dropStallGuard()
       setFailed(true)
       onInitError?.()
     }
@@ -285,14 +290,32 @@ export default function HoleMapGL({
       // NAIP tiles, which can exceed 9s on a slow link and was tripping a
       // spurious fallback to Leaflet (then sticking for the session). 20s only
       // fires on a genuine stall.
-      loadTimer = setTimeout(() => { if (!readyRef.current) fail(new Error('map load timeout (35s)')) }, 35000)
+      // 2026-07-06 — the guard counts only VISIBLE time. While the page is
+      // hidden (phone app-switch mid-load, backgrounded tab, fully-occluded
+      // window) Chrome freezes requestAnimationFrame, so MapLibre CANNOT
+      // advance to 'load' — burning the budget while hidden produced a
+      // spurious "check your connection" card on a healthy map. Diagnosed
+      // live: visibility=hidden, rAF ticks in 2s = 0, zero tile requests,
+      // zero errors. Timer arms only while visible; hiding pauses it;
+      // returning to visible re-arms a fresh 35s of visible stall.
+      const armStallGuard = () => {
+        clearTimeout(loadTimer)
+        loadTimer = setTimeout(() => { if (!readyRef.current) fail(new Error('map load timeout (35s visible)')) }, 35000)
+      }
+      onStallVis = () => {
+        if (readyRef.current || cancelled) return
+        if (document.visibilityState === 'visible') armStallGuard()
+        else clearTimeout(loadTimer)
+      }
+      document.addEventListener('visibilitychange', onStallVis)
+      if (document.visibilityState === 'visible') armStallGuard()
       map.on('error', (e) => { /* tile errors are non-fatal; only log */ if (e?.error) console.warn('[HoleMapGL]', e.error.message) })
       map.addControl(new maplibregl.AttributionControl({ compact: true }))
       map.addControl(new maplibregl.NavigationControl({ showCompass: false, visualizePitch: false }), 'top-left')
 
       map.on('load', () => {
         if (cancelled) return
-        clearTimeout(loadTimer)
+        dropStallGuard()
         readyRef.current = true
         // Re-fit the canvas to the container now that the first frame is up —
         // catches any size the container settled to after init (safe-area insets).
@@ -365,7 +388,7 @@ export default function HoleMapGL({
     })()
     return () => {
       cancelled = true
-      clearTimeout(loadTimer)
+      dropStallGuard()
       cancelAnimationFrame(puckRafRef.current)
       readyRef.current = false
       if (resizeObsRef.current) { try { resizeObsRef.current.disconnect() } catch { /* noop */ } resizeObsRef.current = null }
