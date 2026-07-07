@@ -45,12 +45,12 @@ function LiveDot() {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       <span style={{
-        width: 6, height: 6, borderRadius: '50%', background: '#C9A040',
+        width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-gold)',
         boxShadow: '0 0 6px rgba(201,160,64,0.8)',
         animation: 'pulse-dot 1.4s ease-in-out infinite',
         display: 'inline-block',
       }} />
-      <span style={{ color: '#C9A040', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>LIVE</span>
+      <span style={{ color: 'var(--tm-gold)', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em' }}>LIVE</span>
     </span>
   )
 }
@@ -98,7 +98,7 @@ function PlayerPhoto({ id, name, flagUrl, size = 38 }) {
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: size * 0.32, fontWeight: 800, color: '#1B5E3B',
+          fontSize: size * 0.32, fontWeight: 800, color: 'var(--tm-green)',
         }}>{initials}</div>
       )}
     </div>
@@ -255,7 +255,7 @@ export default function PGAScores({ user }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em',
-              background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+              background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold), var(--tm-gold-bright))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>PGA Tour</div>
             {ev?.inProgress && <LiveDot />}
@@ -265,7 +265,7 @@ export default function PGAScores({ user }) {
             style={{
               background: 'rgba(27,94,59,0.08)', border: '1px solid rgba(27,94,59,0.16)',
               borderRadius: 8, padding: '5px 10px', cursor: 'pointer',
-              color: '#1B5E3B', fontSize: 11, fontWeight: 600,
+              color: 'var(--tm-green)', fontSize: 11, fontWeight: 600,
             }}
           >
             {lastUpdate ? `↻ ${lastUpdate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : '↻ Refresh'}
@@ -290,7 +290,7 @@ export default function PGAScores({ user }) {
           }}>
             <div style={{ color: '#DC2626', fontSize: 13, marginBottom: 8 }}>{error}</div>
             <button onClick={fetchScores} style={{
-              background: '#1B5E3B', color: '#fff', border: 'none',
+              background: 'var(--tm-green)', color: '#fff', border: 'none',
               borderRadius: 10, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
             }}>Retry</button>
           </div>
@@ -310,7 +310,7 @@ export default function PGAScores({ user }) {
                 <ellipse cx="22" cy="56" rx="6" ry="2" fill="#1B5E3B" stroke="none" opacity="0.3"/>
               </svg>
             </div>
-            <div style={{ color: '#1B5E3B', fontSize: 14, fontWeight: 700 }}>No active tournament</div>
+            <div style={{ color: 'var(--tm-green)', fontSize: 14, fontWeight: 700 }}>No active tournament</div>
             <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 12, marginTop: 4 }}>Check back during a PGA Tour event</div>
           </div>
         )}
@@ -323,10 +323,10 @@ export default function PGAScores({ user }) {
                 {events.map((e, i) => (
                   <button key={e.id} onClick={() => setActiveEvent(i)} style={{
                     flexShrink: 0,
-                    background: i === activeEvent ? '#1B5E3B' : 'rgba(255,255,255,0.22)',
-                    border: '1px solid ' + (i === activeEvent ? '#1B5E3B' : 'rgba(255,255,255,0.45)'),
+                    background: i === activeEvent ? 'var(--tm-green)' : 'rgba(255,255,255,0.22)',
+                    border: '1px solid ' + (i === activeEvent ? 'var(--tm-green)' : 'rgba(255,255,255,0.45)'),
                     borderRadius: 20, padding: '5px 14px',
-                    color: i === activeEvent ? '#fff' : '#1B5E3B',
+                    color: i === activeEvent ? '#fff' : 'var(--tm-green)',
                     fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                   }}>{e.shortName}</button>
@@ -345,7 +345,7 @@ export default function PGAScores({ user }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{
-                    fontSize: 16, fontWeight: 800, color: '#0D1F12',
+                    fontSize: 16, fontWeight: 800, color: 'var(--tm-text)',
                     letterSpacing: '-0.01em', lineHeight: 1.2, marginBottom: 4,
                   }}>{ev.name}</div>
                   {ev.course && (
@@ -358,7 +358,7 @@ export default function PGAScores({ user }) {
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
                   <div style={{
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-                    color: ev.inProgress ? '#C9A040' : ev.isComplete ? 'rgba(27,94,59,0.60)' : 'rgba(27,94,59,0.60)',
+                    color: ev.inProgress ? 'var(--tm-gold)' : ev.isComplete ? 'rgba(27,94,59,0.60)' : 'rgba(27,94,59,0.60)',
                     background: ev.inProgress ? 'rgba(201,160,64,0.12)' : 'rgba(27,94,59,0.07)',
                     borderRadius: 6, padding: '3px 9px', display: 'inline-block',
                   }}>
@@ -429,7 +429,7 @@ export default function PGAScores({ user }) {
                   textAlign: 'center',
                   fontSize: p.pos.length > 3 ? 9 : 11,
                   fontWeight: 700,
-                  color: idx < 3 ? '#C9A040' : 'rgba(27,94,59,0.50)',
+                  color: idx < 3 ? 'var(--tm-gold)' : 'rgba(27,94,59,0.50)',
                 }}>
                   {p.pos}
                 </div>
@@ -441,7 +441,7 @@ export default function PGAScores({ user }) {
                 <div style={{ minWidth: 0 }}>
                   <div style={{
                     fontSize: 13, fontWeight: idx < 5 ? 700 : 500,
-                    color: '#0D1F12',
+                    color: 'var(--tm-text)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>{p.name}</div>
                   {p.countryName && (

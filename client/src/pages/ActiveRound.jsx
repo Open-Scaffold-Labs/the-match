@@ -403,14 +403,14 @@ function SoloBoardView({ user, config, scores, onTapRow }) {
             borderBottom: '1px solid rgba(27,94,59,0.10)',
             background: 'rgba(201,160,64,0.20)',
             borderRadius: 8,
-            borderLeft: '3px solid #C9A040',
+            borderLeft: '3px solid var(--tm-gold)',
             cursor: 'pointer',
             textAlign: 'left', font: 'inherit',
           }}
           aria-label="Switch to scorecard view"
         >
           <div style={{
-            textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#C9A040',
+            textAlign: 'center', fontSize: 11, fontWeight: 700, color: 'var(--tm-gold)',
           }}>1</div>
           <div style={{
             width: 38, height: 38, borderRadius: 10, overflow: 'hidden',
@@ -433,7 +433,7 @@ function SoloBoardView({ user, config, scores, onTapRow }) {
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{
-              fontSize: 13, fontWeight: 700, color: '#0D1F12',
+              fontSize: 13, fontWeight: 700, color: 'var(--tm-text)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{display}</div>
             <div style={{
@@ -637,11 +637,11 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
           borderRadius: 999, padding: 4, gap: 2,
         }}>
           <button onClick={() => setViewMode('scorecard')} style={{
-            background: viewMode === 'scorecard' ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'transparent',
+            background: viewMode === 'scorecard' ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'transparent',
             border: 'none', cursor: 'pointer',
             padding: '7px 20px', borderRadius: 999,
             fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
-            color: viewMode === 'scorecard' ? '#0D1F12' : '#FBF3DC',
+            color: viewMode === 'scorecard' ? 'var(--tm-text)' : '#FBF3DC',
             fontFamily: 'inherit',
             boxShadow: viewMode === 'scorecard'
               ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
@@ -649,11 +649,11 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
             transition: 'background 140ms ease, color 140ms ease, box-shadow 140ms ease',
           }}>SCORECARD</button>
           <button onClick={() => setViewMode('board')} style={{
-            background: viewMode === 'board' ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'transparent',
+            background: viewMode === 'board' ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'transparent',
             border: 'none', cursor: 'pointer',
             padding: '7px 20px', borderRadius: 999,
             fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
-            color: viewMode === 'board' ? '#0D1F12' : '#FBF3DC',
+            color: viewMode === 'board' ? 'var(--tm-text)' : '#FBF3DC',
             fontFamily: 'inherit',
             boxShadow: viewMode === 'board'
               ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
@@ -802,7 +802,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
               border: '1px solid rgba(245,215,138,0.6)',
               borderRadius: 'var(--tm-radius-lg)',
               padding: '14px 16px',
-              color: '#0D1F12',
+              color: 'var(--tm-text)',
               fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
               cursor: 'pointer',
               boxShadow: '0 4px 12px rgba(0,0,0,0.30), 0 0 0 1px rgba(245,215,138,0.15)',

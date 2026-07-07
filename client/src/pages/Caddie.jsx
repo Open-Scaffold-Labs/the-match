@@ -177,7 +177,7 @@ export default function Caddie({ onClose, round = null }) {
         <button onClick={() => send()} disabled={busy || !input.trim()} className="touch-press" aria-label="Send" style={{
           width: 46, height: 46, borderRadius: 12, flexShrink: 0, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: input.trim() && !busy ? 'var(--tm-green, #2A7A38)' : 'rgba(255,255,255,0.06)',
+          background: input.trim() && !busy ? 'var(--tm-green, var(--tm-green-bright))' : 'rgba(255,255,255,0.06)',
           border: '1px solid rgba(255,255,255,0.10)',
           color: input.trim() && !busy ? '#EDF5EF' : 'rgba(255,255,255,0.35)',
         }}><SendGlyph /></button>

@@ -201,7 +201,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
       }}>
         <div style={{
           fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
-          background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+          background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           flex: 1, textAlign: 'center',
         }}>The Match</div>
@@ -214,7 +214,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
         {[0,1,2,3,4].map(i => (
           <div key={i} style={{
             flex: 1, height: 4, borderRadius: 2,
-            background: i <= step ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(255,255,255,0.08)',
+            background: i <= step ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(255,255,255,0.08)',
           }} />
         ))}
       </div>
@@ -344,7 +344,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
                 const active = !customDriver && b === driverBrand
                 return (
                   <button key={b} onClick={() => { setCustomDriver(false); setDriverBrand(b); if (!modelsForSlot('driver', b).includes(driverModel)) setDriverModel('') }} style={{
-                    background: active ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(255,255,255,0.05)',
+                    background: active ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(255,255,255,0.05)',
                     border: active ? '1px solid rgba(245,215,138,0.85)' : '1px solid rgba(255,255,255,0.10)',
                     color: active ? '#070C09' : '#F5D78A',
                     padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700,
@@ -353,7 +353,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
                 )
               })}
               <button onClick={() => { setCustomDriver(true); setDriverBrand(''); setDriverModel('') }} style={{
-                background: customDriver ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(255,255,255,0.05)',
+                background: customDriver ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(255,255,255,0.05)',
                 border: customDriver ? '1px solid rgba(245,215,138,0.85)' : '1px dashed rgba(255,255,255,0.30)',
                 color: customDriver ? '#070C09' : '#F5D78A',
                 padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700,
@@ -442,7 +442,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
                     <span style={{ color: '#4ADE80', fontSize: 12, fontWeight: 700 }}>✓ Sent</span>
                   ) : (
                     <button onClick={() => sendFriendRequest(u)} style={{
-                      background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                      background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                       border: 'none', borderRadius: 999,
                       color: '#070C09', fontSize: 12, fontWeight: 800,
                       padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
@@ -487,7 +487,7 @@ export default function OnboardingWizard({ user, onUserUpdate, onComplete }) {
         )}
         <button onClick={next} disabled={busy} style={{
           flex: 2, padding: '14px',
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
           border: 'none', borderRadius: 12,
           color: '#070C09', fontSize: 15, fontWeight: 800,
           cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit',

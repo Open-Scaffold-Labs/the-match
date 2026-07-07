@@ -47,7 +47,7 @@ async function renderRecap(stats) {
   ctx.fillRect(0, 0, SIZE, SIZE)
 
   // Wordmark + rule.
-  ctx.fillStyle = '#E8C05A'
+  ctx.fillStyle = 'var(--tm-gold-bright)'
   ctx.font = 'bold 28px Georgia, serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
@@ -256,7 +256,7 @@ export default function YearRecapModal({ year = new Date().getFullYear(), onClos
       }}>
         <div style={{
           fontSize: 11, fontWeight: 800, letterSpacing: '0.16em',
-          textTransform: 'uppercase', color: '#7A5800',
+          textTransform: 'uppercase', color: 'var(--tm-gold-text)',
         }}>{year} in golf · share-card ready</div>
 
         {stats && stats.totalRounds > 0 && (
@@ -289,7 +289,7 @@ export default function YearRecapModal({ year = new Date().getFullYear(), onClos
             style={{
               width: '100%', padding: '14px', borderRadius: 14, border: 'none',
               background: imgBlob && !sharing
-                ? 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)'
+                ? 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold) 100%)'
                 : 'rgba(13,31,18,0.10)',
               color: imgBlob && !sharing ? '#070C09' : 'rgba(13,31,18,0.40)',
               fontWeight: 800, fontSize: 15,

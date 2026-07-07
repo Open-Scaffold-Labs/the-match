@@ -61,10 +61,10 @@ function HcpHelpPopover({ onClose }) {
       }}>
         <div style={{
           fontSize: 11, fontWeight: 800, letterSpacing: '0.14em',
-          textTransform: 'uppercase', color: '#7A5800', marginBottom: 6,
+          textTransform: 'uppercase', color: 'var(--tm-gold-text)', marginBottom: 6,
         }}>Scoring · Handicaps</div>
         <div style={{
-          fontSize: 17, fontWeight: 800, color: '#0D1F12', lineHeight: 1.25, marginBottom: 12,
+          fontSize: 17, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.25, marginBottom: 12,
         }}>What does GROSS / NET mean?</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
@@ -104,7 +104,7 @@ function HcpHelpPopover({ onClose }) {
 
         <button onClick={onClose} style={{
           width: '100%', padding: '12px', borderRadius: 12, border: 'none',
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
           color: '#070C09', fontWeight: 800, fontSize: 14, cursor: 'pointer',
         }}>Got it</button>
       </div>
@@ -1954,7 +1954,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             </div>
             <button onClick={endMatch} disabled={ending} style={{
               padding: '7px 12px', borderRadius: 999, border: 'none',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               color: '#070C09', fontSize: 11, fontWeight: 800, cursor: 'pointer',
               fontFamily: 'inherit', flexShrink: 0,
               opacity: ending ? 0.6 : 1,
@@ -2016,7 +2016,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         {/* Host controls row */}
         {isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 11, flex: 1, color: (scoringMode === 'designated' && markers.length === 0) ? '#E8C05A' : 'var(--tm-text-3)', fontWeight: (scoringMode === 'designated' && markers.length === 0) ? 700 : 400 }}>
+            <div style={{ fontSize: 11, flex: 1, color: (scoringMode === 'designated' && markers.length === 0) ? 'var(--tm-gold-bright)' : 'var(--tm-text-3)', fontWeight: (scoringMode === 'designated' && markers.length === 0) ? 700 : 400 }}>
               {/* "Tap any cell to enter scores" removed 2026-04-30 PM round 11 —
                   the pulsing gold tap-hint on the first empty cell teaches
                   the same thing without instructional copy. F.5 S6 nudge: in
@@ -2038,7 +2038,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               background: scoringMode === 'designated' ? 'rgba(201,160,64,0.16)' : 'rgba(255,255,255,0.07)',
               border: `1px solid ${scoringMode === 'designated' ? 'rgba(201,160,64,0.45)' : 'var(--tm-border)'}`,
               borderRadius: 20, padding: '3px 10px',
-              color: scoringMode === 'designated' ? '#E8C05A' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              color: scoringMode === 'designated' ? 'var(--tm-gold-bright)' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>{scoringMode === 'designated' ? '✓ Designated scorer' : 'Scoring: Open'}</button>
             {hasHandicaps && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -2084,7 +2084,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             <button onClick={() => setShowSideBets(true)} style={{
               background: 'rgba(232,192,90,0.12)', border: '1px solid rgba(232,192,90,0.40)',
               borderRadius: 20, padding: '3px 10px',
-              color: '#E8C05A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              color: 'var(--tm-gold-bright)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>$ Side Bets</button>
             <button onClick={() => setShowChat(true)} style={{
               background: 'rgba(147,197,253,0.10)', border: '1px solid rgba(147,197,253,0.40)',
@@ -2096,7 +2096,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               💬 Chat
               {chatUnread > 0 && (
                 <span style={{
-                  background: '#F87171', color: '#0D1F12',
+                  background: '#F87171', color: 'var(--tm-text)',
                   fontSize: 10, fontWeight: 900,
                   borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
                   marginLeft: 2,
@@ -2127,7 +2127,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
               <span style={{ fontSize: 15 }} aria-hidden="true">✎</span>
-              <span style={{ fontSize: 12.5, fontWeight: 800, color: '#E8C05A' }}>You're the scorer for this group</span>
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--tm-gold-bright)' }}>You're the scorer for this group</span>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>— tap any cell in your group to enter</span>
             </div>
           ) : (
@@ -2159,7 +2159,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             <button onClick={() => setShowSideBets(true)} style={{
               background: 'rgba(232,192,90,0.12)', border: '1px solid rgba(232,192,90,0.40)',
               borderRadius: 20, padding: '3px 10px',
-              color: '#E8C05A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              color: 'var(--tm-gold-bright)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
             }}>$ Side Bets</button>
             <button onClick={() => setShowChat(true)} style={{
               background: 'rgba(147,197,253,0.10)', border: '1px solid rgba(147,197,253,0.40)',
@@ -2171,7 +2171,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               💬 Chat
               {chatUnread > 0 && (
                 <span style={{
-                  background: '#F87171', color: '#0D1F12',
+                  background: '#F87171', color: 'var(--tm-text)',
                   fontSize: 10, fontWeight: 900,
                   borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
                   marginLeft: 2,
@@ -2308,12 +2308,12 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         }}>
           <button onClick={() => setViewMode('scorecard')} style={{
             background: effectiveViewMode === 'scorecard'
-              ? 'linear-gradient(135deg, #F5D78A, #C9A040)'
+              ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))'
               : 'transparent',
             border: 'none', cursor: 'pointer',
             padding: '7px 20px', borderRadius: 999,
             fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
-            color: effectiveViewMode === 'scorecard' ? '#0D1F12' : '#FBF3DC',
+            color: effectiveViewMode === 'scorecard' ? 'var(--tm-text)' : '#FBF3DC',
             fontFamily: 'inherit',
             boxShadow: effectiveViewMode === 'scorecard'
               ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
@@ -2322,12 +2322,12 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           }}>SCORECARD</button>
           <button onClick={() => setViewMode('board')} style={{
             background: effectiveViewMode === 'board'
-              ? 'linear-gradient(135deg, #F5D78A, #C9A040)'
+              ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))'
               : 'transparent',
             border: 'none', cursor: 'pointer',
             padding: '7px 20px', borderRadius: 999,
             fontSize: 12, fontWeight: 800, letterSpacing: '0.10em',
-            color: effectiveViewMode === 'board' ? '#0D1F12' : '#FBF3DC',
+            color: effectiveViewMode === 'board' ? 'var(--tm-text)' : '#FBF3DC',
             fontFamily: 'inherit',
             boxShadow: effectiveViewMode === 'board'
               ? '0 2px 6px rgba(201,160,64,0.35), inset 0 1px 0 rgba(255,255,255,0.30)'
@@ -2423,7 +2423,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 }}>MATCH PLAY</div>
                 <div style={{
                   fontSize: 14, fontWeight: 800, letterSpacing: '0.04em',
-                  color: '#7A5800', textAlign: 'center',
+                  color: 'var(--tm-gold-text)', textAlign: 'center',
                 }}>{stateText}</div>
               </div>
             )
@@ -2455,7 +2455,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 <span style={{
                   width: 22, textAlign: 'center',
                   fontSize: 11, fontWeight: 800,
-                  color: isLeader ? '#C9A040' : 'rgba(27,94,59,0.50)',
+                  color: isLeader ? 'var(--tm-gold)' : 'rgba(27,94,59,0.50)',
                   flexShrink: 0,
                 }}>{i + 1}</span>
 
@@ -2500,7 +2500,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 13, fontWeight: 700,
-                    color: '#0D1F12',
+                    color: 'var(--tm-text)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>{memberNames || `Team ${team.label}`}</div>
                   <div style={{
@@ -2513,7 +2513,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 <div style={{ textAlign: 'center', flexShrink: 0, minWidth: 50 }}>
                   <div style={{
                     fontSize: 13, fontWeight: 800,
-                    color: isLeader ? '#C9A040' : '#0D1F12',
+                    color: isLeader ? 'var(--tm-gold)' : 'var(--tm-text)',
                     fontVariantNumeric: 'tabular-nums',
                   }}>{team.total > 0 ? team.total : '—'}</div>
                 </div>
@@ -2908,7 +2908,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 fontFamily: 'inherit', whiteSpace: 'nowrap',
               }}>Keep theirs</button>
               <button onClick={() => conflictPrompt.resolve(true)} style={{
-                padding: '9px 11px', background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                padding: '9px 11px', background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                 border: 'none', borderRadius: 9, color: '#070C09', fontSize: 12,
                 fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
               }}>Keep mine</button>
@@ -2983,7 +2983,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
           border: '1px solid rgba(245,215,138,0.6)',
           borderRadius: 999, padding: '10px 16px',
-          color: '#0D1F12',
+          color: 'var(--tm-text)',
           fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
           cursor: 'pointer',
           boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
@@ -3002,7 +3002,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
 
 
 // ─── Team Setup Sheet ─────────────────────────────────────────────────────────
-export const TEAM_PALETTE = ['#C9A040', '#E8C05A', '#60A5FA', '#F87171', '#A78BFA', '#FB923C', '#34D399', '#FBBF24']
+export const TEAM_PALETTE = ['var(--tm-gold)', 'var(--tm-gold-bright)', '#60A5FA', '#F87171', '#A78BFA', '#FB923C', '#34D399', '#FBBF24']
 
 // ─── Group / Marker Setup ─────────────────────────────────────────────────────
 // Host divides players into groups of ≤4 and designates one marker per group.
@@ -3172,7 +3172,7 @@ function LiveShareModal({ outing, onClose }) {
         <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
           <button onClick={nativeShare} style={{
             flex: 1, padding: '12px',
-            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
             border: 'none', borderRadius: 12, color: '#070C09',
             fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
           }}>Share</button>

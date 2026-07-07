@@ -45,7 +45,7 @@ export default function FollowPills({ counts, size = 'lg', theme = 'light', onCo
   } : {
     bg: 'rgba(255,255,255,0.55)',
     border: '2px solid rgba(201,160,64,0.70)',
-    valueColor: '#0D1F12',
+    valueColor: 'var(--tm-text)',
     labelColor: 'rgba(13,31,18,0.50)',
   }
 

@@ -311,7 +311,7 @@ function FriendSeasonCard({ friend, season, avg3 }) {
           }}>
             <div style={{
               fontSize: friend?.handicap != null ? 36 : 24, fontWeight: 900, lineHeight: 1,
-              background: 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright), var(--tm-gold))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>{hcp}</div>
             <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: '0.1em', marginTop: 3 }}>HCP</div>
@@ -489,7 +489,7 @@ function TeeRequestSheet({ friend, date, onSend, onClose }) {
 
           <button onClick={handleSend} disabled={sending} style={{
             width: '100%', padding: 14, marginTop: 4,
-            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
             color: '#070C09', border: 'none', borderRadius: 12,
             fontSize: 15, fontWeight: 700, cursor: 'pointer',
           }}>
@@ -643,13 +643,13 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
         }}>
           <button onClick={onClose} aria-label="Back" style={{
             background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
-            borderRadius: 10, color: '#1B5E3B', fontSize: 18, fontWeight: 700,
+            borderRadius: 10, color: 'var(--tm-green)', fontSize: 18, fontWeight: 700,
             padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
             display: 'inline-flex', alignItems: 'center',
           }}>←</button>
           <div style={{
             fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
-            background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+            background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             flex: 1, textAlign: 'center',
           }}>The Match</div>
@@ -736,7 +736,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                       disabled={requestState === 'sending'}
                       style={{
                         padding: '7px 12px', borderRadius: 999, border: 'none',
-                        background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                        background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                         color: '#070C09', fontSize: 11, fontWeight: 800, cursor: 'pointer',
                         fontFamily: 'inherit', flexShrink: 0,
                         opacity: requestState === 'sending' ? 0.6 : 1,
@@ -782,7 +782,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                     fontSize: 28, fontWeight: 900, letterSpacing: '-0.02em',
                     lineHeight: 1.1,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                    background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold), var(--tm-gold-bright))',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                   }}>{friend.name}</div>
 
@@ -802,7 +802,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                   }}>
                     <div style={{
                       fontSize: 28, fontWeight: 900, lineHeight: 1,
-                      background: 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)',
+                      background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright), var(--tm-gold))',
                       WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                     }}>{hcpDisplay}</div>
                     <div style={{ color: 'rgba(245,215,138,0.55)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
@@ -1210,7 +1210,7 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
             }}
             style={{
               width: '100%', padding: '14px',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               color: '#070C09', border: 'none', borderRadius: 14,
               fontSize: 15, fontWeight: 700, cursor: 'pointer',
               marginTop: 4,

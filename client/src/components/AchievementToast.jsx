@@ -37,7 +37,7 @@ import { createPortal } from 'react-dom'
 // Inline icons — one per achievement TYPE. New icons added 2026-05-07
 // for the v2 expansion (hole_in_one, first_par, breaking_100/90).
 function IconForType({ type, size = 26, strokeColor, fillColor }) {
-  const stroke = strokeColor || '#7A5800'
+  const stroke = strokeColor || 'var(--tm-gold-text)'
   const fill   = fillColor   || '#F5D78A'
   switch (type) {
     case 'first_birdie':
@@ -172,7 +172,7 @@ export default function AchievementToast() {
           background: 'linear-gradient(135deg, #FFFDF8 0%, #FBE5A8 50%, #FFFDF8 100%)',
           backgroundSize: '200% 200%',
           animation: 'tm-celebrate-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1), tm-legendary-shimmer 3s ease-in-out infinite',
-          border: '2px solid #C9A040',
+          border: '2px solid var(--tm-gold)',
           borderRadius: 24, padding: '24px 22px 22px',
           boxShadow: '0 0 0 1px rgba(255,255,255,0.8) inset, 0 0 32px rgba(232,192,90,0.65), 0 24px 60px rgba(0,0,0,0.55)',
           textAlign: 'center', position: 'relative',
@@ -180,19 +180,19 @@ export default function AchievementToast() {
           {/* Sparkle ring around the badge */}
           <div style={{
             position: 'absolute', top: -18, left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', gap: 4, fontSize: 16, color: '#C9A040',
+            display: 'flex', gap: 4, fontSize: 16, color: 'var(--tm-gold)',
             textShadow: '0 0 8px rgba(232,192,90,0.8)',
             letterSpacing: '0.08em',
           }}>✦</div>
           <div style={{
             fontSize: 11, fontWeight: 900, letterSpacing: '0.30em',
-            color: '#7A5800', marginBottom: 12,
+            color: 'var(--tm-gold-text)', marginBottom: 12,
           }}>✦ LEGENDARY ✦</div>
           {/* Big radiant badge */}
           <div style={{
             width: 96, height: 96, borderRadius: '50%',
-            background: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, #E8C05A 50%, #C9A040 100%)',
-            border: '2px solid #7A5800',
+            background: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
+            border: '2px solid var(--tm-gold-text)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 14px',
             boxShadow: '0 0 0 6px rgba(232,192,90,0.20), 0 0 24px rgba(232,192,90,0.55), inset 0 2px 0 rgba(255,255,255,0.5)',
@@ -209,7 +209,7 @@ export default function AchievementToast() {
             }} />
           </div>
           <div style={{
-            fontSize: 22, fontWeight: 900, color: '#0D1F12', lineHeight: 1.1,
+            fontSize: 22, fontWeight: 900, color: 'var(--tm-text)', lineHeight: 1.1,
             letterSpacing: '0.02em', marginBottom: 6,
           }}>{current.title || current.type}</div>
           <div style={{
@@ -249,7 +249,7 @@ export default function AchievementToast() {
           background: 'linear-gradient(180deg, #FFFDF8 0%, #FBF3DC 100%)',
           // Iridescent border via gradient. Pseudo-element trick via box-shadow.
           border: '2px solid transparent',
-          backgroundImage: 'linear-gradient(180deg, #FFFDF8 0%, #FBF3DC 100%), linear-gradient(135deg, #C9A040 0%, #E8E8E8 35%, #C9A040 70%, #F5D78A 100%)',
+          backgroundImage: 'linear-gradient(180deg, #FFFDF8 0%, #FBF3DC 100%), linear-gradient(135deg, var(--tm-gold) 0%, #E8E8E8 35%, var(--tm-gold) 70%, #F5D78A 100%)',
           backgroundOrigin: 'border-box',
           backgroundClip: 'padding-box, border-box',
           borderRadius: 18, padding: '14px 16px',
@@ -259,7 +259,7 @@ export default function AchievementToast() {
         }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
-            background: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, #E8C05A 60%, #C9A040 100%)',
+            background: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, var(--tm-gold-bright) 60%, var(--tm-gold) 100%)',
             border: '2px solid rgba(122,88,0,0.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
@@ -271,13 +271,13 @@ export default function AchievementToast() {
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               fontSize: 9, fontWeight: 900, letterSpacing: '0.20em',
-              textTransform: 'uppercase', color: '#7A5800',
+              textTransform: 'uppercase', color: 'var(--tm-gold-text)',
               background: 'linear-gradient(135deg, rgba(201,160,64,0.18), rgba(232,192,90,0.30))',
               border: '1px solid rgba(122,88,0,0.30)',
               borderRadius: 4, padding: '2px 6px',
             }}>✦ Rare</div>
             <div style={{
-              fontSize: 16, fontWeight: 900, color: '#0D1F12', lineHeight: 1.15,
+              fontSize: 16, fontWeight: 900, color: 'var(--tm-text)', lineHeight: 1.15,
               marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{current.title || current.type}</div>
             <div style={{
@@ -320,7 +320,7 @@ export default function AchievementToast() {
       }}>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
-          background: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, #C9A040 75%)',
+          background: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, var(--tm-gold) 75%)',
           border: '1.5px solid rgba(122,88,0,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
@@ -331,10 +331,10 @@ export default function AchievementToast() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 10, fontWeight: 800, letterSpacing: '0.16em',
-            textTransform: 'uppercase', color: '#7A5800',
+            textTransform: 'uppercase', color: 'var(--tm-gold-text)',
           }}>Achievement unlocked</div>
           <div style={{
-            fontSize: 15, fontWeight: 800, color: '#0D1F12', lineHeight: 1.2,
+            fontSize: 15, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.2,
             marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{current.title || current.type}</div>
           <div style={{
@@ -356,18 +356,18 @@ export function AchievementBadge({ achievement, size = 36 }) {
   const rarity = achievement.rarity || 'common'
   const styles = rarity === 'legendary'
     ? {
-        bg: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, #E8C05A 50%, #C9A040 100%)',
-        border: '2px solid #7A5800',
+        bg: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
+        border: '2px solid var(--tm-gold-text)',
         shadow: '0 0 0 3px rgba(232,192,90,0.25), 0 2px 10px rgba(232,192,90,0.55), inset 0 1px 0 rgba(255,255,255,0.5)',
       }
     : rarity === 'rare'
     ? {
-        bg: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, #E8C05A 60%, #C9A040 100%)',
+        bg: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, var(--tm-gold-bright) 60%, var(--tm-gold) 100%)',
         border: '1.8px solid rgba(122,88,0,0.55)',
         shadow: '0 0 0 2px rgba(232,192,90,0.20), 0 2px 8px rgba(201,160,64,0.45), inset 0 1px 0 rgba(255,255,255,0.50)',
       }
     : {
-        bg: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, #C9A040 75%)',
+        bg: 'radial-gradient(circle at 30% 30%, #FFE9A8 0%, var(--tm-gold) 75%)',
         border: '1.5px solid rgba(122,88,0,0.45)',
         shadow: '0 2px 6px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,255,255,0.45)',
       }

@@ -96,7 +96,7 @@ function FirstMatchCard({ user, matchCount, onGoToScorecard }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
           boxShadow: '0 2px 8px rgba(201,160,64,0.30)',
@@ -109,10 +109,10 @@ function FirstMatchCard({ user, matchCount, onGoToScorecard }) {
           </svg>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#7A5800' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.10em', textTransform: 'uppercase', color: 'var(--tm-gold-text)' }}>
             First time?
           </div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1F12', lineHeight: 1.2 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.2 }}>
             Start your first match
           </div>
         </div>
@@ -194,14 +194,14 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
           <div style={{ flex: 1 }}>
-            <div style={{ color: '#7A5800', fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ color: 'var(--tm-gold-text)', fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
               SEASON {season.year} IS HERE
             </div>
             <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 12, lineHeight: 1.4 }}>{banner}</div>
           </div>
           <button onClick={onStartSeason} style={{
-            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
             color: '#070C09', border: 'none', borderRadius: 10, padding: '8px 14px',
             fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
           }}>Let's Go</button>
@@ -243,7 +243,7 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
 
           {/* Left: name + course */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800, marginBottom: 4 }}>
+            <div style={{ color: 'var(--tm-green)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800, marginBottom: 4 }}>
               SEASON {season?.year ?? currentSeasonYear()}
             </div>
             <div style={{
@@ -251,7 +251,7 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
               lineHeight: 1.1, marginBottom: 4,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               fontFamily: '"Georgia", serif',
-              background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+              background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold), var(--tm-gold-bright))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>{user?.name ?? '—'}</div>
             {user?.handle && (
@@ -282,7 +282,7 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
           }}>
             <div style={{
               fontSize: user?.handicap != null ? 32 : 22, fontWeight: 900, lineHeight: 1,
-              background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+              background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold), var(--tm-gold-bright))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               minWidth: 44, display: 'block',
             }}>{handicapDisplay}</div>
@@ -300,10 +300,10 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
         {/* Season stats row */}
         <div style={{ display: 'flex', marginTop: 12, borderTop: '1px solid rgba(27,94,59,0.10)', paddingTop: 14 }}>
           {[
-            { label: 'WINS', value: season?.wins ?? 0, color: '#1B5E3B' },
+            { label: 'WINS', value: season?.wins ?? 0, color: 'var(--tm-green)' },
             { label: 'LOSSES', value: season?.losses ?? 0, color: '#DC2626' },
             { label: 'TIES', value: season?.ties ?? 0, color: 'rgba(13,31,18,0.45)' },
-            { label: '3-RND AVG', value: avg3 != null ? avg3 : '—', color: '#7A5800' },
+            { label: '3-RND AVG', value: avg3 != null ? avg3 : '—', color: 'var(--tm-gold-text)' },
           ].map(({ label, value, color }, i) => (
             <div key={label} style={{
               flex: 1, textAlign: 'center',
@@ -343,7 +343,7 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-              stroke={notifCount > 0 ? '#7A5800' : 'rgba(122,88,0,0.6)'}
+              stroke={notifCount > 0 ? 'var(--tm-gold-text)' : 'rgba(122,88,0,0.6)'}
               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="5" width="18" height="14" rx="2"/>
               <polyline points="3 7 12 13 21 7"/>
@@ -360,7 +360,7 @@ function ProfileHeroCard({ user, stats, season, avg3, streak, followCounts, onCo
               }}>{notifCount > 99 ? '99+' : notifCount}</span>
             )}
           </div>
-          <span style={{ color: notifCount > 0 ? '#7A5800' : 'rgba(122,88,0,0.7)', fontSize: 12, fontWeight: 700, flex: 1, textAlign: 'left' }}>
+          <span style={{ color: notifCount > 0 ? 'var(--tm-gold-text)' : 'rgba(122,88,0,0.7)', fontSize: 12, fontWeight: 700, flex: 1, textAlign: 'left' }}>
             {notifCount > 0
               ? `${notifCount} ${notifCount === 1 ? 'notification' : 'notifications'}`
               : 'No new notifications'}
@@ -443,14 +443,14 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{
-          color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          color: 'var(--tm-green)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
           background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
           textShadow: '0 1px 1px rgba(255,255,255,0.4)',
         }}>PLAYING PARTNERS</div>
         <button onClick={() => onAddFriend ? onAddFriend() : setShowAdd(v => !v)} style={{
           background: 'rgba(27,94,59,0.06)',
           border: '1px solid rgba(27,94,59,0.14)', borderRadius: 8,
-          color: '#1B5E3B', fontSize: 11, padding: '5px 10px', cursor: 'pointer',
+          color: 'var(--tm-green)', fontSize: 11, padding: '5px 10px', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 4,
         }}>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -467,18 +467,18 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
               placeholder="Friend's email…" type="email"
               style={{
                 flex: 1, background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
-                borderRadius: 10, color: '#0D1F12', padding: '10px 14px', fontSize: 13,
+                borderRadius: 10, color: 'var(--tm-text)', padding: '10px 14px', fontSize: 13,
                 outline: 'none',
               }}
             />
             <button type="submit" disabled={addState === 'loading'} style={{
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)', color: '#070C09',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))', color: '#070C09',
               border: 'none', borderRadius: 10, padding: '0 16px', fontSize: 13, fontWeight: 700,
               cursor: 'pointer',
             }}>{addState === 'loading' ? '…' : 'Send'}</button>
           </div>
           {addMsg && (
-            <div style={{ marginTop: 6, fontSize: 12, color: addState === 'ok' ? '#C9A040' : '#F87171' }}>{addMsg}</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: addState === 'ok' ? 'var(--tm-gold)' : '#F87171' }}>{addMsg}</div>
           )}
         </form>
       )}
@@ -491,12 +491,12 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
         }}>
           <div>
-            <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
+            <div style={{ color: 'var(--tm-gold)', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
             <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>wants to be your playing partner</div>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => onRespond(req.id, 'accepted')} style={{
-              background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
+              background: 'var(--tm-green)', color: '#FFFFFF', border: 'none', borderRadius: 8,
               padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
             }}>Accept</button>
             <button onClick={() => onRespond(req.id, 'declined')} style={{
@@ -515,12 +515,12 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
         }}>
           <div>
-            <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requestee_name}</div>
+            <div style={{ color: 'var(--tm-gold)', fontSize: 13, fontWeight: 700 }}>{req.requestee_name}</div>
             <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>Request sent</div>
           </div>
           <span style={{
             fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
-            color: '#7A5800',
+            color: 'var(--tm-gold-text)',
             background: 'rgba(201,160,64,0.12)', borderRadius: 6, padding: '3px 8px',
           }}>PENDING</span>
         </div>
@@ -540,7 +540,7 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
               <ellipse cx="22" cy="56" rx="6" ry="2" fill="#0D1F12" stroke="none" opacity="0.25"/>
             </svg>
           </div>
-          <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No playing partners yet</div>
+          <div style={{ color: 'var(--tm-text)', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No playing partners yet</div>
           <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 12, lineHeight: 1.5, marginBottom: 14 }}>
             Add a friend to track their rounds, see their availability, and challenge them to a match.
           </div>
@@ -557,7 +557,7 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
         const act = activity.find(a => String(a.user_id) === String(f.friend_id))
         const diff = act ? act.total - (act.course_par || 72) : null
         const diffStr = diff == null ? null : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : String(diff)
-        const diffColor = diff == null ? null : diff < 0 ? '#1B5E3B' : diff > 0 ? '#DC2626' : '#7A5800'
+        const diffColor = diff == null ? null : diff < 0 ? 'var(--tm-green)' : diff > 0 ? '#DC2626' : 'var(--tm-gold-text)'
         const hcp = f.friend_handicap != null ? (f.friend_handicap > 0 ? `+${f.friend_handicap}` : String(f.friend_handicap)) : null
         return (
           <div key={f.id} onClick={() => onSelectFriend?.(f)} style={{
@@ -568,8 +568,8 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
           }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: '#C9A040', fontSize: 14, fontWeight: 700 }}>{f.friend_name}</span>
-                {hcp && <span style={{ color: '#7A5800', fontSize: 11, fontWeight: 600 }}>HCP {hcp}</span>}
+                <span style={{ color: 'var(--tm-gold)', fontSize: 14, fontWeight: 700 }}>{f.friend_name}</span>
+                {hcp && <span style={{ color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 600 }}>HCP {hcp}</span>}
               </div>
               {act ? (
                 <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 11, marginTop: 2 }}>
@@ -629,7 +629,7 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
     }} onClick={onClose}>
       <div style={{
         width: '100%', maxWidth: 480,
-        background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+        background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
         border: '1px solid rgba(27,94,59,0.12)',
         borderRadius: '22px 22px 0 0',
         padding: '20px 20px 48px',
@@ -639,7 +639,7 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(27,94,59,0.14)', margin: '0 auto 18px' }} />
 
         {/* Date */}
-        <div style={{ color: '#0D1F12', fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{label}</div>
+        <div style={{ color: 'var(--tm-text)', fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{label}</div>
 
         {/* Your status */}
         <div style={{
@@ -651,9 +651,9 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 8, height: 8, borderRadius: '50%',
-              background: isMine ? '#1B5E3B' : 'rgba(13,31,18,0.18)',
+              background: isMine ? 'var(--tm-green)' : 'rgba(13,31,18,0.18)',
             }} />
-            <span style={{ color: isMine ? '#1B5E3B' : 'rgba(13,31,18,0.45)', fontSize: 13, fontWeight: 600 }}>
+            <span style={{ color: isMine ? 'var(--tm-green)' : 'rgba(13,31,18,0.45)', fontSize: 13, fontWeight: 600 }}>
               {isMine ? "You're free this day" : "You haven't marked this day"}
             </span>
           </div>
@@ -663,7 +663,7 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
             style={{
               background: isMine ? 'rgba(220,38,38,0.08)' : 'rgba(27,94,59,0.12)',
               border: `1px solid ${isMine ? 'rgba(220,38,38,0.22)' : 'rgba(27,94,59,0.25)'}`,
-              borderRadius: 8, color: isMine ? '#DC2626' : '#1B5E3B',
+              borderRadius: 8, color: isMine ? '#DC2626' : 'var(--tm-green)',
               fontSize: 11, fontWeight: 600, padding: '6px 12px', cursor: 'pointer',
             }}
           >{toggling === ymd ? '…' : isMine ? 'Mark busy' : 'Mark free'}</button>
@@ -688,15 +688,15 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
                   padding: '10px 0', borderBottom: '1px solid rgba(27,94,59,0.08)', gap: 10,
                 }}>
                   <div>
-                    <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 600 }}>{f.name}</div>
+                    <div style={{ color: 'var(--tm-text)', fontSize: 14, fontWeight: 600 }}>{f.name}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#1B5E3B' }} />
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-green)' }} />
                       <span style={{ color: 'rgba(27,94,59,0.65)', fontSize: 11 }}>Free this day</span>
                     </div>
                   </div>
                   {state === 'sent' ? (
                     <span style={{
-                      color: '#1B5E3B', fontSize: 11, fontWeight: 600,
+                      color: 'var(--tm-green)', fontSize: 11, fontWeight: 600,
                       background: 'rgba(27,94,59,0.08)', borderRadius: 8, padding: '6px 12px',
                     }}>Sent</span>
                   ) : state === 'error' ? (
@@ -705,7 +705,7 @@ function DaySheet({ ymd, isMine, friends, onClose, onToggleFree, toggling, onSch
                     <button onClick={() => requestPlay(f)} disabled={state === 'sending'} style={{
                       background: 'rgba(27,94,59,0.08)',
                       border: '1px solid rgba(27,94,59,0.25)',
-                      borderRadius: 9, color: '#1B5E3B',
+                      borderRadius: 9, color: 'var(--tm-green)',
                       fontSize: 12, fontWeight: 600, padding: '7px 14px', cursor: 'pointer',
                       opacity: state === 'sending' ? 0.5 : 1,
                     }}>{state === 'sending' ? '…' : 'Request to Play'}</button>
@@ -779,7 +779,7 @@ export function AvailabilityCalendar({
     // on Home (gold flourish dividers, gold borders, gold accents).
     // (2026-05-02 — Matt: "make the green availability calander
     // letters gold")
-    headingColor:  '#7A5800',
+    headingColor:  'var(--tm-gold-text)',
     headingBg:     'rgba(255,253,248,0.85)',
     headingShadow: '0 1px 1px rgba(255,255,255,0.4)',
     // Translucent glass — same family as the other Home boxes but
@@ -791,11 +791,11 @@ export function AvailabilityCalendar({
     cardBorder:    '1px solid rgba(255,255,255,0.65)',
     divider:       'rgba(27,94,59,0.10)',
     monthArrow:    'rgba(27,94,59,0.45)',
-    monthText:     '#1B5E3B',
+    monthText:     'var(--tm-green)',
     dayLabel:      'rgba(27,94,59,0.40)',
-    dayText:       '#0D1F12',
+    dayText:       'var(--tm-text)',
     pastText:      'rgba(27,94,59,0.20)',
-    freeText:      '#7A5800',
+    freeText:      'var(--tm-gold-text)',
     // Brighter availability shades — your-free gold gradient and
     // friend-free green tint bumped so the cells read clearly
     // against the new translucent calendar surface. (2026-05-02 —
@@ -806,8 +806,8 @@ export function AvailabilityCalendar({
     todayOutline:  'rgba(201,160,64,0.6)',
     legendText:    'rgba(27,94,59,0.50)',
     legendSwatch:  'rgba(201,160,64,0.35)',
-    friendDotMine: '#C9A040',
-    friendDot:     '#1B5E3B',
+    friendDotMine: 'var(--tm-gold)',
+    friendDot:     'var(--tm-green)',
   }
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
@@ -959,14 +959,14 @@ export function AvailabilityCalendar({
             <span style={{
               fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em',
               fontFamily: '"Georgia", serif',
-              background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+              background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold), var(--tm-gold-bright))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               backgroundClip: 'text', lineHeight: 1.1,
             }}>{monthName}</span>
             {!friendView && (
               <span style={{
                 fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
-                color: dark ? 'rgba(245,215,138,0.65)' : '#7A5800',
+                color: dark ? 'rgba(245,215,138,0.65)' : 'var(--tm-gold-text)',
               }}>
                 {freeCount} FREE{!selfOnly ? ` · ${overlapCount} OVERLAP${overlapCount === 1 ? '' : 'S'}` : ''}
               </span>
@@ -999,19 +999,19 @@ export function AvailabilityCalendar({
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: 9, letterSpacing: '0.18em', fontWeight: 800,
-                color: dark ? 'rgba(245,215,138,0.85)' : '#7A5800',
+                color: dark ? 'rgba(245,215,138,0.85)' : 'var(--tm-gold-text)',
                 marginBottom: 3,
               }}>NEXT MATCH OPPORTUNITY</div>
               <div style={{
                 fontSize: 13, fontWeight: 700,
-                color: dark ? '#fff' : '#0D1F12',
+                color: dark ? '#fff' : 'var(--tm-text)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
                 {bannerDateLabel(nextOverlap.ymd)} — {nextOverlap.friends.length} {nextOverlap.friends.length === 1 ? 'friend' : 'friends'} free with you
               </div>
             </div>
             <span style={{
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               color: '#070C09', borderRadius: 8, fontSize: 11, fontWeight: 800,
               padding: '7px 12px', letterSpacing: '0.04em',
               flexShrink: 0,
@@ -1085,10 +1085,10 @@ export function AvailabilityCalendar({
                   <svg
                     width="9" height="9" viewBox="0 0 64 64"
                     style={{ position: 'absolute', top: 3, right: 3, pointerEvents: 'none' }}
-                    fill="none" stroke={dark ? '#F5D78A' : '#1B5E3B'}
+                    fill="none" stroke={dark ? '#F5D78A' : 'var(--tm-green)'}
                     strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="22" y1="8" x2="22" y2="54"/>
-                    <path d="M22 10 L52 17 L22 24 Z" fill={dark ? '#F5D78A' : '#1B5E3B'} stroke={dark ? '#F5D78A' : '#1B5E3B'} />
+                    <path d="M22 10 L52 17 L22 24 Z" fill={dark ? '#F5D78A' : 'var(--tm-green)'} stroke={dark ? '#F5D78A' : 'var(--tm-green)'} />
                   </svg>
                 )}
                 {day}
@@ -1111,7 +1111,7 @@ export function AvailabilityCalendar({
                         <div key={f.user_id ?? `${f.name}-${idx}`} style={{
                           width: 11, height: 11, borderRadius: '50%',
                           background: isMine ? C.friendDotMine : C.friendDot,
-                          color: dark ? '#0D1F12' : '#fff',
+                          color: dark ? 'var(--tm-text)' : '#fff',
                           fontSize: 7, fontWeight: 800, lineHeight: 1,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           marginLeft: idx > 0 ? -3 : 0,
@@ -1273,7 +1273,7 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
     }} onClick={onClose}>
       <div style={{
         width: '100%', maxWidth: 480,
-        background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+        background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
         border: '1px solid rgba(27,94,59,0.12)',
         borderRadius: '22px 22px 0 0', padding: '20px 20px 48px',
       }} onClick={e => e.stopPropagation()}>
@@ -1284,7 +1284,7 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span style={{
               fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-              color: isMatch ? '#C9A040' : '#F5D78A',
+              color: isMatch ? 'var(--tm-gold)' : '#F5D78A',
               background: isMatch ? 'rgba(201,160,64,0.1)' : 'rgba(245,215,138,0.1)',
               borderRadius: 5, padding: '2px 7px',
             }}>{isMatch ? 'CALENDAR MATCH' : 'TEE TIME'}</span>
@@ -1314,7 +1314,7 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.18)',
-              borderRadius: 12, color: '#0D1F12', padding: '13px 16px', fontSize: 15, outline: 'none',
+              borderRadius: 12, color: 'var(--tm-text)', padding: '13px 16px', fontSize: 15, outline: 'none',
             }}
           />
           {!picked && course.trim().length >= 2 && (suggestions.length > 0 || searching) && (
@@ -1355,7 +1355,7 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--tm-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {name}
                       </div>
                       {where && (
@@ -1366,7 +1366,7 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
                     </div>
                     {dist && (
                       <span style={{
-                        fontSize: 11, fontWeight: 700, color: '#1B5E3B',
+                        fontSize: 11, fontWeight: 700, color: 'var(--tm-green)',
                         background: 'rgba(27,94,59,0.08)', padding: '3px 8px', borderRadius: 999,
                         flexShrink: 0,
                       }}>{dist}</span>
@@ -1390,14 +1390,14 @@ function PlanSheet({ game, onClose, onCourseSaved }) {
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.18)',
-              borderRadius: 12, color: '#0D1F12', padding: '13px 16px', fontSize: 15, outline: 'none',
+              borderRadius: 12, color: 'var(--tm-text)', padding: '13px 16px', fontSize: 15, outline: 'none',
             }}
           />
         </div>
 
         <button onClick={save} disabled={saving || (!course.trim() && !time)} style={{
           width: '100%', padding: '14px',
-          background: (course.trim() || time) ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.07)',
+          background: (course.trim() || time) ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(27,94,59,0.07)',
           color: (course.trim() || time) ? '#070C09' : 'rgba(13,31,18,0.3)',
           border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700,
           cursor: (course.trim() || time) ? 'pointer' : 'default', transition: 'all 0.15s',
@@ -1436,14 +1436,14 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{
-          color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          color: 'var(--tm-green)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
           background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
           textShadow: '0 1px 1px rgba(255,255,255,0.4)',
         }}>
           UPCOMING TEE TIMES
         </div>
         <span style={{
-          background: '#1B5E3B', color: '#FFFFFF',
+          background: 'var(--tm-green)', color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
         }}>{realGames.length}</span>
       </div>
@@ -1485,9 +1485,9 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
             {/* Top row: date + time + badge */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <div style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>{dateLabel}</div>
+                <div style={{ color: 'var(--tm-green)', fontSize: 13, fontWeight: 700 }}>{dateLabel}</div>
                 {timeLabel && (
-                  <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>· {timeLabel}</div>
+                  <div style={{ color: 'var(--tm-gold)', fontSize: 13, fontWeight: 700 }}>· {timeLabel}</div>
                 )}
                 {showCounter && (
                   <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 11, fontWeight: 600 }}>· #{sameDayPos} of {sameDayMatches.length}</div>
@@ -1495,7 +1495,7 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
               </div>
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.08em',
-                color: isMatch ? '#1B5E3B' : '#7A5800',
+                color: isMatch ? 'var(--tm-green)' : 'var(--tm-gold-text)',
                 background: isMatch ? 'rgba(27,94,59,0.08)' : 'rgba(201,160,64,0.10)',
                 borderRadius: 5, padding: '2px 8px',
               }}>{isMatch ? 'CALENDAR' : 'TEE TIME'}</span>
@@ -1514,8 +1514,8 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
                     cursor: String(p.user_id) !== String(userId) ? 'pointer' : 'default',
                   }}
                 >
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#C9A040' }} />
-                  <span style={{ color: '#C9A040', fontSize: 12, fontWeight: 700 }}>{p.name}</span>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-gold)' }} />
+                  <span style={{ color: 'var(--tm-gold)', fontSize: 12, fontWeight: 700 }}>{p.name}</span>
                   {p.handicap != null && (
                     <span style={{ color: 'rgba(201,160,64,0.65)', fontSize: 10 }}>
                       {p.handicap > 0 ? `+${p.handicap}` : p.handicap}
@@ -1529,7 +1529,7 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
                   background: '#FFFFFF', borderRadius: 20, padding: '4px 10px',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
                 }}>
-                  <span style={{ color: '#C9A040', fontSize: 12, fontWeight: 700 }}>{p.name}</span>
+                  <span style={{ color: 'var(--tm-gold)', fontSize: 12, fontWeight: 700 }}>{p.name}</span>
                   <span style={{ color: 'rgba(27,94,59,0.45)', fontSize: 10 }}>pending</span>
                 </div>
               ))}
@@ -1574,7 +1574,7 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
                       style={{
                         background: 'rgba(201,160,64,0.10)',
                         border: '1px solid rgba(201,160,64,0.35)',
-                        borderRadius: 8, color: '#7A5800',
+                        borderRadius: 8, color: 'var(--tm-gold-text)',
                         fontSize: 11, fontWeight: 700, padding: '5px 12px', cursor: 'pointer',
                         opacity: bState === 'sending' ? 0.5 : 1,
                       }}
@@ -1590,14 +1590,14 @@ function UpcomingTeeTimes({ games, onPlan, onRefresh, onCreateMatch, onSelectFri
                     style={{
                       background: 'rgba(201,160,64,0.10)',
                       border: '1px solid rgba(201,160,64,0.35)',
-                      borderRadius: 8, color: '#7A5800',
+                      borderRadius: 8, color: 'var(--tm-gold-text)',
                       fontSize: 11, fontWeight: 700, padding: '5px 12px', cursor: 'pointer',
                     }}
                   >Create Match</button>
                 )}
                 <button onClick={() => onPlan(g)} style={{
                   background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.16)',
-                  borderRadius: 8, color: '#1B5E3B', fontSize: 11, fontWeight: 600,
+                  borderRadius: 8, color: 'var(--tm-green)', fontSize: 11, fontWeight: 600,
                   padding: '5px 12px', cursor: 'pointer',
                 }}>{g.course_name ? 'Change' : 'Set Course'}</button>
               </div>
@@ -1628,14 +1628,14 @@ function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{
-          color: '#7A5800', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          color: 'var(--tm-gold-text)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
           background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
           textShadow: '0 1px 1px rgba(255,255,255,0.4)',
         }}>
           AWAITING TEE TIME
         </div>
         <span style={{
-          background: '#C9A040', color: '#FFFFFF',
+          background: 'var(--tm-gold)', color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
         }}>{total}</span>
       </div>
@@ -1661,12 +1661,12 @@ function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-                color: '#7A5800', background: 'rgba(201,160,64,0.10)',
+                color: 'var(--tm-gold-text)', background: 'rgba(201,160,64,0.10)',
                 borderRadius: 5, padding: '2px 7px',
               }}>{isOrganizer ? 'YOU INVITED' : 'YOU ACCEPTED'}</span>
-              <span style={{ color: '#7A5800', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
+              <span style={{ color: 'var(--tm-gold-text)', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
             </div>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: '#0D1F12' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: 'var(--tm-text)' }}>
               {otherAccepted.length > 0
                 ? otherAccepted.map(p => p.name).join(', ')
                 : (g.organizer_name || 'Match')}
@@ -1676,7 +1676,7 @@ function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
             </div>
             <button onClick={() => onPlan?.(g)} style={{
               width: '100%',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               border: 'none', borderRadius: 10, color: '#070C09',
               fontSize: 13, fontWeight: 700, padding: '9px',
               cursor: 'pointer',
@@ -1702,14 +1702,14 @@ function AwaitingTeeTime({ requests = [], games = [], userId, onPlan }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-                color: accepted ? '#1B5E3B' : '#7A5800',
+                color: accepted ? 'var(--tm-green)' : 'var(--tm-gold-text)',
                 background: accepted ? 'rgba(27,94,59,0.10)' : 'rgba(201,160,64,0.10)',
                 borderRadius: 5, padding: '2px 7px',
               }}>{accepted ? 'ACCEPTED · COORDINATE TIME' : 'WAITING FOR REPLY'}</span>
-              <span style={{ color: '#7A5800', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
+              <span style={{ color: 'var(--tm-gold-text)', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-              <span style={{ color: '#C9A040' }}>{tr.to_name}</span>
+              <span style={{ color: 'var(--tm-gold)' }}>{tr.to_name}</span>
               <span style={{ color: 'rgba(27,94,59,0.45)', fontSize: 12, fontWeight: 400 }}>
                 {accepted ? ' is in — agree on a tee time' : " hasn't responded yet"}
               </span>
@@ -1737,14 +1737,14 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
           stays legible against the textured page background. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{
-          color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          color: 'var(--tm-green)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
           background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
           textShadow: '0 1px 1px rgba(255,255,255,0.4)',
         }}>
           INVITES
         </div>
         <span style={{
-          background: empty ? 'rgba(27,94,59,0.55)' : '#C9A040',
+          background: empty ? 'rgba(27,94,59,0.55)' : 'var(--tm-gold)',
           color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
         }}>{totalCount}</span>
@@ -1753,7 +1753,7 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
       {empty && (
         <div style={{
           borderRadius: 16,
-          background: 'linear-gradient(135deg, #FFFFFF 0%, #F2EEE6 100%)',
+          background: 'linear-gradient(135deg, #FFFFFF 0%, var(--tm-bg) 100%)',
           border: '2px solid rgba(201,160,64,0.70)',
           boxShadow: '0 2px 20px rgba(201,160,64,0.22)',
           padding: '14px 18px',
@@ -1771,7 +1771,7 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
             </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>
+            <div style={{ color: 'var(--tm-text)', fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>
               No invites at this time
             </div>
             <div style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, fontWeight: 500, marginTop: 3 }}>
@@ -1793,20 +1793,20 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-                color: '#7A5800', background: 'rgba(201,160,64,0.10)',
+                color: 'var(--tm-gold-text)', background: 'rgba(201,160,64,0.10)',
                 borderRadius: 5, padding: '2px 7px',
               }}>TEE TIME REQUEST</span>
-              <span style={{ color: '#7A5800', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
+              <span style={{ color: 'var(--tm-gold-text)', fontSize: 12, fontWeight: 600 }}>{dateLabel}</span>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
-              <span style={{ color: '#C9A040' }}>{tr.from_name}</span>
+              <span style={{ color: 'var(--tm-gold)' }}>{tr.from_name}</span>
               <span style={{ color: 'rgba(27,94,59,0.45)', fontSize: 12, fontWeight: 400 }}> wants to play</span>
             </div>
             {tr.course_name && <div style={{ color: 'rgba(13,31,18,0.45)', fontSize: 12, marginBottom: 6 }}>{tr.course_name}</div>}
             {tr.message && <div style={{ color: 'rgba(13,31,18,0.40)', fontSize: 12, fontStyle: 'italic', marginBottom: 8 }}>"{tr.message}"</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => onRespondTeeRequest?.(tr.id, 'accepted')} style={{
-                flex: 1, background: '#1B5E3B', color: '#FFFFFF', border: 'none',
+                flex: 1, background: 'var(--tm-green)', color: '#FFFFFF', border: 'none',
                 borderRadius: 10, padding: '9px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
               }}>Accept</button>
               <button onClick={() => onRespondTeeRequest?.(tr.id, 'declined')} style={{
@@ -1839,20 +1839,20 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <span style={{
                 fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-                color: isBroadcast ? '#7A5800' : isMatch ? '#1B5E3B' : '#7A5800',
+                color: isBroadcast ? 'var(--tm-gold-text)' : isMatch ? 'var(--tm-green)' : 'var(--tm-gold-text)',
                 background: isBroadcast ? 'rgba(201,160,64,0.10)' : isMatch ? 'rgba(27,94,59,0.08)' : 'rgba(201,160,64,0.10)',
                 borderRadius: 5, padding: '2px 7px',
               }}>
                 {isBroadcast ? `OPEN SPOT · NEED ${spotsOpen}` : isMatch ? 'CALENDAR MATCH' : 'TEE TIME REQUEST'}
               </span>
-              <span style={{ color: isBroadcast ? '#7A5800' : '#1B5E3B', fontSize: 12, fontWeight: 600 }}>
+              <span style={{ color: isBroadcast ? 'var(--tm-gold-text)' : 'var(--tm-green)', fontSize: 12, fontWeight: 600 }}>
                 {dateLabel}
               </span>
             </div>
 
             {/* Organizer line */}
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
-              <span style={{ color: '#C9A040' }}>{g.organizer_name}</span>
+              <span style={{ color: 'var(--tm-gold)' }}>{g.organizer_name}</span>
               <span style={{ color: 'rgba(27,94,59,0.45)', fontSize: 12, fontWeight: 400 }}>
                 {isBroadcast ? ` is looking for ${spotsOpen} more` : ' invited you'}
               </span>
@@ -1863,7 +1863,7 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
               {accepted.map(p => (
                 <span key={p.user_id} style={{
                   background: '#FFFFFF', borderRadius: 20, padding: '3px 9px',
-                  color: '#C9A040', fontSize: 11, fontWeight: 700,
+                  color: 'var(--tm-gold)', fontSize: 11, fontWeight: 700,
                   boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
                 }}>{p.name}</span>
               ))}
@@ -1892,7 +1892,7 @@ function GameInbox({ games, teeRequests = [], onRespond, onRespondTeeRequest }) 
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => onRespond(g.id, 'accepted')} style={{
                 flex: 1,
-                background: isBroadcast ? '#C9A040' : '#1B5E3B',
+                background: isBroadcast ? 'var(--tm-gold)' : 'var(--tm-green)',
                 color: '#FFFFFF', border: 'none',
                 borderRadius: 10, padding: '9px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
               }}>{isBroadcast ? "I'm In!" : 'Accept'}</button>
@@ -1953,14 +1953,14 @@ function AddFriendModal({ onClose, onRequestSent }) {
     }} onClick={onClose}>
       <div style={{
         width: '100%', maxWidth: 480,
-        background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+        background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
         border: '1px solid rgba(27,94,59,0.12)',
         borderRadius: '20px 20px 0 0', padding: '24px 20px 48px',
         maxHeight: '75vh', display: 'flex', flexDirection: 'column',
       }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ color: '#0D1F12', fontSize: 16, fontWeight: 700 }}>Add Playing Partner</span>
+          <span style={{ color: 'var(--tm-text)', fontSize: 16, fontWeight: 700 }}>Add Playing Partner</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(13,31,18,0.45)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
 
@@ -1978,7 +1978,7 @@ function AddFriendModal({ onClose, onRequestSent }) {
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
-              borderRadius: 12, color: '#0D1F12', padding: '12px 14px 12px 38px',
+              borderRadius: 12, color: 'var(--tm-text)', padding: '12px 14px 12px 38px',
               fontSize: 14, outline: 'none',
             }}
           />
@@ -2015,10 +2015,10 @@ function AddFriendModal({ onClose, onRequestSent }) {
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span style={{ color: '#0D1F12', fontSize: 14, fontWeight: 600 }}>{u.name}</span>
+                    <span style={{ color: 'var(--tm-text)', fontSize: 14, fontWeight: 600 }}>{u.name}</span>
                     {hcp && (
                       <span style={{
-                        fontSize: 10, fontWeight: 600, color: '#7A5800',
+                        fontSize: 10, fontWeight: 600, color: 'var(--tm-gold-text)',
                         background: 'rgba(201,160,64,0.14)', borderRadius: 5,
                         padding: '1px 6px', letterSpacing: '0.04em',
                       }}>HCP {hcp}</span>
@@ -2032,9 +2032,9 @@ function AddFriendModal({ onClose, onRequestSent }) {
                   )}
                 </div>
                 {alreadyFriend ? (
-                  <span style={{ color: '#7A5800', fontSize: 11, fontWeight: 600 }}>Friends</span>
+                  <span style={{ color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 600 }}>Friends</span>
                 ) : alreadyPending ? (
-                  <span style={{ color: '#7A5800', fontSize: 11, fontWeight: 600 }}>Requested</span>
+                  <span style={{ color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 600 }}>Requested</span>
                 ) : state === 'error' ? (
                   <span style={{ color: '#B91C1C', fontSize: 11 }}>Error</span>
                 ) : (
@@ -2118,7 +2118,7 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
     }} onClick={onClose}>
       <div style={{
         width: '100%', maxWidth: 480,
-        background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+        background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
         border: '1px solid rgba(27,94,59,0.12)',
         borderRadius: '22px 22px 0 0', padding: '20px 20px 48px',
         maxHeight: '90dvh', overflowY: 'auto',
@@ -2203,7 +2203,7 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
               {(results.length > 0 || searching) && (
                 <div style={{
                   position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                  background: '#0D1F12', border: '1px solid rgba(255,255,255,0.1)',
+                  background: 'var(--tm-text)', border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 10, marginTop: 4, overflow: 'hidden',
                 }}>
                   {searching && <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, padding: '10px 14px' }}>Searching…</div>}
@@ -2223,7 +2223,7 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
                           </div>
                         )}
                       </div>
-                      <span style={{ color: '#C9A040', fontSize: 12, fontWeight: 600 }}>+ Add</span>
+                      <span style={{ color: 'var(--tm-gold)', fontSize: 12, fontWeight: 600 }}>+ Add</span>
                     </div>
                   ))}
                 </div>
@@ -2259,7 +2259,7 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
               onClick={() => onCreateOuting?.({ invitees, date, course: course.trim() || null, message: message.trim() || null })}
               style={{
                 width: '100%', padding: '15px',
-                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                 color: '#070C09', border: 'none', borderRadius: 12,
                 fontSize: 15, fontWeight: 800, cursor: 'pointer', letterSpacing: '0.02em',
               }}
@@ -2275,7 +2275,7 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
         ) : (
           <button onClick={send} disabled={sending || invitees.length === 0} style={{
             width: '100%', padding: '14px',
-            background: invitees.length > 0 ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(255,255,255,0.07)',
+            background: invitees.length > 0 ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(255,255,255,0.07)',
             color: invitees.length > 0 ? '#070C09' : 'rgba(255,255,255,0.3)',
             border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700,
             cursor: invitees.length > 0 ? 'pointer' : 'default',
@@ -2342,12 +2342,12 @@ function EditProfileModal({ user, onSave, onClose }) {
     }} onClick={onClose}>
       <div style={{
         width: '100%', maxWidth: 480,
-        background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+        background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
         border: '1px solid rgba(27,94,59,0.12)',
         borderRadius: '20px 20px 0 0', padding: '24px 24px 40px',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <span style={{ color: '#0D1F12', fontSize: 16, fontWeight: 700 }}>Edit Profile</span>
+          <span style={{ color: 'var(--tm-text)', fontSize: 16, fontWeight: 700 }}>Edit Profile</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(13,31,18,0.40)', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>
         {/* Handicap row */}
@@ -2360,7 +2360,7 @@ function EditProfileModal({ user, onSave, onClose }) {
             style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
-              borderRadius: 10, color: '#0D1F12', padding: '11px 14px', fontSize: 14, outline: 'none',
+              borderRadius: 10, color: 'var(--tm-text)', padding: '11px 14px', fontSize: 14, outline: 'none',
             }}
           />
         </div>
@@ -2375,8 +2375,8 @@ function EditProfileModal({ user, onSave, onClose }) {
                 <button key={v} type="button" onClick={() => setGender(on ? null : v)} aria-pressed={on} style={{
                   flex: 1, minHeight: 44, borderRadius: 10, cursor: 'pointer', fontSize: 14, fontWeight: 700,
                   background: on ? 'rgba(27,94,59,0.10)' : 'rgba(27,94,59,0.04)',
-                  border: on ? '1.5px solid #2A7A38' : '1px solid rgba(27,94,59,0.15)',
-                  color: on ? '#1B5E3B' : 'rgba(13,31,18,0.6)',
+                  border: on ? '1.5px solid var(--tm-green-bright)' : '1px solid rgba(27,94,59,0.15)',
+                  color: on ? 'var(--tm-green)' : 'rgba(13,31,18,0.6)',
                 }}>{t}</button>
               )
             })}
@@ -2391,7 +2391,7 @@ function EditProfileModal({ user, onSave, onClose }) {
             <input value={value} onChange={e => set(e.target.value)} placeholder={placeholder} style={{
               width: '100%', boxSizing: 'border-box',
               background: 'rgba(27,94,59,0.04)', border: '1px solid rgba(27,94,59,0.15)',
-              borderRadius: 10, color: '#0D1F12', padding: '11px 14px', fontSize: 14, outline: 'none',
+              borderRadius: 10, color: 'var(--tm-text)', padding: '11px 14px', fontSize: 14, outline: 'none',
             }} />
           </div>
         ))}
@@ -2420,8 +2420,8 @@ function EditProfileModal({ user, onSave, onClose }) {
                   <button key={key} type="button" onClick={() => set(on ? null : key)} aria-pressed={on} style={{
                     flex: 1, minHeight: 40, borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700,
                     background: on ? 'rgba(27,94,59,0.10)' : 'rgba(27,94,59,0.04)',
-                    border: on ? '1.5px solid #2A7A38' : '1px solid rgba(27,94,59,0.15)',
-                    color: on ? '#1B5E3B' : 'rgba(13,31,18,0.6)',
+                    border: on ? '1.5px solid var(--tm-green-bright)' : '1px solid rgba(27,94,59,0.15)',
+                    color: on ? 'var(--tm-green)' : 'rgba(13,31,18,0.6)',
                   }}>{t}</button>
                 )
               })}
@@ -2430,7 +2430,7 @@ function EditProfileModal({ user, onSave, onClose }) {
         ))}
         <button onClick={handleSave} disabled={saving} style={{
           width: '100%', padding: '14px', marginTop: 8,
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
           color: '#070C09', border: 'none', borderRadius: 12,
           fontSize: 15, fontWeight: 700, cursor: 'pointer',
         }}>{saving ? 'Saving…' : 'Save'}</button>
@@ -2583,20 +2583,20 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
       }}>
         <button onClick={onBack} aria-label="Back" style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
-          borderRadius: 10, color: '#1B5E3B', fontSize: 18, fontWeight: 700,
+          borderRadius: 10, color: 'var(--tm-green)', fontSize: 18, fontWeight: 700,
           padding: '4px 12px', cursor: 'pointer', lineHeight: 1, height: 32,
           display: 'inline-flex', alignItems: 'center',
         }}>←</button>
         <div style={{
           fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em',
-          background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
+          background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, var(--tm-gold-bright) 58%, #8A6B28 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           fontFamily: '"Georgia", serif',
           flex: 1, textAlign: 'center',
         }}>The Match</div>
         <button onClick={onEditProfile} style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
-          borderRadius: 10, color: '#1B5E3B', fontSize: 12,
+          borderRadius: 10, color: 'var(--tm-green)', fontSize: 12,
           padding: '7px 12px', cursor: 'pointer',
         }}>Edit</button>
       </div>
@@ -2690,7 +2690,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                   lineHeight: 1.1,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   fontFamily: '"Georgia", serif',
-                  background: 'linear-gradient(135deg, #A07828, #C9A040, #E8C05A)',
+                  background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold), var(--tm-gold-bright))',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}>{user?.name ?? '—'}</div>
 
@@ -2724,7 +2724,7 @@ function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = []
                 }}>
                   <div style={{
                     fontSize: 28, fontWeight: 900, lineHeight: 1,
-                    background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
+                    background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, var(--tm-gold-bright) 58%, #8A6B28 100%)',
                     WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                   }}>{handicapDisplay}</div>
                   <div style={{ color: 'rgba(245,215,138,0.55)', fontSize: 9, letterSpacing: '0.12em', fontWeight: 700 }}>HCP INDEX</div>
@@ -4164,7 +4164,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
       }}>
         <div style={{
           fontSize: 26, fontWeight: 900, letterSpacing: '-0.03em',
-          background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, #E8C05A 58%, #8A6B28 100%)',
+          background: 'linear-gradient(180deg, #B58E33 0%, #F8DE91 32%, var(--tm-gold-bright) 58%, #8A6B28 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           fontFamily: '"Georgia", serif',
         }}>The Match</div>
@@ -4204,7 +4204,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
           </button>
           <button onClick={() => setView('profile')} style={{
             background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
-            borderRadius: 10, color: '#1B5E3B', fontSize: 12,
+            borderRadius: 10, color: 'var(--tm-green)', fontSize: 12,
             padding: '7px 12px', cursor: 'pointer',
           }}>My Profile</button>
           {/* Settings menu (kebab ⋯) — opens the SettingsModal which contains
@@ -4413,7 +4413,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
         >
           <div style={{
             borderRadius: 16,
-            background: 'linear-gradient(135deg, #FFFFFF 0%, #F2EEE6 100%)',
+            background: 'linear-gradient(135deg, #FFFFFF 0%, var(--tm-bg) 100%)',
             border: '2px solid rgba(201,160,64,0.70)',
             boxShadow: '0 2px 20px rgba(201,160,64,0.22)',
             padding: '14px 18px',
@@ -4435,12 +4435,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                 </svg>
               </div>
               <div>
-                <div style={{ color: '#0D1F12', fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>Book a Tee Time</div>
+                <div style={{ color: 'var(--tm-text)', fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>Book a Tee Time</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
                   <div style={{
                     background: 'rgba(27,94,59,0.14)', border: '1.5px solid rgba(27,94,59,0.35)',
                     borderRadius: 4, padding: '1px 6px',
-                    color: '#1B5E3B', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
+                    color: 'var(--tm-green)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em',
                   }}>GOLFNOW</div>
                   <span style={{ color: 'rgba(13,31,18,0.55)', fontSize: 11, fontWeight: 500 }}>Search tee times in your area →</span>
                 </div>
@@ -4530,12 +4530,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                 <div style={{ marginBottom: friends.outgoing.length > 0 ? 14 : 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 4px' }}>
                     <div style={{
-                      color: '#1B5E3B', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+                      color: 'var(--tm-green)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
                       background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
                       textShadow: '0 1px 1px rgba(255,255,255,0.4)',
                     }}>INCOMING</div>
                     <span style={{
-                      background: '#1B5E3B', color: '#FFFFFF',
+                      background: 'var(--tm-green)', color: '#FFFFFF',
                       borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
                     }}>{friends.incoming.length}</span>
                   </div>
@@ -4557,14 +4557,14 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                         }}>
                           <div>
-                            <div style={{ color: '#1B5E3B', fontSize: 13, fontWeight: 700 }}>
+                            <div style={{ color: 'var(--tm-green)', fontSize: 13, fontWeight: 700 }}>
                               {req.requester_name} <span style={{ color: 'rgba(13,31,18,0.55)', fontWeight: 500 }}>now follows you</span>
                             </div>
                             <div style={{ color: 'rgba(122,88,0,0.85)', fontSize: 11, fontWeight: 600 }}>Follow back?</div>
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button onClick={() => handleFollowBack(req.id, req.requester_id)} style={{
-                              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                               color: '#070C09', border: 'none', borderRadius: 8,
                               padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                             }}>Follow back</button>
@@ -4583,12 +4583,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                       }}>
                         <div>
-                          <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
+                          <div style={{ color: 'var(--tm-gold)', fontSize: 13, fontWeight: 700 }}>{req.requester_name}</div>
                           <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>wants to be your playing partner</div>
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button onClick={() => handleFriendRespond(req.id, 'accepted')} style={{
-                            background: '#1B5E3B', color: '#FFFFFF', border: 'none', borderRadius: 8,
+                            background: 'var(--tm-green)', color: '#FFFFFF', border: 'none', borderRadius: 8,
                             padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           }}>Accept</button>
                           <button onClick={() => handleFriendRespond(req.id, 'declined')} style={{
@@ -4607,12 +4607,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 4px' }}>
                     <div style={{
-                      color: '#7A5800', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+                      color: 'var(--tm-gold-text)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
                       background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
                       textShadow: '0 1px 1px rgba(255,255,255,0.4)',
                     }}>OUTGOING</div>
                     <span style={{
-                      background: '#C9A040', color: '#FFFFFF',
+                      background: 'var(--tm-gold)', color: '#FFFFFF',
                       borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
                     }}>{friends.outgoing.length}</span>
                   </div>
@@ -4623,12 +4623,12 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
                     }}>
                       <div>
-                        <div style={{ color: '#C9A040', fontSize: 13, fontWeight: 700 }}>{req.requestee_name}</div>
+                        <div style={{ color: 'var(--tm-gold)', fontSize: 13, fontWeight: 700 }}>{req.requestee_name}</div>
                         <div style={{ color: 'rgba(27,94,59,0.50)', fontSize: 11 }}>Request sent</div>
                       </div>
                       <span style={{
                         fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
-                        color: '#7A5800',
+                        color: 'var(--tm-gold-text)',
                         background: 'rgba(201,160,64,0.12)', borderRadius: 6, padding: '3px 8px',
                       }}>PENDING</span>
                     </div>

@@ -59,7 +59,7 @@ async function renderHighlight({ playerName, avatarUrl, score, par, holeNumber, 
   ctx.fillRect(0, 0, SIZE, SIZE)
 
   // Top wordmark — small, gold serif.
-  ctx.fillStyle = '#E8C05A'
+  ctx.fillStyle = 'var(--tm-gold-bright)'
   ctx.font = 'bold 28px Georgia, serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
@@ -96,7 +96,7 @@ async function renderHighlight({ playerName, avatarUrl, score, par, holeNumber, 
   }
   ctx.restore()
   // Gold ring around avatar.
-  ctx.strokeStyle = '#E8C05A'
+  ctx.strokeStyle = 'var(--tm-gold-bright)'
   ctx.lineWidth = 6
   ctx.beginPath()
   ctx.arc(avatarX, avatarY, avatarSize / 2 + 3, 0, Math.PI * 2)
@@ -284,12 +284,12 @@ export default function HighlightShareModal({
         }}>
         <div style={{
           fontSize: 11, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase',
-          color: '#7A5800',
+          color: 'var(--tm-gold-text)',
         }}>
           {badgeForScore(score, par)} · Share-card ready
         </div>
         <div style={{
-          fontSize: 17, fontWeight: 800, color: '#0D1F12', lineHeight: 1.25,
+          fontSize: 17, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.25,
         }}>
           {playerName || 'You'} on Hole {holeNumber}
         </div>
@@ -320,7 +320,7 @@ export default function HighlightShareModal({
             style={{
               width: '100%', padding: '14px', borderRadius: 14, border: 'none',
               background: imgBlob && !sharing
-                ? 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)'
+                ? 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold) 100%)'
                 : 'rgba(13,31,18,0.10)',
               color: imgBlob && !sharing ? '#070C09' : 'rgba(13,31,18,0.40)',
               fontWeight: 800, fontSize: 15,

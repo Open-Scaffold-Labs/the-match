@@ -289,7 +289,7 @@ export default function PlayerCard({ user, season, onClose, onSave, existingCard
         }}>✕ Close</button>
         <div style={{
           fontSize: 13, fontWeight: 700, letterSpacing: '0.1em',
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>PLAYER CARD</div>
         <div style={{ width: 70 }} />
@@ -370,7 +370,7 @@ function IntroScreen({ onStart, hasExisting, onViewExisting }) {
           <div key={s.n} style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: s.n === '4' ? 0 : 14 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 12, fontWeight: 800, color: '#070C09',
             }}>{s.n}</div>
@@ -381,7 +381,7 @@ function IntroScreen({ onStart, hasExisting, onViewExisting }) {
 
       <button onClick={onStart} style={{
         width: '100%', padding: '16px', borderRadius: 16,
-        background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+        background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
         border: 'none', color: '#070C09', fontWeight: 800, fontSize: 16,
         cursor: 'pointer', letterSpacing: '0.04em',
         boxShadow: '0 4px 24px rgba(201,160,64,0.35)',
@@ -434,7 +434,7 @@ function CameraScreen({ videoRef, onCapture, onCancel }) {
       </div>
       <button onClick={onCapture} style={{
         width: 72, height: 72, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+        background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
         border: '4px solid rgba(255,255,255,0.15)',
         boxShadow: '0 4px 32px rgba(201,160,64,0.5)',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -455,7 +455,7 @@ function ProcessingScreen({ msg }) {
     <div style={{ textAlign: 'center', padding: '60px 20px' }}>
       <div style={{ marginBottom: 32, position: 'relative', width: 80, height: 80, margin: '0 auto 32px' }}>
         <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(197,160,64,0.15)' }} />
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#E8C05A', animation: 'tm-spin 0.9s linear infinite' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: 'var(--tm-gold-bright)', animation: 'tm-spin 0.9s linear infinite' }} />
         <div style={{ position: 'absolute', inset: 8, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'rgba(232,192,90,0.4)', animation: 'tm-spin 1.4s linear infinite reverse' }} />
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>✦</div>
       </div>
@@ -535,7 +535,7 @@ function CustomizeScreen({ cardUrl, rebuildKey, flagIdx, flags, onFlag, onSave, 
       {/* Actions */}
       <button onClick={onSave} style={{
         width: '100%', padding: '16px', borderRadius: 16, marginBottom: 12,
-        background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+        background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
         border: 'none', color: '#070C09', fontWeight: 800, fontSize: 16,
         cursor: 'pointer', letterSpacing: '0.04em',
         boxShadow: '0 4px 24px rgba(201,160,64,0.35)',
@@ -558,7 +558,7 @@ function SavingScreen() {
     <div style={{ textAlign: 'center', padding: '80px 20px' }}>
       <div style={{
         width: 56, height: 56, margin: '0 auto 20px', borderRadius: '50%',
-        border: '3px solid transparent', borderTopColor: '#E8C05A',
+        border: '3px solid transparent', borderTopColor: 'var(--tm-gold-bright)',
         animation: 'tm-spin 0.9s linear infinite',
       }} />
       <div style={{ color: '#fff', fontSize: 16, fontWeight: 600 }}>Saving your card…</div>
@@ -601,7 +601,7 @@ function ViewScreen({ cardUrl, onRetake, onClose }) {
       }}>Retake Photo</button>
       <button onClick={onClose} style={{
         width: '100%', padding: '14px', borderRadius: 16,
-        background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)',
+        background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold) 100%)',
         border: 'none', color: '#070C09', fontWeight: 700, fontSize: 15, cursor: 'pointer',
       }}>Done</button>
     </div>

@@ -307,7 +307,7 @@ function WeaknessCard({ focus, rank, logged, onOpenDrill }) {
   return (
     <div style={{ padding: 16, borderRadius: 'var(--tm-radius-lg)', marginBottom: 12, ...CARD() }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <div style={{ width: 22, height: 22, borderRadius: 'var(--tm-radius-full)', flexShrink: 0, background: c, color: '#0A0E0C', fontSize: 12, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{rank}</div>
+        <div style={{ width: 22, height: 22, borderRadius: 'var(--tm-radius-full)', flexShrink: 0, background: c, color: 'var(--tm-dark-0)', fontSize: 12, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{rank}</div>
         <div style={{ flex: 1, fontSize: 15, fontWeight: 800 }}>{focus.label}</div>
         <div style={{ fontSize: 10, color: 'var(--tm-dark-text-2)', fontWeight: 700 }}>{focus.allocationMinutes} min</div>
       </div>

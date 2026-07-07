@@ -23,7 +23,7 @@ export default class ErrorBoundary extends Component {
       <div style={{
         minHeight: '100dvh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', padding: '0 32px',
-        background: '#070C09', color: '#E8C05A', textAlign: 'center', gap: 16,
+        background: '#070C09', color: 'var(--tm-gold-bright)', textAlign: 'center', gap: 16,
       }}>
         {/* Bespoke pin-flag glyph — high-quality replacement for ⛳.
             Hand-drawn at 64px so it reads like an icon, not an emoji. */}
@@ -48,7 +48,7 @@ export default class ErrorBoundary extends Component {
         <button
           onClick={() => window.location.reload()}
           style={{
-            marginTop: 8, background: '#C9A040', color: '#0D1F12',
+            marginTop: 8, background: 'var(--tm-gold)', color: 'var(--tm-text)',
             border: 'none', padding: '10px 28px', borderRadius: 10,
             fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}

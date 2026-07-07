@@ -653,8 +653,8 @@ function PullIndicator({ distance, triggerAt, refreshing }) {
   // (matches the existing chip's color flip); the flag is always gold
   // but ramps from dim → bright between not-ready and ready so the
   // hand-off reads cleanly.
-  const poleStroke = ready ? '#FFFDF8' : '#1B5E3B'
-  const flagFill   = ready ? '#F5D78A' : '#C9A040'
+  const poleStroke = ready ? '#FFFDF8' : 'var(--tm-green)'
+  const flagFill   = ready ? '#F5D78A' : 'var(--tm-gold)'
   // Flag unfurl — scaleX from 0.05 → 1 as progress hits 1. We don't
   // start at 0 because a fully-collapsed triangle disappears entirely
   // and the pole looks broken. Force 1 once ready/refreshing so the
@@ -677,7 +677,7 @@ function PullIndicator({ distance, triggerAt, refreshing }) {
       <div style={{
         width: 36, height: 36, borderRadius: '50%',
         background: ready
-          ? 'linear-gradient(145deg, #35A046 0%, #2A7A38 60%, #1A4A24 100%)'
+          ? 'linear-gradient(145deg, #35A046 0%, var(--tm-green-bright) 60%, #1A4A24 100%)'
           : 'rgba(255,253,248,0.92)',
         border: ready ? '1px solid rgba(53,160,70,0.55)' : '1px solid rgba(46,158,69,0.30)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -745,7 +745,7 @@ function Splash() {
       </div>
       <div style={{
         fontSize: 28, fontWeight: 800, letterSpacing: '-1px',
-        background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+        background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
         WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
       }}>
         The Match

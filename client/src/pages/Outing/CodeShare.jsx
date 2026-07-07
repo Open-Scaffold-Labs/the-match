@@ -55,10 +55,10 @@ function ShareQRModal({ code, name, course, onClose }) {
           textAlign: 'center',
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
         }}>
-        <div style={{ fontSize: 11, color: '#7A5800', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: 11, color: 'var(--tm-gold-text)', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
           Scan to Join
         </div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#0D1F12', lineHeight: 1.2 }}>{name}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.2 }}>{name}</div>
         {course && (
           <div style={{ fontSize: 13, fontWeight: 700, color: '#1A6B28' }}>{course}</div>
         )}
@@ -71,7 +71,7 @@ function ShareQRModal({ code, name, course, onClose }) {
           <QRCodeSVG value={url} size={232} level="M" includeMargin={false} fgColor="#0D1F12" bgColor="#FFFFFF" />
         </div>
         <div style={{
-          fontSize: 28, fontWeight: 900, letterSpacing: 8, color: '#C9A040',
+          fontSize: 28, fontWeight: 900, letterSpacing: 8, color: 'var(--tm-gold)',
           fontFamily: '"Arial Black", Arial, sans-serif',
         }}>{code}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(13,31,18,0.70)', lineHeight: 1.45 }}>
@@ -110,7 +110,7 @@ function ShareCodeButton({ code, name }) {
   return (
     <button onClick={share} style={{
       width: '100%', padding: '14px', borderRadius: 14, cursor: 'pointer', border: 'none',
-      background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)',
+      background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold) 100%)',
       color: '#070C09', fontWeight: 800, fontSize: 15,
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       boxShadow: '0 4px 16px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,255,255,0.30)',
@@ -156,7 +156,7 @@ export default function CodeShare({ outing, onEnter }) {
           <line x1="4" y1="22" x2="4" y2="15"/>
         </svg>
       </div>
-      <div style={{ fontWeight: 800, fontSize: 22, color: '#0D1F12', textAlign: 'center' }}>{outing.name}</div>
+      <div style={{ fontWeight: 800, fontSize: 22, color: 'var(--tm-text)', textAlign: 'center' }}>{outing.name}</div>
       <div style={{ fontSize: 15, fontWeight: 700, color: '#1A6B28', textAlign: 'center' }}>{outing.course_name}</div>
       <div style={{
         background: 'rgba(255,253,248,0.85)',
@@ -164,14 +164,14 @@ export default function CodeShare({ outing, onEnter }) {
         borderRadius: 20, padding: '22px 40px', textAlign: 'center',
         boxShadow: '0 4px 18px rgba(201,160,64,0.18)',
       }}>
-        <div style={{ fontSize: 11, color: '#7A5800', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Join Code</div>
+        <div style={{ fontSize: 11, color: 'var(--tm-gold-text)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Join Code</div>
         <div style={{
           fontSize: 54, fontWeight: 900, letterSpacing: 10,
-          background: 'linear-gradient(135deg, #C9A040, #8A6B28)',
+          background: 'linear-gradient(135deg, var(--tm-gold), #8A6B28)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>{outing.code}</div>
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', textAlign: 'center', lineHeight: 1.45 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--tm-text)', textAlign: 'center', lineHeight: 1.45 }}>
         Share this code with your group — they open The Match app, tap the Scorecard tab, and hit "Enter a Code"
       </div>
       {/* Share button */}

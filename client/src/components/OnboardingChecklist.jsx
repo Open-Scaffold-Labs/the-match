@@ -93,14 +93,14 @@ export default function OnboardingChecklist({
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <div style={{
-          color: '#7A5800', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
+          color: 'var(--tm-gold-text)', fontSize: 12, letterSpacing: '0.1em', fontWeight: 800,
           background: 'rgba(255,253,248,0.85)', padding: '4px 10px', borderRadius: 6,
           textShadow: '0 1px 1px rgba(255,255,255,0.4)',
         }}>
           GET STARTED
         </div>
         <span style={{
-          background: '#C9A040', color: '#FFFFFF',
+          background: 'var(--tm-gold)', color: '#FFFFFF',
           borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '1px 7px',
         }}>{total - remaining} / {total}</span>
         <span style={{ flex: 1 }} />
@@ -113,7 +113,7 @@ export default function OnboardingChecklist({
       </div>
 
       <div style={{
-        background: 'linear-gradient(135deg, #FFFFFF 0%, #F2EEE6 100%)',
+        background: 'linear-gradient(135deg, #FFFFFF 0%, var(--tm-bg) 100%)',
         border: '2px solid rgba(201,160,64,0.45)',
         borderRadius: 16,
         boxShadow: '0 2px 18px rgba(201,160,64,0.18)',
@@ -144,7 +144,7 @@ export default function OnboardingChecklist({
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 13, fontWeight: 700, color: '#0D1F12',
+                fontSize: 13, fontWeight: 700, color: 'var(--tm-text)',
                 textDecoration: item.done ? 'line-through' : 'none',
               }}>{item.label}</div>
               {!item.done && item.hint && (
@@ -156,7 +156,7 @@ export default function OnboardingChecklist({
 
             {!item.done && item.cta && (
               <button onClick={item.action} style={{
-                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                 border: 'none', borderRadius: 10,
                 color: '#070C09', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em',
                 padding: '6px 10px', cursor: 'pointer', fontFamily: 'inherit',

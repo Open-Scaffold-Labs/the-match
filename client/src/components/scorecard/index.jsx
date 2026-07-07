@@ -67,7 +67,7 @@ export function AugustaPlaqueFooter() {
           borderTop: '2px solid ' + AUGUSTA_WOOD,
           flexShrink: 0,
         }}>
-          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
+          <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
           }}>M</span>
@@ -75,7 +75,7 @@ export function AugustaPlaqueFooter() {
             fontFamily: '"Georgia", "Times New Roman", serif',
             fontSize: 14, color: AUGUSTA_TEXT, fontStyle: 'italic', letterSpacing: '0.10em',
           }}>Augusta National Club Golf</div>
-          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
+          <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#FFD700',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 11, fontWeight: 900, color: AUGUSTA_GREEN, fontFamily: '"Georgia", serif',
           }}>M</span>
@@ -131,7 +131,7 @@ export function SavedChip({ savedAt }) {
         bottom: 'calc(56px + env(safe-area-inset-bottom) + 12px)',
         right: 16,
         zIndex: 50,
-        background: 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)',
+        background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold) 100%)',
         color: '#070C09',
         padding: '10px 18px',
         borderRadius: 999,
@@ -267,7 +267,7 @@ export function ScorecardCell({ score, par, canEdit, onTap, isSubtotal, isHint, 
       {skinsBadge && skinsBadge.kind === 'win' && (
         <div title={`Won this skin${skinsBadge.value > 1 ? ` (${skinsBadge.value} skins)` : ''}`} style={{
           position: 'absolute', top: 1, right: 1,
-          background: '#C9A040', color: '#070C09',
+          background: 'var(--tm-gold)', color: '#070C09',
           fontSize: 7, fontWeight: 900, lineHeight: 1, letterSpacing: 0,
           padding: '1px 3px', borderRadius: 2,
           pointerEvents: 'none',
@@ -596,7 +596,7 @@ export function MatchScoreboard({
                   ? 'rgba(201,160,64,0.20)'
                   : 'transparent',
                 borderRadius: idx === 0 ? 8 : 0,
-                borderLeft: isMe ? '3px solid #C9A040' : '3px solid transparent',
+                borderLeft: isMe ? '3px solid var(--tm-gold)' : '3px solid transparent',
                 cursor: 'pointer',
                 textAlign: 'left',
                 font: 'inherit',
@@ -607,7 +607,7 @@ export function MatchScoreboard({
                 textAlign: 'center',
                 fontSize: pos.length > 3 ? 9 : 11,
                 fontWeight: 700,
-                color: idx < 3 ? '#C9A040' : 'rgba(27,94,59,0.50)',
+                color: idx < 3 ? 'var(--tm-gold)' : 'rgba(27,94,59,0.50)',
               }}>
                 {pos}
               </div>
@@ -645,7 +645,7 @@ export function MatchScoreboard({
               <div style={{ minWidth: 0 }}>
                 <div style={{
                   fontSize: 13, fontWeight: idx < 5 ? 700 : 500,
-                  color: '#0D1F12',
+                  color: 'var(--tm-text)',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>{p.name}</div>
                 {chVal != null ? (
@@ -658,7 +658,7 @@ export function MatchScoreboard({
                       onClick={(e) => { e.stopPropagation(); setChInfo({ name: p.name, ch: chVal, idx: idxVal, slope: pr.slope, rating: pr.rating, par: outingMeta.coursePar, gender: p.gender }) }}
                       style={{
                         padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 800, letterSpacing: '0.03em',
-                        background: 'rgba(201,160,64,0.18)', color: '#7A5800', cursor: 'pointer',
+                        background: 'rgba(201,160,64,0.18)', color: 'var(--tm-gold-text)', cursor: 'pointer',
                         WebkitTapHighlightColor: 'transparent',
                       }}>CH {chVal} <span style={{ opacity: 0.6, fontWeight: 700 }}>ⓘ</span></span>
                     <span style={{ fontSize: 9, color: 'rgba(27,94,59,0.45)', fontWeight: 500 }}>{idxVal.toFixed(1)} idx</span>
@@ -679,7 +679,7 @@ export function MatchScoreboard({
                 <span style={{
                   fontSize: 13, fontWeight: 800,
                   color: isMatchPlay
-                    ? (totDisplay === 'AS' ? '#1B5E3B' : totDisplay.endsWith('DN') ? '#DC2626' : '#C9A040')
+                    ? (totDisplay === 'AS' ? 'var(--tm-green)' : totDisplay.endsWith('DN') ? '#DC2626' : 'var(--tm-gold)')
                     : scoreToParColor(numeric),
                 }}>
                   {totDisplay}
@@ -695,7 +695,7 @@ export function MatchScoreboard({
                     <div title={`Won on ${hint === 'b9' ? 'back 9' : hint === 'l6' ? 'last 6 holes' : hint === 'l3' ? 'last 3 holes' : 'last hole'}`} style={{
                       display: 'inline-block', marginTop: 2, padding: '0 5px',
                       borderRadius: 4, fontSize: 8, fontWeight: 800, letterSpacing: '0.08em',
-                      background: 'rgba(201,160,64,0.18)', color: '#7A5800',
+                      background: 'rgba(201,160,64,0.18)', color: 'var(--tm-gold-text)',
                       border: '1px solid rgba(201,160,64,0.35)',
                     }}>{TIEBREAK_LABELS[hint]}</div>
                   )
@@ -739,7 +739,7 @@ export function MatchScoreboard({
           display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         }}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+            width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
             borderTopLeftRadius: 22, borderTopRightRadius: 22, border: '1px solid rgba(27,94,59,0.12)',
             padding: '10px 22px max(24px, env(safe-area-inset-bottom))', boxShadow: '0 -10px 40px rgba(0,0,0,0.25)',
           }}>
@@ -748,8 +748,8 @@ export function MatchScoreboard({
             </div>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(27,94,59,0.55)' }}>COURSE HANDICAP</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 2 }}>
-              <span style={{ fontSize: 46, fontWeight: 900, color: '#1B5E3B', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{chInfo.ch}</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#0D1F12' }}>{chInfo.name}</span>
+              <span style={{ fontSize: 46, fontWeight: 900, color: 'var(--tm-green)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{chInfo.ch}</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--tm-text)' }}>{chInfo.name}</span>
             </div>
             <div style={{ marginTop: 16, padding: '14px 16px', background: 'rgba(27,94,59,0.05)', border: '1px solid rgba(27,94,59,0.10)', borderRadius: 14 }}>
               {[
@@ -758,23 +758,23 @@ export function MatchScoreboard({
                 ['Course rating − par', `${chInfo.rating} − ${chInfo.par}`],
               ].map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 14 }}>
-                  <span style={{ color: 'var(--tm-text-2, #3D6B4F)' }}>{k}</span>
-                  <span style={{ fontWeight: 800, color: '#0D1F12', fontVariantNumeric: 'tabular-nums' }}>{v}</span>
+                  <span style={{ color: 'var(--tm-text-2, var(--tm-text-2))' }}>{k}</span>
+                  <span style={{ fontWeight: 800, color: 'var(--tm-text)', fontVariantNumeric: 'tabular-nums' }}>{v}</span>
                 </div>
               ))}
               <div style={{ borderTop: '1px solid rgba(27,94,59,0.15)', marginTop: 6, paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#1B5E3B' }}>= Course Handicap</span>
-                <span style={{ fontSize: 18, fontWeight: 900, color: '#1B5E3B', fontVariantNumeric: 'tabular-nums' }}>{chInfo.ch}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-green)' }}>= Course Handicap</span>
+                <span style={{ fontSize: 18, fontWeight: 900, color: 'var(--tm-green)', fontVariantNumeric: 'tabular-nums' }}>{chInfo.ch}</span>
               </div>
             </div>
             {(chInfo.gender === 'male' || chInfo.gender === 'female') && (
-              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--tm-text-2, #3D6B4F)', textAlign: 'center' }}>
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--tm-text-2, var(--tm-text-2))', textAlign: 'center' }}>
                 Uses the {chInfo.gender === 'female' ? "women's" : "men's"} rating for these tees.
               </div>
             )}
             <button onClick={() => setChInfo(null)} style={{
               width: '100%', marginTop: 18, height: 48, borderRadius: 14, border: 'none',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)', color: '#070C09',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))', color: '#070C09',
               fontSize: 15, fontWeight: 800, cursor: 'pointer',
             }}>Done</button>
           </div>

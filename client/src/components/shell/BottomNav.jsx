@@ -65,8 +65,8 @@ function NavItem({ item, active, onPress }) {
         <div style={{
           width: 50, height: 50, borderRadius: '50%',
           background: active
-            ? 'linear-gradient(145deg, #E8C05A 0%, #C9A040 60%, #8A6B28 100%)'
-            : 'linear-gradient(145deg, #35A046 0%, #2A7A38 60%, #1A4A24 100%)',
+            ? 'linear-gradient(145deg, var(--tm-gold-bright) 0%, var(--tm-gold) 60%, #8A6B28 100%)'
+            : 'linear-gradient(145deg, #35A046 0%, var(--tm-green-bright) 60%, #1A4A24 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: active
             ? '0 0 0 1px rgba(232,192,90,0.5), 0 4px 24px rgba(201,160,64,0.5), 0 0 0 8px rgba(201,160,64,0.08)'
@@ -77,7 +77,7 @@ function NavItem({ item, active, onPress }) {
         </div>
         <span style={{
           fontSize: 10, fontWeight: 600, letterSpacing: '0.03em',
-          color: active ? '#C9A040' : 'rgba(27,94,59,0.40)',
+          color: active ? 'var(--tm-gold)' : 'rgba(27,94,59,0.40)',
           transition: 'color 220ms ease',
         }}>
           {label}
@@ -99,7 +99,7 @@ function NavItem({ item, active, onPress }) {
         position: 'absolute', top: -10, left: '50%',
         transform: 'translateX(-50%)',
         width: active ? 24 : 0, height: 2, borderRadius: 1,
-        background: 'linear-gradient(90deg, #1B5E3B, #2A7A38)',
+        background: 'linear-gradient(90deg, var(--tm-green), var(--tm-green-bright))',
         boxShadow: active ? '0 0 8px rgba(27,94,59,0.5)' : 'none',
         transition: 'width 250ms cubic-bezier(0.34,1.56,0.64,1)',
       }} />
@@ -112,14 +112,14 @@ function NavItem({ item, active, onPress }) {
       }}>
         <Icon
           size={20}
-          color={active ? '#1B5E3B' : 'rgba(27,94,59,0.38)'}
+          color={active ? 'var(--tm-green)' : 'rgba(27,94,59,0.38)'}
           strokeWidth={active ? 2 : 1.5}
         />
       </div>
 
       <span style={{
         fontSize: 10, fontWeight: active ? 600 : 400,
-        color: active ? '#1B5E3B' : 'rgba(27,94,59,0.38)',
+        color: active ? 'var(--tm-green)' : 'rgba(27,94,59,0.38)',
         letterSpacing: '0.03em',
         transition: 'color 220ms ease, font-weight 0ms',
       }}>

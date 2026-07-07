@@ -157,7 +157,7 @@ export function IconLeague({ size = 24, color = 'currentColor', strokeWidth = 1.
 
 // The Match emblem — TM monogram in a circle
 export function TMEmblem({ size = 48, gold = false }) {
-  const accent = gold ? '#E8C05A' : '#5ED47A'
+  const accent = gold ? 'var(--tm-gold-bright)' : '#5ED47A'
   const ring   = gold ? 'rgba(232,192,90,0.25)' : 'rgba(94,212,122,0.2)'
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">

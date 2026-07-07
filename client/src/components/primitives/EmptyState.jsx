@@ -21,8 +21,8 @@
 // Three small Augusta-tinted SVGs we reuse across empty-state surfaces.
 // Each is 48×48, sized down where called.
 function PinFlagIcon({ tone }) {
-  const pole = tone === 'dark' ? '#FFFDF8' : '#1B5E3B'
-  const flag = tone === 'dark' ? '#F5D78A' : '#C9A040'
+  const pole = tone === 'dark' ? '#FFFDF8' : 'var(--tm-green)'
+  const flag = tone === 'dark' ? '#F5D78A' : 'var(--tm-gold)'
   return (
     <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
       <line x1="16" y1="8" x2="16" y2="42" stroke={pole} strokeWidth="2.4" strokeLinecap="round" />
@@ -33,8 +33,8 @@ function PinFlagIcon({ tone }) {
 }
 
 function ScorecardIcon({ tone }) {
-  const stroke = tone === 'dark' ? '#FFFDF8' : '#1B5E3B'
-  const accent = tone === 'dark' ? '#F5D78A' : '#C9A040'
+  const stroke = tone === 'dark' ? '#FFFDF8' : 'var(--tm-green)'
+  const accent = tone === 'dark' ? '#F5D78A' : 'var(--tm-gold)'
   return (
     <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
       {/* Card body */}
@@ -53,8 +53,8 @@ function ScorecardIcon({ tone }) {
 }
 
 function TrophyIcon({ tone }) {
-  const stroke = tone === 'dark' ? '#FFFDF8' : '#1B5E3B'
-  const fill   = tone === 'dark' ? '#F5D78A' : '#C9A040'
+  const stroke = tone === 'dark' ? '#FFFDF8' : 'var(--tm-green)'
+  const fill   = tone === 'dark' ? '#F5D78A' : 'var(--tm-gold)'
   return (
     <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
       {/* Cup body */}

@@ -540,7 +540,7 @@ function PuttEntrySheet({ holeCount, initialPutts, initialFirstPutts, saving, on
             flex: 2, padding: 13, borderRadius: 12, border: 'none',
             cursor: (saving || done === 0) ? 'default' : 'pointer',
             background: (saving || done === 0) ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
-            color: (saving || done === 0) ? 'rgba(255,255,255,0.35)' : '#0D1F12',
+            color: (saving || done === 0) ? 'rgba(255,255,255,0.35)' : 'var(--tm-text)',
             fontWeight: 800, fontSize: 14,
           }}>{saving ? 'Saving…' : `Save ${done} hole${done === 1 ? '' : 's'}`}</button>
         </div>

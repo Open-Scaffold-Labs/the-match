@@ -220,7 +220,7 @@ function HandicapTrendLine({ rounds }) {
         {/* Per-round dots, colored by score-to-par direction */}
         {pts.map((p, i) => (
           <circle key={i} cx={p.x} cy={p.y} r={i === activeIdx ? 4.5 : 3.2}
-            fill={p.d < 0 ? '#F5E070' : p.d === 0 ? '#E8C05A' : '#E8A85A'}
+            fill={p.d < 0 ? '#F5E070' : p.d === 0 ? 'var(--tm-gold-bright)' : '#E8A85A'}
             stroke="rgba(7,18,9,0.95)" strokeWidth="1.5" />
         ))}
       </svg>
@@ -291,7 +291,7 @@ export function HcpBadge({ hcp, roundCount, rounds }) {
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginBottom: 16 }}>
             <div style={{
               fontSize: 76, fontWeight: 900, lineHeight: 0.9, letterSpacing: '-3px',
-              background: 'linear-gradient(180deg, #F5E070 0%, #E8C05A 50%, #C9A040 100%)',
+              background: 'linear-gradient(180deg, #F5E070 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               filter: 'drop-shadow(0 0 12px rgba(232,192,90,0.25))',
             }}>
@@ -359,7 +359,7 @@ export function HcpBadge({ hcp, roundCount, rounds }) {
           }}>
             <div style={{ flex: 1, textAlign: 'center', borderRight: '1px solid rgba(27,94,59,0.10)' }}>
               <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.38)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Rounds</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: '#0D1F12' }}>{roundCount ?? '—'}</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--tm-text)' }}>{roundCount ?? '—'}</div>
             </div>
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.38)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>Status</div>
@@ -453,7 +453,7 @@ export function StatTile({ label, value, sub, accent, theme = 'light' }) {
         // (rgba(255,255,255,0.85)). Callers can override via `accent`
         // (e.g., Best Round uses green). Old default of #fff was
         // invisible on the white card. (2026-05-01 — Matt feedback)
-        color: accent ?? '#C9A040',
+        color: accent ?? 'var(--tm-gold)',
       }}>
         {value}
       </div>
@@ -484,7 +484,7 @@ const SG_BASELINE_LABELS = {
 
 function sgColor(v) {
   if (v == null) return 'rgba(13,31,18,0.30)'
-  if (v > 0.05)  return '#2A7A38'
+  if (v > 0.05)  return 'var(--tm-green-bright)'
   if (v < -0.05) return '#C44536'
   return 'rgba(13,31,18,0.55)'
 }
@@ -513,7 +513,7 @@ function SgCard({ sg, onChangeBaseline }) {
           Strokes Gained
         </div>
         <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.40)' }}>
-          vs <span style={{ fontWeight: 700, color: '#1B5E3B' }}>
+          vs <span style={{ fontWeight: 700, color: 'var(--tm-green)' }}>
             {SG_BASELINE_LABELS[sg.baseline] ?? sg.baseline}
           </span> · last {sg.rounds} rounds
         </div>
@@ -528,8 +528,8 @@ function SgCard({ sg, onChangeBaseline }) {
               style={{
                 flexShrink: 0, padding: '5px 11px', borderRadius: 14,
                 fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                background: active ? '#1B5E3B' : 'rgba(27,94,59,0.06)',
-                border: '1px solid ' + (active ? '#1B5E3B' : 'rgba(27,94,59,0.14)'),
+                background: active ? 'var(--tm-green)' : 'rgba(27,94,59,0.06)',
+                border: '1px solid ' + (active ? 'var(--tm-green)' : 'rgba(27,94,59,0.14)'),
                 color: active ? '#F5E9C8' : 'rgba(13,31,18,0.55)',
               }}>{label}</button>
           )
@@ -657,7 +657,7 @@ export default function Stats({ user }) {
           <div style={{ padding: '20px 20px 16px', flexShrink: 0 }}>
             <div style={{
               fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
-              background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>
               Stats
@@ -674,7 +674,7 @@ export default function Stats({ user }) {
               padding: '18px 18px',
               marginTop: 12,
             }}>
-              <div style={{ fontWeight: 800, color: '#0D1F12', fontSize: 16, marginBottom: 8 }}>
+              <div style={{ fontWeight: 800, color: 'var(--tm-text)', fontSize: 16, marginBottom: 8 }}>
                 Your starting handicap
               </div>
               <div style={{ color: 'rgba(13,31,18,0.65)', fontSize: 13, lineHeight: 1.55 }}>
@@ -728,7 +728,7 @@ export default function Stats({ user }) {
       <div style={{ padding: '20px 20px 16px', flexShrink: 0 }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
-          background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>
           Stats
@@ -785,11 +785,11 @@ export default function Stats({ user }) {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <div>
-                  <span style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{c.club}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{c.club}</span>
                   <span style={{ fontSize: 12, color: 'rgba(13,31,18,0.35)', marginLeft: 8 }}>{c.shots} shots</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <span style={{ fontSize: 22, fontWeight: 900, color: '#E8C05A' }}>{c.avg}</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: 'var(--tm-gold-bright)' }}>{c.avg}</span>
                   <span style={{ fontSize: 12, color: 'rgba(13,31,18,0.38)' }}>yd</span>
                 </div>
               </div>
@@ -822,7 +822,7 @@ export default function Stats({ user }) {
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 14 }}>{r.course_name}</div>
+                    <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 14 }}>{r.course_name}</div>
                     <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.35)', marginTop: 2 }}>
                       {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>

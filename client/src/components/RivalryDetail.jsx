@@ -20,7 +20,7 @@ import { createPortal } from 'react-dom'
 
 function avatarBg(name = '') {
   // Deterministic palette — same trick PlayerAvatar uses elsewhere
-  const palette = ['#1B5E3B', '#0D47A1', '#6A1B9A', '#B71C1C', '#37474F', '#5D4037']
+  const palette = ['var(--tm-green)', '#0D47A1', '#6A1B9A', '#B71C1C', '#37474F', '#5D4037']
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0
   return palette[Math.abs(h) % palette.length]
@@ -214,7 +214,7 @@ export default function RivalryDetail({
           {/* VS */}
           <div className="rd-stagger-vs" style={{
             fontSize: 28, fontWeight: 900,
-            background: 'linear-gradient(180deg, #F5E070, #C9A040)',
+            background: 'linear-gradient(180deg, #F5E070, var(--tm-gold))',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             fontFamily: '"Arial Black", Arial, sans-serif',
             letterSpacing: '0.06em',

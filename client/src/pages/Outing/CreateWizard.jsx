@@ -560,7 +560,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
             </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: '#7A5800', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--tm-gold-text)', textTransform: 'uppercase' }}>
               Event for league
             </div>
             <div style={{
@@ -730,7 +730,7 @@ export default function CreateWizard({ user, onClose, onCreated, pendingPlayers 
               background: selected ? 'linear-gradient(135deg, var(--tm-gold), var(--tm-gold-dim))' : 'var(--tm-surface-2)',
               border: selected ? '1px solid rgba(122,88,0,0.45)' : '1px solid var(--tm-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#0D1F12', fontSize: 13, fontWeight: 900,
+              color: 'var(--tm-text)', fontSize: 13, fontWeight: 900,
               flexShrink: 0,
             }}>{selected ? '✓' : ''}</div>
           </button>

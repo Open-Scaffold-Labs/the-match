@@ -44,7 +44,7 @@ async function renderMatchEnd({ winner, podium, format, courseName, name, highli
   ctx.fillRect(0, 0, SIZE, SIZE)
 
   // Wordmark + rule.
-  ctx.fillStyle = '#E8C05A'
+  ctx.fillStyle = 'var(--tm-gold-bright)'
   ctx.font = 'bold 28px Georgia, serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
@@ -60,7 +60,7 @@ async function renderMatchEnd({ winner, podium, format, courseName, name, highli
   drawTrophy(ctx, SIZE / 2, 200, 100)
 
   // "WINNER" cap + format/course line.
-  ctx.fillStyle = '#E8C05A'
+  ctx.fillStyle = 'var(--tm-gold-bright)'
   ctx.font = 'bold 22px "Helvetica Neue", Arial, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
@@ -99,7 +99,7 @@ async function renderMatchEnd({ winner, podium, format, courseName, name, highli
   const rowH = 92
   const cardX = 120
   const cardW = SIZE - 240
-  const pillColors = ['#E8C05A', 'rgba(255,255,255,0.55)', '#CD7F32']
+  const pillColors = ['var(--tm-gold-bright)', 'rgba(255,255,255,0.55)', '#CD7F32']
   ctx.textBaseline = 'middle'
   top3.forEach((p, i) => {
     const y = podiumStart + i * rowH
@@ -136,7 +136,7 @@ async function renderMatchEnd({ winner, podium, format, courseName, name, highli
     ctx.fillText(String(total), cardX + cardW - 28, y + (rowH - 12) / 2 - 4)
     if (sign) {
       ctx.fillStyle = !Number.isFinite(diff) ? 'rgba(255,253,248,0.45)'
-        : diff < 0 ? '#C9A040'
+        : diff < 0 ? 'var(--tm-gold)'
         : diff > 0 ? '#F87171'
         : 'rgba(255,253,248,0.55)'
       ctx.font = '600 18px "Helvetica Neue", Arial, sans-serif'
@@ -163,13 +163,13 @@ async function renderMatchEnd({ winner, podium, format, courseName, name, highli
     highlightY += 36
   }
   if (highlights?.most_eagles) {
-    ctx.fillStyle = '#E8C05A'
+    ctx.fillStyle = 'var(--tm-gold-bright)'
     ctx.font = '600 22px "Helvetica Neue", Arial, sans-serif'
     ctx.fillText(`${highlights.most_eagles.name} · ${highlights.most_eagles.count} eagle${highlights.most_eagles.count !== 1 ? 's' : ''}`, SIZE / 2, highlightY)
     highlightY += 30
   }
   if (highlights?.most_birdies) {
-    ctx.fillStyle = '#C9A040'
+    ctx.fillStyle = 'var(--tm-gold)'
     ctx.font = '500 20px "Helvetica Neue", Arial, sans-serif'
     ctx.fillText(`Most birdies: ${highlights.most_birdies.name} (${highlights.most_birdies.count})`, SIZE / 2, highlightY)
   }
@@ -220,7 +220,7 @@ function drawTrophy(ctx, cx, cy, size) {
   const py = (n) => cy + (n - 24) * s
   // Cup body.
   ctx.fillStyle = '#F5D78A'
-  ctx.strokeStyle = '#E8C05A'
+  ctx.strokeStyle = 'var(--tm-gold-bright)'
   ctx.lineWidth = Math.max(2, 2.4 * s)
   ctx.beginPath()
   ctx.moveTo(px(16), py(10))
@@ -377,12 +377,12 @@ export default function MatchEndShareModal({ summary, viewerId, onClose }) {
         }}>
         <div style={{
           fontSize: 11, fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase',
-          color: '#7A5800',
+          color: 'var(--tm-gold-text)',
         }}>
           Match results · Share-card ready
         </div>
         <div style={{
-          fontSize: 17, fontWeight: 800, color: '#0D1F12', lineHeight: 1.25,
+          fontSize: 17, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.25,
         }}>
           {winner ? `${winner.name} wins` : 'Final results'}
           {courseName && (
@@ -417,7 +417,7 @@ export default function MatchEndShareModal({ summary, viewerId, onClose }) {
             style={{
               width: '100%', padding: '14px', borderRadius: 14, border: 'none',
               background: imgBlob && !sharing
-                ? 'linear-gradient(135deg, #F5D78A 0%, #C9A040 100%)'
+                ? 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold) 100%)'
                 : 'rgba(13,31,18,0.10)',
               color: imgBlob && !sharing ? '#070C09' : 'rgba(13,31,18,0.40)',
               fontWeight: 800, fontSize: 15,

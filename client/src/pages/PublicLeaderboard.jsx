@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react'
 
 const AUGUSTA_GREEN  = '#0E3B23'
-const AUGUSTA_GOLD   = '#C9A040'
+const AUGUSTA_GOLD   = 'var(--tm-gold)'
 const AUGUSTA_CREAM  = '#F1E7C8'
 const AUGUSTA_INK    = '#1A1A1A'
 
@@ -695,7 +695,7 @@ export default function PublicLeaderboard({ code }) {
           </div>
           <div style={{
             fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em',
-            background: 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright), var(--tm-gold))',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             marginBottom: 8,
           }}>The Match</div>
@@ -706,7 +706,7 @@ export default function PublicLeaderboard({ code }) {
               </div>
               <a href="/" style={{
                 display: 'inline-block', padding: '9px 20px',
-                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                 color: '#070C09', textDecoration: 'none',
                 borderRadius: 999, fontSize: 12, fontWeight: 800, letterSpacing: '0.04em',
               }}>START A LEAGUE →</a>
@@ -717,7 +717,7 @@ export default function PublicLeaderboard({ code }) {
           ) : (
             <a href="/" style={{
               display: 'inline-block', padding: '8px 20px',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               color: '#070C09', textDecoration: 'none',
               borderRadius: 999, fontSize: 12, fontWeight: 800, letterSpacing: '0.04em',
             }}>GET THE APP →</a>
@@ -771,7 +771,7 @@ function LeaderSpotlight({ team, player, totColLabel, totDisplay, holes, holePar
       margin: '14px 16px 8px',
       borderRadius: 18, overflow: 'hidden',
       background: 'linear-gradient(135deg, #1A4A24 0%, #0E3B23 50%, #062014 100%)',
-      border: '2px solid #C9A040',
+      border: '2px solid var(--tm-gold)',
       boxShadow: '0 8px 28px rgba(0,0,0,0.40), inset 0 1px 0 rgba(245,215,138,0.22)',
       position: 'relative',
     }}>
@@ -804,8 +804,8 @@ function LeaderSpotlight({ team, player, totColLabel, totDisplay, holes, holePar
             wire avatars, swap the inner contents to an <img>. */}
         <div style={{
           width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #2A7A38, #1A4A24)',
-          border: '2px solid #C9A040',
+          background: 'linear-gradient(135deg, var(--tm-green-bright), #1A4A24)',
+          border: '2px solid var(--tm-gold)',
           boxShadow: '0 0 0 4px rgba(201,160,64,0.18), 0 4px 12px rgba(0,0,0,0.40)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#F1E7C8', fontWeight: 900, fontSize: 22,

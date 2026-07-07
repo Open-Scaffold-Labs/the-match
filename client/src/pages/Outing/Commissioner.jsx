@@ -1259,7 +1259,7 @@ export function GroupSetup({ outing, onClose, onSaved }) {
     finally { setSaving(false) }
   }
 
-  const CHIP_COLORS = ['#C9A040', '#93C5FD', '#F5D78A', '#F87171', '#C4B5FD', '#FD8A4B']
+  const CHIP_COLORS = ['var(--tm-gold)', '#93C5FD', '#F5D78A', '#F87171', '#C4B5FD', '#FD8A4B']
 
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'var(--tm-overlay)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: isDesktop ? 'center' : undefined, justifyContent: isDesktop ? 'center' : 'flex-end', ...(isDesktop ? { padding: 24, boxSizing: 'border-box' } : null) }}>
@@ -1506,7 +1506,7 @@ export function TeamSetup({ outing, onClose, onSaved, onRefreshOuting }) {
     }} onClick={onClose}>
       <div style={{
         width: '100%', maxWidth: isDesktop ? 640 : 480,
-        background: 'linear-gradient(180deg, #0D1F12, #070C09)',
+        background: 'linear-gradient(180deg, var(--tm-text), #070C09)',
         border: '1px solid rgba(255,255,255,0.09)',
         borderRadius: isDesktop ? 20 : '22px 22px 0 0', padding: isDesktop ? '20px 24px 28px' : '20px 20px 48px',
         maxHeight: '92dvh', overflowY: 'auto',
@@ -1666,7 +1666,7 @@ export function TeamSetup({ outing, onClose, onSaved, onRefreshOuting }) {
               width: '100%', padding: '14px',
               background: disabled
                 ? 'rgba(255,255,255,0.10)'
-                : 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                : 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               color: disabled ? 'rgba(255,255,255,0.40)' : '#070C09',
               border: 'none', borderRadius: 12,
               fontSize: 15, fontWeight: 800,

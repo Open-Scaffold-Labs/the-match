@@ -64,7 +64,7 @@ export default function MyBag({ user }) {
       <div style={{ padding: '56px 20px 12px' }}>
         <div style={{
           fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em',
-          background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+          background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
         }}>My Bag</div>
         <div style={{
@@ -73,7 +73,7 @@ export default function MyBag({ user }) {
         }}>
           <span>Track every club you carry</span>
           <span style={{
-            background: 'rgba(27,94,59,0.10)', color: '#1B5E3B',
+            background: 'rgba(27,94,59,0.10)', color: 'var(--tm-green)',
             padding: '2px 8px', borderRadius: 999,
             fontSize: 11, fontWeight: 700,
           }}>{filledCount} / {SLOTS.length}</span>
@@ -112,7 +112,7 @@ export default function MyBag({ user }) {
             onClick={() => setCompleting(true)}
             style={{
               marginTop: 8, padding: '14px',
-              background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+              background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
               color: '#070C09', border: 'none', borderRadius: 14,
               fontSize: 15, fontWeight: 800, letterSpacing: '-0.01em',
               cursor: 'pointer', fontFamily: 'inherit',
@@ -207,7 +207,7 @@ function BagCompleteOverlay({ clubs, totalSlots, onClose, user }) {
         {/* Animated check medallion */}
         <div className="mb-glow" style={{
           width: 80, height: 80, borderRadius: '50%',
-          background: 'linear-gradient(135deg, #F5E070, #C9A040)',
+          background: 'linear-gradient(135deg, #F5E070, var(--tm-gold))',
           margin: '0 auto 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
@@ -270,7 +270,7 @@ function BagCompleteOverlay({ clubs, totalSlots, onClose, user }) {
           onClick={onClose}
           style={{
             width: '100%', padding: '13px',
-            background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
             color: '#070C09', border: 'none', borderRadius: 12,
             fontSize: 15, fontWeight: 800, cursor: 'pointer',
             fontFamily: 'inherit',
@@ -302,7 +302,7 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
             fontSize: 18, color: 'rgba(27,94,59,0.45)', fontWeight: 700,
           }}>+</div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', lineHeight: 1.2 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--tm-text)', lineHeight: 1.2 }}>
               {slot.label}
             </div>
             <div style={{ fontSize: 11, color: 'rgba(27,94,59,0.55)', marginTop: 2 }}>
@@ -311,7 +311,7 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
           </div>
         </div>
         <span style={{
-          fontSize: 11, fontWeight: 700, color: '#1B5E3B',
+          fontSize: 11, fontWeight: 700, color: 'var(--tm-green)',
           background: 'rgba(27,94,59,0.08)', padding: '4px 10px', borderRadius: 8,
         }}>+ Add</span>
       </button>
@@ -346,14 +346,14 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
             {Number.isFinite(Number(club.avg_yards)) && club.avg_yards != null && (
               <span style={{
                 background: 'rgba(201,160,64,0.18)',
-                color: '#7A5800',
+                color: 'var(--tm-gold-text)',
                 padding: '1px 7px', borderRadius: 999,
                 fontWeight: 800, fontSize: 10, letterSpacing: '0.04em',
               }}>{club.avg_yards}y</span>
             )}
           </div>
           <div style={{
-            fontSize: 14, fontWeight: 800, color: '#0D1F12', lineHeight: 1.25,
+            fontSize: 14, fontWeight: 800, color: 'var(--tm-text)', lineHeight: 1.25,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {club.brand} <span style={{ color: 'rgba(13,31,18,0.62)', fontWeight: 600 }}>{club.model}</span>
@@ -363,7 +363,7 @@ function SlotCard({ slot, club, onEdit, onRemove }) {
       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
         <button onClick={onEdit} style={{
           background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
-          borderRadius: 8, color: '#1B5E3B', fontSize: 12,
+          borderRadius: 8, color: 'var(--tm-green)', fontSize: 12,
           padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit',
         }}>Edit</button>
         <button onClick={onRemove} style={{
@@ -439,7 +439,7 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
         width: '100%', maxWidth: 480,
         maxHeight: '88vh',
         display: 'flex', flexDirection: 'column',
-        background: 'linear-gradient(180deg, #FFFFFF, #F8F5EF)',
+        background: 'linear-gradient(180deg, #FFFFFF, var(--tm-surface-2))',
         borderRadius: '22px 22px 0 0',
         border: '1px solid rgba(27,94,59,0.12)',
         overflow: 'hidden',
@@ -456,7 +456,7 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
             <div style={{ fontSize: 10, color: 'rgba(27,94,59,0.55)', fontWeight: 700, letterSpacing: '0.10em' }}>
               {existing ? 'CHANGE' : 'ADD CLUB'}
             </div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#0D1F12', marginTop: 2 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--tm-text)', marginTop: 2 }}>
               {slotMeta?.label || slot}
             </div>
           </div>
@@ -478,10 +478,10 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
               const active = !custom && b === brand
               return (
                 <button key={b} onClick={() => pickBrand(b)} style={{
-                  background: active ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.06)',
+                  background: active ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(27,94,59,0.06)',
                   border: active ? '1px solid rgba(201,160,64,0.65)' : '1px solid rgba(27,94,59,0.14)',
                   borderRadius: 999,
-                  color: active ? '#070C09' : '#1B5E3B',
+                  color: active ? '#070C09' : 'var(--tm-green)',
                   fontSize: 12, fontWeight: 700,
                   padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
                 }}>{b}</button>
@@ -489,10 +489,10 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
             })}
             {/* Custom / "not on the list" chip */}
             <button onClick={pickCustom} style={{
-              background: custom ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.06)',
+              background: custom ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(27,94,59,0.06)',
               border: custom ? '1px solid rgba(201,160,64,0.65)' : '1px dashed rgba(27,94,59,0.30)',
               borderRadius: 999,
-              color: custom ? '#070C09' : '#1B5E3B',
+              color: custom ? '#070C09' : 'var(--tm-green)',
               fontSize: 12, fontWeight: 700,
               padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit',
             }}>+ Other</button>
@@ -529,9 +529,9 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12' }}>{m}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--tm-text)' }}>{m}</span>
                     {active && (
-                      <span style={{ color: '#C9A040', fontSize: 16 }}>✓</span>
+                      <span style={{ color: 'var(--tm-gold)', fontSize: 16 }}>✓</span>
                     )}
                   </button>
                 )
@@ -553,7 +553,7 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
                   background: 'rgba(27,94,59,0.04)',
                   border: '1px solid rgba(27,94,59,0.18)',
                   borderRadius: 12, padding: '12px 14px',
-                  fontSize: 15, fontFamily: 'inherit', color: '#0D1F12',
+                  fontSize: 15, fontFamily: 'inherit', color: 'var(--tm-text)',
                   outline: 'none', marginBottom: 12,
                 }}
               />
@@ -569,7 +569,7 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
                   background: 'rgba(27,94,59,0.04)',
                   border: '1px solid rgba(27,94,59,0.18)',
                   borderRadius: 12, padding: '12px 14px',
-                  fontSize: 15, fontFamily: 'inherit', color: '#0D1F12',
+                  fontSize: 15, fontFamily: 'inherit', color: 'var(--tm-text)',
                   outline: 'none',
                 }}
               />
@@ -601,12 +601,12 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
                   background: 'rgba(27,94,59,0.04)',
                   border: '1px solid rgba(27,94,59,0.18)',
                   borderRadius: 12, padding: '12px 14px',
-                  fontSize: 15, fontFamily: 'inherit', color: '#0D1F12',
+                  fontSize: 15, fontFamily: 'inherit', color: 'var(--tm-text)',
                   outline: 'none', boxSizing: 'border-box',
                 }}
               />
               <span style={{
-                fontSize: 14, fontWeight: 700, color: '#1B5E3B',
+                fontSize: 14, fontWeight: 700, color: 'var(--tm-green)',
                 background: 'rgba(27,94,59,0.08)', padding: '8px 14px',
                 borderRadius: 999,
               }}>yds</span>
@@ -623,7 +623,7 @@ function ClubPicker({ slot, existing, onClose, onSave }) {
         }}>
           <button onClick={save} disabled={!canSave || saving} style={{
             width: '100%', padding: '14px',
-            background: canSave ? 'linear-gradient(135deg, #F5D78A, #C9A040)' : 'rgba(27,94,59,0.07)',
+            background: canSave ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold))' : 'rgba(27,94,59,0.07)',
             color: canSave ? '#070C09' : 'rgba(13,31,18,0.30)',
             border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700,
             cursor: canSave ? 'pointer' : 'default',

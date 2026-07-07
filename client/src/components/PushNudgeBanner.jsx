@@ -133,7 +133,7 @@ export default function PushNudgeBanner({ user }) {
         disabled={busy}
         style={{
           padding: '8px 14px',
-          background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
           color: '#070C09', border: 'none', borderRadius: 10,
           fontSize: 12, fontWeight: 800, cursor: busy ? 'default' : 'pointer',
           fontFamily: 'inherit', opacity: busy ? 0.6 : 1, whiteSpace: 'nowrap',

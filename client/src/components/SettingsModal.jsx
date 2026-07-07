@@ -153,7 +153,7 @@ export default function SettingsModal({ user, onClose }) {
             >←</button>
           )}
           <div style={{
-            fontFamily: 'Georgia, serif', fontSize: 22, color: '#C9A040', fontWeight: 700,
+            fontFamily: 'Georgia, serif', fontSize: 22, color: 'var(--tm-gold)', fontWeight: 700,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {view === 'main' ? 'Settings' : 'Account Status'}
@@ -313,7 +313,7 @@ function MainView({
             padding: '4px 10px', borderRadius: 999,
             color: isElite ? '#3A2A05' : 'rgba(255,255,255,0.85)',
             background: isElite
-              ? 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)'
+              ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright), var(--tm-gold))'
               : 'rgba(255,255,255,0.08)',
             border: isElite ? '1px solid rgba(155,120,24,0.55)' : '1px solid rgba(255,255,255,0.16)',
           }}>{tierLabel}</span>
@@ -324,7 +324,7 @@ function MainView({
             style={{
               width: '100%', marginTop: 12,
               padding: '12px 14px',
-              background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 45%, #C9971E 100%)',
+              background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 45%, #C9971E 100%)',
               color: '#3A2A05', border: '1px solid rgba(155,120,24,0.55)',
               borderRadius: 10, fontSize: 14, fontWeight: 800,
               letterSpacing: '0.04em', cursor: 'pointer',
@@ -670,7 +670,7 @@ function ReferralCard() {
         }}>
           <div style={{
             width: `${progressPct}%`, height: '100%',
-            background: 'linear-gradient(90deg, #C9A040, #F5D78A)',
+            background: 'linear-gradient(90deg, var(--tm-gold), #F5D78A)',
             transition: 'width 300ms ease',
           }} />
         </div>
@@ -712,7 +712,7 @@ function Toggle({ on, onClick }) {
       aria-checked={on}
       style={{
         width: 48, height: 28, borderRadius: 999,
-        background: on ? '#2A7A38' : 'rgba(255,255,255,0.18)',
+        background: on ? 'var(--tm-green-bright)' : 'rgba(255,255,255,0.18)',
         border: '1px solid ' + (on ? 'rgba(232,192,90,0.55)' : 'rgba(255,255,255,0.22)'),
         position: 'relative', cursor: 'pointer', flexShrink: 0,
         transition: 'background 200ms ease',

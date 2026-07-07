@@ -112,7 +112,7 @@ export default function PermissionsPrompt({ user, onClose }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
               <div style={{
                 width: 56, height: 56, borderRadius: 16,
-                background: 'linear-gradient(135deg, #C9A040, #E8C05A)',
+                background: 'linear-gradient(135deg, var(--tm-gold), var(--tm-gold-bright))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#070C09', fontSize: 26, fontWeight: 900,
               }}>+</div>
@@ -183,7 +183,7 @@ export default function PermissionsPrompt({ user, onClose }) {
               disabled={busy}
               style={{
                 width: '100%', padding: '14px', marginBottom: 8,
-                background: 'linear-gradient(135deg, #F5D78A, #C9A040)',
+                background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold))',
                 color: '#070C09', border: 'none', borderRadius: 14,
                 fontSize: 15, fontWeight: 800, cursor: busy ? 'default' : 'pointer',
                 fontFamily: 'inherit', opacity: busy ? 0.6 : 1,

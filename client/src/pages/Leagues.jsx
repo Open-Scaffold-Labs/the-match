@@ -15,7 +15,7 @@ import { useEffect, useState } from 'react'
 import { api, post, put, del } from '../lib/api.js'
 
 const AUGUSTA_GREEN  = '#0E3B23'
-const AUGUSTA_GOLD   = '#C9A040'
+const AUGUSTA_GOLD   = 'var(--tm-gold)'
 const AUGUSTA_CREAM  = '#F1E7C8'
 
 // ─── Top-level decision: paywall vs hub ─────────────────────────────────
@@ -209,7 +209,7 @@ function LeaguesPaywall({ current = 'free', reason }) {
         }}>THE MATCH · ELITE</div>
         <div style={{
           fontSize: 34, fontWeight: 900, letterSpacing: '-0.02em',
-          background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+          background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: 8, lineHeight: 1.05,
           textShadow: '0 2px 24px rgba(232,192,90,0.18)',
@@ -331,7 +331,7 @@ function LeaguesPaywall({ current = 'free', reason }) {
           onClick={() => alert('Stripe checkout coming soon. For early access, ping Matt for an invite code.')}
           style={{
             marginTop: 18, width: '100%', padding: '15px 14px', borderRadius: 12,
-            background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9A040 100%)',
+            background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
             color: '#1A1000', border: 'none',
             fontWeight: 900, fontSize: 15, cursor: 'pointer',
             fontFamily: '"Arial Black", Arial, sans-serif', letterSpacing: '0.04em',
@@ -435,7 +435,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
       <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', ...centerCol }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
-          background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: 4,
         }}>Leagues</div>
@@ -458,7 +458,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
             background: isElite
               ? 'linear-gradient(135deg, #1A6B28, #2E9E45)'
               : 'linear-gradient(135deg, rgba(245,215,138,0.20), rgba(201,160,64,0.10))',
-            color: isElite ? '#fff' : '#7A5800',
+            color: isElite ? '#fff' : 'var(--tm-gold-text)',
             fontWeight: 800, fontSize: 15,
             boxShadow: isElite ? '0 4px 16px rgba(46,158,69,0.30)' : 'none',
             cursor: 'pointer',
@@ -525,7 +525,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#0E3B23' }}>{tpl.name}</div>
-                  <div style={{ fontSize: 9, fontWeight: 800, color: '#7A5800', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{tpl.format.replace('_', ' ')}</div>
+                  <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--tm-gold-text)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{tpl.format.replace('_', ' ')}</div>
                 </div>
                 <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.55)', marginTop: 3 }}>{tpl.detail}</div>
               </button>
@@ -557,7 +557,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
                 immediately. */}
             <div style={{
               height: 32,
-              background: 'linear-gradient(90deg, #C9A040 0%, #E8C05A 50%, #C9A040 100%)',
+              background: 'linear-gradient(90deg, var(--tm-gold) 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
               padding: '0 14px',
               display: 'flex', alignItems: 'center',
               justifyContent: l.season ? 'space-between' : 'flex-end',
@@ -596,7 +596,7 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
                   letterSpacing: '0.04em',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                  Run by <strong style={{ color: '#7A5800', fontWeight: 700 }}>{l.commissioner_name}</strong>{l.commissioner_handle ? ` · @${l.commissioner_handle}` : ''}
+                  Run by <strong style={{ color: 'var(--tm-gold-text)', fontWeight: 700 }}>{l.commissioner_name}</strong>{l.commissioner_handle ? ` · @${l.commissioner_handle}` : ''}
                 </div>
               )}
               {l.description && (
@@ -694,7 +694,7 @@ function LeagueWizard({ onClose, onCreated, on402 }) {
       <div style={{
         background: 'linear-gradient(160deg, #0E3B23 0%, #1A6B28 60%, #0E3B23 100%)',
         padding: 'calc(var(--safe-top) + 14px) 20px 22px',
-        borderBottom: '2px solid #C9A040',
+        borderBottom: '2px solid var(--tm-gold)',
         position: 'relative', overflow: 'hidden',
       }}>
         <div aria-hidden style={{
@@ -734,7 +734,7 @@ function LeagueWizard({ onClose, onCreated, on402 }) {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 9, letterSpacing: '0.30em', color: '#C9A040',
+              fontSize: 9, letterSpacing: '0.30em', color: 'var(--tm-gold)',
               fontWeight: 800, textTransform: 'uppercase', marginBottom: 2,
               fontFamily: '"Arial Black", Arial, sans-serif',
             }}>FOUND A NEW LEAGUE</div>
@@ -854,7 +854,7 @@ function WizardStep({ n, title, hint, children }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
         <div style={{
           width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #C9A040 0%, #E8C05A 100%)',
+          background: 'linear-gradient(135deg, var(--tm-gold) 0%, var(--tm-gold-bright) 100%)',
           color: '#0E3B23', fontWeight: 900, fontSize: 13,
           fontFamily: '"Arial Black", Arial, sans-serif',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -974,7 +974,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent, isDesktop = fals
       <div style={{
         padding: 'calc(var(--safe-top) + 14px) 20px 14px',
         background: 'linear-gradient(160deg, #0E3B23 0%, #1A6B28 55%, #0E3B23 100%)',
-        borderBottom: '2px solid #C9A040',
+        borderBottom: '2px solid var(--tm-gold)',
         position: 'relative', overflow: 'hidden',
         flexShrink: 0, ...detailCol,
       }}>
@@ -1000,7 +1000,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent, isDesktop = fals
           {isCommissioner && (
             <div style={{
               fontSize: 9, fontWeight: 800, letterSpacing: '0.18em',
-              color: '#C9A040', textTransform: 'uppercase',
+              color: 'var(--tm-gold)', textTransform: 'uppercase',
               padding: '4px 10px', borderRadius: 999,
               background: 'rgba(201,160,64,0.14)', border: '1px solid rgba(201,160,64,0.45)',
             }}>Commissioner</div>
@@ -1009,7 +1009,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent, isDesktop = fals
         {/* Season tag overline */}
         {league.season && (
           <div style={{
-            fontSize: 10, letterSpacing: '0.30em', color: '#C9A040',
+            fontSize: 10, letterSpacing: '0.30em', color: 'var(--tm-gold)',
             fontWeight: 800, textTransform: 'uppercase', marginBottom: 4,
             position: 'relative',
           }}>SEASON · {league.season}</div>
@@ -1108,7 +1108,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent, isDesktop = fals
             marginTop: 24, padding: '12px 14px', borderRadius: 12,
             background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(13,31,18,0.10)',
           }}>
-            <div style={{ fontSize: 10, color: '#7A5800', fontWeight: 800, letterSpacing: '0.10em', marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: 'var(--tm-gold-text)', fontWeight: 800, letterSpacing: '0.10em', marginBottom: 6 }}>
               CROSS-EVENT TOOLS
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -1128,7 +1128,7 @@ function LeagueDetail({ leagueId, onBack, on402, onCreateEvent, isDesktop = fals
               }} style={{
                 padding: '7px 12px', borderRadius: 8,
                 background: 'rgba(245,215,138,0.15)', border: '1px solid rgba(201,160,64,0.45)',
-                color: '#7A5800', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+                color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
               }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1247,14 +1247,14 @@ function StandingsView({ standings }) {
               background: isLeader ? 'rgba(201,160,64,0.10)' : 'transparent',
             }}>
               <div style={{
-                fontWeight: 900, color: isLeader ? '#7A5800' : '#0E3B23',
+                fontWeight: 900, color: isLeader ? 'var(--tm-gold-text)' : '#0E3B23',
                 fontSize: tied ? 11 : 13,
               }}>{posStr}</div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#0E3B23', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                 {p.handle && <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.55)' }}>@{p.handle} · {p.played} played</div>}
               </div>
-              <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 900, color: isLeader ? '#7A5800' : '#0E3B23' }}>{p.wins}</div>
+              <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 900, color: isLeader ? 'var(--tm-gold-text)' : '#0E3B23' }}>{p.wins}</div>
               <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>{p.top3}</div>
               <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(13,31,18,0.65)' }}>{p.avg_score ?? '—'}</div>
             </div>
@@ -1305,7 +1305,7 @@ function EventsView({ events, isCommissioner, onCreateEvent }) {
               background: e.status === 'closed' ? 'rgba(201,160,64,0.18)'
                 : e.status === 'cancelled' ? 'rgba(248,113,113,0.18)'
                 : 'rgba(46,158,69,0.18)',
-              color: e.status === 'closed' ? '#7A5800'
+              color: e.status === 'closed' ? 'var(--tm-gold-text)'
                 : e.status === 'cancelled' ? '#A03030'
                 : '#1A6B28',
               letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -1458,7 +1458,7 @@ function CardStatBlock({ label, value }) {
     }}>
       <div style={{
         fontSize: 8, letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: '#7A5800', fontWeight: 800,
+        color: 'var(--tm-gold-text)', fontWeight: 800,
       }}>{label}</div>
       <div style={{
         fontSize: 17, fontWeight: 900, color: '#0E3B23',
@@ -1535,8 +1535,8 @@ function LeagueAnnouncementBanner({ league, hero = false }) {
     border: '1px solid rgba(245,215,138,0.50)',
     iconBg: 'rgba(201,160,64,0.20)',
     iconBorder: '1px solid rgba(201,160,64,0.35)',
-    iconStroke: '#7A5800',
-    overline: '#7A5800',
+    iconStroke: 'var(--tm-gold-text)',
+    overline: 'var(--tm-gold-text)',
     timestamp: 'rgba(13,31,18,0.45)',
     body: '#0E3B23',
     closeBtn: 'rgba(13,31,18,0.45)',
@@ -1648,7 +1648,7 @@ function LeagueAuditLog({ leagueId }) {
             <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.45)' }}>{whenStr(e.created_at)}</div>
           </div>
           <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.60)', marginTop: 2 }}>
-            {e.old_score == null ? 'Set to' : `${e.old_score} →`} <strong style={{ color: '#7A5800' }}>{e.new_score}</strong>
+            {e.old_score == null ? 'Set to' : `${e.old_score} →`} <strong style={{ color: 'var(--tm-gold-text)' }}>{e.new_score}</strong>
             {e.edited_by_name ? ` · by ${e.edited_by_name}` : ''}
           </div>
         </div>
@@ -1657,7 +1657,7 @@ function LeagueAuditLog({ leagueId }) {
         <button onClick={loadMore} disabled={loading} style={{
           width: '100%', padding: 10, borderRadius: 10, marginTop: 4,
           background: 'rgba(245,215,138,0.15)', border: '1px solid rgba(201,160,64,0.40)',
-          color: '#7A5800', fontSize: 11, fontWeight: 800, cursor: 'pointer',
+          color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 800, cursor: 'pointer',
           fontFamily: 'inherit', opacity: loading ? 0.6 : 1,
         }}>{loading ? 'Loading…' : 'Load more · 50 older'}</button>
       )}
@@ -1964,7 +1964,7 @@ function LeagueCommsTab({ leagueId, league }) {
           background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(13,31,18,0.08)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#7A5800' }}>{a.posted_by_name || 'Commissioner'}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tm-gold-text)' }}>{a.posted_by_name || 'Commissioner'}</div>
             <div style={{ fontSize: 10, color: 'rgba(13,31,18,0.45)' }}>{whenStr(a.posted_at)}</div>
           </div>
           <div style={{ fontSize: 13, color: '#0E3B23', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{a.text}</div>

@@ -229,7 +229,7 @@ export default function NewTeeTimeSheet({ user, onClose, onCreated }) {
           </div>
           <button onClick={onClose} aria-label="Close" style={{
             background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.12)',
-            borderRadius: 10, color: '#1B5E3B', fontSize: 16, padding: '4px 12px',
+            borderRadius: 10, color: 'var(--tm-green)', fontSize: 16, padding: '4px 12px',
             cursor: 'pointer',
           }}>✕</button>
         </div>

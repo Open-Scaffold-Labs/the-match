@@ -137,15 +137,15 @@ export default function PrintResults({ code }) {
 
       {/* Re-print bar (screen only) */}
       <div className="no-print" style={{
-        background: '#f6f0d8', border: '1px solid #c9a040',
+        background: '#f6f0d8', border: '1px solid var(--tm-gold)',
         padding: '8px 12px', borderRadius: 6, marginBottom: 16,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         fontSize: 12,
       }}>
         <span>This page is print-formatted. Browser dialog should open automatically.</span>
         <button onClick={() => window.print()} style={{
-          padding: '6px 14px', borderRadius: 4, border: '1px solid #2a7a38',
-          background: '#2a7a38', color: '#fff', fontWeight: 800, fontSize: 11, cursor: 'pointer',
+          padding: '6px 14px', borderRadius: 4, border: '1px solid var(--tm-green-bright)',
+          background: 'var(--tm-green-bright)', color: '#fff', fontWeight: 800, fontSize: 11, cursor: 'pointer',
         }}>Print again</button>
       </div>
 

@@ -131,7 +131,7 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
       <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', flexShrink: 0 }}>
         <div style={{
           fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
-          background: 'linear-gradient(135deg, #F5D78A, #E8C05A)',
+          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
           WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           marginBottom: 2,
         }}>Matches</div>
@@ -311,7 +311,7 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
           width: '100%', padding: '11px 14px', borderRadius: 12,
           background: 'rgba(255,255,255,0.75)',
           border: '1px solid rgba(201,160,64,0.35)',
-          color: '#7A5800', fontWeight: 700, fontSize: 13,
+          color: 'var(--tm-gold-text)', fontWeight: 700, fontSize: 13,
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
@@ -387,7 +387,7 @@ function FriendsLiveCard({ o, onTap }) {
       {/* Center: title + course/hole */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 14, fontWeight: 800, color: '#0D1F12',
+          fontSize: 14, fontWeight: 800, color: 'var(--tm-text)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {o.host_name || 'Player'}{o.players_count > 1 ? ` + ${o.players_count - 1}` : ''}
@@ -477,16 +477,16 @@ function SoloRoundLiveCard({ saved, onResume, onDiscard }) {
             distinct from multi-player Live cards at a glance. */}
         <div style={{
           width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-          background: 'linear-gradient(135deg, #E8C05A, #C9A040)',
+          background: 'linear-gradient(135deg, var(--tm-gold-bright), var(--tm-gold))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#0D1F12', fontWeight: 900, fontSize: 11,
+          color: 'var(--tm-text)', fontWeight: 900, fontSize: 11,
           letterSpacing: '0.06em',
           fontFamily: '"Arial Black", Arial, sans-serif',
           boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.40), inset 0 -1px 2px rgba(0,0,0,0.20)',
         }}>SOLO</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: 15, fontWeight: 800, color: '#0D1F12',
+            fontSize: 15, fontWeight: 800, color: 'var(--tm-text)',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{courseName}</div>
           <div style={{
@@ -499,7 +499,7 @@ function SoloRoundLiveCard({ saved, onResume, onDiscard }) {
             {totalScore > 0 && (
               <>
                 <span style={{ color: 'rgba(13,31,18,0.30)' }}>·</span>
-                <span style={{ color: '#0D1F12', fontWeight: 700 }}>{totalScore}</span>
+                <span style={{ color: 'var(--tm-text)', fontWeight: 700 }}>{totalScore}</span>
                 <span style={{ color: diffColor, fontWeight: 800 }}>{diffStr}</span>
               </>
             )}
@@ -667,7 +667,7 @@ function LiveMatchCard({ o, userId, onResume, onCopyCode, copied, onDelete }) {
         {/* Gold accent strip — LIVE (left) + join code badge (right). */}
         <div style={{
           height: 32,
-          background: 'linear-gradient(90deg, #C9A040 0%, #E8C05A 50%, #C9A040 100%)',
+          background: 'linear-gradient(90deg, var(--tm-gold) 0%, var(--tm-gold-bright) 50%, var(--tm-gold) 100%)',
           padding: '0 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: '1px solid rgba(13,31,18,0.18)',
@@ -700,7 +700,7 @@ function LiveMatchCard({ o, userId, onResume, onCopyCode, copied, onDelete }) {
             </div>
             <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {subtitle && (
-                <span style={{ color: '#7A5800', fontWeight: 700 }}>{subtitle}</span>
+                <span style={{ color: 'var(--tm-gold-text)', fontWeight: 700 }}>{subtitle}</span>
               )}
               {o.course_name && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
@@ -739,7 +739,7 @@ function RecentMatchCard({ o, userId, onOpen, onCopyCode, copied }) {
       boxShadow: '0 4px 14px rgba(13,31,18,0.07), inset 0 1px 0 rgba(255,255,255,0.55)',
     }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title}
         </div>
         <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -755,7 +755,7 @@ function RecentMatchCard({ o, userId, onOpen, onCopyCode, copied }) {
           <button onClick={onCopyCode} style={{
             border: 'none', cursor: 'pointer',
             background: copied ? 'rgba(46,158,69,0.20)' : 'transparent',
-            color: copied ? '#1A6B28' : '#7A5800',
+            color: copied ? '#1A6B28' : 'var(--tm-gold-text)',
             fontWeight: 800, fontSize: 11, letterSpacing: 2,
             padding: '2px 6px', borderRadius: 5,
             transition: 'background 200ms',
@@ -815,7 +815,7 @@ function RivalryCard({ r, userId, onOpen }) {
             {initials(r.opponent_name)}
           </div>
           <div>
-            <div style={{ fontWeight: 700, color: '#0D1F12', fontSize: 15 }}>{r.opponent_name}</div>
+            <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 15 }}>{r.opponent_name}</div>
             <div style={{ fontSize: 12, color: 'rgba(13,31,18,0.55)', marginTop: 1 }}>{total} match{total !== 1 ? 'es' : ''}</div>
           </div>
         </div>
@@ -830,7 +830,7 @@ function RivalryCard({ r, userId, onOpen }) {
       {total > 0 && (
         <>
           <div style={{ marginTop: 14, height: 5, borderRadius: 99, background: 'rgba(27,94,59,0.08)', overflow: 'hidden', display: 'flex', gap: 1 }}>
-            <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, #1B5E3B, #2E9E45)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
+            <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, var(--tm-green), #2E9E45)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
             {ties > 0 && <div style={{ width: `${(ties/total)*100}%`, background: 'rgba(80,120,200,0.55)' }} />}
             <div style={{ flex: 1, background: 'rgba(180,80,40,0.5)', borderRadius: '0 99px 99px 0' }} />
           </div>
@@ -888,7 +888,7 @@ export function RivalryDetail({ rivalry, userId, onBack }) {
   const ties    = rivalry.ties ?? 0
   const total   = myWins + oppWins + ties
   const lead    = myWins > oppWins ? 'up' : myWins < oppWins ? 'down' : 'even'
-  const lColor  = lead === 'up' ? '#C9A040' : lead === 'down' ? '#F87171' : 'rgba(255,255,255,0.5)'
+  const lColor  = lead === 'up' ? 'var(--tm-gold)' : lead === 'down' ? '#F87171' : 'rgba(255,255,255,0.5)'
 
   // Form guide: last 5 results
   const recent = (matches || []).slice(0, 5)
@@ -913,7 +913,7 @@ export function RivalryDetail({ rivalry, userId, onBack }) {
         {total > 0 && (
           <div style={{ marginTop: 14 }}>
             <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex', gap: 1 }}>
-              <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, #2A7A38, #C9A040)', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
+              <div style={{ width: `${(myWins/total)*100}%`, background: 'linear-gradient(90deg, var(--tm-green-bright), var(--tm-gold))', borderRadius: '99px 0 0 99px', transition: 'width 400ms ease' }} />
               {ties > 0 && <div style={{ width: `${(ties/total)*100}%`, background: 'rgba(138,180,248,0.5)' }} />}
               <div style={{ flex: 1, background: 'rgba(248,113,113,0.4)', borderRadius: '0 99px 99px 0' }} />
             </div>
@@ -932,7 +932,7 @@ export function RivalryDetail({ rivalry, userId, onBack }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: m.is_tie ? 'rgba(138,180,248,0.2)' : won ? 'rgba(201,160,64,0.2)' : 'rgba(248,113,113,0.2)',
                   border: m.is_tie ? '1px solid rgba(138,180,248,0.4)' : won ? '1px solid rgba(201,160,64,0.4)' : '1px solid rgba(248,113,113,0.4)',
-                  color: m.is_tie ? '#93C5FD' : won ? '#C9A040' : '#F87171',
+                  color: m.is_tie ? '#93C5FD' : won ? 'var(--tm-gold)' : '#F87171',
                 }}>{m.is_tie ? 'T' : won ? 'W' : 'L'}</div>
               )
             })}
@@ -966,11 +966,11 @@ export function RivalryDetail({ rivalry, userId, onBack }) {
                     <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, marginBottom: 4,
                       background: m.is_tie ? 'rgba(138,180,248,0.12)' : won ? 'rgba(201,160,64,0.12)' : 'rgba(248,113,113,0.12)',
                       border: m.is_tie ? '1px solid rgba(138,180,248,0.3)' : won ? '1px solid rgba(201,160,64,0.3)' : '1px solid rgba(248,113,113,0.3)',
-                      color: m.is_tie ? '#93C5FD' : won ? '#C9A040' : '#F87171',
+                      color: m.is_tie ? '#93C5FD' : won ? 'var(--tm-gold)' : '#F87171',
                     }}>{m.is_tie ? 'TIE' : won ? 'WIN' : 'LOSS'}</div>
                     <div style={{ fontSize: 12, color: 'var(--tm-text-3)' }}>
                       {m.my_score} – {m.opp_score}
-                      {!m.is_tie && <span style={{ color: won ? '#C9A040' : '#F87171', fontWeight: 700, marginLeft: 4 }}>({diff > 0 ? '+' : ''}{diff})</span>}
+                      {!m.is_tie && <span style={{ color: won ? 'var(--tm-gold)' : '#F87171', fontWeight: 700, marginLeft: 4 }}>({diff > 0 ? '+' : ''}{diff})</span>}
                     </div>
                   </div>
                 </div>

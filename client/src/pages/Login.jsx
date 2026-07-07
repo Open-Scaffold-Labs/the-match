@@ -182,7 +182,7 @@ export default function Login({ onLogin }) {
           <h1 style={{
             fontFamily: 'Georgia, "Times New Roman", serif',
             fontSize: 44, fontWeight: 700, letterSpacing: '-1px',
-            background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 50%, #C9971E 100%)',
+            background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 50%, #C9971E 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             margin: '0 0 6px',
             textShadow: '0 1px 2px rgba(122,88,0,0.10)',
@@ -191,7 +191,7 @@ export default function Login({ onLogin }) {
           </h1>
           <p style={{
             fontFamily: 'Georgia, "Times New Roman", serif',
-            color: '#7A5800', fontSize: 11, fontStyle: 'italic',
+            color: 'var(--tm-gold-text)', fontSize: 11, fontStyle: 'italic',
             letterSpacing: '0.18em', textTransform: 'uppercase',
             margin: 0,
             textShadow: '0 1px 1px rgba(255,253,248,0.4)',
@@ -216,7 +216,7 @@ export default function Login({ onLogin }) {
               letterSpacing: '0.06em',
               transition: 'all 200ms ease',
               background: mode === m
-                ? 'linear-gradient(135deg, #F5D78A, #E8C05A, #C9A040)'
+                ? 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright), var(--tm-gold))'
                 : 'transparent',
               color: mode === m ? '#5A4810' : 'rgba(122,88,0,0.55)',
               boxShadow: mode === m
@@ -352,7 +352,7 @@ export default function Login({ onLogin }) {
               fontFamily: 'Georgia, "Times New Roman", serif',
               fontSize: 15, fontWeight: 700, letterSpacing: '0.04em',
               cursor: loading ? 'default' : 'pointer',
-              background: 'linear-gradient(135deg, #F5D78A 0%, #E8C05A 45%, #C9971E 100%)',
+              background: 'linear-gradient(135deg, #F5D78A 0%, var(--tm-gold-bright) 45%, #C9971E 100%)',
               backgroundSize: '200% 100%',
               color: '#3A2A05',
               boxShadow: '0 4px 18px rgba(201,160,64,0.30), inset 0 1px 0 rgba(255,253,248,0.55), inset 0 -1px 0 rgba(122,88,0,0.18)',
@@ -438,11 +438,11 @@ function PremiumInput({ label, value, onChange, placeholder, type = 'text', maxL
           background: focused ? 'rgba(255,253,248,0.85)' : 'rgba(255,253,248,0.65)',
           border: `1px solid ${focused ? 'rgba(201,160,64,0.60)' : 'rgba(201,160,64,0.30)'}`,
           borderRadius: 10,
-          color: '#1B5E3B', fontSize: 16, outline: 'none',
+          color: 'var(--tm-green)', fontSize: 16, outline: 'none',
           fontFamily: 'Georgia, "Times New Roman", serif',
           boxShadow: focused ? '0 0 0 3px rgba(232,192,90,0.18), inset 0 1px 2px rgba(122,88,0,0.06)' : 'inset 0 1px 2px rgba(122,88,0,0.04)',
           transition: 'all 200ms ease',
-          caretColor: '#C9A040',
+          caretColor: 'var(--tm-gold)',
         }}
       />
     </div>

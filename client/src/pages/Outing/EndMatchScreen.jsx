@@ -46,7 +46,7 @@ export default function EndMatchScreen({ summary, user, onDone }) {
     }
   }
 
-  const podiumColors = ['#E8C05A', 'rgba(255,255,255,0.5)', '#CD7F32']
+  const podiumColors = ['var(--tm-gold-bright)', 'rgba(255,255,255,0.5)', '#CD7F32']
 
   return (
     <div data-no-pull-refresh="true" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent', overflowY: 'auto' }}>
@@ -69,7 +69,7 @@ export default function EndMatchScreen({ summary, user, onDone }) {
             <div style={{ fontSize: 16, color: 'var(--tm-text-3)' }}>
               {winner.total} strokes
               {winner.diff !== undefined && (
-                <span style={{ marginLeft: 8, fontWeight: 800, color: winner.diff < 0 ? '#C9A040' : winner.diff > 0 ? '#F87171' : 'var(--tm-text-2)' }}>
+                <span style={{ marginLeft: 8, fontWeight: 800, color: winner.diff < 0 ? 'var(--tm-gold)' : winner.diff > 0 ? '#F87171' : 'var(--tm-text-2)' }}>
                   ({winner.diff === 0 ? 'E' : winner.diff > 0 ? `+${winner.diff}` : winner.diff})
                 </span>
               )}
@@ -83,7 +83,7 @@ export default function EndMatchScreen({ summary, user, onDone }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tm-text-3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Final Standings</div>
         {podium.map((p, i) => {
           const sign = p.diff === 0 ? 'E' : p.diff > 0 ? `+${p.diff}` : `${p.diff}`
-          const diffC = p.diff < 0 ? '#C9A040' : p.diff > 0 ? '#F87171' : 'var(--tm-text-2)'
+          const diffC = p.diff < 0 ? 'var(--tm-gold)' : p.diff > 0 ? '#F87171' : 'var(--tm-text-2)'
           return (
             <div key={p.user_id} style={{
               background: i === 0 ? 'rgba(232,192,90,0.1)' : 'var(--tm-surface)',
@@ -97,8 +97,8 @@ export default function EndMatchScreen({ summary, user, onDone }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, color: i === 0 ? '#F5D78A' : 'var(--tm-text)', fontSize: 15 }}>{p.name}{p.is_guest ? ' (guest)' : ''}</div>
                 <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 2 }}>
-                  {p.birdies > 0 && <span style={{ color: '#C9A040', marginRight: 8 }}>{p.birdies} birdie{p.birdies !== 1 ? 's' : ''}</span>}
-                  {p.eagles > 0 && <span style={{ color: '#E8C05A', marginRight: 8 }}>{p.eagles} eagle{p.eagles !== 1 ? 's' : ''}</span>}
+                  {p.birdies > 0 && <span style={{ color: 'var(--tm-gold)', marginRight: 8 }}>{p.birdies} birdie{p.birdies !== 1 ? 's' : ''}</span>}
+                  {p.eagles > 0 && <span style={{ color: 'var(--tm-gold-bright)', marginRight: 8 }}>{p.eagles} eagle{p.eagles !== 1 ? 's' : ''}</span>}
                   {p.holes_played} holes
                 </div>
               </div>
@@ -117,13 +117,13 @@ export default function EndMatchScreen({ summary, user, onDone }) {
             {highlights.most_eagles && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, color: 'var(--tm-text-2)' }}>Eagle{highlights.most_eagles.count > 1 ? 's' : ''}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#E8C05A' }}>{highlights.most_eagles.name} × {highlights.most_eagles.count}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-gold-bright)' }}>{highlights.most_eagles.name} × {highlights.most_eagles.count}</span>
               </div>
             )}
             {highlights.most_birdies && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 13, color: 'var(--tm-text-2)' }}>Most birdies</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#C9A040' }}>{highlights.most_birdies.name} × {highlights.most_birdies.count}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-gold)' }}>{highlights.most_birdies.name} × {highlights.most_birdies.count}</span>
               </div>
             )}
           </div>

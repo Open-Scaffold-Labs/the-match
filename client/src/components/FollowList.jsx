@@ -170,7 +170,7 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           borderBottom: '1px solid rgba(27,94,59,0.10)',
         }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#0D1F12' }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--tm-text)' }}>
             {TITLES[type]}
             <span style={{ fontSize: 13, color: 'rgba(13,31,18,0.45)', marginLeft: 8, fontWeight: 600 }}>
               {users.length}
@@ -234,7 +234,7 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
                   {u.avatar ? (
                     <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#1B5E3B' }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--tm-green)' }}>
                       {u.name?.split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'}
                     </span>
                   )}
@@ -242,7 +242,7 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
 
                 {/* Name + meta */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0D1F12', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--tm-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {u.name}
                   </div>
                   <div style={{ fontSize: 11, color: 'rgba(13,31,18,0.45)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -292,7 +292,7 @@ export default function FollowList({ type, userId = null, onClose, onCountsChang
 function FollowingBadge() {
   return (
     <span style={{
-      fontSize: 11, fontWeight: 700, color: '#1B5E3B',
+      fontSize: 11, fontWeight: 700, color: 'var(--tm-green)',
       background: 'rgba(42,122,56,0.10)', border: '1px solid rgba(42,122,56,0.22)',
       borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
     }}>Following</span>
@@ -312,7 +312,7 @@ function SelfBadge() {
 function PendingBadge() {
   return (
     <span style={{
-      fontSize: 11, fontWeight: 700, color: '#7A5800',
+      fontSize: 11, fontWeight: 700, color: 'var(--tm-gold-text)',
       background: 'rgba(201,160,64,0.12)', border: '1px solid rgba(201,160,64,0.30)',
       borderRadius: 999, padding: '5px 10px', whiteSpace: 'nowrap',
     }}>Pending</span>
