@@ -1539,3 +1539,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - tools/notebooklm-wiki-refresh.py: new check_caps() / --check-caps (warn at >= 47/50 per routed notebook, TSV output, coverage-check exit semantics); tools/limitless-preflight.sh: capacity stanza after coverage check. Regression-proven (threshold=1 fires 2 warnings w/ correct TSV; real threshold exits 0)
 - Sync contract honored: both files cp'd to LimitlessStack canonical + Hub vault, cmp-verified byte-identical ×3
 - CLAUDE.md end-of-session checklist: new step 4 — regenerate handoffs-rollup.md whenever a handoff is written/edited (excluded files sync ONLY via the rollup)
+
+## [2026-07-06 PM16] verify | S4 browser walkthrough — SOLO surface verified live, zero app errors
+- Hard-refresh on the beta (new bundle), Matt's session: solo scorecard renders the full unified surface post-S4 — LEADERS plaque + Augusta footer pinned full-width, single LAVIN row w/ score decorations (birdie circle, bogey squares), TOTALS strip, THRU 4
+- Cell tap → score modal w/ PuttChips + Shot Log renders (the 07-06 crash class exercised, no crash); BOARD toggle → shared MatchScoreboard one-row glass card renders (skinsByPlayer/diffStr prop paths resolved); console: 0 app errors (1 extension-noise message only)
+- STILL OPEN: multiplayer glance — closed test outings won't reopen (?join=8L3U resumes the active solo round); needs a live outing or a fresh test outing (Matt's call). Structural risk remains LOW (multi diff was a verbatim component swap)
