@@ -1521,3 +1521,6 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 
 ## [2026-07-06 PM11] schema | ACTIVE handoff written — next-session-handoff-2026-07-06 (supersedes 07-02)
 - Full session record: 7 shipped tracks, 8 open items prioritized (S4 first), 6 hard-won process rules (served-bundle gate, browser-walkthrough loop, lockfile discipline, prop-contract census, slice-defines-done, probe-before-install)
+
+## [2026-07-06 PM12] schema | KNOWN DRIFT: handoff-2026-07-06 NotebookLM add failed twice (registration error) — retry next session
+- `notebooklm source add` for the new handoff failed 2x ("Failed to get SOURCE_ID"); not retried further (anti-pattern #4). The handoff is committed in the repo (the primary read path); preflight will flag the wiki bucket until: `notebooklm use 41e645a3... && notebooklm source add wiki/synthesis/next-session-handoff-2026-07-06.md` succeeds + verify query
