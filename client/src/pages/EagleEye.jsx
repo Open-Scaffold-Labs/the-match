@@ -425,317 +425,6 @@ function ModeToggle({ mode, onChange }) {
   )
 }
 
-// ─── Camera modal (overlays the distance view) ────────────────────────────────
-function CameraModal({ gps, weather, holeData, currentHole, courseCtx, greenPos, onClose, onResult }) {
-  const videoRef   = useRef(null)
-  const canvasRef  = useRef(null)
-  const streamRef  = useRef(null)
-  const [facingBack, setFacingBack] = useState(true)
-  const [scanning, setScanning]     = useState(false)
-  const [error, setError]           = useState(null)
-  const [compass, setCompass]       = useState(null)  // current device heading (degrees)
-
-  // Target bearing: from the user's GPS position to the green
-  const targetBearing = calcBearing(gps, greenPos)
-
-  // Arrow rotation = how far to turn the phone to face the green
-  const arrowRotation = (targetBearing != null && compass != null)
-    ? ((targetBearing - compass + 360) % 360)
-    : null
-  const isAligned = arrowRotation != null && (arrowRotation < 22 || arrowRotation > 338)
-
-  // Request compass / device orientation
-  useEffect(() => {
-    const handler = e => {
-      // iOS: webkitCompassHeading is magnetic north (0-360)
-      // Android: alpha is 0-360 but counts opposite; 360-alpha gives compass heading
-      const heading = e.webkitCompassHeading ?? (e.alpha != null ? (360 - e.alpha) % 360 : null)
-      if (heading != null) setCompass(heading)
-    }
-    const setup = async () => {
-      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
-        try {
-          const perm = await DeviceOrientationEvent.requestPermission()
-          if (perm === 'granted') window.addEventListener('deviceorientation', handler, true)
-        } catch {}
-      } else {
-        window.addEventListener('deviceorientation', handler, true)
-      }
-    }
-    setup()
-    return () => window.removeEventListener('deviceorientation', handler, true)
-  }, [])
-
-  const openCamera = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facingBack ? 'environment' : 'user', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      })
-      streamRef.current = stream
-      if (videoRef.current) videoRef.current.srcObject = stream
-    } catch (e) {
-      // Friendly, actionable message instead of raw "NotAllowedError" text
-      // (Track F.13 / audit N12). Branch on the DOMException name.
-      const msg = e?.name === 'NotAllowedError'
-        ? 'Camera access is off. Turn it on in Settings → The Match → Camera.'
-        : e?.name === 'NotFoundError'
-          ? 'No camera found on this device.'
-          : 'Camera unavailable. Please try again.'
-      setError(msg)
-    }
-  }, [facingBack])
-
-  const closeCamera = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-    if (videoRef.current) videoRef.current.srcObject = null
-  }
-
-  useEffect(() => { openCamera(); return closeCamera }, [openCamera])
-
-  const flip = () => { closeCamera(); setFacingBack(b => !b) }
-
-  const capture = async () => {
-    if (!canvasRef.current || !videoRef.current) return
-    setScanning(true)
-    setError(null)
-    const canvas = canvasRef.current
-    const video  = videoRef.current
-    canvas.width  = video.videoWidth
-    canvas.height = video.videoHeight
-    canvas.getContext('2d').drawImage(video, 0, 0)
-    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]
-    try {
-      const res = await post('/api/eagle-eye/analyze', {
-        image: base64,
-        gps,
-        weather,
-        holeYardage: holeData?.yardage ?? null,
-        holePar: holeData?.par ?? null,
-        holeNumber: currentHole,
-        courseName: courseCtx?.course?.club_name ?? null,
-      })
-      closeCamera()
-      onResult(res)
-    } catch (e) {
-      setScanning(false)
-      setError('Analysis failed: ' + e.message)
-    }
-  }
-
-  return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#000', display: 'flex', flexDirection: 'column' }}>
-      {/* Viewfinder */}
-      <video ref={videoRef} autoPlay playsInline muted
-        style={{ flex: 1, width: '100%', objectFit: 'cover' }}
-      />
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-      {/* ── Green direction compass ── */}
-      {targetBearing != null && !scanning && (
-        <div style={{
-          position: 'absolute', bottom: 140, left: 0, right: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-          pointerEvents: 'none',
-        }}>
-          {/* Rotating arrow ring */}
-          <div style={{
-            width: 64, height: 64, borderRadius: '50%',
-            background: isAligned ? 'rgb(var(--tm-ee-green-deep-rgb) / 0.85)' : 'rgb(var(--tm-ee-bg-rgb) / 0.75)',
-            border: `2px solid ${isAligned ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.25)'}`,
-            backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'background 0.3s, border-color 0.3s',
-          }}>
-            <div style={{
-              transform: `rotate(${arrowRotation ?? 0}deg)`,
-              transition: arrowRotation != null ? 'transform 0.1s linear' : 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, lineHeight: 1,
-              color: isAligned ? 'var(--tm-ee-green)' : 'var(--tm-ee-gold-light)',
-            }}>↑</div>
-          </div>
-          {/* Label */}
-          <div style={{
-            background: 'rgb(var(--tm-ee-bg-rgb) / 0.75)', backdropFilter: 'blur(8px)',
-            borderRadius: 20, padding: '4px 12px',
-            border: `1px solid ${isAligned ? 'rgb(var(--tm-ee-green-rgb) / 0.4)' : 'rgb(var(--tm-ee-white-rgb) / 0.15)'}`,
-          }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: isAligned ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.7)', letterSpacing: '0.06em' }}>
-              {isAligned
-                ? '✓ FACING GREEN'
-                : compass != null
-                  ? `TURN ${arrowRotation < 180 ? 'RIGHT' : 'LEFT'} · ${bearingLabel(targetBearing)}`
-                  : `GREEN · ${bearingLabel(targetBearing)}`}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Crosshair */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-        <div style={{ width: 180, height: 180, position: 'relative', opacity: scanning ? 0.3 : 0.7, transition: 'opacity 300ms' }}>
-          {[['tl','top','left'], ['tr','top','right'], ['bl','bottom','left'], ['br','bottom','right']].map(([k, v, h]) => (
-            <div key={k} style={{ position: 'absolute', [v]: 0, [h]: 0, width: 24, height: 24,
-              borderTop:    v === 'top'    ? '2px solid var(--tm-ee-gold-light)' : 'none',
-              borderBottom: v === 'bottom' ? '2px solid var(--tm-ee-gold-light)' : 'none',
-              borderLeft:   h === 'left'   ? '2px solid var(--tm-ee-gold-light)' : 'none',
-              borderRight:  h === 'right'  ? '2px solid var(--tm-ee-gold-light)' : 'none',
-            }} />
-          ))}
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-gold-light)', boxShadow: '0 0 8px var(--tm-ee-gold-light)' }} />
-        </div>
-      </div>
-
-      {/* Top bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: '16px', padding: '12px 16px', background: 'linear-gradient(to bottom, rgb(var(--tm-ee-black-rgb) / 0.8), transparent)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={() => { closeCamera(); onClose() }} style={{ background: 'rgb(var(--tm-ee-black-rgb) / 0.5)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 800, fontSize: 13, letterSpacing: '0.12em' }}>EAGLE EYE</div>
-          {holeData && <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.6)', fontSize: 12 }}>H{currentHole} · {holeData.yardage}y · Par {holeData.par}</div>}
-        </div>
-        <button onClick={flip} style={{ background: 'rgb(var(--tm-ee-black-rgb) / 0.5)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.2)', borderRadius: 999, width: 40, height: 40, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⇄</button>
-      </div>
-
-      {/* Scanning overlay */}
-      {scanning && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgb(var(--tm-ee-black-rgb) / 0.72)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18 }}>
-          <svg width="72" height="72" viewBox="0 0 72 72" fill="none" style={{ animation: 'ee-scan 0.9s ease-in-out infinite' }}>
-            <circle cx="36" cy="36" r="32" stroke="var(--tm-ee-gold)" strokeWidth="1" strokeOpacity="0.4"/>
-            <circle cx="36" cy="36" r="20" stroke="var(--tm-ee-gold-bright)" strokeWidth="1.5" strokeOpacity="0.8"/>
-            <circle cx="36" cy="36" r="3" fill="var(--tm-ee-gold-light)"/>
-            <line x1="36" y1="4" x2="36" y2="14" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-            <line x1="36" y1="58" x2="36" y2="68" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-            <line x1="4" y1="36" x2="14" y2="36" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-            <line x1="58" y1="36" x2="68" y2="36" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.8" strokeLinecap="round"/>
-          </svg>
-          <div style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 800, fontSize: 18, letterSpacing: '0.04em' }}>Analyzing</div>
-          <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 12, letterSpacing: '0.06em' }}>GPS · WEATHER · VISION{courseCtx ? ' · COURSE' : ''}</div>
-        </div>
-      )}
-
-      {/* Error */}
-      {error && !scanning && (
-        <div style={{ position: 'absolute', bottom: 120, left: 16, right: 16, background: 'rgb(var(--tm-ee-red-error-rgb) / 0.9)', borderRadius: 12, padding: '14px 16px', color: '#fff', textAlign: 'center' }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Analysis failed</div>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>{error}</div>
-        </div>
-      )}
-
-      {/* Capture button */}
-      {!scanning && (
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: '28px', display: 'flex', justifyContent: 'center' }}>
-          <button
-            onClick={capture}
-            style={{
-              width: 76, height: 76, borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--tm-ee-gold-light), var(--tm-ee-gold))',
-              border: '4px solid rgb(var(--tm-ee-white-rgb) / 0.35)',
-              boxShadow: '0 0 28px rgb(var(--tm-ee-gold-rgb) / 0.7)',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-bg-rgb) / 0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <circle cx="12" cy="12" r="5"/>
-              <circle cx="12" cy="12" r="1.5" fill="rgb(var(--tm-ee-bg-rgb) / 0.8)"/>
-              <line x1="12" y1="2" x2="12" y2="5"/>
-              <line x1="12" y1="19" x2="12" y2="22"/>
-              <line x1="2" y1="12" x2="5" y2="12"/>
-              <line x1="19" y1="12" x2="22" y2="12"/>
-            </svg>
-          </button>
-        </div>
-      )}
-    </div>,
-    document.body
-  )
-}
-
-// ─── Result Sheet ─────────────────────────────────────────────────────────────
-function ResultSheet({ result: r, holeData, onClose }) {
-  const adj = n => n > 0 ? `+${n}` : `${n}`
-  const hasReal = holeData?.yardage != null
-
-  return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-      <div onClick={onClose} style={{ flex: 1, background: 'rgb(var(--tm-ee-black-rgb) / 0.5)' }} />
-      <div style={{
-        background: 'var(--tm-surface)', borderRadius: '24px 24px 0 0',
-        border: '1px solid var(--tm-border-2)',
-        padding: '20px 20px', paddingBottom: 'max(24px, calc(var(--nav-height) + 12px))',
-        boxShadow: '0 -8px 40px rgb(var(--tm-ee-black-rgb) / 0.8)',
-      }}>
-        <div style={{ width: 36, height: 4, borderRadius: 99, background: 'var(--tm-border-3)', margin: '0 auto 20px' }} />
-
-        {/* Hero distance */}
-        <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ color: 'var(--tm-text-3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Plays Like {hasReal ? `(from ${holeData.yardage}y tee)` : '(visual estimate)'}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginTop: 4 }}>
-            <span style={{ fontSize: 68, fontWeight: 800, letterSpacing: '-3px', lineHeight: 1, color: 'var(--tm-gold-bright)' }}>{r.playsLikeYards}</span>
-            <span style={{ color: 'var(--tm-text-3)', fontSize: 20 }}>yds</span>
-          </div>
-          <div style={{ color: 'var(--tm-text-3)', fontSize: 13, marginTop: 4 }}>
-            {hasReal ? `Course: ${holeData.yardage}y` : `Est: ${r.gpsYards}y`}
-            {r.adjustments.totalAdjust !== 0 && ` · Adj: ${adj(r.adjustments.totalAdjust)}y`}
-          </div>
-        </div>
-
-        {/* Club recommendation */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-          <div style={{ background: 'rgb(var(--tm-ee-green-deep-rgb) / 0.2)', border: '1px solid rgb(var(--tm-ee-green-deep-rgb) / 0.4)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-            <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Club</div>
-            <div style={{ color: 'var(--tm-ee-gold)', fontWeight: 800, fontSize: 22 }}>{r.recommendedClub}</div>
-          </div>
-          <div style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.04)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
-            <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Alternate</div>
-            <div style={{ color: 'var(--tm-text-2)', fontWeight: 800, fontSize: 22 }}>{r.alternateClub}</div>
-          </div>
-        </div>
-
-        {/* Adjustments */}
-        <div style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.03)', border: '1px solid var(--tm-border-2)', borderRadius: 12, padding: '10px 14px', marginBottom: 14 }}>
-          {[
-            ['↗ Slope', r.adjustments.slopeYards],
-            ['~ Wind',  r.adjustments.windYards],
-            ['° Temp',  r.adjustments.tempYards],
-            ['▲ Alt',   r.adjustments.altitudeYards],
-          ].filter(([,v]) => v !== 0).map(([label, val]) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.05)' }}>
-              <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontSize: 13 }}>{label}</span>
-              <span style={{ color: val > 0 ? 'var(--tm-ee-red)' : 'var(--tm-ee-gold)', fontWeight: 700, fontSize: 13 }}>{adj(val)}y</span>
-            </div>
-          ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6 }}>
-            <span style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.6)', fontSize: 13, fontWeight: 600 }}>Shot shape</span>
-            <span style={{ color: 'var(--tm-ee-gold-light)', fontSize: 13, fontWeight: 700 }}>{r.shotShape}</span>
-          </div>
-        </div>
-
-        {/* Caddie note */}
-        {r.caddieNote && (
-          <div style={{ background: 'rgb(var(--tm-ee-green-deep-rgb) / 0.12)', border: '1px solid rgb(var(--tm-ee-green-deep-rgb) / 0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
-            <div style={{ color: 'var(--tm-ee-gold)', fontSize: 10, fontWeight: 700, marginBottom: 4, letterSpacing: '0.1em' }}>CADDIE NOTE</div>
-            <div style={{ color: 'var(--tm-text)', fontSize: 14, lineHeight: 1.55 }}>{r.caddieNote}</div>
-          </div>
-        )}
-
-        <button onClick={onClose} style={{
-          width: '100%', padding: '14px', borderRadius: 14,
-          background: 'rgb(var(--tm-ee-white-rgb) / 0.07)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
-          color: 'rgb(var(--tm-ee-white-rgb) / 0.7)', fontWeight: 700, fontSize: 15, cursor: 'pointer',
-        }}>Done</button>
-      </div>
-    </div>,
-    document.body
-  )
-}
-
 // ─── Course Picker ────────────────────────────────────────────────────────────
 function CoursePicker({ onSelect, onClose, gps, gender }) {
   const [query, setQuery]     = useState('')
@@ -1130,8 +819,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eyeHoleNudge])
   const [showPicker, setShowPicker] = useState(false)
-  const [showCamera, setShowCamera] = useState(false)
-  const [result, setResult]         = useState(null)
   const [viewMode, setViewMode]     = useState('distance') // 'distance' | 'map'
 
   // ─── Bag picker (2026-05-01) ───
@@ -1621,7 +1308,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     const next = Math.min(totalHoles, Math.max(1, currentHole + delta))
     setCurrentHole(next)
     setTeeGps(gps)  // Reset tee position when changing hole
-    setResult(null)
   }
 
   function handleCourseSelect(ctx) {
@@ -1629,7 +1315,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     setCurrentHole(1)
     setTeeGps(gps)
     setShowPicker(false)
-    setResult(null)
     // Push the pick up to App.jsx's sharedCourse so the Match tab and
     // future Eye sessions stay in sync. (2026-05-01)
     onCourseSelected?.(ctx)
@@ -1654,7 +1339,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     setCurrentHole(readEyeHole(sharedCourse.course.id) || 1)
     setTeeGps(gps)
     setShowPicker(false)
-    setResult(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedCourse])
 
@@ -1900,7 +1584,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           const go = (delta) => {
             const ni = Math.max(0, Math.min(teeHoles.length - 1, idx + delta))
             const nh = teeHoles[ni]
-            if (nh && nh.hole !== currentHole) { setCurrentHole(nh.hole); setTeeGps(gps); setResult(null) }
+            if (nh && nh.hole !== currentHole) { setCurrentHole(nh.hole); setTeeGps(gps) }
           }
           const NavBtn = ({ dir, disabled }) => (
             <button onClick={() => go(dir)} disabled={disabled} aria-label={dir < 0 ? 'Previous hole' : 'Next hole'} style={{
@@ -2198,20 +1882,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   duplicate row above the Analyze Shot button was dead
                   weight blocking the satellite view. */}
 
-              {/* Last analysis result */}
-              {result && (
-                <div onClick={() => setResult(result)} style={{
-                  marginBottom: 10, padding: '10px 16px', borderRadius: 14, cursor: 'pointer',
-                  background: 'rgb(var(--tm-ee-glass-deep-rgb) / 0.78)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.3)', display: 'flex', alignItems: 'center', gap: 12,
-                }}>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.5)', letterSpacing: '0.1em' }}>LAST ANALYSIS</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--tm-ee-gold-light)', marginTop: 1 }}>{result.playsLikeYards} yds · {result.recommendedClub}</div>
-                  </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-gold-light-rgb) / 0.4)" strokeWidth="2" strokeLinecap="round" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6"/></svg>
-                </div>
-              )}
 
               {/* Analyze Shot button moved out of the HUD bottom-stack
                   on 2026-05-01 — it now lives as a small floating pill
@@ -2334,27 +2004,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         shotBearing={shotBearing}
         elevAvailable={elevDelta != null}
       />
-      {showCamera && (
-        <CameraModal
-          gps={gps}
-          weather={weather}
-          holeData={holeData}
-          currentHole={currentHole}
-          courseCtx={courseCtx}
-          greenPos={greenPositions[currentHole] ?? null}
-          onClose={() => setShowCamera(false)}
-          onResult={res => { setResult(res); setShowCamera(false) }}
-        />
-      )}
-
-      {result && !showCamera && (
-        <ResultSheet
-          result={result}
-          holeData={holeData}
-          onClose={() => {}}
-        />
-      )}
-
       {showPicker && (
         <CoursePicker
           onClose={() => setShowPicker(false)}
@@ -2368,12 +2017,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           already exposes a Scorecard link, the floating pill duplicated
           it and crowded the bottom-right where the BAG toggle lives. */}
 
-      {/* ANALYZE (AI camera rangefinder) button REMOVED 2026-07-02 (Matt):
-          the shot-analysis flow is not yet wired to production quality, so
-          the button was nothing more than a broken entry point. The plumbing
-          (CameraModal + `/api/eagle-eye/analyze` + ResultSheet, all below) is
-          intentionally LEFT IN PLACE but unreachable — re-surface a button
-          here only once the feature is properly built and verified end-to-end. */}
+      {/* ANALYZE (AI camera rangefinder) fully REMOVED 2026-07-07 (Matt): the
+          camera flow (CameraModal + /api/eagle-eye/analyze + ResultSheet) was a
+          less-accurate-than-GPS AI guess (monocular distance isn't credible at
+          golf range) that duplicated the data-driven Caddie. Cut entirely; the
+          real lever is per-shot capture feeding the SG engine. */}
 
       {/* Club toggle — idle state:
           single BAG button. Tap once → AI picks the best club match
@@ -2381,7 +2029,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           over with ▲ (longer) and ▼ (shorter) arrows around the
           selected club. Each toggle press updates the landing-zone
           ring on the map. Tap the center to clear. (2026-05-01) */}
-      {!showCamera && !showPicker && courseCtx && !bigMode && (
+      {!showPicker && courseCtx && !bigMode && (
         <ClubToggle
           bag={myBag}
           selected={selectedClub}
@@ -2394,7 +2042,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
       {/* My-bag arcs toggle (Phase 3.3) — summon the own-club distance zones.
           Calm by default; mutually exclusive with single-club selection. */}
-      {!showCamera && !showPicker && courseCtx && !bigMode && (
+      {!showPicker && courseCtx && !bigMode && (
         <button
           onClick={() => {
             const turningOn = !bagArcsOn
@@ -2428,7 +2076,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           (tm-eye-rings); default off keeps the map clean (the market's #1
           documented overlay failure is clutter). Sits above ARCS on the same
           right-edge control rail — one coherent glass column. */}
-      {!showCamera && !showPicker && courseCtx && !bigMode && (
+      {!showPicker && courseCtx && !bigMode && (
         <button
           onClick={toggleRings}
           aria-pressed={ringsOn}
