@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783436796.5448,
-    "source_id": "1c389edd-8022-421a-9d41-d880c45d3ddd",
-    "verified_at": 1783436927.9011571
+    "mtime": 1783441868.6194303,
+    "source_id": "ddebb867-64bd-44e2-abf5-96a79ff7789b",
+    "verified_at": 1783442178.5764182
   },
   "wiki/index.md": {
-    "mtime": 1783436796.5295289,
-    "source_id": "99ae8d31-1d74-4d12-b632-1dc6e75d9692",
-    "verified_at": 1783436955.655381
+    "mtime": 1783441912.1977553,
+    "source_id": "d0db4717-2ad1-4777-bb9d-b0d7dca292ea",
+    "verified_at": 1783442188.3443499
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -73,9 +73,9 @@
     "verified_at": 1783436977.758929
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
-    "mtime": 1783436706.464072,
-    "source_id": "f0eea8bc-e901-44bd-aa6b-34cd3d990533",
-    "verified_at": 1783437009.334372
+    "mtime": 1783441946.3874836,
+    "source_id": "5f5acfb6-bc1c-42bd-924b-239dceb1cae8",
+    "verified_at": 1783442209.318553
   },
   "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
     "mtime": 1782405889.2891493,
@@ -157,8 +157,9 @@
     "source_id": "7a918908-2d7f-4454-b013-66b253d05371"
   },
   "wiki/synthesis/eagle-eye-tokenization-plan-2026-07-02.md": {
-    "mtime": 1783032417.2101936,
-    "source_id": "4cfbb077-86a5-475f-ac19-96bf8b1407d2"
+    "mtime": 1783441981.5214276,
+    "source_id": "07e9c5ed-fabb-4fdc-8be9-231c9c34ade9",
+    "verified_at": 1783442198.81949
   },
   "wiki/synthesis/range-rings-dispersion-build-spec-2026-07-02.md": {
     "mtime": 1783034638.2819545,
@@ -181,8 +182,13 @@
     "verified_at": 1783383016.5478091
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1783436796.539317,
-    "source_id": "f1b48aec-0917-4bdd-a00e-863e73c0132a",
-    "verified_at": 1783437059.616363
+    "mtime": 1783442055.1814914,
+    "source_id": "257d074c-58e9-4bfd-8a41-4b861f04ffe7",
+    "verified_at": 1783442226.393392
+  },
+  "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
+    "mtime": 1783441571.9913416,
+    "source_id": "6be50dd1-e866-4c00-8337-e2072f2947a2",
+    "verified_at": 1783442215.406632
   }
 }
