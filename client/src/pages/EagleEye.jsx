@@ -18,6 +18,14 @@ const ENABLE_FCB = true
 // destroys trust on hole 1). ~10 m ≈ ±11 yd — past that the number isn't
 // trustworthy to a golfer choosing a club. A null accuracy is untrusted.
 const GPS_ACCURACY_GATE_M = 10
+// GPS range gate (2026-07-07, Matt) — a fix can be accuracy-TRUSTED yet
+// distance-IRRELEVANT: GPS on while away from the course quoted the drive
+// to the course as a hole distance ("TO GREEN 16128"). No real hole
+// approach exceeds 800 yds; past the gate the live read is discarded —
+// the hero falls back to the static tee→green yardage and the GPS chip
+// reads OUT OF RANGE. Per-hole, so it also covers standing on the course
+// but far from the currently-viewed hole's green.
+const GPS_RANGE_GATE_YDS = 800
 import { log } from '../lib/logger.js'
 import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
@@ -1477,7 +1485,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     const target = userAim ? userAim.aim : greenPositions[currentHole]
     const acc = gps?.acc ?? null
     const trusted = gps != null && acc != null && acc <= GPS_ACCURACY_GATE_M
-    if (!trusted || !target) { setElevDelta(null); return }   // reset stale elevation on hole/GPS/aim change
+    // Range gate (2026-07-07): an accuracy-trusted fix beyond the gate would
+    // fetch the elevation delta from the player's HOUSE to the green.
+    const inRange = trusted && target ? (haversineYards(gps, target) ?? Infinity) <= GPS_RANGE_GATE_YDS : false
+    if (!trusted || !target || !inRange) { setElevDelta(null); return }   // reset stale elevation on hole/GPS/aim change
     let cancelled = false
     ;(async () => {
       try {
@@ -1528,15 +1539,26 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const gpsAcc      = gps?.acc ?? null
   const gpsTrusted  = gps != null && gpsAcc != null && gpsAcc <= GPS_ACCURACY_GATE_M
   const gpsAcquiring = gps != null && !gpsTrusted   // have a fix, too loose to quote
-  const trustedGps  = gpsTrusted ? gps : null
 
   const greenCoord = greenPositions[currentHole]
-  const gpsToGreen = (greenCoord && trustedGps) ? haversineYards(trustedGps, greenCoord) : null
+  // Range gate (GPS_RANGE_GATE_YDS): accuracy-trusted but too far from THIS
+  // hole's green to be a real approach → discard the live read entirely.
+  const rawGpsToGreen = (greenCoord && gpsTrusted) ? haversineYards(gps, greenCoord) : null
+  const gpsOutOfRange = rawGpsToGreen != null && rawGpsToGreen > GPS_RANGE_GATE_YDS
+  // gpsUsable is the only trust signal distance math may key off — the
+  // accuracy gate AND the range gate together. trustedGps keeps the Phase
+  // 1.1 doctrine: everything downstream (green distance, plays-like, F/C/B,
+  // bearing) sees GPS only through it, so an unusable fix can never produce
+  // a confident yardage.
+  const gpsUsable   = gpsTrusted && !gpsOutOfRange
+  const trustedGps  = gpsUsable ? gps : null
+  const gpsToGreen  = gpsOutOfRange ? null : rawGpsToGreen
 
   // Fallback: distance walked from tee subtracted from DB yardage — only when
-  // the current fix is trusted (a loose fix would invent a bogus "remaining").
-  const distanceWalked = gpsTrusted ? (haversineYards(teeGps, gps) ?? 0) : 0
-  const remainingYards = (holeData && gpsTrusted)
+  // the current fix is usable (a loose or out-of-range fix would invent a
+  // bogus "remaining", e.g. yardage minus a 9-mile walk clamped to 0).
+  const distanceWalked = gpsUsable ? (haversineYards(teeGps, gps) ?? 0) : 0
+  const remainingYards = (holeData && gpsUsable)
     ? Math.max(0, (holeData.yardage ?? 0) - distanceWalked)
     : null
 
@@ -1586,7 +1608,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     : null
   const temp = weather ? Math.round(weather.temperature_2m) : null
 
-  const pinYards = gpsToGreen ?? (gpsTrusted && distanceWalked > 10 && remainingYards != null
+  const pinYards = gpsToGreen ?? (gpsUsable && distanceWalked > 10 && remainingYards != null
     ? remainingYards
     : (holeData?.yardage ?? null))
   // Option B: a user-placed aim short of the pin becomes the target — the hero
@@ -1601,7 +1623,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const distLabel = userAim ? 'TO AIM'
     : gpsToGreen != null ? 'TO GREEN'
     : gpsAcquiring ? 'ACQUIRING'
-    : (gpsTrusted && distanceWalked > 10 && remainingYards != null) ? 'REMAINING'
+    : (gpsUsable && distanceWalked > 10 && remainingYards != null) ? 'REMAINING'
     : 'FROM TEE'
   const distAccent = userAim ? 'var(--tm-ee-gold-light)' : gpsToGreen != null ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'var(--tm-ee-gold)'
 
@@ -1755,22 +1777,23 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 the watch either way. (2026-06-06) */}
             <button
               onClick={requestLocation}
-              title={gpsTrusted ? 'GPS locked — tap to refresh' : gpsAcquiring ? 'Acquiring GPS — tap to refresh' : 'Tap to turn on GPS'}
+              title={gpsUsable ? 'GPS locked — tap to refresh' : gpsOutOfRange ? 'GPS out of range for this hole — tap to refresh' : gpsAcquiring ? 'Acquiring GPS — tap to refresh' : 'Tap to turn on GPS'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                // C1 (2026-07-07): locked = gold (aligned), acquiring = dim white
-                background: gpsTrusted ? 'rgb(var(--tm-ee-gold-rgb) / 0.16)' : gpsAcquiring ? 'rgb(var(--tm-ee-white-rgb) / 0.08)' : 'rgb(var(--tm-ee-white-rgb) / 0.06)',
-                border: `1px solid ${gpsTrusted ? 'rgb(var(--tm-ee-gold-rgb) / 0.35)' : gpsAcquiring ? 'rgb(var(--tm-ee-white-rgb) / 0.18)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
+                // C1 (2026-07-07): locked = gold (aligned), acquiring = dim white.
+                // Out-of-range (range gate) reads as dim/static — usable never lies.
+                background: gpsUsable ? 'rgb(var(--tm-ee-gold-rgb) / 0.16)' : gpsAcquiring ? 'rgb(var(--tm-ee-white-rgb) / 0.08)' : 'rgb(var(--tm-ee-white-rgb) / 0.06)',
+                border: `1px solid ${gpsUsable ? 'rgb(var(--tm-ee-gold-rgb) / 0.35)' : gpsAcquiring ? 'rgb(var(--tm-ee-white-rgb) / 0.18)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
                 borderRadius: 20, padding: '4px 8px', cursor: 'pointer',
                 fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
               }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%',
-                background: gpsTrusted ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.2)',
+                background: gpsUsable ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.2)',
                 animation: gpsAcquiring ? 'ee-acq-pulse 1.1s ease-in-out infinite' : 'none' }} />
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em',
-                color: gpsTrusted ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)' }}>GPS</span>
+                color: gpsUsable ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)' }}>GPS</span>
               {/* refresh glyph — signals the pill is tappable */}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsTrusted ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={gpsUsable ? 'var(--tm-ee-aligned)' : gpsAcquiring ? 'var(--tm-ee-acquiring)' : 'rgb(var(--tm-ee-white-rgb) / 0.35)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 1 }}>
                 <path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
               </svg>
             </button>
@@ -2040,11 +2063,22 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   says "working on it". The accuracy gate still uses
                   coords.accuracy under the hood; we just never quantify the
                   uncertainty to the user. */}
-              {gpsTrusted ? (
+              {gpsUsable ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--tm-ee-aligned)', boxShadow: '0 0 6px rgb(var(--tm-ee-gold-rgb) / 0.8)' }} />
                   <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-gold-rgb) / 0.85)' }}>
                     GPS
+                  </span>
+                </div>
+              ) : gpsOutOfRange ? (
+                /* Range gate (2026-07-07): accuracy-trusted fix, but too far from
+                   this hole's green to be a real approach — the hero above shows
+                   the static tee→green yardage, and this chip says so honestly.
+                   Dim + static: an unusable read never wears a confidence color. */
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgb(var(--tm-ee-white-rgb) / 0.25)' }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)' }}>
+                    GPS · OUT OF RANGE
                   </span>
                 </div>
               ) : gpsAcquiring ? (
