@@ -1524,3 +1524,18 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 
 ## [2026-07-06 PM12] schema | KNOWN DRIFT: handoff-2026-07-06 NotebookLM add failed twice (registration error) — retry next session
 - `notebooklm source add` for the new handoff failed 2x ("Failed to get SOURCE_ID"); not retried further (anti-pattern #4). The handoff is committed in the repo (the primary read path); preflight will flag the wiki bucket until: `notebooklm use 41e645a3... && notebooklm source add wiki/synthesis/next-session-handoff-2026-07-06.md` succeeds + verify query
+
+## [2026-07-06 PM13] feat | Unification S4 SHIPPED (`7f5902c`) — components/scorecard/ + defensive prop contracts
+- 7 blocks (1,323 lines) extracted verbatim from LiveOuting into components/scorecard/index.jsx; PuttChips relocated (git rename); both consumers import from there; LiveOuting 4,570 → 3,288 lines
+- Hardening: playerTeam = () => null, perPlayer() value-or-fn on all diffStr/netDiffStr call sites, TotalsRow dStr null-guarded
+- Gates: build + lint exit 0, lockfile diff EMPTY (zero installs — the 07-06 lockfile lesson applied); served-deploy verified via `vercel inspect` (alias → dpl_3Akwi2T7…, Ready). OPEN: browser walkthrough (solo + one multi glance) — jsx-no-undef gate still not re-landed, so runtime render remains the unverified layer
+
+## [2026-07-06 PM14] fix | NotebookLM "registration error" ROOT CAUSE: 50-source cap, NOT a broken CLI
+- Matt's hypothesis, confirmed by differential test: probe file failed on 41e645a3 (50/50 sources) but SUCCEEDED on a fresh scratch notebook (created + deleted for the test). Prior session's "retry next session" and this session's initial "CLI broken account-wide, needs upgrade" were both wrong — the same-notebook probe only ruled out file-specificity, not notebook-specificity
+- Fix (Matt's directive — handoffs don't get individual slots): ALL 9 handoffs consolidated into ONE source, wiki/synthesis/handoffs-rollup.md (ACTIVE first); manifest exclude_paths now routes next-session-handoff-* / eagle-eye-tile-grid-handoff-* to no notebook; refresh deleted the 8 individual sources. Notebook now 43/50 incl. rollup; content-verified by query (S4 answer cited correctly)
+- Anti-pattern filed in the OpenScaffold wiki (#27): claiming tool-wide failure from a same-target probe
+
+## [2026-07-06 PM15] schema | Preflight learns the cap: --check-caps + capacity stanza; rollup convention in CLAUDE.md
+- tools/notebooklm-wiki-refresh.py: new check_caps() / --check-caps (warn at >= 47/50 per routed notebook, TSV output, coverage-check exit semantics); tools/limitless-preflight.sh: capacity stanza after coverage check. Regression-proven (threshold=1 fires 2 warnings w/ correct TSV; real threshold exits 0)
+- Sync contract honored: both files cp'd to LimitlessStack canonical + Hub vault, cmp-verified byte-identical ×3
+- CLAUDE.md end-of-session checklist: new step 4 — regenerate handoffs-rollup.md whenever a handoff is written/edited (excluded files sync ONLY via the rollup)

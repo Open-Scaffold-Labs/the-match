@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783376071.7792993,
-    "source_id": "54f4886a-be70-4e65-8a78-9c621a13f202",
-    "verified_at": 1783376102.523773
+    "mtime": 1783389976.721168,
+    "source_id": "3007aa6b-2ef0-4790-9aa6-272a2da5afb7",
+    "verified_at": 1783390043.469375
   },
   "wiki/index.md": {
-    "mtime": 1783375383.788955,
-    "source_id": "91070ae6-3795-44f9-bef6-9c79f6703007",
-    "verified_at": 1783375427.226437
+    "mtime": 1783382948.130872,
+    "source_id": "aeb4f66e-de0c-413c-ac7d-d221c56bfd13",
+    "verified_at": 1783383001.2437901
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -47,11 +47,6 @@
     "source_id": "d05a2d21-e1a2-46d7-ab3e-a8c980afc2d2",
     "verified_at": 1777639953.4141362
   },
-  "wiki/synthesis/eagle-eye-tile-grid-handoff-2026-05-01.md": {
-    "mtime": 1777683387.6880083,
-    "source_id": "838b1722-d7c2-4d63-86ea-83d98165447d",
-    "verified_at": 1777683687.3069088
-  },
   "wiki/POST-LAUNCH-TODO.md": {
     "mtime": 1782833971.8682165,
     "source_id": "f81b2fc2-c2bb-4e03-89a7-200e0dda2a91",
@@ -76,11 +71,6 @@
     "mtime": 1783026563.9545171,
     "source_id": "35449636-1391-4d6f-a5d3-819a3fb49e21",
     "verified_at": 1783030860.0720031
-  },
-  "wiki/synthesis/next-session-handoff-2026-06-24.md": {
-    "mtime": 1782402638.9567585,
-    "source_id": "d3011a38-31ad-4085-b5dc-1dd0ba6e477b",
-    "verified_at": 1782402704.9574468
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
     "mtime": 1783026542.938031,
@@ -122,16 +112,6 @@
     "source_id": "cd617659-0dda-450a-b709-49445a5e367b",
     "verified_at": 1782514397.263246
   },
-  "wiki/synthesis/next-session-handoff-2026-06-26.md": {
-    "mtime": 1782514257.0720057,
-    "source_id": "073fc5a0-45dd-4483-9be5-8f69883af9e6",
-    "verified_at": 1782514381.2972958
-  },
-  "wiki/synthesis/next-session-handoff-2026-06-27.md": {
-    "mtime": 1782542715.3662984,
-    "source_id": "b3b21410-96e9-4097-b2bb-311f4a23a6e7",
-    "verified_at": 1782543039.147903
-  },
   "wiki/synthesis/audit-2026-06-27.md": {
     "mtime": 1782544667.6634998,
     "source_id": "f474c917-6327-415e-9a01-ceed96392856",
@@ -146,11 +126,6 @@
     "mtime": 1782623893.775454,
     "source_id": "2cb06328-54dd-4055-a175-c2234e7e1201",
     "verified_at": 1782624265.337163
-  },
-  "wiki/synthesis/next-session-handoff-2026-06-28.md": {
-    "mtime": 1782625070.4987473,
-    "source_id": "b0e9753b-4a71-4cf0-95d0-e0c70c2e77f4",
-    "verified_at": 1782625145.247264
   },
   "wiki/synthesis/f5-s2-s3-build-spec-2026-06-28.md": {
     "mtime": 1782629561.5856357,
@@ -172,11 +147,6 @@
     "source_id": "8177e713-80e2-42fe-8e86-57e7fd08a713",
     "verified_at": 1782757964.498656
   },
-  "wiki/synthesis/next-session-handoff-2026-06-29.md": {
-    "mtime": 1782834456.687353,
-    "source_id": "621eee55-8cce-4e62-8af5-1cae7f951c55",
-    "verified_at": 1782834571.6347861
-  },
   "wiki/synthesis/phase0-foundation-build-spec-2026-06-30.md": {
     "mtime": 1782839673.2123327,
     "source_id": "92233f0e-f17d-48af-a38c-1dbc456e6193",
@@ -186,19 +156,9 @@
     "mtime": 1782924039.489906,
     "source_id": "7a918908-2d7f-4454-b013-66b253d05371"
   },
-  "wiki/synthesis/next-session-handoff-2026-06-30.md": {
-    "mtime": 1782918879.0631866,
-    "source_id": "975806db-02f4-47c5-a016-e24721c3dd7a",
-    "verified_at": 1782919074.195175
-  },
   "wiki/synthesis/eagle-eye-tokenization-plan-2026-07-02.md": {
     "mtime": 1783032417.2101936,
     "source_id": "4cfbb077-86a5-475f-ac19-96bf8b1407d2"
-  },
-  "wiki/synthesis/next-session-handoff-2026-07-02.md": {
-    "mtime": 1783034676.2680352,
-    "source_id": "88652052-6c14-4453-9c7b-48fd5999cb0c",
-    "verified_at": 1783034740.138512
   },
   "wiki/synthesis/range-rings-dispersion-build-spec-2026-07-02.md": {
     "mtime": 1783034638.2819545,
@@ -214,5 +174,15 @@
     "mtime": 1783376071.7762213,
     "source_id": "db609024-faf0-441c-95d5-50ea6fb1d1d9",
     "verified_at": 1783376117.5274491
+  },
+  "wiki/synthesis/solo-multi-scorecard-unification-spec-2026-07-06.md": {
+    "mtime": 1783381756.8716197,
+    "source_id": "f855e353-a123-4092-81f9-63cdde90c734",
+    "verified_at": 1783383016.5478091
+  },
+  "wiki/synthesis/handoffs-rollup.md": {
+    "mtime": 1783389947.8842747,
+    "source_id": "1af44f71-9b2b-47f0-9adc-87329b657249",
+    "verified_at": 1783390056.502502
   }
 }

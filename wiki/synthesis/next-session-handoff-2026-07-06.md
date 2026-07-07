@@ -37,7 +37,7 @@ per-item detail. Everything below is SHIPPED AND LIVE unless marked open.
 
 ## Open items, in priority order
 
-1. **Unification S4** — move shared scorecard components (incl. PuttChips pattern) to
+1. ~~**Unification S4**~~ ✅ SHIPPED 2026-07-06 PM (`7f5902c`, deploy verified Ready; browser walkthrough still owed) — move shared scorecard components (incl. PuttChips pattern) to
    `components/scorecard/`, BOTH consumers import from there, and add defensive default
    props: `playerTeam = () => null`, `diffStr`/`diffColor` accepting value-or-fn,
    `skinsByPlayer = {}`. Separate commit (bisection). The two prop-contract crashes on

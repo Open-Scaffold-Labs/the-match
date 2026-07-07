@@ -58,10 +58,11 @@ Before closing any session that modifies wiki pages, CLAUDE.md, deliverables, or
 1. Update `wiki/log.md` with what changed
 2. **Refresh the trust anchors.** Re-read this `CLAUDE.md` end-to-end and update any feature-status tables, "current state" prose, "shipped vs next" lists, or DB-setup / migration counts to match what actually shipped this session. The trust anchor must describe reality — every Claude session reads it as ground truth, so silent staleness here propagates as confidently-stated wrong facts. Same for `wiki/index.md`: it must list every page that exists in `wiki/`. The preflight's semantic checks (index completeness, template-placeholder detection, overdue-TODO scan) catch the obvious cases — but only the writer of the session knows whether a status claim is still true.
 3. Commit + push the project repo (this `the-match` repo)
-4. Run `python3.11 tools/notebooklm-wiki-refresh.py` if wiki/CLAUDE.md changed
-5. Verify the refresh actually landed (`verify_failed: 0`)
-6. Run preflight one more time — should be green except known accepted yellows
-7. **If `tools/<anything>` was edited** — back-port to `/Users/matthewlavin/LimitlessStack/tools/` and commit/push that repo too. Sync check will fail next session if you forget.
+4. **If a session handoff was written or edited**: regenerate `wiki/synthesis/handoffs-rollup.md` (concatenation, ACTIVE first — see its header). Handoff files are excluded from NotebookLM routing (manifest `exclude_paths`, 2026-07-06 — the 50-source cap); ONLY the rollup syncs. A new handoff without a rollup regen silently misses the notebook.
+5. Run `python3.11 tools/notebooklm-wiki-refresh.py` if wiki/CLAUDE.md changed
+6. Verify the refresh actually landed (`verify_failed: 0`)
+7. Run preflight one more time — should be green except known accepted yellows
+8. **If `tools/<anything>` was edited** — back-port to `/Users/matthewlavin/LimitlessStack/tools/` and commit/push that repo too. Sync check will fail next session if you forget.
 
 ## Stack
 

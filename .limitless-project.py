@@ -82,7 +82,12 @@ NOTEBOOKLM = {
 
     # Path prefixes that should NOT be mirrored to ANY notebook (e.g., raw
     # source summary pages that have a per-project notebook upstream).
-    "exclude_paths": [],
+    "exclude_paths": [
+        # Handoffs are mirrored via the single wiki/synthesis/handoffs-rollup.md
+        # source instead of one slot each (2026-07-06 — 50-source cap hit).
+        "wiki/synthesis/next-session-handoff-",
+        "wiki/synthesis/eagle-eye-tile-grid-handoff-",
+    ],
 }
 
 SYNC_CHECK = {
