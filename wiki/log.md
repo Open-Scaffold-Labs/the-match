@@ -1518,3 +1518,6 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 ## [2026-07-06 PM10] fix | Plaque/footer pinned full-width (`62bf2e8`) — Matt's design-audit catch, browser-verified
 - The chrome had been mounted INSIDE the horizontal scroller → sized to the table, clipping mid-screen ("looks cheap" — correct). Restructured to multi's exact frame: plaque pinned full-width top, grid scrolls BETWEEN the chrome (both axes), footer pinned full-width bottom. Verified live: chrome spans edge-to-edge, grid scrolls beneath it
 - Structure lesson for the unification record: matching multi means matching its FRAME hierarchy, not just mounting its components — chrome belongs outside scroll containers
+
+## [2026-07-06 PM11] schema | ACTIVE handoff written — next-session-handoff-2026-07-06 (supersedes 07-02)
+- Full session record: 7 shipped tracks, 8 open items prioritized (S4 first), 6 hard-won process rules (served-bundle gate, browser-walkthrough loop, lockfile discipline, prop-contract census, slice-defines-done, probe-before-install)
