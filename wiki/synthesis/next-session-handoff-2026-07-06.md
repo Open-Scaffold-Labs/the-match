@@ -2,10 +2,10 @@
 type: synthesis
 created: 2026-07-06
 updated: 2026-07-06
-tags: [the-match, handoff, active]
+tags: [the-match, handoff]
 ---
 
-# Next-Session Handoff — 2026-07-06 (ACTIVE; supersedes 2026-07-02)
+# Next-Session Handoff — 2026-07-06 (SUPERSEDED by 2026-07-07)
 
 Start with the mandatory CLAUDE.md first actions (roll-call → wiki/index.md → this file +
 `wiki/log.md`'s 07-02→07-06 entries). This was a marathon multi-day session; the log has

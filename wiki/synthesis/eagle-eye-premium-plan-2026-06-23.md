@@ -90,6 +90,8 @@ Each maps to a documented category gap. Sequence by appetite.
 5. **The data → practice loop nobody closes:** turn on-course Eagle Eye + shot data into structured practice/range sessions. The biggest category-wide unmet need — a true differentiator.
 6. **AR live-camera distance overlay, done cleanly** (we already have a camera/scan flow to build on) — currently the top-of-market flex.
 
+> **UPDATE 2026-07-07:** three more of the "remaining" items above are DONE, and EE's reliability class got hardened. **Shipped 07-02→07:** club-arc **dispersion bands** (honest dispersionEllipse zones, soft feathered — no false-precision outline) + the held **concentric range-rings** (opt-in green-anchored layup arcs, white=raw-distance semantic) — both live; **EE tokenization Stage A+B** (34-token `--tm-ee-*`, pixel-identical 244/244; build-plan 4.3 now ◐ — Stage C + HoleMapGL conversion open, use the `eeColor` bridge); **AI Caddie live** on the merged SG v2 (claude-sonnet-5, answers from the player's real bag — a premium-thesis feature in production). **Reliability (invisible premium):** the 07-06 EE outage produced three structural fixes — asset-404 fallback exclusion (cache-poisoning class closed), visibility-aware map stall guard (no more spurious "check your connection" on app-switch), and the maplibre-chunk import retry validated. Battery discipline/instant-on remains the open accuracy-polish item; green slope + putt-line and clean AR remain the open leapfrogs.
+
 ### Phase 3 — App-wide premium polish
 
 Carry Eagle Eye's bar across every screen.
@@ -97,7 +99,7 @@ Carry Eagle Eye's bar across every screen.
 - **Skeletons** on all content/map loads; **view-transition** page morphs where supported.
 - **Performance as polish:** RAIL budgets (100ms input, 60fps), `content-visibility:auto` on long scorecards/history (measured ~7× render win), optimistic UI on score entry. Perf *is* premium.
 - **Score-entry micro-interactions, empty states, first-run animation** — the crafted details rivals skip.
-- **Consolidate Eagle Eye's 190+ inline styles** into a small `<Sheet>`/HUD component set on tokens — pays down the brittleness the audit flagged and keeps the new look consistent.
+- **Consolidate Eagle Eye's 190+ inline styles** into a small `<Sheet>`/HUD component set on tokens — *◐ Stage A+B done 2026-07-06 (EagleEye.jsx on `--tm-ee-*` tokens, pixel-identical); HoleMapGL + Stage C open* — pays down the brittleness the audit flagged and keeps the new look consistent.
 
 ---
 

@@ -145,7 +145,7 @@ Principle: **every step ships independently, builds + lints clean, and is device
 **Phase 4 — Polish**
 - ☐ 4.1 Skeletons + view transitions
 - ☐ 4.2 Perf budgets + `content-visibility`
-- ☐ 4.3 Eagle Eye inline-style → token component refactor
+- ◐ 4.3 Eagle Eye inline-style → token component refactor — **Stage A+B SHIPPED 2026-07-02→06**: 34-token `--tm-ee-*` palette in tokens.css, EagleEye.jsx converted, **pixel-identical (244/244 equivalence)**; `eeColor` getComputedStyle bridge established for MapLibre paint props (they don't resolve `var()`). **OPEN:** Stage C (reviewed value elevation) + HoleMapGL/other-file conversion (use the eeColor bridge).
 
 **Track F — Scale & Foundations Hardening** (added 2026-06-27 from `synthesis/audit-2026-06-27.md` — the "expensive to change after the App Store freezes clients" class. Sequence: cheap foundationals → data model → security → native shell.)
 
@@ -180,6 +180,16 @@ Principle: **every step ships independently, builds + lints clean, and is device
 - ☐ Marketing accuracy stance (Matt, 2026-06-24): **never claim "laser" / "laser-grade,"** and **do NOT advertise a precision margin** (don't say "~3–5 yd" — publicly stating an error figure spotlights the gap vs a laser). Lead with strengths instead: instant GPS distances to front/center/back, the whole-hole view, no rangefinder needed. Sell what we're great at; never narrate the limitation. **UPDATE 2026-06-30 (Matt): this extends INTO the app — the on-screen "±X m" chip was removed. Showing an error figure anywhere (even in-app) narrates the flaw. Eagle Eye now shows only a calm "GPS"/"ACQUIRING" state; the gate still uses `coords.accuracy` internally. Do NOT re-add an on-screen margin, and do NOT build a "graded confidence chip."**
 
 ---
+
+**Track G — Pipeline & platform bulletproofing (added 2026-07-07; grew out of the 07-06 deploy saga + EE outage)** — the "ship safely forever" class. ALL SHIPPED + verified:
+
+- ☑ G.1 Solo/multi scorecard unification S1–S4 (`7f5902c` + prior) — one shared `components/scorecard/` surface, defensive prop contracts (`playerTeam` default, value-or-fn `diffStr`/`netDiffStr`), zero Solo* forks. Browser-walked on BOTH surfaces.
+- ☑ G.2 `react/jsx-no-undef` lint gate re-landed (`af059f3`) — the JSX half of runtime-validity. First-landing killer root-caused under controlled repro: legacy-peer-deps skips peer AUTO-INSTALL, which dropped @imgly's `onnxruntime-web`. Fixes: committed `.npmrc` (Vercel resolves identically), `onnxruntime-web` pinned exact 1.21.0 as a direct dep, rule regression-proven, clean-slate install with Vercel's exact command verified.
+- ☑ G.3 `/assets/*` excluded from the SPA fallback (`b7a1ee4`) — missing fingerprinted assets 404 instead of returning cacheable index.html; kills the HTTP-cache-poisoning class that took Eagle Eye down on 07-06. 8-route before/after matrix verified.
+- ☑ G.4 Map stall guard counts only VISIBLE time (`bdd6d92`) — hidden/occluded pages can't reach MapLibre 'load' (rAF frozen); the old fixed timer served spurious failure cards. Diagnosed live with rAF/visibility measurements.
+- ☑ G.5 Withdraw provenance + rejoin reinstate (`51ffe8e`) — `withdrawn_by: self|host`; explicit re-join reinstates self-withdrawn players, host authority preserved. 6/6 e2e vs live prod. (Found tracing the 7EAX mystery — no silent withdraw path exists; participant-change AUDIT TRAIL is a noted gap for the operator-console era.)
+- ☑ G.6 Join intent outranks solo auto-resume (`0084a16`) — QR/link joins land in the match on first load; failed joins land on the hub where the error toast is actually visible.
+- ⚠ G-watch: Vercel deploy webhook missed one push (bdd6d92, ~5min silent) — empty-commit retrigger worked; watch for recurrence, escalate to Vercel support if it repeats.
 
 ## 5. Decisions I need from you
 

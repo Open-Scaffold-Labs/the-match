@@ -1582,3 +1582,7 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Controlled repro caught the original failure LIVE: legacy-peer-deps install dropped onnxruntime-web + 16 transitive packages from the lockfile (6→1 onnxruntime entries) — because legacy mode does not auto-install PEER deps, and @imgly/background-removal peer-depends on onnxruntime-web@1.21.0. That was the whole 07-06 deploy-saga trigger, now understood mechanically
 - Fixes: .npmrc committed (legacy-peer-deps=true — Vercel must resolve identically to local; plugin has no eslint-10-compatible release, checked); onnxruntime-web pinned EXACT 1.21.0 as a direct client dep (no resolution mode can drop it); react/jsx-no-undef added as error
 - Gates: lockfile diff audited to zero unexplained removals (protobufjs 7.5.5→7.6.5 transitive shuffle only); clean-slate install with Vercel's exact command exit 0; build from clean tree exit 0; rule regression-proven (undefined JSX component fails, codebase passes); deploy watched → Ready, /health db:true post-warmup
+
+## [2026-07-07 AM5] schema | ACTIVE handoff 2026-07-07 written (supersedes 07-06); progress docs updated
+- build-plan-bulletproof: Track G added (6 shipped bulletproofing items + webhook watch), 4.3 flipped to ◐ (tokenization A+B); eagle-eye-premium-plan: UPDATE 2026-07-07 (dispersion bands + range-rings + tokenization + Caddie shipped; reliability fixes as invisible premium)
+- Rollup regenerated (10 handoffs, 07-07 ACTIVE first); index.md updated
