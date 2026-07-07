@@ -1550,3 +1550,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Multi scorecard verified live post-S4: plaque, 3 player rows + filler row (correctly RETAINED on multi — seats for joiners; only solo drops them), rank badges, THRU, score decorations, TOTALS (22/+2, 23/+3, — for Matt), Augusta footer full-width. Console: 0 app errors
 - Note: first ?join= attempt showed the solo round (join effect races the solo-restore on first load; second load landed in the outing) — worth an eye if users report "QR didn't take me to the match"; not S4-related (join flow predates it)
 - Outing 7EAX left in place, clearly labeled safe-to-delete (no client delete path; DB cleanup whenever)
+
+## [2026-07-06 PM18] fix | ?join= outranks solo auto-resume (`0084a16`) — browser-verified on the exact repro
+- Root cause of the PM17 quirk: Outing.jsx's solo auto-resume (sync, on mount) won the race against the async join POST; on join failure the error toast rendered in the hub view that ActiveRound's early-return makes unreachable — silent landing in the solo round
+- Fix: pending join code marks the auto-resume as consumed (explicit intent > silent resume); failed joins now land on the hub where the toast is visible and the resume-solo card is the fallback. One effect changed, deps honest, gates clean (build 0 / lint 0 / lockfile untouched)
+- Verified live post-deploy (Ready, alias inspected): fresh hard-refresh → first-load ?join=7EAX lands DIRECTLY in the outing; back → hub shows the solo resume card with the round intact (thru 4, 18 +3)
