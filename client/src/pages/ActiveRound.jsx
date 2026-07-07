@@ -16,10 +16,12 @@ import {
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
 import { CoursePicker } from './Outing/CreateWizard.jsx'
-import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from './Outing/LiveOuting.jsx'
+// S4 (2026-07-06): shared scorecard surface now lives in components/scorecard/ —
+// solo imports from there, not from the multi page.
+import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
-import PuttChips from '../components/PuttChips.jsx'
+import PuttChips from '../components/scorecard/PuttChips.jsx'
 
 const CLUBS = [
   { label: 'Dr', name: 'Driver' },
