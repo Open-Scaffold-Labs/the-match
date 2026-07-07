@@ -1602,3 +1602,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Matt's on-phone PWA screenshot (Pebble Creek hole 1): fairway aim line, green outline+fill, pin flag, aim ring, distEl labels + flag glyph, tee dot all rendering correctly post-conversion — closes the Slice-1 prod-eyeball residual
 - Still on-course items (unchanged): GPS-locked gold / acquiring dim states, plays-like sheet hero green, C3 halo A/B
 - Side finding: browser-Chrome view looked "crammed" vs PWA — diagnosed as a browser-side zoom/text-scale (reflowed layout = layout zoom, not app CSS; viewport meta verified correct). Matt's call: not worrying about it — the PWA/WKWebView shell is the product surface
+
+## [2026-07-07 PM4] fix | GPS range gate (`9ec2719`) — live hole reads capped at 800 yds, honest OUT OF RANGE fallback
+- Matt's screenshot repro: accuracy-trusted fix while away from the course quoted the drive TO the course as a hole distance (TO GREEN 16128, F/B/plays-like all ~16k). The Phase 1.1 accuracy gate never sanity-checked distance; HoleMapGL's puck had an 8800-yd guard but the hero didn't
+- Fix at the single choke point: `GPS_RANGE_GATE_YDS=800`; `gpsUsable` (accuracy AND range) now feeds `trustedGps`, so green distance, REMAINING, plays-like base+bearing, F/C/B, and the elevation fetch all fall back together to the static tee→green yardage. Chip: dim "GPS · OUT OF RANGE" (no confidence color on an unusable read). Per-hole by design
+- Verified: headless mocked-geolocation repro (5m accuracy, Manhattan) → FROM TEE 340 + OUT OF RANGE + zero 5-digit numbers; on-course mock 613 yds → live TO GREEN 613, no chip. Gates green (lint/build/geo 31/31/vitest 83/83). Deploy watched: new bundle served, "OUT OF RANGE" grep-confirmed
