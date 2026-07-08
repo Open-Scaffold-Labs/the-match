@@ -972,6 +972,25 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
     } catch { /* quota / disabled — best-effort, don't crash */ }
   }, [STORAGE_KEY, phase, config, hole, scores, shots, putts, firstPutts])
 
+  // 2026-07-08 — Eagle Eye can log shots for this solo round while ActiveRound
+  // stays mounted on another app-tab. It writes them into the SAME round blob
+  // (via lib/solo-round writeSoloShots) and fires 'tm-solo-shots'. Re-hydrate
+  // our shots from the blob on that signal so the autosave above (which writes
+  // the whole blob) can't clobber an Eagle-Eye capture with stale local state.
+  useEffect(() => {
+    const onExternalShots = () => {
+      if (phase !== 'scoring') return
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return
+        const saved = JSON.parse(raw)
+        if (Array.isArray(saved?.shots)) setShots(saved.shots)
+      } catch { /* ignore */ }
+    }
+    window.addEventListener('tm-solo-shots', onExternalShots)
+    return () => window.removeEventListener('tm-solo-shots', onExternalShots)
+  }, [STORAGE_KEY, phase])
+
   function clearSavedRound() {
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
   }

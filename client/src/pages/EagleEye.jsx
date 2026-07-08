@@ -6,6 +6,7 @@ import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
+import { readSavedSoloRound } from '../lib/solo-round.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -1403,10 +1404,17 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [captureSnap, setCaptureSnap] = useState(null)   // frozen raw GPS-to-pin (stored for SG + the hero)
   const [capturePlays, setCapturePlays] = useState(null) // frozen PLAYS-LIKE of the pin (drives club advice + the secondary line)
   useEffect(() => { setPlOverrides({}); setPlSheetOpen(false); setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null) }, [currentHole])
-  // Current hole's logged shots (self outing only) — drives the capture sheet's
-  // first-shot lie default + the "farther than your last shot" trust nudge.
-  const captureBuf = activeScoring?.kind === 'outing'
-    ? readHoleBuffer({ scope: `outing:${activeScoring.code}`, uid: user?.id, holeIdx: currentHole - 1 })
+  // Walk-and-confirm capture is available for ANY active Eagle Eye round — a
+  // live OUTING (published from the scorecard) OR a saved SOLO round (self-
+  // discovered here). `scope` routes the buffer write; solo writes go through
+  // the shared round blob (lib/solo-round) + notify ActiveRound to re-hydrate.
+  const activeCapture = activeScoring?.kind === 'outing'
+    ? { scope: `outing:${activeScoring.code}` }
+    : (readSavedSoloRound(user?.id) ? { scope: 'solo' } : null)
+  // Current hole's logged shots — drives the sheet's first-shot lie default +
+  // the "farther than your last shot" trust nudge.
+  const captureBuf = activeCapture
+    ? readHoleBuffer({ scope: activeCapture.scope, uid: user?.id, holeIdx: currentHole - 1 })
     : []
 
   const holeData = courseCtx
@@ -2041,11 +2049,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   chance a future code path wants to capture a custom
                   shot origin, but is no longer surfaced in the UI. */}
 
-              {/* LOG SHOT — walk-and-confirm capture (Slice 1, 2026-07-07).
-                  Only while scoring a live outing; tapping freezes the
-                  GPS-to-pin distance and opens the dark confirm sheet.
-                  Standalone Eagle Eye (no active outing) never shows this. */}
-              {activeScoring?.kind === 'outing' && (
+              {/* LOG SHOT — walk-and-confirm capture (Slice 1; 2026-07-08 opened
+                  to ALL EE rounds). Shows for any active round (live outing OR
+                  solo); tapping freezes the GPS-to-pin distance + opens the dark
+                  confirm sheet. Standalone Eagle Eye (no active round) hides it. */}
+              {activeCapture && (
                 <button onClick={() => {
                   // Freeze BOTH the raw GPS-to-pin (for SG + the hero) and the
                   // PLAYS-LIKE distance (wind/elev/temp/alt-adjusted) so the club
@@ -2186,8 +2194,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         firstShot={captureBuf.length === 0}
         prevToPin={captureBuf.length ? captureBuf[captureBuf.length - 1].toPin : null}
         onConfirm={(shot) => {
-          if (activeScoring?.kind === 'outing') {
-            appendShot({ scope: `outing:${activeScoring.code}`, uid: user?.id, holeIdx: currentHole - 1 }, shot)
+          if (activeCapture) {
+            appendShot({ scope: activeCapture.scope, uid: user?.id, holeIdx: currentHole - 1 }, shot)
           }
           setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null)
         }}

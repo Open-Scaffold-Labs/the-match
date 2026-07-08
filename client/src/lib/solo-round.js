@@ -96,6 +96,12 @@ export function writeSoloShots(uid, holeIdx, arr) {
     while (shots.length <= h) shots.push([])
     shots[h] = next
     localStorage.setItem(SOLO_ROUND_STORAGE_KEY(uid), JSON.stringify({ ...o, shots }))
+    // Notify a mounted ActiveRound (same document, a different app-tab) to
+    // re-hydrate its shots so an Eagle-Eye capture isn't clobbered by
+    // ActiveRound's whole-blob autosave. Guarded for the Node test env.
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new Event('tm-solo-shots'))
+    }
     return next
   } catch {
     return next
