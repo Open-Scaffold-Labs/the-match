@@ -885,7 +885,7 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
               </div>
               {showPlays && (
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-ee-adjusted)', marginTop: 2 }}>
-                  plays <span style={{ fontVariantNumeric: 'tabular-nums' }}>{playsLike}</span> · club set for this
+                  plays <span style={{ fontVariantNumeric: 'tabular-nums' }}>{playsLike}</span>{selClub ? ` · ${selClub.label}` : ''}
                 </div>
               )}
             </>
@@ -894,14 +894,14 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
               <input type="text" inputMode="numeric" pattern="[0-9]*" value={manual} placeholder="yds"
                 onChange={e => setManual(e.target.value.replace(/\D/g, '').slice(0, 3))}
                 style={{ width: 150, textAlign: 'center', padding: '10px 12px', borderRadius: 12, background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.16)', color: 'var(--tm-ee-gold-light)', fontSize: 30, fontWeight: 900, fontVariantNumeric: 'tabular-nums', outline: 'none' }} />
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginTop: 4 }}>GPS not locked — enter yards to pin</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.55)', marginTop: 4 }}>GPS not locked — enter yards to pin</div>
             </div>
           )}
         </div>
 
         {bag.length > 0 && (
           <>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginBottom: 6 }}>CLUB</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)', marginBottom: 6 }}>CLUB</div>
             <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 6, marginBottom: 14, WebkitOverflowScrolling: 'touch' }}>
               {bag.map(c => {
                 const on = c.slot === selSlot
@@ -918,7 +918,7 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
           </>
         )}
 
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginBottom: 6 }}>LIE</div>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.55)', marginBottom: 6 }}>LIE</div>
         <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18 }}>
           {SHOT_LIES.map(l => {
             const on = l.key === lie
