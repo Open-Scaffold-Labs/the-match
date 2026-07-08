@@ -4,6 +4,7 @@ import { api, post, put } from '../../lib/api.js'
 import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/offline-queue.js'
 import PuttChips from '../../components/scorecard/PuttChips.jsx'
 import { ShotSheet } from '../../components/scorecard/ShotSheet.jsx'
+import { readHoleBuffer, appendShot } from '../../lib/shot-capture.js'
 import { warn } from '../../lib/logger.js'
 import { courseHandicap, playerTeeRatings } from '../../lib/handicapClient.js'
 import GuestModal from './GuestModal.jsx'
@@ -208,7 +209,7 @@ function estimateHolePars(coursePar, holes) {
 
 
 // Score entry modal — stepper + quick picks
-function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = false, onSave, onSaveAndEagleEye, onClose }) {
+function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = false, code = null, uid = null, onSave, onSaveAndEagleEye, onClose }) {
   const [val, setVal] = useState(currentScore || par || 4)
   // Live putt capture (2026-07-06 spec): SELF-scoring only — the shared
   // PuttChips render solely when this modal targets the signed-in user.
@@ -225,7 +226,12 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
   // same ShotSheet the solo round uses. Rides the save ONLY when a shot was
   // logged (no prefill, so a plain score re-save can never wipe an earlier log,
   // exactly like putts). Powers OTT/APP/ARG once the outing syncs to the round.
-  const [holeShots, setHoleShots]       = useState([])
+  // Slice 0 (2026-07-07): hydrate the per-hole shot log from the shared durable
+  // buffer so it survives a modal re-open / app-kill and (Slice 1) picks up
+  // shots Eagle Eye logged for this hole. Self-only; keyed by outing code +
+  // 0-based hole. Every append rides back through the buffer (single source).
+  const shotDescriptor = { scope: `outing:${code}`, uid, holeIdx: hole }
+  const [holeShots, setHoleShots]       = useState(() => (isSelf ? readHoleBuffer(shotDescriptor) : []))
   const [showShotSheet, setShowShotSheet] = useState(false)
   const shotFactsFor = () => (isSelf && holeShots.length > 0 ? holeShots : null)
 
@@ -382,7 +388,7 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
         {isSelf && showShotSheet && (
           <ShotSheet
             isFirstShot={holeShots.length === 0}
-            onAdd={shot => { setHoleShots(a => [...a, shot]); setShowShotSheet(false) }}
+            onAdd={shot => { setHoleShots(appendShot(shotDescriptor, shot)); setShowShotSheet(false) }}
             onClose={() => setShowShotSheet(false)}
           />
         )}
@@ -2804,6 +2810,8 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             currentScore={current}
             holeCount={holeCount}
             isSelf={String(scoreModal.userId) === String(user?.id)}
+            code={code}
+            uid={user?.id}
             // "Save & Eagle Eye →" only available when:
             //   1. parent supplied the cross-tab nav callback
             //   2. user is scoring their OWN hole (not host scoring someone else)

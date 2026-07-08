@@ -8,7 +8,7 @@
     "build": "vite build",
     "postbuild": "node scripts/stamp-sw.js",
     "lint": "eslint src",
-    "test": "node --test src/lib/geo.test.mjs src/lib/side-bets.test.mjs src/lib/__tests__/clubModel.test.mjs src/lib/handicap-milestone.test.mjs src/lib/mapOverlays.test.mjs",
+    "test": "node --test src/lib/geo.test.mjs src/lib/side-bets.test.mjs src/lib/__tests__/clubModel.test.mjs src/lib/handicap-milestone.test.mjs src/lib/mapOverlays.test.mjs src/lib/__tests__/shot-capture.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

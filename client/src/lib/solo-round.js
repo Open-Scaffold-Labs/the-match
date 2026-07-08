@@ -52,3 +52,52 @@ export function readSavedSoloRound(uid) {
 export function hasSavedSoloRound(uid) {
   return readSavedSoloRound(uid) != null
 }
+
+// ── Solo shot façade (2026-07-07, Slice 0) ──────────────────────────────
+// The walk-and-confirm buffer (lib/shot-capture.js) routes its `solo` scope
+// through THESE two helpers so solo has exactly ONE physical store — the
+// same round blob ActiveRound owns — never a second copy that could race
+// with ActiveRound's autosave. They read-modify-write only the blob's
+// `shots[]`, preserving every other key. Reading the raw blob directly
+// (not readSavedSoloRound) so a shots read/write doesn't depend on the
+// phase gate. (EE→solo live writes + focus reconciliation are Slice 2.)
+function readRawSolo(uid) {
+  try {
+    const raw = localStorage.getItem(SOLO_ROUND_STORAGE_KEY(uid))
+    if (!raw) return null
+    const o = JSON.parse(raw)
+    return o && typeof o === 'object' ? o : null
+  } catch {
+    return null
+  }
+}
+
+// One hole's solo shots → array ([] on miss / no round / corrupt / disabled).
+export function readSoloShots(uid, holeIdx) {
+  const h = Number(holeIdx)
+  if (!Number.isInteger(h) || h < 0) return []
+  const o = readRawSolo(uid)
+  const shots = o && Array.isArray(o.shots) ? o.shots : null
+  const cell = shots ? shots[h] : null
+  return Array.isArray(cell) ? cell : []
+}
+
+// Replace one hole's solo shots inside the existing blob. No-op (returns the
+// array) when there's no in-progress solo round to attach to, or when
+// localStorage is unavailable — capture degrades to "not logged", never a throw.
+export function writeSoloShots(uid, holeIdx, arr) {
+  const h = Number(holeIdx)
+  const next = Array.isArray(arr) ? arr : []
+  if (!Number.isInteger(h) || h < 0) return next
+  try {
+    const o = readRawSolo(uid)
+    if (!o) return next
+    const shots = Array.isArray(o.shots) ? o.shots.slice() : []
+    while (shots.length <= h) shots.push([])
+    shots[h] = next
+    localStorage.setItem(SOLO_ROUND_STORAGE_KEY(uid), JSON.stringify({ ...o, shots }))
+    return next
+  } catch {
+    return next
+  }
+}
