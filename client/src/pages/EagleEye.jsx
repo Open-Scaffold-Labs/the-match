@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
-import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon } from '../lib/geo.js'
+import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon, classifyLie } from '../lib/geo.js'
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
@@ -813,17 +813,28 @@ const CAPTURE_SHEET_STYLE = `
 // one-gesture club strip (auto-suggested from the bag), lie chips (default
 // tee/fairway; keys are the server-valid VALID_LIES incl. `recovery`), and a
 // single gold Confirm. Confirm-not-build: everything is pre-filled.
-function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [], suggestedSlot, firstShot, prevToPin = null, onGreen = false, onConfirm, onClose }) {
+function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [], suggestedSlot, firstShot, prevToPin = null, onGreen = false, autoLie = null, onConfirm, onClose }) {
   const [selSlot, setSelSlot] = useState(null)
   const [lie, setLie]         = useState(null)
   const [manual, setManual]   = useState('')
+  // Initialise ONCE per opening. The prefill reads live inputs (e.g. gpsUsable)
+  // that can flip mid-interaction; without this guard a re-run would clobber a
+  // lie / club / distance the player just picked → a silently-wrong shot. So we
+  // seed on the open false→true transition only, never on later dep churn.
+  const initedRef = useRef(false)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) { initedRef.current = false; return }
+    if (initedRef.current) return
+    initedRef.current = true
     setSelSlot(suggestedSlot ?? null)
-    setLie(firstShot ? 'tee' : 'fairway')
+    // Slice 4: a HIGH-confidence GPS auto-lie pre-selects the chip — never for
+    // the tee shot (definitionally the tee). Otherwise the Slice-1 default; a
+    // MEDIUM auto-lie only *suggests* (below), it never changes the selection.
+    const hi = !firstShot && autoLie && autoLie.confidence === 'high' && autoLie.lie
+    setLie(hi ? autoLie.lie : (firstShot ? 'tee' : 'fairway'))
     setManual(gpsUsable && snapshot != null ? String(Math.round(snapshot)) : '')
-  }, [open, suggestedSlot, firstShot, gpsUsable, snapshot])
+  }, [open, suggestedSlot, firstShot, gpsUsable, snapshot, autoLie?.lie, autoLie?.confidence])
 
   if (!open) return null
 
@@ -921,6 +932,27 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
             )
           })}
         </div>
+
+        {autoLie && autoLie.lie && !firstShot && !onGreen && (autoLie.confidence === 'high' || autoLie.confidence === 'medium') && (() => {
+          const autoLabel = (SHOT_LIES.find(l => l.key === autoLie.lie) || {}).label || autoLie.lie
+          if (autoLie.confidence === 'high' && lie === autoLie.lie) {
+            return (
+              <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 12, background: 'rgb(var(--tm-ee-gold-rgb) / 0.12)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.28)', fontSize: 11, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.95)', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span aria-hidden="true">✓</span> {autoLabel} · detected from GPS
+              </div>
+            )
+          }
+          if (lie === autoLie.lie) return null
+          return (
+            <button onClick={() => setLie(autoLie.lie)} style={{
+              width: '100%', marginBottom: 12, padding: '9px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
+              background: 'rgb(var(--tm-ee-gold-rgb) / 0.10)', border: '1px dashed rgb(var(--tm-ee-gold-rgb) / 0.4)',
+              fontSize: 11.5, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.95)', lineHeight: 1.4,
+            }}>
+              GPS suggests <strong>{autoLabel}</strong> — tap to set
+            </button>
+          )
+        })()}
 
         {(farther || implausible) && (
           <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 12, background: 'rgb(var(--tm-ee-gold-rgb) / 0.10)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.28)', fontSize: 11, fontWeight: 600, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.95)', lineHeight: 1.4 }}>
@@ -1040,6 +1072,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
   const [greenPositions, setGreenPositions] = useState({}) // { 1: {lat,lon}, ... } greens
   const [greenPolys, setGreenPolys]         = useState({}) // { 1: [{lat,lon},...] } OSM green polygons → F/C/B
+  const [fairwayPolys, setFairwayPolys]     = useState([]) // Slice 4: course-wide golf=fairway polygons → auto-lie
+  const [bunkerPolys, setBunkerPolys]       = useState([]) // Slice 4: course-wide golf=bunker polygons → auto-lie
   // Full geometry of each golf=hole way: array of {lat, lon} tracing the
   // playing line from tee through the fairway to the green. Used for
   // dogleg-aware aim-point default placement (par 4/5 layup along the
@@ -1170,7 +1204,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // Front/Center/Back green distances. Bumping the key forces one fresh
     // fetch per (course, tee) so stale v2 entries without polygons fall
     // back cleanly to the single center number.
-    const cacheKey = `v3-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+    // v4 (2026-07-08): added course-wide fairway + bunker polygons
+    // (fairwayPolys/bunkerPolys) for Slice-4 auto-lie. Bumping the key forces
+    // one fresh Overpass fetch per (course, tee) so pre-v4 entries — which lack
+    // the surface polygons — re-fetch and auto-lie lights up immediately.
+    const cacheKey = `v4-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
 
     // 1️⃣ In-memory cache (survives re-renders within a page session)
     if (osmPositionCache.has(cacheKey)) {
@@ -1180,6 +1218,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       setGreenPositions(cached.greens)
       setHoleGeometries(cached.geoms || {})
       setGreenPolys(cached.polys || {})
+      setFairwayPolys(cached.fairwayPolys || [])
+      setBunkerPolys(cached.bunkerPolys || [])
       setOsmLoading(false)
       return
     }
@@ -1192,6 +1232,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       setGreenPositions(stored.greens)
       setHoleGeometries(stored.geoms || {})
       setGreenPolys(stored.polys || {})
+      setFairwayPolys(stored.fairwayPolys || [])
+      setBunkerPolys(stored.bunkerPolys || [])
       setOsmLoading(false)
       return
     }
@@ -1232,7 +1274,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=holes`).then(safeOsm),
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`).then(safeOsm),
           fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=greengeom`).then(safeOsm),
-        ]).then(([osmHoles, osmNodes, osmGreenGeom]) => {
+          fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=surfaces`).then(safeOsm).catch(() => ({ elements: [] })),
+        ]).then(([osmHoles, osmNodes, osmGreenGeom, osmSurfaces]) => {
             const scorecard = courseCtx?.tee?.holes ?? []
             const holeTees = {}, holeGreens = {}
 
@@ -1326,7 +1369,38 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             setGreenPositions(holeGreens)
             setHoleGeometries(holeGeoms)
             setGreenPolys(holePolys)
-            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms, polys: holePolys }
+            // ── Slice 4: course-wide fairway + bunker polygons for auto-lie ──
+            // Parse golf=fairway / golf=bunker (ways + multipolygon `outer`
+            // members), split by tag. Course-wide (a lie is a here-and-now test,
+            // not per-hole). Missing data → [] → auto-lie stays silent.
+            const toRing = (geom) => (Array.isArray(geom) ? geom : [])
+              .filter(p => p && Number.isFinite(p.lat) && Number.isFinite(p.lon))
+              .map(p => ({ lat: p.lat, lon: p.lon }))
+            const surfPolys = (val) => {
+              const acc = []
+              const els = Array.isArray(osmSurfaces?.elements) ? osmSurfaces.elements : []
+              for (const el of els) {
+                if (el?.tags?.golf !== val) continue
+                if (el.type === 'way') {
+                  const ring = toRing(el.geometry)
+                  if (ring.length >= 3) acc.push(ring)
+                } else if (el.type === 'relation' && Array.isArray(el.members)) {
+                  for (const m of el.members) {
+                    if (m?.role === 'outer') {
+                      const ring = toRing(m.geometry)
+                      if (ring.length >= 3) acc.push(ring)
+                    }
+                  }
+                }
+              }
+              return acc
+            }
+            const fairwayPolyList = surfPolys('fairway')
+            const bunkerPolyList  = surfPolys('bunker')
+            setFairwayPolys(fairwayPolyList)
+            setBunkerPolys(bunkerPolyList)
+            log('[OSM] surfaces:', fairwayPolyList.length, 'fairway,', bunkerPolyList.length, 'bunker')
+            const cachePayload = { geocoded: gc, tees: holeTees, greens: holeGreens, geoms: holeGeoms, polys: holePolys, fairwayPolys: fairwayPolyList, bunkerPolys: bunkerPolyList }
             osmPositionCache.set(cacheKey, cachePayload)
             lsSaveOsm(cacheKey, cachePayload) // persist across page reloads
           })
@@ -1410,7 +1484,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [captureSnap, setCaptureSnap] = useState(null)   // frozen raw GPS-to-pin (stored for SG + the hero)
   const [capturePlays, setCapturePlays] = useState(null) // frozen PLAYS-LIKE of the pin (drives club advice + the secondary line)
   const [captureOnGreen, setCaptureOnGreen] = useState(false) // frozen "player is on the green" at tap → putt guard
-  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false); setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false) }, [currentHole])
+  const [captureLie, setCaptureLie] = useState(null) // Slice 4: frozen auto-lie { lie, confidence } at tap
+  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false); setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false); setCaptureLie(null) }, [currentHole])
   // Walk-and-confirm capture is available for ANY active Eagle Eye round — a
   // live OUTING (published from the scorecard) OR a saved SOLO round (self-
   // discovered here). `scope` routes the buffer write; solo writes go through
@@ -2075,6 +2150,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   // On-green guard: if the player is standing inside the green
                   // polygon, this is a putt, not a shot — warn in the sheet.
                   setCaptureOnGreen(pointInPolygon(gps, greenPolygon))
+                  // Slice 4: freeze the confidence-gated auto-lie (sand/fairway/
+                  // rough) from GPS vs OSM surface polygons. Never auto-commits —
+                  // only pre-selects (high) or suggests (medium) in the sheet.
+                  setCaptureLie(classifyLie(gps, { fairwayPolys, bunkerPolys, accM: gps?.acc ?? null }))
                   setCaptureOpen(true)
                 }} style={{
                   width: '100%', height: 46, borderRadius: 13,
@@ -2204,13 +2283,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         firstShot={captureBuf.length === 0}
         prevToPin={captureBuf.length ? captureBuf[captureBuf.length - 1].toPin : null}
         onGreen={captureOnGreen}
+        autoLie={captureLie}
         onConfirm={(shot) => {
           if (activeCapture) {
             appendShot({ scope: activeCapture.scope, uid: user?.id, holeIdx: currentHole - 1 }, shot)
           }
-          setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false)
+          setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false); setCaptureLie(null)
         }}
-        onClose={() => { setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false) }}
+        onClose={() => { setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false); setCaptureLie(null) }}
       />
       {showPicker && (
         <CoursePicker

@@ -7,7 +7,7 @@
 // Dependency-free (matches side-bets.test.mjs / handicap-milestone.test.mjs).
 // (2026-06-06 — Eagle Eye next-level: proven math core for F/C/B + plays-like.)
 
-import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon } from './geo.js'
+import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon, classifyLie, distanceToPolygonEdgeMeters, LIE_SAND_ACC_MAX, LIE_GEN_ACC_MAX, LIE_MARGIN_FLOOR } from './geo.js'
 
 let passed = 0, failed = 0
 const fails = []
@@ -102,6 +102,51 @@ assert(pointInPolygon({ lat: -0.001, lon: 0.0005 }, square) === false, 'PIP sout
 assert(pointInPolygon({ lat: 0.0005, lon: 0.0005 }, square.slice(0, 2)) === false, 'PIP <3 vertices → false')
 assert(pointInPolygon(null, square) === false, 'PIP null point → false')
 assert(pointInPolygon({ lat: 0.0005, lon: 0.0005 }, null) === false, 'PIP null polygon → false')
+
+// ── Slice 4: distanceToPolygonEdgeMeters ──
+// `square` spans 0→0.001° (~111 m) at the equator; its centre is ~55.7 m from
+// the nearest edge (0.0005° × 111320 m/°).
+near(distanceToPolygonEdgeMeters({ lat: 0.0005, lon: 0.0005 }, square), 55.66, 1, 'dist-to-edge: square centre ≈ 55.7 m')
+assert(distanceToPolygonEdgeMeters({ lat: 0, lon: 0 }, [{ lat: 0, lon: 0 }]) === null, 'dist-to-edge <3 verts → null')
+assert(distanceToPolygonEdgeMeters(null, square) === null, 'dist-to-edge null pt → null')
+
+// ── Slice 4: classifyLie (confidence-gated auto-lie) ──
+const M = 1 / 111320 // ~1 metre in degrees at the equator
+const FW = square    // ~111 m fairway square; centre 55.7 m inside
+const ptCenter = { lat: 0.0005, lon: 0.0005 }
+// Tiny ~8 m bunker (half-width 4 m) sharing the fairway centre: sand wins on
+// priority, but can never be HIGH (centre 4 m in < the ≥5 m margin floor).
+const bunkerSmall = [
+  { lat: 0.0005 - 4*M, lon: 0.0005 - 4*M }, { lat: 0.0005 - 4*M, lon: 0.0005 + 4*M },
+  { lat: 0.0005 + 4*M, lon: 0.0005 + 4*M }, { lat: 0.0005 + 4*M, lon: 0.0005 - 4*M },
+]
+// Big ~40 m bunker (half-width 20 m) around the centre: sand CAN be HIGH.
+const bunkerBig = [
+  { lat: 0.0005 - 20*M, lon: 0.0005 - 20*M }, { lat: 0.0005 - 20*M, lon: 0.0005 + 20*M },
+  { lat: 0.0005 + 20*M, lon: 0.0005 + 20*M }, { lat: 0.0005 + 20*M, lon: 0.0005 - 20*M },
+]
+// No coverage → none (caller keeps today's behaviour). Empty arrays → lie null.
+assert(classifyLie(ptCenter, {}).confidence === 'none', 'classify: no polygons → none')
+assert(classifyLie(ptCenter, { fairwayPolys: [], bunkerPolys: [] }).lie === null, 'classify: empty arrays → lie null')
+assert(classifyLie(null, { fairwayPolys: [FW] }).confidence === 'none', 'classify: null pt → none')
+// Fairway: tight fix deep inside → HIGH; loose/absent accuracy → MEDIUM (never HIGH).
+assert(classifyLie(ptCenter, { fairwayPolys: [FW], accM: 4 }).lie === 'fairway', 'classify: mid-fairway → fairway')
+assert(classifyLie(ptCenter, { fairwayPolys: [FW], accM: 4 }).confidence === 'high', 'classify: mid-fairway + acc 4 → HIGH')
+assert(classifyLie(ptCenter, { fairwayPolys: [FW], accM: 12 }).confidence === 'medium', 'classify: fairway + acc 12 (>ceiling) → MEDIUM')
+assert(classifyLie(ptCenter, { fairwayPolys: [FW], accM: null }).confidence === 'medium', 'classify: fairway + acc null → MEDIUM')
+// Sand priority: a point inside BOTH fairway and bunker → sand wins.
+assert(classifyLie(ptCenter, { fairwayPolys: [FW], bunkerPolys: [bunkerSmall], accM: 3 }).lie === 'sand', 'classify: bunker∩fairway → sand (priority)')
+// Small bunker can never auto-fill (centre 4 m in < margin floor 5) → MEDIUM.
+assert(classifyLie(ptCenter, { bunkerPolys: [bunkerSmall], accM: 3 }).confidence === 'medium', 'classify: tiny bunker → sand MEDIUM (suggest-only)')
+// Big bunker: tight fix → HIGH; acc past the (stricter) sand ceiling → MEDIUM.
+assert(classifyLie(ptCenter, { bunkerPolys: [bunkerBig], accM: 4 }).confidence === 'high', 'classify: big bunker + acc 4 → sand HIGH')
+assert(classifyLie(ptCenter, { bunkerPolys: [bunkerBig], accM: 6 }).confidence === 'medium', 'classify: big bunker + acc 6 (>sand ceiling 5) → MEDIUM')
+// Outside fairway but fairway coverage EXISTS → rough (suggest, never auto-fill).
+assert(classifyLie({ lat: 0.003, lon: 0.0005 }, { fairwayPolys: [FW], accM: 4 }).lie === 'rough', 'classify: outside fairway w/ coverage → rough')
+assert(classifyLie({ lat: 0.003, lon: 0.0005 }, { fairwayPolys: [FW], accM: 4 }).confidence === 'medium', 'classify: rough is MEDIUM (never HIGH)')
+// Outside with ONLY bunker coverage → none (can't infer rough without fairways).
+assert(classifyLie({ lat: 0.003, lon: 0.0005 }, { bunkerPolys: [bunkerBig] }).confidence === 'none', 'classify: outside, bunker-only coverage → none')
+assert(LIE_SAND_ACC_MAX === 5 && LIE_GEN_ACC_MAX === 8 && LIE_MARGIN_FLOOR === 5, 'classify: threshold constants exported')
 
 // ── report ──
 console.log(`\ngeo.js tests: ${passed} passed, ${failed} failed`)

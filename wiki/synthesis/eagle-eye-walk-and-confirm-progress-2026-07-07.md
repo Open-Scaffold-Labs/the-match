@@ -1,9 +1,9 @@
 ---
 type: synthesis
 created: 2026-07-07
-updated: 2026-07-07
+updated: 2026-07-08
 tags: [eagle-eye, strokes-gained, shot-capture, build-progress, checklist, competitive]
-status: IN PROGRESS — Slices 0/1/3 + solo clean-on-save built + verified (capture live; on-green + plays-like-hero pending on-device GPS)
+status: IN PROGRESS — Slices 0/1/3 built+verified; Slice 4 (fairway/bunker auto-lie) built + static-verified + adversarially audited (on-device GPS pending); on-green + plays-like-hero + auto-lie all pending Matt's on-course pass
 spec: [[synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07]]
 ---
 # Eagle Eye "Walk-and-Confirm" — Build Progress Tracker (BULLETPROOF EDITION)
@@ -128,9 +128,46 @@ Palette: Augusta-at-night dark, fairway green `#2A7A38`, trophy gold `#C9A040` (
 - [x] On-green guard: LOG SHOT freezes `pointInPolygon(gps, greenPolygon)`; the sheet shows a non-blocking "you're on the green — this looks like a putt" warning. Lie chips + tee/fairway defaults + `recovery` override unchanged. ✓
 - [~] **Verify:** lint ✓ · build ✓ · geo 38/38 ✓. Pending on-device (needs real GPS on a green): the warning actually firing. Full fairway/rough/sand auto-lie still needs those polygons → Slice 4.
 
-### Slice 4 — fairway/bunker polygons (STRETCH)
-**Status:** ⬜ not started
-- [ ] New Overpass fetch (`golf=fairway`, `golf=bunker`) + cache bump; PIP → true auto lie; degrade to Slice-3 defaults when OSM empty.
+### Slice 4 — fairway/bunker auto-lie (confidence-gated) — BUILT 2026-07-08
+**Status:** 🟢 built + static-verified + adversarially audited (2026-07-08). Client lint exit 0 · build exit 0 (3.2s) · `node --test` geo **56/56** (was 38, +18 Slice-4) · server `node --check` clean · server vitest **97/97**. On-device real-GPS behaviour = the ONLY pending check (Matt's on-course pass). A code-review agent confirmed invariants 2-5 + the classifier math and caught a **pre-existing Slice-1 clobber bug** (the capture sheet's init effect re-ran on live `gpsUsable` flips and could overwrite a hand-picked lie/club/distance) — fixed here with a once-per-open `initedRef` guard + 3 defensive hardenings (surfaces-fetch isolation, malformed-OSM guards, on-green suggestion suppression).
+**Spec:** §5 Slice 4.
+
+**The bar (market research, cited):** Hole19's "GPS suggests a lie → confirm/adjust at the ball" is the phone-only benchmark. NO rival does four-surface auto-lie phone-only — Arccos/Shot Scope/Garmin need $100-250 screw-in sensors; Golfshot/18Birdies gate it behind an Apple Watch; SwingU/TheGrint/Golf-Pad-phone make you tap. Every auto-tracker's loudest complaint is **post-round editing burden** (confirm-at-the-ball structurally beats it). **Bunkers are where all four leaders are weakest** — Golf Pad can't auto-detect sand at all; Shot Scope misreads it AND won't let you edit; Arccos flags "lip of bunker" as known-bad; Golfshot's remap only does fairway-vs-rough. Around-green SG is our marquee differentiator → **own the bunker.**
+
+**Design (LOCKED — two independent agents converged on confidence-gating):**
+- **Never silently record a wrong lie** (a wrong lie corrupts SG; a wrong SAND lie poisons sand-save/ARG). The sheet always opens; auto-lie only changes what is PRE-SELECTED. Three tiers: **HIGH** → pre-select the detected lie + a "detected" chip; **MEDIUM** → keep the Slice-1 default, show a one-tap *suggestion* (never auto-changes the selection); **LOW / no-data** → pixel-identical to today.
+- **Confidence = GPS-accuracy gate AND distance-inside-boundary margin.** Auto-fill only when the fix is *safely inside* a polygon, not barely in. Small bunkers (radius < ~2σ GPS error) can never reach HIGH → sand is **suggest-only in practice**, which is exactly right (naive PIP detects a ball in a 5 m greenside bunker only ~30-55% of the time; a false "sand" is the most corrosive error).
+- **Priority:** green (Slice-3 putt guard) > sand > fairway > rough-default. Classify bunkers on the **`golf=bunker` tag itself** — the `natural=sand`/`surface=sand` companion is inconsistent (89% / 12%).
+- **Graceful degradation is the COMMON case, not the edge case** — OSM greens are usually mapped, fairways sometimes, bunkers often missing, rough almost never. No coverage → today's behavior, no dead-end.
+- **Transparency (market-brief trust play):** show *why* — "✓ Fairway · detected from GPS" (HIGH) vs "GPS suggests Sand — tap to set" (MEDIUM). No incumbent exposes a confidence signal.
+
+**Thresholds (accuracy brief; tune on-course):** `LIE_SAND_ACC_MAX = 5 m` · `LIE_GEN_ACC_MAX = 8 m` · `LIE_MARGIN_FLOOR = 5 m` · margin `= max(FLOOR, 2·acc)`. (Existing `GPS_ACCURACY_GATE_M = 10` still gates `gpsUsable`.)
+
+**Build checklist:**
+- [x] **Server** (`routes/eagle-eye.js`): added `surfaces` to the `osmType` allowlist + query `(way+relation ["golf"="fairway"|"bunker"](bbox)); out geom;`. New `tm_osm_cache` rows auto-namespace on `osm_type` (the "cache bump" — no migration). Added a strict **bbox format guard** (4 comma-sep numbers → else 400). ✓ `node --check` clean; confirmed the only client caller sends numeric bboxes.
+- [x] **Client OSM load** (`EagleEye.jsx`): 4th parallel fetch `&type=surfaces` (own `.catch` → `{elements:[]}`, isolated from the greens/tees batch); parse `way` + relation `outer` members via a finite-vertex-guarded `toRing`, split by `tags.golf` → course-wide `fairwayPolys` / `bunkerPolys`; persisted in `osmPositionCache` + `lsSaveOsm`; restored on cache-hit; client cache key bumped `v3-`→`v4-`.
+- [x] **`geo.js`** (pure): `distanceToPolygonEdgeMeters` + `classifyLie` → `{ lie, confidence, marginM }`, priority sand>fairway>rough-default with the acc + margin gates; threshold constants exported. ✓ 56/56 unit tests.
+- [x] **Capture site** (`EagleEye.jsx`): `captureLie = classifyLie(gps, { fairwayPolys, bunkerPolys, accM: gps?.acc })` frozen at LOG-SHOT tap alongside the snapshot; reset with the others on hole change / confirm / close.
+- [x] **`ShotCaptureSheet`**: `autoLie` prop; HIGH → pre-selects the chip (suppressed on `firstShot`); MEDIUM → a tap-to-set suggestion pill (suppressed on-green); "✓ detected" chip when a HIGH detection matches. LOW/no-data path byte-identical to today. **Audit fix:** init effect now seeds once per open (`initedRef`) so a live `gpsUsable` flip can't clobber a hand-picked lie/club/distance.
+- [x] **Tests** (`geo.test.mjs`): +18 (38→**56**) — classifier tiers, sand>fairway priority, margin gate, empty-polys→none, loose/null-acc→never-HIGH, bunker-only→none, distance helper on known geometry, constants.
+- [x] **Verify gate:** client `lint` exit 0 · `build` exit 0 (3.2s) · `node --test` exit 0 · server `node --check` clean · server `vitest` **97/97**.
+- [~] **On-device (Matt's real-GPS pass):** auto-lie fires — mid-fairway pre-selects Fairway; a greenside bunker offers the Sand suggestion; an unmapped hole falls back silently. Rides the SAME on-course trip as Slice-3's on-green warning + the plays-like hero. **← the only remaining check.**
+
+**Slice 4 risk register (ranked severity = silence × blast radius):**
+| # | Risk | Mitigation | Test |
+|---|---|---|---|
+| **R16** 🔴 | Wrong lie silently recorded → corrupts SG | Auto-lie only changes the PRE-SELECT; MEDIUM/LOW never auto-change; sheet always confirmed | unit: medium/low → selection == Slice-1 default |
+| **R17** 🔴 | Sand false-positive from a jittery fix → poisons ARG/sand-save SG | `acc ≤ 5 m` AND `margin ≥ max(5, 2·acc)`; small bunkers can't reach HIGH → suggest-only | unit: 3 m bunker + acc 6 → medium, default kept |
+| **R18** 🟠 | Missing OSM fairway/bunker data (the common case) | `[]` polys → classifier returns `none` → today's behavior | unit: empty polys → lie none; UI unchanged |
+| **R19** 🟠 | GPS denied/loose at capture (`acc` > gate / null) | `accM` gates → confidence none/low → default | unit: acc null / 25 → no auto-fill |
+| **R20** 🟠 | Bunker cut into fairway (multipolygon inner ring) mis-reads fairway | sand>fairway priority + a separate `golf=bunker` polygon usually exists; parse relation outers; document inner-ring-only limit | unit: overlapping bunker+fairway pt → sand |
+| **R21** 🟡 | Boundary jitter flips fairway/rough | margin gate (2σ) demotes edge fixes to MEDIUM | unit: 2 m inside edge, acc 6 → not HIGH |
+| **R22** 🟡 | Overpass `surfaces` fetch fails/times out | `safeOsm` → `[]`; server 3-tier cache + stale fallback; independent of greens | build: failed surfaces fetch → greens still load |
+| **R23** 🟡 | Stale client cache lacks surfaces (pre-Slice-4) | client OSM cache **version bump** → re-fetch | manual: bumped version invalidates old entry |
+| **R24** 🟢 | PIP perf over many polygons | tens of polys, sub-ms, only on tap (not per-frame) | n/a (bounded) |
+| **R25** 🟢 | bbox QL interpolation (pre-existing surface) | strict bbox format guard → 400 on malformed | server: malformed bbox → 400 |
+
+*Deferred (NOT Slice 4):* temporal-stability gate (≥3 fixes / 2-4 s window) — our capture is a single snapshot; the acc + margin gates + always-confirm cover it. Self-healing crowd-corrected polygons (every confirm = a labeled training point) — a future data-flywheel. Full `natural=sand` / waste-area + water-penalty lie handling.
 
 ---
 
@@ -189,3 +226,9 @@ Palette: Augusta-at-night dark, fairway green `#2A7A38`, trophy gold `#C9A040` (
 - **Slice 3 v1:** added a ray-cast `pointInPolygon` to `geo.js` (+7 tests) and an **on-green guard** — LOG SHOT freezes whether the player stands inside the green polygon; the sheet warns (non-blocking) "you're on the green — this looks like a putt." Full fairway/rough/sand auto-lie still needs those polygons (Slice 4).
 - **Solo clean-on-save (residual Slice-2, CLOSED):** `POST /api/rounds` now runs solo shots through the new `cleanShotsForRound` (maps each hole via `cleanHoleShots`) — the same server hygiene outings get at write time. `+2` server tests (shot-facts 12→14).
 - Gates: client lint ✓ · build ✓ · geo 38/38 · clubModel 16 · shot-capture 20; server **97/97** · `node --check` ok. On-device pending: the on-green warning (needs real GPS on a green) + the GPS→plays-like hero.
+
+### [2026-07-08] Slice 4 BUILT — fairway/bunker confidence-gated auto-lie
+- Matt's steer: bulletproof it; become the biggest golf app; perfect usability/accuracy/visual-flow; research the market with agents, plan + checklist, then audit. Ran 3 cited research agents — **market** (no phone-only rival does 4-surface auto-lie without sensors/watch; everyone's weakest on bunkers; the universal #1 gripe is post-round editing → confirm-at-the-ball wins), **OSM/Overpass** (`golf=bunker`/`fairway` tagging; classify on the tag not the inconsistent `natural=sand`; coverage is sparse so degrade-gracefully is the common case), **GPS-accuracy** (naive PIP misclassifies ~10-18% of edges and detects a 5 m bunker only ~30-55% → gate on accuracy AND distance-inside-boundary margin). Market + accuracy agents independently converged on confidence-gating.
+- Built: server `surfaces` Overpass query + bbox guard; client course-wide fairway/bunker fetch + parse + cache (`v4`); `geo.js` `classifyLie` / `distanceToPolygonEdgeMeters`; capture-site freeze; `ShotCaptureSheet` 3-tier UX (HIGH pre-select / MEDIUM suggest / LOW = today). Priority green>sand>fairway>rough; sand is suggest-only in practice (margin floor). Never silently records a lie — always confirmed.
+- Adversarial code-review agent: confirmed the invariants (valid keys, sand-gate, first-shot-tee, graceful degradation) + the geometry math; caught a **pre-existing Slice-1 bug** — the capture sheet's init effect re-ran on live `gpsUsable` flips and could overwrite a hand-picked lie/club/distance (a silent-wrong-shot path). Fixed with a once-per-open `initedRef` guard + 3 hardenings (surfaces-fetch isolation, malformed-OSM guards, on-green suggestion suppression).
+- Gates (all green, cited): client lint 0 · build 0 (3.2s) · `node --test` 0 (geo **56/56**) · server `node --check` clean · vitest **97/97**. **NOT committed** — awaiting Matt's go (CLAUDE.md hard rule). On-device real-GPS behaviour is the one remaining verification (Matt's on-course pass, same trip as Slice 3).

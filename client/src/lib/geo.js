@@ -177,3 +177,93 @@ export function pointInPolygon(pt, polygon) {
   }
   return inside
 }
+
+
+// ── Slice 4: confidence-gated auto-lie (fairway / bunker) ──────────────────
+// Classify the surface a player stands on from their GPS fix vs OSM course
+// polygons, with a confidence tier so we NEVER silently record a wrong lie
+// (a wrong lie — especially SAND — corrupts strokes-gained). See
+// wiki/synthesis/eagle-eye-walk-and-confirm-progress-2026-07-07 §Slice 4.
+export const LIE_SAND_ACC_MAX = 5   // m — sand needs a tight fix to auto-fill
+export const LIE_GEN_ACC_MAX  = 8   // m — fairway/general auto-fill ceiling
+export const LIE_MARGIN_FLOOR = 5   // m — absolute min distance INSIDE a boundary
+
+function _metersPerDeg(latDeg) {
+  return { mLat: 111320, mLon: 111320 * Math.cos((latDeg * Math.PI) / 180) }
+}
+
+// Distance (m) from point (px,py) to segment (ax,ay)-(bx,by), planar metres.
+function _distPointToSeg(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay
+  const len2 = dx * dx + dy * dy
+  if (len2 === 0) return Math.hypot(px - ax, py - ay)
+  let t = ((px - ax) * dx + (py - ay) * dy) / len2
+  t = Math.max(0, Math.min(1, t))
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+// Minimum distance (metres) from `pt` to the nearest EDGE of `polygon`
+// ([{lat,lon}]). Local equirectangular projection centred on pt — sub-metre
+// accurate at golf-hole scale. This is the confidence "margin": how far INSIDE
+// a boundary a fix sits (only meaningful when pt is inside). Returns null for a
+// degenerate polygon or non-finite input. (Slice 4)
+export function distanceToPolygonEdgeMeters(pt, polygon) {
+  if (!pt || !Array.isArray(polygon) || polygon.length < 3) return null
+  const plat = Number(pt.lat), plon = Number(pt.lon)
+  if (!Number.isFinite(plat) || !Number.isFinite(plon)) return null
+  const { mLat, mLon } = _metersPerDeg(plat)
+  let best = Infinity
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = (Number(polygon[i]?.lon) - plon) * mLon, yi = (Number(polygon[i]?.lat) - plat) * mLat
+    const xj = (Number(polygon[j]?.lon) - plon) * mLon, yj = (Number(polygon[j]?.lat) - plat) * mLat
+    if (!Number.isFinite(xi) || !Number.isFinite(yi) || !Number.isFinite(xj) || !Number.isFinite(yj)) continue
+    const d = _distPointToSeg(0, 0, xi, yi, xj, yj)
+    if (d < best) best = d
+  }
+  return Number.isFinite(best) ? best : null
+}
+
+// Returns { inside, confidence, marginM } for the first polygon in `polys`
+// that contains pt. HIGH only when the fix is tight (accM ≤ accMax) AND sits a
+// margin of ≥ max(FLOOR, 2·accM) inside the edge — so a jittery fix, or a
+// bunker smaller than the error, can never auto-fill. (Slice 4)
+function _firstContaining(pt, polys, accM, accMax) {
+  for (const poly of (polys || [])) {
+    if (!pointInPolygon(pt, poly)) continue
+    const marginM = distanceToPolygonEdgeMeters(pt, poly)
+    const need = Math.max(LIE_MARGIN_FLOOR, 2 * (accM == null ? Infinity : accM))
+    const high = accM != null && accM <= accMax && marginM != null && marginM >= need
+    return { inside: true, confidence: high ? 'high' : 'medium', marginM }
+  }
+  return { inside: false, confidence: 'none', marginM: null }
+}
+
+// classifyLie(pt, { fairwayPolys, bunkerPolys, accM }) →
+//   { lie: 'sand'|'fairway'|'rough'|null, confidence: 'high'|'medium'|'low'|'none', marginM }
+// Priority sand > fairway > rough-default. `accM` = GPS horizontal accuracy (m).
+// No polygons at all → { lie:null, confidence:'none' } so the caller keeps
+// today's behaviour (graceful degradation is the COMMON case). Never returns a
+// lie the caller should silently commit — 'high' pre-selects, 'medium' merely
+// suggests; the player always confirms in the sheet. (Slice 4)
+export function classifyLie(pt, { fairwayPolys = [], bunkerPolys = [], accM = null } = {}) {
+  if (!pt || !Number.isFinite(Number(pt.lat)) || !Number.isFinite(Number(pt.lon))) {
+    return { lie: null, confidence: 'none', marginM: null }
+  }
+  const fw = Array.isArray(fairwayPolys) ? fairwayPolys : []
+  const bk = Array.isArray(bunkerPolys) ? bunkerPolys : []
+  if (fw.length === 0 && bk.length === 0) return { lie: null, confidence: 'none', marginM: null }
+
+  // 1) SAND — highest priority (a bunker cut into a fairway must win).
+  const sand = _firstContaining(pt, bk, accM, LIE_SAND_ACC_MAX)
+  if (sand.inside) return { lie: 'sand', confidence: sand.confidence, marginM: sand.marginM }
+
+  // 2) FAIRWAY.
+  const fair = _firstContaining(pt, fw, accM, LIE_GEN_ACC_MAX)
+  if (fair.inside) return { lie: 'fairway', confidence: fair.confidence, marginM: fair.marginM }
+
+  // 3) ROUGH — inferable only when fairway coverage EXISTS (absence is then
+  //    meaningful). Fuzzy edges → a suggestion, never an auto-fill.
+  if (fw.length > 0) return { lie: 'rough', confidence: 'medium', marginM: null }
+
+  return { lie: null, confidence: 'none', marginM: null }
+}
