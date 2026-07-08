@@ -5,7 +5,7 @@ updated: 2026-07-07
 tags: [the-match, handoff, active]
 ---
 
-# Next-Session Handoff — 2026-07-07 (ACTIVE; supersedes 2026-07-06)
+# Next-Session Handoff — 2026-07-07 (SUPERSEDED by 2026-07-08)
 
 Start with the mandatory CLAUDE.md first actions (roll-call → wiki/index.md → this file +
 `wiki/log.md`'s 07-06 PM13 → 07-07 PM2 entries). Everything below is SHIPPED AND

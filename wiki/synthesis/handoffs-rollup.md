@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-07-06
-updated: 2026-07-07
+updated: 2026-07-08
 tags: [the-match, handoff, rollup]
 ---
 
@@ -15,9 +15,46 @@ written (newest/ACTIVE first). Everything below the first section is
 SUPERSEDED history — trust the ACTIVE section.
 
 
-# [ACTIVE] next-session-handoff-2026-07-07.md
+# [ACTIVE] next-session-handoff-2026-07-08.md
 
-# Next-Session Handoff — 2026-07-07 (ACTIVE; supersedes 2026-07-06)
+# Next-Session Handoff — 2026-07-08 (ACTIVE; supersedes 2026-07-07)
+
+Mandatory start: **roll-call → wiki/index.md → this file + `wiki/log.md`'s latest entries**, then the two Eagle Eye docs — spec [[synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07]] and the live tracker [[synthesis/eagle-eye-walk-and-confirm-progress-2026-07-07]].
+
+## TL;DR
+Eagle Eye **"walk-and-confirm" shot capture** is built and mostly live-verified. **Slices 0, 1, 3 + solo clean-on-save are on `main`.** Capture works for **any** active EE round (solo OR outing). Remaining: **Matt's on-course pass** (real GPS) + **Slice 4** (stretch — full fairway/rough/sand auto-lie). Nothing blocked.
+
+## Commits on `main` this session
+`ff010cb` spec+tracker · `3fcbe28` Slice 0 (buffer + solo façade + ScoreModal rewire, 20 tests) · `bb83047` Slice 1 (ShotCaptureSheet, LOG SHOT, plays-like club rec, backfill, trust nudges) · `78d46b7` capture opened to ALL EE rounds (solo+outing, race-safe) · `444cb58` tracker · `7da5c3b` Slice 3 on-green guard (pointInPolygon) + solo clean-on-save.
+
+## Verified vs PENDING
+- **Verified** (unit + build + live browser via Claude-in-Chrome 2026-07-08): the capture data path + UI + solo/outing routing. A confirmed shot wrote `{lie:"tee",toPin:165,club:"7i"}` into the solo round blob; LOG SHOT shows for solo; map renders; plays-like computes.
+- **PENDING — needs real GPS on-course** (desktop Chrome geolocation is DENIED): the GPS→plays-like HERO and the on-green warning firing. Code + unit verified; GPS runtime unconfirmed → **Matt's on-course pass**.
+
+## Carry-forward invariants (do NOT regress)
+1. Lie keys = `tee/fairway/rough/sand/recovery` (label "Trouble"); NEVER emit `trouble` (server drops it). Single source: `SHOT_LIES` in `components/scorecard/ShotSheet.jsx`.
+2. `toPin` stored = RAW `gpsToGreen`; plays-like is club-advice only, never stored.
+3. EE `currentHole` 1-indexed vs 0-indexed arrays → convert once (`currentHole-1`).
+4. SG counts a hole only when `shots.length + putts === score` (ScoreModal hint + backfill surface it).
+5. Gate new capture on `activeCapture` (outing OR solo).
+6. Solo shots ride the ONE round blob via `writeSoloShots` → fires `tm-solo-shots` → `ActiveRound` re-hydrates (kills the clobber race). No second solo store.
+
+## Key files
+`client/src/lib/shot-capture.js` (buffer) · `lib/solo-round.js` (solo façade + event) · `pages/EagleEye.jsx` (ShotCaptureSheet ~816, activeCapture ~1403, LOG SHOT ~2057, render ~2187) · `pages/Outing/LiveOuting.jsx` (ScoreModal hint+backfill) · `pages/ActiveRound.jsx` (re-hydration listener) · `lib/clubModel.js` (recommendClub) · `lib/geo.js` (pointInPolygon) · `server/src/lib/shotFacts.js` (cleanHoleShots/cleanShotsForRound) · `server/src/routes/rounds.js` (solo clean-on-save) · `server/src/lib/sg/index.js` (read-time SG).
+
+## Remaining work
+1. **Matt's on-course pass** (real GPS): plays-like hero + on-green warning fire; real round → SG OTT/APP/ARG.
+2. **Slice 4 (stretch)** — full auto-lie: Overpass fetch `golf=fairway`/`golf=bunker` polygons + cache bump + PIP → auto fairway/rough/sand; degrade to Slice-3 defaults when OSM empty. On-course-only verify.
+3. Minor: confirm haptic is a WKWebView no-op (`tmHaptic`=`navigator.vibrate`); real Taptic needs a native bridge — separate native-shell task.
+
+## Gates / counts
+Every push: client lint+build+test · server test · `node --check`. **Beta = main; ASK before every push.** Counts: client geo 38 / clubModel 16 / shot-capture 20 · server 97 (shot-facts 14).
+
+---
+
+# [SUPERSEDED] next-session-handoff-2026-07-07.md
+
+# Next-Session Handoff — 2026-07-07 (SUPERSEDED by 2026-07-08)
 
 Start with the mandatory CLAUDE.md first actions (roll-call → wiki/index.md → this file +
 `wiki/log.md`'s 07-06 PM13 → 07-07 PM2 entries). Everything below is SHIPPED AND
