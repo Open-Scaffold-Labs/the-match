@@ -3,7 +3,7 @@ type: synthesis
 created: 2026-07-07
 updated: 2026-07-07
 tags: [eagle-eye, strokes-gained, shot-capture, build-progress, checklist, competitive]
-status: IN PROGRESS — Slice 0 + Slice 1 (incl. best-in-class upgrades) built + static-verified (lint/build/36 unit); on-beta UI check pending
+status: IN PROGRESS — Slice 0 + Slice 1 built + LIVE-verified on beta (capture works for solo + outing); GPS→plays-like hero pending on-device
 spec: [[synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07]]
 ---
 # Eagle Eye "Walk-and-Confirm" — Build Progress Tracker (BULLETPROOF EDITION)
@@ -105,7 +105,7 @@ Palette: Augusta-at-night dark, fairway green `#2A7A38`, trophy gold `#C9A040` (
 
 - [x] `activeScoring` lifted to App.jsx (`{kind:'outing',code}` | null); threaded to EE (prop @ :803) + `onActiveScoringChange` to Outing; `Outing.jsx` publishes on `view==='live' && activeCode` (upper-cased), clears on end/hub + unmount. ✓
 - [x] `recommendClub(bag, targetYards)` extracted to `clubModel.js` (raw-bag `avg_yards` shape); `ClubToggle.recommend` rewired (behavior identical); 4 new unit tests → **16/16 clubModel**. Fed the captured snapshot, never `displayYards`. ✓
-- [x] "LOG SHOT" dark-glass pill in HUD `order:1` block; gated `activeScoring?.kind==='outing'` (inside the existing `courseCtx && !bigMode` HUD). Tap → snapshot `gpsToGreen` → open sheet (no direct append). ✓
+- [x] "LOG SHOT" dark-glass pill in HUD `order:1` block; shows for **any active EE round** — live outing OR self-discovered solo (`activeCapture`), inside the existing `courseCtx && !bigMode` HUD. Tap → snapshot `gpsToGreen` → open sheet (no direct append). ✓ **Live-verified on beta 2026-07-08.**
 - [x] `ShotCaptureSheet` (modeled on `PlaysLikeSheet`): frozen `gpsToGreen` hero (manual numeric field when `!gpsUsable`); one-gesture club strip auto-selecting `recommendClub`; lie chips from the now-exported `SHOT_LIES` (default tee/fairway, keys incl. `recovery`); Confirm → `appendShot(holeIdx: currentHole-1)` + immediate close (R10); resets on `currentHole` change. ✓ *(haptic skipped — `tmHaptic` is a verified iOS no-op; deferred to the native-bridge task)*
 - [x] Flush = the EXISTING score save (Slice 0 made `ScoreModal` read the buffer at open). No new flush code; EE never calls the server. ✓
 - [x] Completeness hint in `ScoreModal` when `holeShots.length + (putts||0) !== score` (non-blocking, Risk R3). ✓
@@ -176,4 +176,10 @@ Palette: Augusta-at-night dark, fairway green `#2A7A38`, trophy gold `#C9A040` (
 - `recommendClub` extracted to `clubModel.js` + `ClubToggle` rewired (behavior-identical, 4 new tests); `activeScoring` lifted App→Outing→EE; `SHOT_LIES` exported from `ShotSheet` as the single lie-key source; new `ShotCaptureSheet` (dark instrument sheet: frozen gpsToGreen hero / manual fallback, auto-club strip, recovery-keyed lie chips, Confirm→buffer); "LOG SHOT" HUD pill gated on an active outing; completeness hint in `ScoreModal`. Shots flush through the existing score save (no server change). Gates: lint ✓ · build ✓ · unit 36/36 ✓. **Not yet run:** on-beta UI walkthrough (real capture → SG).
 
 ### [2026-07-08] Slice 1 best-in-class upgrades (option #2)
-- Matt's steer: the bar isn't parity with our old model, it's beating the most-used apps. Built 3 upgrades: (1) **plays-like club rec** — advise the club on the pin's PLAYS-LIKE distance (reusing `computePlaysLike`/`plEff`), store raw for SG, hero shows "150 · plays 162"; (2) actionable **"forgot-to-log" backfill** button in `ScoreModal`; (3) non-blocking **trust nudges** (>500y implausible + non-decreasing distance-to-pin). Gates: lint ✓ · build ✓ · unit 36/36 ✓. On-beta UI walkthrough still the remaining check. Awaiting Matt's push nod. Slice 2 (solo) next.
+- Matt's steer: the bar isn't parity with our old model, it's beating the most-used apps. Built 3 upgrades: (1) **plays-like club rec** — advise the club on the pin's PLAYS-LIKE distance (reusing `computePlaysLike`/`plEff`), store raw for SG, hero shows "150 · plays 162"; (2) actionable **"forgot-to-log" backfill** button in `ScoreModal`; (3) non-blocking **trust nudges** (>500y implausible + non-decreasing distance-to-pin). Gates: lint ✓ · build ✓ · unit 36/36 ✓. Pushed `bb83047`.
+
+### [2026-07-08] Capture opened to ALL EE rounds + LIVE browser verification
+- Matt (correct): capture must work for EVERY Eagle Eye round, not just outings. Un-gated — EE self-discovers a solo round (`readSavedSoloRound`) alongside outings via a unified `activeCapture` scope; solo writes ride the shared round blob (`lib/solo-round`) and fire `tm-solo-shots` so `ActiveRound` re-hydrates its shots (kills the R13 clobber race). Pushed `78d46b7`. Gates: lint ✓ · build ✓ · 36/36 ✓.
+- **Verified LIVE on the beta (Claude-in-Chrome):** deploy live, no app console errors, map renders (Pebble Creek satellite), plays-like computes (FROM TEE 340 / PLAYS LIKE 337); **LOG SHOT now shows for the solo round**; confirm sheet renders (manual-distance fallback since desktop GPS is `denied`, club strip, lie chips incl. Trouble); a confirmed shot wrote `{lie:"tee",toPin:165,club:"7i"}` into the round blob's `shots[0]` — correct SG shape — then the sheet closed. Test shot cleaned up afterward. NOT exercised here (needs real GPS on-device): the GPS→plays-like hero path (code + unit verified).
+- Honest correction logged: earlier I called EE "loads clean" off the console alone while the map was mid-tile-load — an overclaim; the map does render.
+- **Slice 2 (solo) is now largely delivered** by this un-gating (EE solo capture + the re-hydration sync). Residual Slice-2 item: solo shots are stored raw (no server-side `cleanHoleShots` on `POST /rounds`) — SG's gate makes junk harmless, but a clean-on-save is the tidy follow-up.
