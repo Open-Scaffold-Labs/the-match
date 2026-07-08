@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
-import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
+import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon } from '../lib/geo.js'
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
@@ -813,7 +813,7 @@ const CAPTURE_SHEET_STYLE = `
 // one-gesture club strip (auto-suggested from the bag), lie chips (default
 // tee/fairway; keys are the server-valid VALID_LIES incl. `recovery`), and a
 // single gold Confirm. Confirm-not-build: everything is pre-filled.
-function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [], suggestedSlot, firstShot, prevToPin = null, onConfirm, onClose }) {
+function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [], suggestedSlot, firstShot, prevToPin = null, onGreen = false, onConfirm, onClose }) {
   const [selSlot, setSelSlot] = useState(null)
   const [lie, setLie]         = useState(null)
   const [manual, setManual]   = useState('')
@@ -857,6 +857,12 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
         <div onClick={onClose} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px', cursor: 'pointer' }}>
           <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgb(var(--tm-ee-white-rgb) / 0.22)' }} />
         </div>
+
+        {onGreen && (
+          <div style={{ marginBottom: 12, padding: '9px 12px', borderRadius: 12, background: 'rgb(var(--tm-ee-gold-rgb) / 0.12)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.3)', fontSize: 11.5, fontWeight: 600, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.95)', lineHeight: 1.4, textAlign: 'center' }}>
+            You're on the green — this looks like a putt. Log putts on the scorecard, not here.
+          </div>
+        )}
 
         <div style={{ textAlign: 'center', marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.8)' }}>TO PIN</div>
@@ -1403,7 +1409,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [captureOpen, setCaptureOpen] = useState(false)
   const [captureSnap, setCaptureSnap] = useState(null)   // frozen raw GPS-to-pin (stored for SG + the hero)
   const [capturePlays, setCapturePlays] = useState(null) // frozen PLAYS-LIKE of the pin (drives club advice + the secondary line)
-  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false); setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null) }, [currentHole])
+  const [captureOnGreen, setCaptureOnGreen] = useState(false) // frozen "player is on the green" at tap → putt guard
+  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false); setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false) }, [currentHole])
   // Walk-and-confirm capture is available for ANY active Eagle Eye round — a
   // live OUTING (published from the scorecard) OR a saved SOLO round (self-
   // discovered here). `scope` routes the buffer write; solo writes go through
@@ -2065,6 +2072,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                     ? playsLikeView(computePlaysLike(raw, { windSpeed: plEff.windSpeed, windFromDeg: plEff.windDir, shotBearing, tempF: plEff.tempF, altFt, elevDeltaFt: plEff.elevDeltaFt }))
                     : null
                   setCapturePlays(pv?.total ?? null)
+                  // On-green guard: if the player is standing inside the green
+                  // polygon, this is a putt, not a shot — warn in the sheet.
+                  setCaptureOnGreen(pointInPolygon(gps, greenPolygon))
                   setCaptureOpen(true)
                 }} style={{
                   width: '100%', height: 46, borderRadius: 13,
@@ -2193,13 +2203,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         suggestedSlot={recommendClub(myBag, capturePlays ?? captureSnap)?.slot ?? null}
         firstShot={captureBuf.length === 0}
         prevToPin={captureBuf.length ? captureBuf[captureBuf.length - 1].toPin : null}
+        onGreen={captureOnGreen}
         onConfirm={(shot) => {
           if (activeCapture) {
             appendShot({ scope: activeCapture.scope, uid: user?.id, holeIdx: currentHole - 1 }, shot)
           }
-          setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null)
+          setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false)
         }}
-        onClose={() => { setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null) }}
+        onClose={() => { setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null); setCaptureOnGreen(false) }}
       />
       {showPicker && (
         <CoursePicker

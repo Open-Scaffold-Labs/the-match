@@ -43,4 +43,15 @@ function setShotsAtHole(existing, hole, cleanedHoleShots) {
   return arr.some(x => x != null) ? arr : null
 }
 
-module.exports = { cleanHoleShots, setShotsAtHole, VALID_LIES }
+// Clean a WHOLE round's shots (array of per-hole shot arrays) — maps each hole
+// through cleanHoleShots so the solo POST /api/rounds path gets the same
+// server-side hygiene the outing PUT /:code/scores already applies at write
+// time. Returns an array aligned to holes (each entry a cleaned array or null),
+// or null when no hole has a usable shot. Fail-soft: never throws.
+function cleanShotsForRound(rawShots) {
+  if (!Array.isArray(rawShots)) return null
+  const out = rawShots.map(hole => cleanHoleShots(hole))
+  return out.some(x => x != null) ? out : null
+}
+
+module.exports = { cleanHoleShots, setShotsAtHole, cleanShotsForRound, VALID_LIES }

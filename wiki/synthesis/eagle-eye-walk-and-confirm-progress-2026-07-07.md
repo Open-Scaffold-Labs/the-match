@@ -3,7 +3,7 @@ type: synthesis
 created: 2026-07-07
 updated: 2026-07-07
 tags: [eagle-eye, strokes-gained, shot-capture, build-progress, checklist, competitive]
-status: IN PROGRESS — Slice 0 + Slice 1 built + LIVE-verified on beta (capture works for solo + outing); GPS→plays-like hero pending on-device
+status: IN PROGRESS — Slices 0/1/3 + solo clean-on-save built + verified (capture live; on-green + plays-like-hero pending on-device GPS)
 spec: [[synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07]]
 ---
 # Eagle Eye "Walk-and-Confirm" — Build Progress Tracker (BULLETPROOF EDITION)
@@ -123,9 +123,10 @@ Palette: Augusta-at-night dark, fairway green `#2A7A38`, trophy gold `#C9A040` (
 - [ ] **Verify:** solo capture in EE → finish → `/rounds` → SG categories populate.
 
 ### Slice 3 — lie auto-detect v1
-**Status:** ⬜ not started
-- [ ] Add ray-cast point-in-polygon to `geo.js` (none exists today); green polygon → warn/block "on green = putt"; keep tee/fairway defaults + override (keys per fix #1).
-- [ ] **Verify:** on/off green flips the warning; overrides still write `recovery`.
+**Status:** 🟢 built + static-verified (lint/build/geo 38 unit, 2026-07-08); on-course GPS behaviour pending on-device
+- [x] Ray-cast `pointInPolygon(pt, polygon)` added to `geo.js` (none existed) + 7 unit tests (geo 31→38). ✓
+- [x] On-green guard: LOG SHOT freezes `pointInPolygon(gps, greenPolygon)`; the sheet shows a non-blocking "you're on the green — this looks like a putt" warning. Lie chips + tee/fairway defaults + `recovery` override unchanged. ✓
+- [~] **Verify:** lint ✓ · build ✓ · geo 38/38 ✓. Pending on-device (needs real GPS on a green): the warning actually firing. Full fairway/rough/sand auto-lie still needs those polygons → Slice 4.
 
 ### Slice 4 — fairway/bunker polygons (STRETCH)
 **Status:** ⬜ not started
@@ -182,4 +183,9 @@ Palette: Augusta-at-night dark, fairway green `#2A7A38`, trophy gold `#C9A040` (
 - Matt (correct): capture must work for EVERY Eagle Eye round, not just outings. Un-gated — EE self-discovers a solo round (`readSavedSoloRound`) alongside outings via a unified `activeCapture` scope; solo writes ride the shared round blob (`lib/solo-round`) and fire `tm-solo-shots` so `ActiveRound` re-hydrates its shots (kills the R13 clobber race). Pushed `78d46b7`. Gates: lint ✓ · build ✓ · 36/36 ✓.
 - **Verified LIVE on the beta (Claude-in-Chrome):** deploy live, no app console errors, map renders (Pebble Creek satellite), plays-like computes (FROM TEE 340 / PLAYS LIKE 337); **LOG SHOT now shows for the solo round**; confirm sheet renders (manual-distance fallback since desktop GPS is `denied`, club strip, lie chips incl. Trouble); a confirmed shot wrote `{lie:"tee",toPin:165,club:"7i"}` into the round blob's `shots[0]` — correct SG shape — then the sheet closed. Test shot cleaned up afterward. NOT exercised here (needs real GPS on-device): the GPS→plays-like hero path (code + unit verified).
 - Honest correction logged: earlier I called EE "loads clean" off the console alone while the map was mid-tile-load — an overclaim; the map does render.
-- **Slice 2 (solo) is now largely delivered** by this un-gating (EE solo capture + the re-hydration sync). Residual Slice-2 item: solo shots are stored raw (no server-side `cleanHoleShots` on `POST /rounds`) — SG's gate makes junk harmless, but a clean-on-save is the tidy follow-up.
+- **Slice 2 (solo) is now largely delivered** by this un-gating (EE solo capture + the re-hydration sync).
+
+### [2026-07-08] Slice 3 (on-green guard) + solo clean-on-save
+- **Slice 3 v1:** added a ray-cast `pointInPolygon` to `geo.js` (+7 tests) and an **on-green guard** — LOG SHOT freezes whether the player stands inside the green polygon; the sheet warns (non-blocking) "you're on the green — this looks like a putt." Full fairway/rough/sand auto-lie still needs those polygons (Slice 4).
+- **Solo clean-on-save (residual Slice-2, CLOSED):** `POST /api/rounds` now runs solo shots through the new `cleanShotsForRound` (maps each hole via `cleanHoleShots`) — the same server hygiene outings get at write time. `+2` server tests (shot-facts 12→14).
+- Gates: client lint ✓ · build ✓ · geo 38/38 · clubModel 16 · shot-capture 20; server **97/97** · `node --check` ok. On-device pending: the on-green warning (needs real GPS on a green) + the GPS→plays-like hero.

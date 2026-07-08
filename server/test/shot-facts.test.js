@@ -2,7 +2,7 @@
 // cleaned shot log feeds the read-time SG engine into OTT/APP/ARG. Sibling of
 // putt-facts.test.js.
 import { describe, it, expect } from 'vitest'
-import { cleanHoleShots, setShotsAtHole } from '../src/lib/shotFacts.js'
+import { cleanHoleShots, setShotsAtHole, cleanShotsForRound } from '../src/lib/shotFacts.js'
 import { holeShotsSG } from '../src/lib/sg/index.js'
 
 describe('cleanHoleShots', () => {
@@ -73,5 +73,25 @@ describe('cleaned shots → SG engine (the whole point)', () => {
     const shots = cleanHoleShots([{ lie: 'tee', toPin: 400 }])
     const cat = holeShotsSG('tour', { par: 4, score: 4, shots, putts: 2, firstPuttBucket: '3-10' })
     expect(cat).toEqual({ sgOTT: null, sgAPP: null, sgARG: null })
+  })
+})
+
+describe('cleanShotsForRound (solo POST /rounds hygiene)', () => {
+  it('cleans each hole; empty/garbage holes → null, keeps good shots', () => {
+    expect(cleanShotsForRound([
+      [{ club: 'Dr', lie: 'tee', toPin: 400.4 }],
+      [{ lie: 'ocean', toPin: 10 }],   // bad lie → hole null
+      [],                               // empty → null
+      [{ lie: 'fairway', toPin: 150 }],
+    ])).toEqual([
+      [{ lie: 'tee', toPin: 400, club: 'Dr' }],
+      null,
+      null,
+      [{ lie: 'fairway', toPin: 150 }],
+    ])
+  })
+  it('non-array → null; an all-empty round → null (never [])', () => {
+    expect(cleanShotsForRound(null)).toBe(null)
+    expect(cleanShotsForRound([[], [{ lie: 'x', toPin: 0 }], null])).toBe(null)
   })
 })

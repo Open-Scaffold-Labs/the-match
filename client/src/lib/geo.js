@@ -158,3 +158,22 @@ export function matchPolygonsToHoles(greenCentersByHole, polygons, thresholdYard
   }
   return out
 }
+
+// Ray-cast (even-odd) point-in-polygon test. `pt` = {lat,lon}; `polygon` =
+// [{lat,lon}, ...]. Treats lat/lon as planar — fine at green scale (~30 yds),
+// where curvature is negligible. Returns false for a degenerate polygon
+// (<3 vertices) or non-finite input. Used for on-green detection (Slice 3).
+export function pointInPolygon(pt, polygon) {
+  if (!pt || !Array.isArray(polygon) || polygon.length < 3) return false
+  const x = Number(pt.lon), y = Number(pt.lat)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = Number(polygon[i]?.lon), yi = Number(polygon[i]?.lat)
+    const xj = Number(polygon[j]?.lon), yj = Number(polygon[j]?.lat)
+    if (!Number.isFinite(xi) || !Number.isFinite(yi) || !Number.isFinite(xj) || !Number.isFinite(yj)) continue
+    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
+    if (intersect) inside = !inside
+  }
+  return inside
+}

@@ -7,7 +7,7 @@
 // Dependency-free (matches side-bets.test.mjs / handicap-milestone.test.mjs).
 // (2026-06-06 — Eagle Eye next-level: proven math core for F/C/B + plays-like.)
 
-import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from './geo.js'
+import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon } from './geo.js'
 
 let passed = 0, failed = 0
 const fails = []
@@ -92,6 +92,16 @@ assert(matched['2'] === greenB, 'hole 2 → greenB')
 // A hole whose center is far from every polygon stays unassigned.
 const farCenters = { 9: { lat: 80, lon: 80 } }
 assert(Object.keys(matchPolygonsToHoles(farCenters, [greenA, greenB], 40)).length === 0, 'far hole → unassigned (no false match)')
+
+// ── pointInPolygon (ray-cast; on-green detection, Slice 3) ──
+// `square` is the unit green from (0,0)→(0.001,0.001) defined above.
+assert(pointInPolygon({ lat: 0.0005, lon: 0.0005 }, square) === true, 'PIP center inside square')
+assert(pointInPolygon({ lat: 0.002, lon: 0.0005 }, square) === false, 'PIP north of square → outside')
+assert(pointInPolygon({ lat: 0.0005, lon: 0.005 }, square) === false, 'PIP east of square → outside')
+assert(pointInPolygon({ lat: -0.001, lon: 0.0005 }, square) === false, 'PIP south of square → outside')
+assert(pointInPolygon({ lat: 0.0005, lon: 0.0005 }, square.slice(0, 2)) === false, 'PIP <3 vertices → false')
+assert(pointInPolygon(null, square) === false, 'PIP null point → false')
+assert(pointInPolygon({ lat: 0.0005, lon: 0.0005 }, null) === false, 'PIP null polygon → false')
 
 // ── report ──
 console.log(`\ngeo.js tests: ${passed} passed, ${failed} failed`)
