@@ -385,6 +385,21 @@ function ScoreModal({ playerName, hole, par, currentScore, holeCount, isSelf = f
           </div>
         )}
 
+        {/* Completeness hint + "forgot to log" backfill net (Slice 1, Risk R3):
+            SG counts a hole only when shots + putts === score. When shots are
+            MISSING, offer a one-tap add — the #1 reason manual trackers fail.
+            Never blocks the save; never fabricates (the user adds the real shot). */}
+        {isSelf && holeShots.length > 0 && (holeShots.length + (puttVal || 0)) !== val && (
+          <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 'var(--tm-radius)', background: 'var(--tm-surface-2)', border: '1px dashed var(--tm-border)', fontSize: 11, color: 'var(--tm-text-3)', lineHeight: 1.4 }}>
+            {holeShots.length} shot{holeShots.length === 1 ? '' : 's'} + {puttVal || 0} putt{(puttVal || 0) === 1 ? '' : 's'} = {holeShots.length + (puttVal || 0)}, but you entered {val}. Strokes Gained needs every shot logged to count this hole.
+            {(val - (holeShots.length + (puttVal || 0))) > 0 && (
+              <button onClick={() => setShowShotSheet(true)} style={{ display: 'block', marginTop: 8, padding: '6px 12px', borderRadius: 'var(--tm-radius-full)', background: 'var(--tm-gold-muted)', border: '1px solid var(--tm-gold-dim)', color: 'var(--tm-gold-text)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                + Add the missing shot{(val - (holeShots.length + (puttVal || 0))) > 1 ? `s (${val - (holeShots.length + (puttVal || 0))})` : ''}
+              </button>
+            )}
+          </div>
+        )}
+
         {isSelf && showShotSheet && (
           <ShotSheet
             isFirstShot={holeShots.length === 0}

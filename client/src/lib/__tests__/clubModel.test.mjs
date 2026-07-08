@@ -1,7 +1,7 @@
 // Unit tests for arcClubs (Eagle Eye own-club distance arcs).
 // Run: node client/src/lib/__tests__/clubModel.test.mjs
 import assert from 'node:assert/strict'
-import { arcClubs } from '../clubModel.js'
+import { arcClubs, recommendClub } from '../clubModel.js'
 
 let pass = 0
 const ok = (n, c) => { assert.ok(c, n); console.log('  ✓ ' + n); pass++ }
@@ -48,4 +48,16 @@ ok('arcs sorted long → short', sorted)
 // Every returned arc carries label + positive yardage.
 ok('every arc has a label + positive yards', a150.every(c => typeof c.label === 'string' && c.yards > 0))
 
-console.log(`\nALL ${pass} ARC-CLUBS ASSERTIONS PASSED`)
+// ── recommendClub (raw bag shape: avg_yards) ─────────────────────────────
+const rawBag = [
+  { slot: 'driver', avg_yards: 290 },
+  { slot: 'iron_7', avg_yards: 185 },
+  { slot: 'pw', avg_yards: 155 },
+  { slot: 'putter', avg_yards: 0 },
+]
+ok('recommendClub empty bag → null', recommendClub([], 150) === null)
+ok('recommendClub skips the putter + picks closest (150 → PW)', recommendClub(rawBag, 150)?.slot === 'pw')
+ok('recommendClub picks the long club for a long target (280 → driver)', recommendClub(rawBag, 280)?.slot === 'driver')
+ok('recommendClub unknown target → a middle club (not null)', recommendClub(rawBag, null) != null)
+
+console.log(`\nALL ${pass} CLUBMODEL ASSERTIONS PASSED`)

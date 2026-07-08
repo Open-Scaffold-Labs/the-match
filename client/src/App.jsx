@@ -132,6 +132,10 @@ export default function App() {
   // course on Eye for "what if" exploration mid-match without the live
   // match's polling re-snapping Eye back. (2026-05-01)
   const [sharedCourse, setSharedCourse] = useState(readPersistedCourse)
+  // Cross-tab active-scoring context (Slice 1, 2026-07-07): {kind:'outing',
+  // code} while an outing is being scored, else null. Lets Eagle Eye offer
+  // walk-and-confirm shot capture for the live outing; inert (null) otherwise.
+  const [activeScoring, setActiveScoring] = useState(null)
   // Persist the selected course so a reload (pull-to-refresh, SW update,
   // etc.) resumes it instead of losing the round. Mirrors the tab-persist
   // pattern above. (2026-06-06)
@@ -408,6 +412,7 @@ export default function App() {
               onConsumeEyeHoleNudge={() => setEyeHoleNudge(null)}
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
+              activeScoring={activeScoring}
             />
           </TabPanel>
         )}
@@ -427,6 +432,7 @@ export default function App() {
               onGoToEagleEye={hole => { setEyeHoleNudge(hole); setTab(TABS.EYE) }}
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
+              onActiveScoringChange={setActiveScoring}
             />
           </TabPanel>
         )}

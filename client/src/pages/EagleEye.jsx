@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure } from '../lib/geo.js'
-import { realBag, arcClubs } from '../lib/clubModel.js'
+import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
+import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
+import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -799,8 +801,140 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
   )
 }
 
+const CAPTURE_SHEET_STYLE = `
+@keyframes ee-cap-scrim { from { opacity: 0 } to { opacity: 1 } }
+@keyframes ee-cap-up { from { transform: translateY(100%) } to { transform: translateY(0) } }
+`
+
+// ── Shot capture confirm sheet (walk-and-confirm, Slice 1, 2026-07-07) ──────
+// A dark "instrument" bottom sheet modeled on PlaysLikeSheet: a big tabular
+// GPS-to-pin hero (frozen snapshot; manual entry when GPS isn't usable), a
+// one-gesture club strip (auto-suggested from the bag), lie chips (default
+// tee/fairway; keys are the server-valid VALID_LIES incl. `recovery`), and a
+// single gold Confirm. Confirm-not-build: everything is pre-filled.
+function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [], suggestedSlot, firstShot, prevToPin = null, onConfirm, onClose }) {
+  const [selSlot, setSelSlot] = useState(null)
+  const [lie, setLie]         = useState(null)
+  const [manual, setManual]   = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setSelSlot(suggestedSlot ?? null)
+    setLie(firstShot ? 'tee' : 'fairway')
+    setManual(gpsUsable && snapshot != null ? String(Math.round(snapshot)) : '')
+  }, [open, suggestedSlot, firstShot, gpsUsable, snapshot])
+
+  if (!open) return null
+
+  const dist = gpsUsable && snapshot != null ? Math.round(snapshot) : parseInt(manual, 10)
+  const distOk = Number.isFinite(dist) && dist > 0
+  const selClub = bag.find(c => c.slot === selSlot) || null
+  const canConfirm = distOk && !!lie
+  const commit = () => {
+    if (!canConfirm) return
+    onConfirm({ lie, toPin: dist, ...(selClub ? { club: selClub.label } : {}) })
+  }
+  // Show the plays-like line only when it differs from the raw number.
+  const showPlays = gpsUsable && snapshot != null && playsLike != null && playsLike !== Math.round(snapshot)
+  // Trust nudges (non-blocking): a single shot over ~500y, or a distance-to-pin
+  // that didn't DROP from the last shot, is almost always a mis-tap. Warn, never
+  // block — a real recovery can legitimately go backwards.
+  const farther = distOk && !firstShot && Number.isFinite(prevToPin) && dist >= prevToPin
+  const implausible = distOk && dist > 500
+
+  return createPortal(
+    <>
+      <style>{CAPTURE_SHEET_STYLE}</style>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgb(var(--tm-ee-black-rgb) / 0.62)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', zIndex: 4000, animation: 'ee-cap-scrim 0.2s ease-out' }} />
+      <div role="dialog" aria-label="Log shot" style={{
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 4001, maxWidth: 480, margin: '0 auto',
+        background: 'rgb(var(--tm-ee-glass-panel-rgb) / 0.94)', backdropFilter: 'blur(28px) saturate(160%)', WebkitBackdropFilter: 'blur(28px) saturate(160%)',
+        borderTopLeftRadius: 22, borderTopRightRadius: 22, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', borderBottom: 'none',
+        boxShadow: '0 -12px 40px rgb(var(--tm-ee-black-rgb) / 0.6), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.16)',
+        padding: '8px 18px max(22px, env(safe-area-inset-bottom)) 18px', animation: 'ee-cap-up 0.26s cubic-bezier(0.32,0.72,0,1)',
+      }}>
+        <div onClick={onClose} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px', cursor: 'pointer' }}>
+          <div style={{ width: 40, height: 5, borderRadius: 3, background: 'rgb(var(--tm-ee-white-rgb) / 0.22)' }} />
+        </div>
+
+        <div style={{ textAlign: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.8)' }}>TO PIN</div>
+          {gpsUsable && snapshot != null ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 8 }}>
+                <span style={{ fontSize: 60, fontWeight: 900, lineHeight: 1.05, color: 'var(--tm-ee-gold-light)', fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px' }}>{Math.round(snapshot)}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>yds</span>
+              </div>
+              {showPlays && (
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--tm-ee-adjusted)', marginTop: 2 }}>
+                  plays <span style={{ fontVariantNumeric: 'tabular-nums' }}>{playsLike}</span> · club set for this
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ marginTop: 6 }}>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" value={manual} placeholder="yds"
+                onChange={e => setManual(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                style={{ width: 150, textAlign: 'center', padding: '10px 12px', borderRadius: 12, background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.16)', color: 'var(--tm-ee-gold-light)', fontSize: 30, fontWeight: 900, fontVariantNumeric: 'tabular-nums', outline: 'none' }} />
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginTop: 4 }}>GPS not locked — enter yards to pin</div>
+            </div>
+          )}
+        </div>
+
+        {bag.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginBottom: 6 }}>CLUB</div>
+            <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 6, marginBottom: 14, WebkitOverflowScrolling: 'touch' }}>
+              {bag.map(c => {
+                const on = c.slot === selSlot
+                return (
+                  <button key={c.slot} onClick={() => setSelSlot(c.slot)} style={{
+                    flex: '0 0 auto', minWidth: 46, padding: '8px 12px', borderRadius: 12, cursor: 'pointer',
+                    background: on ? 'rgb(var(--tm-ee-gold-rgb) / 0.22)' : 'rgb(var(--tm-ee-white-rgb) / 0.05)',
+                    border: on ? '1.5px solid rgb(var(--tm-ee-gold-rgb) / 0.5)' : '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
+                    color: on ? 'var(--tm-ee-gold-light)' : 'rgb(var(--tm-ee-white-rgb) / 0.7)', fontWeight: 800, fontSize: 13,
+                  }}>{c.label}</button>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginBottom: 6 }}>LIE</div>
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 18 }}>
+          {SHOT_LIES.map(l => {
+            const on = l.key === lie
+            return (
+              <button key={l.key} onClick={() => setLie(l.key)} style={{
+                padding: '8px 14px', borderRadius: 14, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                background: on ? 'rgb(var(--tm-ee-gold-rgb) / 0.22)' : 'rgb(var(--tm-ee-white-rgb) / 0.05)',
+                border: on ? '1.5px solid rgb(var(--tm-ee-gold-rgb) / 0.5)' : '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
+                color: on ? 'var(--tm-ee-gold-light)' : 'rgb(var(--tm-ee-white-rgb) / 0.7)',
+              }}>{l.label}</button>
+            )
+          })}
+        </div>
+
+        {(farther || implausible) && (
+          <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 12, background: 'rgb(var(--tm-ee-gold-rgb) / 0.10)', border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.28)', fontSize: 11, fontWeight: 600, color: 'rgb(var(--tm-ee-gold-light-rgb) / 0.95)', lineHeight: 1.4 }}>
+            {implausible
+              ? `${dist} yds is a long way for one shot — double-check the number.`
+              : `Farther than your last shot (${prevToPin} yds). Distance to the pin usually drops — sure?`}
+          </div>
+        )}
+        <button onClick={commit} disabled={!canConfirm} style={{
+          width: '100%', height: 52, borderRadius: 14, border: 'none', cursor: canConfirm ? 'pointer' : 'default',
+          background: canConfirm ? 'linear-gradient(135deg, var(--tm-ee-gold), var(--tm-ee-gold-light))' : 'rgb(var(--tm-ee-white-rgb) / 0.08)',
+          color: canConfirm ? 'rgb(var(--tm-ee-black-rgb))' : 'rgb(var(--tm-ee-white-rgb) / 0.4)', fontSize: 16, fontWeight: 900, letterSpacing: '0.04em',
+        }}>Confirm Shot</button>
+      </div>
+    </>,
+    document.body
+  )
+}
+
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected } = {}) {
+export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -1262,7 +1396,18 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // from hole 3 can never silently corrupt hole 12. (build-spec risk U2)
   const [plSheetOpen, setPlSheetOpen] = useState(false)
   const [plOverrides, setPlOverrides] = useState({})
-  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false) }, [currentHole])
+  // Slice 1 (2026-07-07): walk-and-confirm capture. captureSnap freezes the
+  // GPS-to-pin distance at the moment LOG SHOT is tapped so it can't drift
+  // while the sheet is open. Both reset on hole change (with plays-like).
+  const [captureOpen, setCaptureOpen] = useState(false)
+  const [captureSnap, setCaptureSnap] = useState(null)   // frozen raw GPS-to-pin (stored for SG + the hero)
+  const [capturePlays, setCapturePlays] = useState(null) // frozen PLAYS-LIKE of the pin (drives club advice + the secondary line)
+  useEffect(() => { setPlOverrides({}); setPlSheetOpen(false); setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null) }, [currentHole])
+  // Current hole's logged shots (self outing only) — drives the capture sheet's
+  // first-shot lie default + the "farther than your last shot" trust nudge.
+  const captureBuf = activeScoring?.kind === 'outing'
+    ? readHoleBuffer({ scope: `outing:${activeScoring.code}`, uid: user?.id, holeIdx: currentHole - 1 })
+    : []
 
   const holeData = courseCtx
     ? courseCtx.tee.holes.find(h => h.hole === currentHole) ?? null
@@ -1895,6 +2040,33 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   tee point. teeGps state stays defined on the off
                   chance a future code path wants to capture a custom
                   shot origin, but is no longer surfaced in the UI. */}
+
+              {/* LOG SHOT — walk-and-confirm capture (Slice 1, 2026-07-07).
+                  Only while scoring a live outing; tapping freezes the
+                  GPS-to-pin distance and opens the dark confirm sheet.
+                  Standalone Eagle Eye (no active outing) never shows this. */}
+              {activeScoring?.kind === 'outing' && (
+                <button onClick={() => {
+                  // Freeze BOTH the raw GPS-to-pin (for SG + the hero) and the
+                  // PLAYS-LIKE distance (wind/elev/temp/alt-adjusted) so the club
+                  // is advised for what the shot actually plays — the best apps'
+                  // "Smart Distances"/"Plays Like" move, using our own engine.
+                  const raw = gpsToGreen
+                  setCaptureSnap(raw)
+                  const pv = (raw != null && raw > 0 && weather)
+                    ? playsLikeView(computePlaysLike(raw, { windSpeed: plEff.windSpeed, windFromDeg: plEff.windDir, shotBearing, tempF: plEff.tempF, altFt, elevDeltaFt: plEff.elevDeltaFt }))
+                    : null
+                  setCapturePlays(pv?.total ?? null)
+                  setCaptureOpen(true)
+                }} style={{
+                  width: '100%', height: 46, borderRadius: 13,
+                  border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
+                  background: 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.26), rgb(var(--tm-ee-gold-rgb) / 0.14))',
+                  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                  color: 'var(--tm-ee-gold-light)', fontSize: 14, fontWeight: 800, letterSpacing: '0.06em',
+                  cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.15)',
+                }}>+ LOG SHOT</button>
+              )}
             </div>
             </>)}
 
@@ -2003,6 +2175,23 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         setOverrides={setPlOverrides}
         shotBearing={shotBearing}
         elevAvailable={elevDelta != null}
+      />
+      <ShotCaptureSheet
+        open={captureOpen}
+        snapshot={captureSnap}
+        playsLike={capturePlays}
+        gpsUsable={gpsUsable}
+        bag={playerBag}
+        suggestedSlot={recommendClub(myBag, capturePlays ?? captureSnap)?.slot ?? null}
+        firstShot={captureBuf.length === 0}
+        prevToPin={captureBuf.length ? captureBuf[captureBuf.length - 1].toPin : null}
+        onConfirm={(shot) => {
+          if (activeScoring?.kind === 'outing') {
+            appendShot({ scope: `outing:${activeScoring.code}`, uid: user?.id, holeIdx: currentHole - 1 }, shot)
+          }
+          setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null)
+        }}
+        onClose={() => { setCaptureOpen(false); setCaptureSnap(null); setCapturePlays(null) }}
       />
       {showPicker && (
         <CoursePicker
@@ -2125,21 +2314,10 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
 
   // Recommend: pick the club whose avg_yards is closest to the target.
   function recommend() {
-    if (!usable.length) {
-      onOpenSheet?.()  // empty bag — surface the sheet's empty-state hint
-      return
-    }
-    const t = Number(targetYards)
-    if (!Number.isFinite(t)) {
-      onSelect?.(usable[Math.floor(usable.length / 2)])
-      return
-    }
-    let best = usable[0]
-    let bestDiff = Math.abs(Number(usable[0].avg_yards) - t)
-    for (const c of usable) {
-      const diff = Math.abs(Number(c.avg_yards) - t)
-      if (diff < bestDiff) { best = c; bestDiff = diff }
-    }
+    // Shared with the walk-and-confirm capture sheet — lib/clubModel
+    // recommendClub (extracted 2026-07-07; behavior identical).
+    const best = recommendClub(bag, targetYards)
+    if (!best) { onOpenSheet?.(); return }  // empty bag — surface the sheet
     onSelect?.(best)
   }
 

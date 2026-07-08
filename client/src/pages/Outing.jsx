@@ -32,7 +32,7 @@ import CreateWizard from './Outing/CreateWizard.jsx'
 import SpectateView from './Outing/SpectateView.jsx'
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
-export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo' | 'spectate'
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -44,6 +44,18 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
   // Reuses PublicLeaderboard; wrapped with a back chevron so the user
   // returns to OutingHub instead of being trapped on the public board.
   const [spectateCode, setSpectateCode] = useState(null)
+
+  // Slice 1 (2026-07-07): publish the active-scoring context UP to App so Eagle
+  // Eye can offer walk-and-confirm shot capture for the live outing. Only while
+  // actually scoring a live match; cleared when we leave (end/hub) or unmount.
+  useEffect(() => {
+    onActiveScoringChange?.(
+      view === 'live' && activeCode
+        ? { kind: 'outing', code: String(activeCode).toUpperCase() }
+        : null
+    )
+  }, [view, activeCode, onActiveScoringChange])
+  useEffect(() => () => onActiveScoringChange?.(null), [onActiveScoringChange])
 
   // 2026-05-07 PM — auto-resume an in-progress solo round on first
   // mount. Bug we're closing: pull-to-refresh during a solo round

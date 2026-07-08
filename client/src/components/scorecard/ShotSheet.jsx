@@ -24,7 +24,11 @@ const CLUBS = [
   { label: 'Pt', name: 'Putter' },
 ]
 
-const SHOT_LIES = [
+// Exported (2026-07-07) as the SINGLE source of valid lie keys — reused by
+// Eagle Eye's walk-and-confirm capture sheet so the two capture UIs can't
+// drift. Keys match the server VALID_LIES (shotFacts.js) incl. `recovery`
+// (labelled "Trouble"); never emit `trouble` as a key or the server drops it.
+export const SHOT_LIES = [
   { key: 'tee',      label: 'Tee' },
   { key: 'fairway',  label: 'Fairway' },
   { key: 'rough',    label: 'Rough' },

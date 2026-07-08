@@ -106,3 +106,25 @@ export function clubsForTarget(bag = [], targetYards) {
   const under = idx > 0 ? usable[idx - 1] : null          // next one under
   return under ? [over, under] : [over]
 }
+
+// Recommend the single club whose entered avg_yards is closest to targetYards.
+// Operates on the RAW bag (tm_user_clubs shape, `avg_yards`), skips the putter,
+// and returns the raw club object — or null when the bag has no usable club.
+// Unknown target → the middle club (a sensible neutral default). Extracted
+// verbatim from EagleEye's ClubToggle.recommend (2026-07-07) so the toggle AND
+// the walk-and-confirm capture sheet share one recommendation. Pure, testable.
+export function recommendClub(bag = [], targetYards) {
+  const usable = (bag || [])
+    .filter(c => c && c.slot !== 'putter' && Number.isFinite(Number(c.avg_yards)))
+    .sort((a, b) => Number(a.avg_yards) - Number(b.avg_yards)) // shortest → longest
+  if (!usable.length) return null
+  const t = Number(targetYards)
+  if (!Number.isFinite(t)) return usable[Math.floor(usable.length / 2)]
+  let best = usable[0]
+  let bestDiff = Math.abs(Number(usable[0].avg_yards) - t)
+  for (const c of usable) {
+    const diff = Math.abs(Number(c.avg_yards) - t)
+    if (diff < bestDiff) { best = c; bestDiff = diff }
+  }
+  return best
+}
