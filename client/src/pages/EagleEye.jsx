@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
-import { api, post } from '../lib/api.js'
+import { api, post, put } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, matchTeesToHoles, estimateAltFromPressure, pointInPolygon, classifyLie } from '../lib/geo.js'
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
@@ -1081,6 +1081,15 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // (2026-05-01)
   const [holeGeometries, setHoleGeometries] = useState({})
   const [osmLoading, setOsmLoading]         = useState(false)
+  // Curated per-course hole overrides (tm_course_holes, migration 043) — the
+  // AUTHORITATIVE layout for courses OSM can't place (no golf=hole routing, e.g.
+  // Beacon Hill). Kept in a ref so the OSM load can overlay them onto its result
+  // no matter which finishes first (override always wins). Shape:
+  // { tees:{[hole]:{lat,lon}}, greens:{...}, geoms:{[hole]:[{lat,lon},...]} }.
+  // A hole with tee+green here gets a real tee→(aim)→green line and reads as
+  // layout-confident downstream. (2026-07-09)
+  const [holeOverrides, setHoleOverrides]   = useState({ tees: {}, greens: {}, geoms: {}, count: 0 })
+  const holeOverridesRef = useRef({ tees: {}, greens: {}, geoms: {} })
 
   const watchIdRef = useRef(null)
   // Weather is fetched from open-meteo and changes slowly over a round, so
@@ -1225,10 +1234,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // 1️⃣ In-memory cache (survives re-renders within a page session)
     if (osmPositionCache.has(cacheKey) && hasGeom(osmPositionCache.get(cacheKey))) {
       const cached = osmPositionCache.get(cacheKey)
+      const ov = holeOverridesRef.current
       setCourseGeocoded(cached.geocoded)
-      setHolePositions(cached.tees)
-      setGreenPositions(cached.greens)
-      setHoleGeometries(cached.geoms || {})
+      setHolePositions({ ...cached.tees, ...ov.tees })
+      setGreenPositions({ ...cached.greens, ...ov.greens })
+      setHoleGeometries({ ...(cached.geoms || {}), ...ov.geoms })
       setGreenPolys(cached.polys || {})
       setFairwayPolys(cached.fairwayPolys || [])
       setBunkerPolys(cached.bunkerPolys || [])
@@ -1239,10 +1249,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     const stored = lsLoadOsm(cacheKey)
     if (stored && hasGeom(stored)) {
       osmPositionCache.set(cacheKey, stored) // also warm in-memory cache
+      const ov = holeOverridesRef.current
       setCourseGeocoded(stored.geocoded)
-      setHolePositions(stored.tees)
-      setGreenPositions(stored.greens)
-      setHoleGeometries(stored.geoms || {})
+      setHolePositions({ ...stored.tees, ...ov.tees })
+      setGreenPositions({ ...stored.greens, ...ov.greens })
+      setHoleGeometries({ ...(stored.geoms || {}), ...ov.geoms })
       setGreenPolys(stored.polys || {})
       setFairwayPolys(stored.fairwayPolys || [])
       setBunkerPolys(stored.bunkerPolys || [])
@@ -1418,9 +1429,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             log('[OSM] green polygons:', greenPolygons.length, '→ matched holes:', Object.keys(holePolys).length)
 
             log('[OSM] coverage:', Object.keys(holeTees).length, 'tees,', Object.keys(holeGreens).length, 'greens,', Object.keys(holeGeoms).length, 'geoms — gap-fills:', gapFills)
-            setHolePositions(holeTees)
-            setGreenPositions(holeGreens)
-            setHoleGeometries(holeGeoms)
+            // Curated overrides win over the OSM/reconstructed layout. Overlaid
+            // at setState only — the cache below stays PURE OSM so overrides can
+            // change independently without poisoning the geometry cache.
+            const ov = holeOverridesRef.current
+            setHolePositions({ ...holeTees, ...ov.tees })
+            setGreenPositions({ ...holeGreens, ...ov.greens })
+            setHoleGeometries({ ...holeGeoms, ...ov.geoms })
             setGreenPolys(holePolys)
             // ── Slice 4: course-wide fairway + bunker polygons for auto-lie ──
             // Parse golf=fairway / golf=bunker (ways + multipolygon `outer`
@@ -1461,6 +1476,37 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       .catch(err => { console.error('[OSM] fetch error:', err) })
       .finally(() => setOsmLoading(false))
   }, [courseCtx?.course?.id, courseCtx?.tee?.tee_name])
+
+  // ── Curated hole overrides (tm_course_holes) ──────────────────────────────
+  // Fetch the human-verified layout for this course and overlay it on top of
+  // the OSM/reconstructed result (override always wins). Runs alongside the OSM
+  // load; the ref-based overlay in the OSM effect + this functional merge both
+  // ensure overrides survive whichever finishes last. A hole with tee+green
+  // here draws a real, confident tee→(aim)→green line. (2026-07-09)
+  useEffect(() => {
+    const cid = courseCtx?.course?.id
+    holeOverridesRef.current = { tees: {}, greens: {}, geoms: {} }
+    setHoleOverrides({ tees: {}, greens: {}, geoms: {}, count: 0 })
+    if (!cid) return
+    let cancelled = false
+    api(`/api/courses/${cid}/holes`).then(d => {
+      if (cancelled || !d?.holes) return
+      const tees = {}, greens = {}, geoms = {}
+      for (const h of d.holes) {
+        if (h.tee) tees[h.hole] = h.tee
+        if (h.green) greens[h.hole] = h.green
+        if (h.tee && h.green) geoms[h.hole] = h.aim ? [h.tee, h.aim, h.green] : [h.tee, h.green]
+      }
+      if (cancelled) return
+      holeOverridesRef.current = { tees, greens, geoms }
+      setHoleOverrides({ tees, greens, geoms, count: Object.keys({ ...tees, ...greens }).length })
+      setHolePositions(p => ({ ...p, ...tees }))
+      setGreenPositions(p => ({ ...p, ...greens }))
+      setHoleGeometries(p => ({ ...p, ...geoms }))
+    }).catch(() => { /* no overrides yet — OSM/reconstruction stands */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseCtx?.course?.id])
 
   const fetchWeather = useCallback(async ({ lat, lon }) => {
     try {

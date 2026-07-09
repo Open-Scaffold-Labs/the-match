@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
+const db = require('../db')
 
 const GC_API = 'https://api.golfcourseapi.com/v1'
 const GC_KEY = process.env.GOLF_COURSE_API_KEY
@@ -134,6 +135,74 @@ router.get('/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[courses/get]', err)
     res.status(500).json({ error: 'Failed' })
+  }
+})
+
+// ── Curated per-course hole overrides (tm_course_holes, migration 043) ──
+// The AUTHORITATIVE layout Eagle Eye uses before any OSM reconstruction — the
+// fix for courses OSM maps without golf=hole routing (e.g. Beacon Hill). Mapped
+// once via the in-app editor, then exact forever. (2026-07-09)
+
+// GET /api/courses/:id/holes — mapped holes for a course (client prefers these).
+router.get('/:id/holes', requireAuth, async (req, res) => {
+  const courseId = parseInt(req.params.id, 10)
+  if (!Number.isInteger(courseId)) return res.status(400).json({ error: 'bad course id' })
+  try {
+    const { rows } = await db.query(
+      `SELECT hole, tee_lat, tee_lon, green_lat, green_lon, aim_lat, aim_lon
+         FROM tm_course_holes WHERE course_id = $1 ORDER BY hole`,
+      [courseId]
+    )
+    const pt = (a, b) => (a != null && b != null ? { lat: a, lon: b } : null)
+    res.json({
+      course_id: courseId,
+      holes: rows.map(r => ({
+        hole: r.hole,
+        tee:   pt(r.tee_lat, r.tee_lon),
+        green: pt(r.green_lat, r.green_lon),
+        aim:   pt(r.aim_lat, r.aim_lon),
+      })),
+    })
+  } catch (err) {
+    console.error('[courses/holes GET]', err.message)
+    res.status(500).json({ error: 'Failed to load hole overrides' })
+  }
+})
+
+// PUT /api/courses/:id/holes — upsert the sent holes. Body:
+// { holes: [{ hole, tee:{lat,lon}|null, green:{lat,lon}|null, aim:{lat,lon}|null }] }
+router.put('/:id/holes', requireAuth, async (req, res) => {
+  const courseId = parseInt(req.params.id, 10)
+  if (!Number.isInteger(courseId)) return res.status(400).json({ error: 'bad course id' })
+  const holes = Array.isArray(req.body?.holes) ? req.body.holes : null
+  if (!holes) return res.status(400).json({ error: 'holes array required' })
+  const num = v => (typeof v === 'number' && Number.isFinite(v)) ? v : null
+  try {
+    let saved = 0
+    for (const h of holes) {
+      const hole = parseInt(h.hole, 10)
+      if (!(hole >= 1 && hole <= 18)) continue
+      await db.query(
+        `INSERT INTO tm_course_holes
+           (course_id, hole, tee_lat, tee_lon, green_lat, green_lon, aim_lat, aim_lon, updated_by, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+         ON CONFLICT (course_id, hole) DO UPDATE SET
+           tee_lat=EXCLUDED.tee_lat, tee_lon=EXCLUDED.tee_lon,
+           green_lat=EXCLUDED.green_lat, green_lon=EXCLUDED.green_lon,
+           aim_lat=EXCLUDED.aim_lat, aim_lon=EXCLUDED.aim_lon,
+           updated_by=EXCLUDED.updated_by, updated_at=now()`,
+        [courseId, hole,
+         num(h.tee?.lat), num(h.tee?.lon),
+         num(h.green?.lat), num(h.green?.lon),
+         num(h.aim?.lat), num(h.aim?.lon),
+         req.user?.id ?? null]
+      )
+      saved++
+    }
+    res.json({ ok: true, saved })
+  } catch (err) {
+    console.error('[courses/holes PUT]', err.message)
+    res.status(500).json({ error: 'Failed to save hole overrides' })
   }
 })
 
