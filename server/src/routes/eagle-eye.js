@@ -19,6 +19,11 @@ const db         = require('../db')
 const overpassCache = new Map()
 const OVERPASS_CACHE_TTL = 60 * 60 * 1000
 const OSM_DB_TTL_MS = 90 * 24 * 60 * 60 * 1000
+// Upper bound on how long we wait for the durable L2 write before responding.
+// The write is awaited (not fire-and-forget) so it can't be dropped when the
+// Vercel function freezes after res.json(); this cap ensures a hung DB can
+// never stall the client — a normal INSERT is well under this. (2026-07-09)
+const OSM_WRITE_MAX_WAIT_MS = 3000
 
 // Mirror order matters: a hung mirror at the front of the list delays
 // every fallback behind it. lz4 (CDN-fronted main instance) has been the
@@ -111,15 +116,25 @@ router.get('/osm', async (req, res) => {
         if (!response.ok) { lastErr = `${mirror} → ${response.status}`; continue }
         const data = await response.json()
         overpassCache.set(cacheKey, { data, ts: Date.now() })
-        // Persist durably (fire-and-forget — a write failure must never break
-        // the response the client is waiting on).
-        db.query(
-          `INSERT INTO tm_osm_cache (osm_type, bbox, data, fetched_at)
-             VALUES ($1, $2, $3, now())
-           ON CONFLICT (osm_type, bbox)
-             DO UPDATE SET data = EXCLUDED.data, fetched_at = now()`,
-          [osmType, bbox, data]
-        ).catch(e => console.error('[eagle-eye/osm] L2 cache write failed:', e.message))
+        // Persist durably BEFORE responding. This was fire-and-forget, but on
+        // Vercel the function can freeze the moment res.json() returns, killing
+        // an in-flight INSERT — reproduced 2026-07-09: large `surfaces` payloads
+        // (80+ polygons w/ full geometry) lost the race to the freeze and never
+        // reached L2, so every cold start re-hit Overpass. Awaiting the write
+        // fixes that; it only costs latency on the FIRST fetch of each
+        // (osm_type, bbox) — every later hit is served from L1/L2 cache. The
+        // write error is still swallowed so a DB hiccup can never break the
+        // response, and the race cap keeps a hung DB from stalling the client.
+        await Promise.race([
+          db.query(
+            `INSERT INTO tm_osm_cache (osm_type, bbox, data, fetched_at)
+               VALUES ($1, $2, $3, now())
+             ON CONFLICT (osm_type, bbox)
+               DO UPDATE SET data = EXCLUDED.data, fetched_at = now()`,
+            [osmType, bbox, data]
+          ).catch(e => console.error('[eagle-eye/osm] L2 cache write failed:', e.message)),
+          new Promise(resolve => setTimeout(resolve, OSM_WRITE_MAX_WAIT_MS)),
+        ])
         return res.json(data)
       } catch (e) {
         lastErr = `${mirror} → ${e.name === 'AbortError' ? `timeout after ${MIRROR_TIMEOUT_MS}ms` : e.message}`
