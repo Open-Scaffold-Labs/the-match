@@ -451,6 +451,14 @@ export default function HoleMapGL({
     const tee = holePositions[currentHole]
     const green = greenPositions[currentHole]
     greenRef.current = green || null
+    // Layout confidence: a hole bound from an authoritative golf=hole centerline
+    // has geometry; a yardage-reconstructed hole (refless course — e.g. Beacon
+    // Hill, no golf=hole ways) does not. Without it we must NOT draw the guessed
+    // tee or the tee→green line: a wrong line that crosses other holes is worse
+    // than none. The green + GPS distance stay (green-anchored, reliable). Real
+    // routing reconstruction is the follow-up; this gate keeps the beta honest
+    // in the meantime. (2026-07-09)
+    const layoutConfident = Array.isArray(holeGeometries[currentHole]) && holeGeometries[currentHole].length >= 2
     const meta = holeMeta()
     const par = meta?.par ?? 4
     const totalYards = meta?.yardage ?? Math.round(haversineYards(tee, green) || 0)
@@ -463,8 +471,9 @@ export default function HoleMapGL({
       : (green ? polyF(ringCoords(green, 13)) : null)
     map.getSource('green')?.setData(greenFeature ? fc([greenFeature]) : fc([]))
 
-    // tee + green DOM markers
-    if (tee) {
+    // tee + green DOM markers. Tee only when the layout is confident — a guessed
+    // tee on a refless course sits at a mis-paired spot, so hide it.
+    if (tee && layoutConfident) {
       if (!teeMarkerRef.current) {
         const el = document.createElement('div')
         el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:var(--tm-ee-gold);border:2px solid #fff;box-shadow:0 0 8px rgb(var(--tm-ee-gold-rgb) / 0.8)'
@@ -486,7 +495,7 @@ export default function HoleMapGL({
     const aim = aimRef.current || (tee && green
       ? getDefaultAim({ par, totalYards, teePt: tee, greenPt: green, geometry: holeGeometries[currentHole] })
       : null)
-    if (tee && green && aim) {
+    if (tee && green && aim && layoutConfident) {
       if (!aimMarkerRef.current) {
         // 44px transparent hit area (touch-target min) wrapping a 26px visual.
         const el = document.createElement('div')
@@ -510,14 +519,20 @@ export default function HoleMapGL({
     // cinematic course-up camera: bearing tee→green, pitched down the fairway.
     // Zoom adapts to hole length so the green stays on screen on long par 5s
     // (mirrors the Leaflet map's length-based zoom; a touch looser for pitch).
-    if (tee && green) {
+    const prefersReduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (tee && green && layoutConfident) {
       const brg = calcBearing(tee, green)
       const mid = [(tee.lon + green.lon) / 2, (tee.lat + green.lat) / 2]
       const holeDist = haversineYards(tee, green) || 0
       const zoom = holeDist > 550 ? 16.2 : holeDist > 220 ? 16.8 : 17.4
-      const prefersReduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
       const cam = { center: mid, bearing: brg, pitch: prefersReduce ? 0 : 62, zoom }
       if (intro && !prefersReduce) map.flyTo({ ...cam, duration: 3200, essential: true, curve: 1.4 })
+      else map.jumpTo(cam)
+    } else if (green) {
+      // Low-confidence layout: no trustworthy tee, so frame top-down on the
+      // green (north-up, no fabricated course-up bearing) — an honest view.
+      const cam = { center: [green.lon, green.lat], bearing: 0, pitch: 0, zoom: 16.6 }
+      if (intro && !prefersReduce) map.flyTo({ ...cam, duration: 2000, essential: true })
       else map.jumpTo(cam)
     }
   }
@@ -530,6 +545,7 @@ export default function HoleMapGL({
     if (!map || !readyRef.current || !gl) return
     const tee = holePositions[currentHole]
     const green = greenPositions[currentHole]
+    const layoutConfident = Array.isArray(holeGeometries[currentHole]) && holeGeometries[currentHole].length >= 2
     const clearAll = () => {
       map.getSource('fairway')?.setData(fc([]))
       map.getSource('landing')?.setData(fc([]))
@@ -541,7 +557,9 @@ export default function HoleMapGL({
       ringLabelsRef.current = []
       for (const r of [teeAimLabelRef, aimGreenLabelRef, landingLabelRef]) { if (r.current) { r.current.remove(); r.current = null } }
     }
-    if (!tee || !green) return clearAll()
+    // No trustworthy tee-based line on a low-confidence (reconstructed) layout:
+    // clear the tee→green line + its segment/ring labels. Green + GPS remain.
+    if (!tee || !green || !layoutConfident) return clearAll()
     const meta = holeMeta()
     const totalYards = meta?.yardage ?? Math.round(haversineYards(tee, green) || 0)
     const par = meta?.par ?? 4
