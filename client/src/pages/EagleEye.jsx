@@ -1205,13 +1205,25 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // fetch per (course, tee) so stale v2 entries without polygons fall
     // back cleanly to the single center number.
     // v4 (2026-07-08): added course-wide fairway + bunker polygons
-    // (fairwayPolys/bunkerPolys) for Slice-4 auto-lie. Bumping the key forces
-    // one fresh Overpass fetch per (course, tee) so pre-v4 entries — which lack
-    // the surface polygons — re-fetch and auto-lie lights up immediately.
-    const cacheKey = `v4-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+    // (fairwayPolys/bunkerPolys) for Slice-4 auto-lie.
+    // v5 (2026-07-09): refless-course tee binding + resilient geocode changed
+    // what a successful load produces (tees now bind on courses OSM maps as
+    // unlabeled polygons). Bump forces one fresh fetch so a pre-v5 entry — which
+    // may hold an empty / tee-less payload written by the old abort-on-Nominatim
+    // path — is discarded instead of replayed forever.
+    const cacheKey = `v5-${courseCtx.course.id}-${courseCtx.tee.tee_name}`
+
+    // A cached payload with neither tees nor greens is not useful and must NOT
+    // be served on an early return — otherwise one bad load (a transient
+    // geocode/Overpass miss) poisons the course until the 7-day TTL expires and
+    // the map stays blank on every reload (exactly the Beacon Hill symptom:
+    // weather showed from the centroid, but geometry replayed empty). Treat
+    // empty as a cache miss → re-fetch; the server's Overpass L1/L2 cache
+    // absorbs the repeat. (2026-07-09)
+    const hasGeom = p => !!p && ((p.tees && Object.keys(p.tees).length > 0) || (p.greens && Object.keys(p.greens).length > 0))
 
     // 1️⃣ In-memory cache (survives re-renders within a page session)
-    if (osmPositionCache.has(cacheKey)) {
+    if (osmPositionCache.has(cacheKey) && hasGeom(osmPositionCache.get(cacheKey))) {
       const cached = osmPositionCache.get(cacheKey)
       setCourseGeocoded(cached.geocoded)
       setHolePositions(cached.tees)
@@ -1225,7 +1237,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     }
     // 2️⃣ localStorage cache (survives page reloads — 7-day TTL)
     const stored = lsLoadOsm(cacheKey)
-    if (stored) {
+    if (stored && hasGeom(stored)) {
       osmPositionCache.set(cacheKey, stored) // also warm in-memory cache
       setCourseGeocoded(stored.geocoded)
       setHolePositions(stored.tees)
