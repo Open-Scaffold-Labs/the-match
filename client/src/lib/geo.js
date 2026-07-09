@@ -159,6 +159,43 @@ export function matchPolygonsToHoles(greenCentersByHole, polygons, thresholdYard
   return out
 }
 
+// Assign each hole a tee for courses that OSM maps WITHOUT golf=hole ways and
+// WITHOUT ref-tagged tee nodes (e.g. Beacon Hill CC — 45 unlabeled tee nodes,
+// zero hole numbers). Greens are recovered first (matchGreensToHoles); this
+// then picks, per hole, the UNUSED tee whose distance to that hole's green best
+// matches the scorecard yardage — so the tee lands the right distance in the
+// right direction. That's enough for the tee marker and the straight tee→green
+// hole line to draw (HoleMapGL already falls back to a straight line when it
+// has no golf=hole geometry). Mirrors matchGreensToHoles' most-distinctive-
+// -yardage-first ordering to reduce cascading mis-assignments. `greensByHole`
+// = { [holeNum]: {lat,lon} }; `scorecard` = [{ hole, yardage }]. Returns
+// { [holeNum]: {lat,lon} }. (2026-07-09)
+export function matchTeesToHoles(tees, greensByHole, scorecard, maxDiffYards = 60) {
+  const assigned = {}
+  if (!Array.isArray(tees) || !tees.length || !Array.isArray(scorecard) || !scorecard.length) return assigned
+  const used = new Set()
+  const yards = scorecard.map(h => h.yardage).filter(y => y != null).sort((a, b) => a - b)
+  const medY = yards.length ? yards[Math.floor(yards.length / 2)] : 0
+  const order = [...scorecard].sort((a, b) => Math.abs((b.yardage ?? 0) - medY) - Math.abs((a.yardage ?? 0) - medY))
+  for (const hole of order) {
+    const green = greensByHole?.[hole.hole]
+    if (!green || hole.yardage == null) continue
+    let bestIdx = -1, bestDiff = Infinity
+    for (let i = 0; i < tees.length; i++) {
+      if (used.has(i)) continue
+      const d = haversineYards(tees[i], green)
+      if (d == null) continue
+      const diff = Math.abs(d - hole.yardage)
+      if (diff < bestDiff) { bestDiff = diff; bestIdx = i }
+    }
+    if (bestIdx >= 0 && bestDiff <= maxDiffYards) {
+      assigned[hole.hole] = tees[bestIdx]
+      used.add(bestIdx)
+    }
+  }
+  return assigned
+}
+
 // Ray-cast (even-odd) point-in-polygon test. `pt` = {lat,lon}; `polygon` =
 // [{lat,lon}, ...]. Treats lat/lon as planar — fine at green scale (~30 yds),
 // where curvature is negligible. Returns false for a degenerate polygon

@@ -7,7 +7,7 @@
 // Dependency-free (matches side-bets.test.mjs / handicap-milestone.test.mjs).
 // (2026-06-06 — Eagle Eye next-level: proven math core for F/C/B + plays-like.)
 
-import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon, classifyLie, distanceToPolygonEdgeMeters, LIE_SAND_ACC_MAX, LIE_GEN_ACC_MAX, LIE_MARGIN_FLOOR } from './geo.js'
+import { haversineYards, calcBearing, computePlaysLike, polygonCentroid, greenFCB, matchPolygonsToHoles, matchTeesToHoles, estimateAltFromPressure, pointInPolygon, classifyLie, distanceToPolygonEdgeMeters, LIE_SAND_ACC_MAX, LIE_GEN_ACC_MAX, LIE_MARGIN_FLOOR } from './geo.js'
 
 let passed = 0, failed = 0
 const fails = []
@@ -92,6 +92,29 @@ assert(matched['2'] === greenB, 'hole 2 → greenB')
 // A hole whose center is far from every polygon stays unassigned.
 const farCenters = { 9: { lat: 80, lon: 80 } }
 assert(Object.keys(matchPolygonsToHoles(farCenters, [greenA, greenB], 40)).length === 0, 'far hole → unassigned (no false match)')
+
+// ── matchTeesToHoles (refless-course tee gap-fill, 2026-07-09) ──
+// ~121,700 yds per degree of latitude, so tees due-north of a green sit a known
+// yardage away. green1/green2 are far apart so cross-hole matches can't collide.
+const tgGreen1 = { lat: 40, lon: -74 }
+const tgGreen2 = { lat: 41, lon: -75 }
+const tee350 = { lat: 40 + 350 / 121700, lon: -74 } // ~350y N of green1
+const tee150 = { lat: 41 + 150 / 121700, lon: -75 } // ~150y N of green2
+const teeDecoy = { lat: 0, lon: 0 }
+const tgMatched = matchTeesToHoles(
+  [teeDecoy, tee150, tee350],
+  { 1: tgGreen1, 2: tgGreen2 },
+  [{ hole: 1, yardage: 350 }, { hole: 2, yardage: 150 }],
+)
+assert(tgMatched[1] === tee350, 'tee matcher: hole 1 → 350y tee')
+assert(tgMatched[2] === tee150, 'tee matcher: hole 2 → 150y tee')
+assert(!Object.values(tgMatched).includes(teeDecoy), 'tee matcher: decoy tee never used')
+// A hole with no matched green is skipped — no tee can be bound without a target.
+assert(Object.keys(matchTeesToHoles([tee350], {}, [{ hole: 1, yardage: 350 }])).length === 0, 'tee matcher: no green → hole skipped')
+// A tee whose closest yardage diff exceeds the threshold is rejected (no false bind).
+assert(Object.keys(matchTeesToHoles([{ lat: 40 + 600 / 121700, lon: -74 }], { 1: tgGreen1 }, [{ hole: 1, yardage: 350 }])).length === 0, 'tee matcher: >60y off yardage → rejected')
+// Dedup: two holes wanting the one available tee — only one may claim it.
+assert(Object.keys(matchTeesToHoles([tee350], { 1: tgGreen1, 2: tgGreen1 }, [{ hole: 1, yardage: 350 }, { hole: 2, yardage: 350 }])).length === 1, 'tee matcher: single tee not double-assigned')
 
 // ── pointInPolygon (ray-cast; on-green detection, Slice 3) ──
 // `square` is the unit green from (0,0)→(0.001,0.001) defined above.

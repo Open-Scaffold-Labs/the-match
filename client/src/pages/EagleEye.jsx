@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post } from '../lib/api.js'
-import { greenFCB, matchPolygonsToHoles, estimateAltFromPressure, pointInPolygon, classifyLie } from '../lib/geo.js'
+import { greenFCB, matchPolygonsToHoles, matchTeesToHoles, estimateAltFromPressure, pointInPolygon, classifyLie } from '../lib/geo.js'
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
@@ -1239,24 +1239,50 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     }
 
     const q = [club_name, city, state].filter(Boolean).join(', ')
+    // The course's OWN coordinates (golfcourseapi, via /api/courses/:id) are the
+    // authoritative anchor. We used to geocode via public Nominatim and ABORT the
+    // entire OSM load when it returned nothing — which blanked the whole Eye (no
+    // tees/greens/lines/weather) on any course Nominatim couldn't find, e.g.
+    // Beacon Hill CC. Now the course lat/lon anchors the bbox; Nominatim only
+    // *tightens* it (and only when it resolves near the anchor, so a same-named
+    // course elsewhere can't hijack the box). A Nominatim miss no longer aborts.
+    // (2026-07-09)
+    const courseLat = Number(courseCtx.course?.latitude)
+    const courseLon = Number(courseCtx.course?.longitude)
+    const haveCourseLoc = Number.isFinite(courseLat) && Number.isFinite(courseLon)
 
     fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
       .then(r => r.json())
+      .catch(() => null)   // flaky public dep — a miss must degrade, not abort
       .then(data => {
-        if (!data[0]) { setOsmLoading(false); return }
-        // Store bounding box for fitBounds in map
-        const bb = data[0].boundingbox // [minlat, maxlat, minlon, maxlon]
-        const gc = {
-          lat: parseFloat(data[0].lat),
-          lon: parseFloat(data[0].lon),
-          bbox: bb ? {
-            south: parseFloat(bb[0]), north: parseFloat(bb[1]),
-            west:  parseFloat(bb[2]), east:  parseFloat(bb[3]),
-          } : null,
+        const hit = Array.isArray(data) ? data[0] : null
+        let gc = null
+        if (hit) {
+          const nLat = parseFloat(hit.lat), nLon = parseFloat(hit.lon)
+          // Trust Nominatim's tighter bbox only if it lands near the course
+          // anchor (≤5000 yds); otherwise it's a same-named course elsewhere.
+          const near = !haveCourseLoc || (Number.isFinite(nLat) && Number.isFinite(nLon) &&
+            (haversineYards({ lat: courseLat, lon: courseLon }, { lat: nLat, lon: nLon }) ?? Infinity) <= 5000)
+          if (near) {
+            const bb = hit.boundingbox // [minlat, maxlat, minlon, maxlon]
+            gc = {
+              lat: Number.isFinite(nLat) ? nLat : courseLat,
+              lon: Number.isFinite(nLon) ? nLon : courseLon,
+              bbox: bb ? {
+                south: parseFloat(bb[0]), north: parseFloat(bb[1]),
+                west:  parseFloat(bb[2]), east:  parseFloat(bb[3]),
+              } : null,
+            }
+          }
         }
+        // Fall back to the course's own coordinates when Nominatim missed or was
+        // rejected as a namesake — this is the resilience that keeps the Eye alive.
+        if (!gc && haveCourseLoc) gc = { lat: courseLat, lon: courseLon, bbox: null }
+        if (!gc) { setOsmLoading(false); return }   // no location anywhere — can't query OSM
         setCourseGeocoded(gc)
 
-        // Use tight Nominatim bbox for Overpass (avoids picking up neighboring courses)
+        // Use tight Nominatim bbox for Overpass (avoids picking up neighboring
+        // courses); else a ~1mi box around the course anchor.
         const ovBbox = gc.bbox
           ? `${gc.bbox.south},${gc.bbox.west},${gc.bbox.north},${gc.bbox.east}`
           : `${gc.lat - 0.015},${gc.lon - 0.015},${gc.lat + 0.015},${gc.lon + 0.015}`
@@ -1352,6 +1378,21 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             if (stillNoAnything.length === scorecard.length && unrefGreens.length >= 9) {
               const ordered = nearestNeighborSort(unrefGreens, gc.lat, gc.lon)
               ordered.forEach((g, i) => { holeGreens[i + 1] = g })
+            }
+
+            // ── Tee gap-fill for refless / no-golf=hole courses (e.g. Beacon
+            // Hill: 45 unlabeled tee nodes, zero hole numbers). A hole may now
+            // have a green but still no tee — so the tee marker and the straight
+            // tee→green hole line can't draw. Bind each tee-less hole the UNUSED
+            // tee whose green-distance best matches the scorecard yardage.
+            // (2026-07-09)
+            const stillNoTee = scorecard.filter(h => !holeTees[h.hole] && holeGreens[h.hole])
+            if (stillNoTee.length > 0 && unrefTees.length > 0) {
+              const matchedTees = matchTeesToHoles(unrefTees, holeGreens, stillNoTee)
+              for (const [hStr, tee] of Object.entries(matchedTees)) {
+                holeTees[parseInt(hStr)] = tee
+                gapFills++
+              }
             }
 
             // ── Front/Center/Back: associate green polygons to holes ──
@@ -1466,10 +1507,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // the throttled fetch in the watch handler. (3.1 visibility fix 2026-06-25)
   useEffect(() => {
     if (weather) return
-    const c = greenPositions[currentHole] || holePositions[currentHole]
+    // Prefer the current hole's coords; fall back to the course centroid so the
+    // wind/temp pills never depend on per-hole binding — on a refless course
+    // (no golf=hole, no ref tags) a hole may bind no coords at all, which is
+    // exactly what blanked the pills at Beacon Hill. courseGeocoded is now
+    // always set (course lat/lon anchor), so this is a reliable last resort.
+    // (2026-07-09)
+    const c = greenPositions[currentHole] || holePositions[currentHole] || courseGeocoded
     if (c && c.lat != null && c.lon != null) fetchWeather({ lat: c.lat, lon: c.lon })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [greenPositions, holePositions, currentHole, weather])
+  }, [greenPositions, holePositions, currentHole, weather, courseGeocoded])
 
   // Plays-like sheet (Phase 3.1) — the transparent, adjustable breakdown.
   // `plOverrides` holds per-factor manual values; a present key = "manual"
