@@ -1,7 +1,17 @@
 # Next-Session Handoff — 2026-07-10 (ACTIVE; supersedes 2026-07-09)
 
+> **UPDATE (2026-07-10 later session):** the NEXT BUILD below is DONE — the
+> "Map this course" editor SHIPPED (`ad429fe`→`41333fa`, all slices, gate
+> green; spec+checklist [[synthesis/map-this-course-editor-build-spec-2026-07-10]];
+> log [2026-07-10 AM2]). The NotebookLM blocker is CLEARED (bucket 50/50 →
+> 41/50 after orphan deletes + [[synthesis/f5-specs-rollup]]; log [2026-07-10 AM]).
+> **NEXT SESSION = runtime verification:** the editor spec's §6 device
+> checklist (Bayonne mapping pass) + Phase 1/2 §7 device matrices below.
+> Open item #2 (uncommitted draft) is resolved — it's committed as S0.
+
 Mandatory start: **roll-call → wiki/index.md → this file + latest `wiki/log.md` entries**
-(PM1–PM9 for this session), then the two live specs:
+(PM1–PM9 + AM/AM2 for the editor session), then the live specs:
+[[synthesis/map-this-course-editor-build-spec-2026-07-10]],
 [[synthesis/play-funnel-phase1-build-spec-2026-07-10]] and
 [[synthesis/play-oncourse-phase2-build-spec-2026-07-10]].
 
