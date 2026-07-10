@@ -221,6 +221,9 @@ export default function HoleMapGL({
   editDraft = null,     // current hole's draft { tee, green, aim } (nulls allowed)
   editCandidates = null,// { greens:[{lat,lon}], tees:[{lat,lon}] } — OSM guide dots
   onMapTap,             // (coord) => void — a map tap in edit mode (raw lat/lon)
+  shotMode = false,     // Phase 3 flyover SHOT editor — parallel seam to editMode
+  shotDraft = null,     // { points:[{lat,lon,sel?}], green?:{lat,lon} } — current hole's ordered shots
+  onShotTap,            // ({lat,lon,hit}) => void — map tap in shot mode; hit = tapped pin index|null
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -275,6 +278,17 @@ export default function HoleMapGL({
   useEffect(() => { editDraftRef.current = editDraft; redrawEditRef.current() }, [editDraft])
   useEffect(() => { editCandRef.current = editCandidates; redrawEditRef.current() }, [editCandidates])
   useEffect(() => { onMapTapRef.current = onMapTap }, [onMapTap])
+  // Phase 3 shot-editor snapshots — PARALLEL to the course-editor seam above
+  // (deliberately not shared: the course editor is one day old and device-
+  // unverified; the two are never active simultaneously). Same contract:
+  // ref-guarded, empty-when-off, redraw on every prop change. (2026-07-10)
+  const shotModeRef = useRef(shotMode)
+  const shotDraftRef = useRef(shotDraft)
+  const onShotTapRef = useRef(onShotTap)
+  const redrawShotsRef = useRef(() => {})
+  useEffect(() => { shotModeRef.current = shotMode; redrawShotsRef.current() }, [shotMode])
+  useEffect(() => { shotDraftRef.current = shotDraft; redrawShotsRef.current() }, [shotDraft])
+  useEffect(() => { onShotTapRef.current = onShotTap }, [onShotTap])
   useEffect(() => { gpsRef.current = gps }, [gps])
   useEffect(() => { clubRef.current = { yards: clubYards, label: clubLabel } }, [clubYards, clubLabel])
   useEffect(() => { bagArcsRef.current = bagArcs; redrawRef.current() }, [bagArcs]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -453,6 +467,34 @@ export default function HoleMapGL({
           onMapTapRef.current?.({ lat: e.lngLat.lat, lon: e.lngLat.lng })
         })
         redrawEditRef.current()
+
+        // ── Phase 3 flyover SHOT editor overlays (guarded by shotModeRef) ──
+        // Ordered shot pins + the ball-path polyline. Empty + inert unless a
+        // page passes shotMode (EagleEye never does — zero risk to Play).
+        map.addSource('shotLine', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'shotLine', type: 'line', source: 'shotLine', paint: {
+          'line-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'line-width': 2.5, 'line-dasharray': [2, 1.4],
+        }, layout: { 'line-cap': 'round' } })
+        map.addSource('shotPts', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'shotPts', type: 'circle', source: 'shotPts', paint: {
+          'circle-radius': ['get', 'r'], 'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2, 'circle-stroke-color': '#fff',
+        } })
+        // A tap in shot mode: report whether it hit an existing pin (select)
+        // or open map (add). Finger-sized 12px query pad. Inert when off.
+        map.on('click', (e) => {
+          if (!shotModeRef.current) return
+          let hit = null
+          try {
+            const feats = map.queryRenderedFeatures(
+              [[e.point.x - 12, e.point.y - 12], [e.point.x + 12, e.point.y + 12]],
+              { layers: ['shotPts'] }
+            )
+            if (feats.length) hit = feats[0].properties.i
+          } catch { /* layer not ready */ }
+          onShotTapRef.current?.({ lat: e.lngLat.lat, lon: e.lngLat.lng, hit })
+        })
+        redrawShotsRef.current()
 
         // tap-to-measure popup removed 2026-07 (Matt): redundant with the aim
         // line's distances, looked poor, and the popup didn't dismiss on tap.
@@ -740,6 +782,29 @@ export default function HoleMapGL({
     )
   }
   redrawEditRef.current = redrawEdit
+
+  // ── Phase 3 shot-editor redraw — same contract as redrawEdit (2026-07-10) ──
+  function redrawShots() {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    const d = shotModeRef.current ? shotDraftRef.current : null
+    if (!d || !Array.isArray(d.points) || d.points.length === 0) {
+      map.getSource('shotPts')?.setData(fc([]))
+      map.getSource('shotLine')?.setData(fc([]))
+      return
+    }
+    const gold = eeColor('--tm-ee-gold', null, '#C9A040')
+    const pulse = eeColor('--tm-ee-gold-pulse', null, '#F5E070')
+    map.getSource('shotPts')?.setData(fc(d.points.map((p, i) => ({
+      type: 'Feature',
+      properties: { i, color: p.sel ? pulse : gold, r: p.sel ? 10 : 7 },
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+    }))))
+    const coords = d.points.map(p => [p.lon, p.lat])
+    if (d.green) coords.push([d.green.lon, d.green.lat])
+    map.getSource('shotLine')?.setData(coords.length >= 2 ? fc([lineF(coords)]) : fc([]))
+  }
+  redrawShotsRef.current = redrawShots
 
   // Report the current aim up to the parent (Option B). userPlaced=false for the
   // auto-default (par-aware layup / green); true once the golfer drags it. Yards
