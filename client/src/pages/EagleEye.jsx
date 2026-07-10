@@ -2250,7 +2250,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   setCaptureOpen(true)
                 }} style={{
                   position: 'absolute', right: 0, bottom: 0,
-                  pointerEvents: 'auto', height: 36, padding: '0 13px', borderRadius: 11,
+                  pointerEvents: 'auto', height: 36, padding: '0 15px', borderRadius: 999,
                   border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
                   background: 'rgb(var(--tm-ee-glass-rgb) / 0.62)',
                   backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
