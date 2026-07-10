@@ -1800,7 +1800,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               )}
             </div>
           </div>
-          {/* Conditions pills */}
+          {/* Conditions pills — map-view HUD only. Hidden while the Play start
+              screen is showing (no course OR showStart): the start screen has
+              its own location affordance and no use for wind/temp/scorecard
+              chrome. (2026-07-10 — Matt: clean start screen.) */}
+          {courseCtx && !showStart && (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {/* Tap to enable GPS when off, or refresh the exact location when
                 on — requestLocation() re-requests a fresh fix and (re)starts
@@ -1864,12 +1868,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* ── Hole selector ── one clean glass pill with ‹ › navigation, instead
             of the old cluttered 10-chip strip (the biggest "cheap" tell). The
             number+par read as a single elegant control. (2026-06-26 premium pass) */}
-        {courseCtx && (() => {
+        {courseCtx && !showStart && (() => {
           const idx = teeHoles.findIndex(h => h.hole === currentHole)
           const cur = teeHoles[idx] || teeHoles[0]
           const go = (delta) => {
@@ -2352,7 +2357,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           over with ▲ (longer) and ▼ (shorter) arrows around the
           selected club. Each toggle press updates the landing-zone
           ring on the map. Tap the center to clear. (2026-05-01) */}
-      {!showPicker && courseCtx && !bigMode && (
+      {!showPicker && courseCtx && !showStart && !bigMode && (
         <ClubToggle
           bag={myBag}
           selected={selectedClub}
@@ -2365,7 +2370,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
       {/* My-bag arcs toggle (Phase 3.3) — summon the own-club distance zones.
           Calm by default; mutually exclusive with single-club selection. */}
-      {!showPicker && courseCtx && !bigMode && (
+      {!showPicker && courseCtx && !showStart && !bigMode && (
         <button
           onClick={() => {
             const turningOn = !bagArcsOn
@@ -2399,7 +2404,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           (tm-eye-rings); default off keeps the map clean (the market's #1
           documented overlay failure is clutter). Sits above ARCS on the same
           right-edge control rail — one coherent glass column. */}
-      {!showPicker && courseCtx && !bigMode && (
+      {!showPicker && courseCtx && !showStart && !bigMode && (
         <button
           onClick={toggleRings}
           aria-pressed={ringsOn}
