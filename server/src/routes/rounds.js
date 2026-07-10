@@ -43,8 +43,14 @@ router.get('/', async (req, res) => {
 
 // POST /api/rounds
 router.post('/', async (req, res) => {
-  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps, putts, firstPutts } = req.body
+  const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps, putts, firstPutts, courseId } = req.body
   const total = scores?.reduce((s, x) => s + (x ?? 0), 0) ?? 0
+
+  // Phase 3 (2026-07-10, migration 044) — golfcourseapi course id so the
+  // post-round shot editor can load hole geometry. Free-form courses → null.
+  const cleanCourseId = Number.isFinite(Number(courseId)) && Number(courseId) > 0
+    ? Math.trunc(Number(courseId))
+    : null
 
   // 2026-05-07 PM — holePars accepted from solo client so the
   // server can detect per-hole achievements (first_birdie, first_eagle,
@@ -96,15 +102,16 @@ router.post('/', async (req, res) => {
 
   const row = await db.one(
     `INSERT INTO tm_rounds
-       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars, hole_handicaps, putts, first_putts)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       (user_id, course_name, course_par, course_rating, slope_rating, game_type, scores, shots, total, hole_pars, hole_handicaps, putts, first_putts, course_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING id`,
     [req.user.id, courseName, coursePar ?? 72, courseRating, slopeRating,
      gameType ?? 'stroke', JSON.stringify(scores ?? []), JSON.stringify(cleanShots ?? []), total,
      cleanHolePars ? JSON.stringify(cleanHolePars) : null,
      cleanHoleHandicaps ? JSON.stringify(cleanHoleHandicaps) : null,
      cleanPutts ? JSON.stringify(cleanPutts) : null,
-     cleanFirstPutts ? JSON.stringify(cleanFirstPutts) : null]
+     cleanFirstPutts ? JSON.stringify(cleanFirstPutts) : null,
+     cleanCourseId]
   )
 
   // 2026-05-05 — AWAITED. Was fire-and-forget which silently failed

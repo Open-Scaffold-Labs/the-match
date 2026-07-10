@@ -1093,6 +1093,9 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
       const totalPar = config.pars.reduce((s, p) => s + p, 0)
       const res = await post('/api/rounds', {
         courseName:   config.courseName,
+        // Phase 3 (2026-07-10, migration 044) — course id so the post-round
+        // shot editor can load hole geometry. Free-form courses → null.
+        courseId:     config.courseId ?? null,
         coursePar:    totalPar,
         // 2026-06-26 — carry the picked tee's USGA ratings (were hardcoded
         // null, forcing the par-only differential fallback). With these a solo

@@ -2315,9 +2315,9 @@ router.post('/:code/end', async (req, res) => {
           `INSERT INTO tm_rounds (
              user_id, outing_id, course_name, course_par,
              course_rating, slope_rating, game_type, scores, total, date,
-             putts, first_putts, shots
+             putts, first_putts, shots, course_id
            )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11,$12)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11,$12,$13)
            ON CONFLICT (user_id, outing_id) DO NOTHING`,
           [
             p.user_id, outing.id,
@@ -2333,6 +2333,8 @@ router.post('/:code/end', async (req, res) => {
             // Live shot capture (042): the SELF-entered per-hole shot log flows
             // into the round so the SG engine can walk complete chains → OTT/APP/ARG.
             jj(p.shots) ? JSON.stringify(jj(p.shots)) : null,
+            // Phase 3 (044): the shot editor loads hole geometry by course id.
+            outing.course_id ?? null,
           ]
         )
         // 2026-05-05 — AWAITED. Was fire-and-forget which Vercel killed
