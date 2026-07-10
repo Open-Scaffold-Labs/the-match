@@ -2251,11 +2251,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 }} style={{
                   position: 'absolute', right: 0, bottom: 0,
                   pointerEvents: 'auto', height: 36, padding: '0 13px', borderRadius: 11,
-                  border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
-                  background: 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.26), rgb(var(--tm-ee-gold-rgb) / 0.14))',
-                  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
+                  background: 'rgb(var(--tm-ee-glass-rgb) / 0.62)',
+                  backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
                   color: 'var(--tm-ee-gold-light)', fontSize: 12, fontWeight: 800, letterSpacing: '0.05em',
-                  cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.15)',
+                  cursor: 'pointer', boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.12)',
                   whiteSpace: 'nowrap',
                 }}>+ LOG SHOT</button>
               )}
