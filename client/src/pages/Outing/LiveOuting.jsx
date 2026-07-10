@@ -3050,16 +3050,15 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         />
       )}
 
-      {/* Floating top-right GET DISTANCES pill — pinned just under the outing
-          header, above the Leaders plaque. Stays fixed in the top-right so it's
-          always in view no matter how far the scorecard scrolls. Always shown
-          for the current user (when they have a next hole to play and no modal
-          is open). Tapping it jumps to Eye on the user's own next hole.
-          (moved from bottom-right → top-right 2026-07-09, Matt) */}
+      {/* Floating bottom-right GET DISTANCES pill — symmetric counterpart
+          to EagleEye's SCORECARD pill. Always visible during a live match
+          for the current user (when they have a next hole to play and no
+          modal is open). Tapping it jumps to Eye on the user's own next
+          hole, regardless of where other players are. (2026-05-01) */}
       {onGoToEagleEye && myNextHole != null && !scoreModal && !showTeams && !showGroups && !showGuestModal && (
         <button onClick={() => onGoToEagleEye(myNextHole)} style={{
           position: 'absolute',
-          top: 'calc(var(--safe-top) + 62px)', right: 16,
+          bottom: 16, right: 16,
           background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
           border: '1px solid rgba(245,215,138,0.6)',
           borderRadius: 999, padding: '10px 16px',
