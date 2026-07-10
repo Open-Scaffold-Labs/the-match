@@ -615,7 +615,10 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
         </div>
 
         <div style={{ marginTop: 8 }}>
-          <PlRow name="Wind" yds={view.wind} isManual={windManual} expanded={activeRow === 'wind'} onToggle={() => toggle('wind')} available={shotBearing != null}>
+          {/* C1 Phase 3 (2026-07-10): each auto factor names its data source —
+              research: silent/stale inputs are the market's #1 plays-like trust
+              killer; naming the source is what earns the number. */}
+          <PlRow name="Wind" sub={windManual ? null : 'live forecast'} yds={view.wind} isManual={windManual} expanded={activeRow === 'wind'} onToggle={() => toggle('wind')} available={shotBearing != null}>
             <WindDial windDir={eff.windDir} windSpeed={eff.windSpeed} shotBearing={shotBearing} onChange={(d) => set('windDir', d)} />
             <PlStepper label="Wind speed" value={eff.windSpeed} suffix=" mph" isManual={windManual}
               onDec={() => set('windSpeed', Math.max(0, (eff.windSpeed ?? 0) - 1))}
@@ -623,7 +626,7 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
               onReset={() => clear('windSpeed', 'windDir')} />
           </PlRow>
 
-          <PlRow name="Elevation" yds={view.elevation} isManual={overrides.elevDeltaFt != null} expanded={activeRow === 'elev'} onToggle={() => toggle('elev')} autoKnown={elevAvailable}>
+          <PlRow name="Elevation" sub={overrides.elevDeltaFt != null ? null : elevAvailable ? 'USGS terrain model' : null} yds={view.elevation} isManual={overrides.elevDeltaFt != null} expanded={activeRow === 'elev'} onToggle={() => toggle('elev')} autoKnown={elevAvailable}>
             <div style={{ fontSize: 12, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', marginTop: 8 }}>
               {(eff.elevDeltaFt ?? 0) >= 0 ? 'Uphill' : 'Downhill'} {Math.abs(Math.round(eff.elevDeltaFt ?? 0))} ft (~{Math.abs(ftToYd(eff.elevDeltaFt ?? 0))} yd)
             </div>
@@ -633,7 +636,7 @@ function PlaysLikeSheet({ open, onClose, view, eff, overrides, setOverrides, sho
               onReset={() => clear('elevDeltaFt')} />
           </PlRow>
 
-          <PlRow name="Temperature" yds={view.temp} isManual={overrides.tempF != null} expanded={activeRow === 'temp'} onToggle={() => toggle('temp')}>
+          <PlRow name="Temperature" sub={overrides.tempF != null ? null : 'live forecast'} yds={view.temp} isManual={overrides.tempF != null} expanded={activeRow === 'temp'} onToggle={() => toggle('temp')}>
             <PlStepper label="Temperature" value={Math.round(eff.tempF ?? 70)} suffix="°F" isManual={overrides.tempF != null}
               onDec={() => set('tempF', Math.max(-20, Math.round(eff.tempF ?? 70) - 1))}
               onInc={() => set('tempF', Math.min(130, Math.round(eff.tempF ?? 70) + 1))}
