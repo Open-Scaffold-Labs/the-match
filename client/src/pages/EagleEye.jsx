@@ -402,12 +402,12 @@ function ModeToggle({ mode, onChange }) {
         aria-pressed={active}
         aria-label={id === 'big' ? 'Big Numbers view' : 'Dial view'}
         style={{
-          minWidth: 64, height: 44, padding: '0 16px', borderRadius: 999, border: 'none',
+          minWidth: 30, height: 44, padding: '0 7px', borderRadius: 999, border: 'none',
           background: active
             ? 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.32), rgb(var(--tm-ee-gold-rgb) / 0.18))'
             : 'transparent',
           color: active ? 'var(--tm-ee-gold-light)' : 'rgb(var(--tm-ee-white-rgb) / 0.5)',
-          fontSize: 12, fontWeight: 800, letterSpacing: '0.10em', cursor: 'pointer',
+          fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', cursor: 'pointer',
           fontFamily: 'inherit', WebkitTapHighlightColor: 'transparent',
           boxShadow: active ? 'inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.18)' : 'none',
           transition: 'color 0.18s var(--tm-ease), background 0.18s var(--tm-ease)',
@@ -416,7 +416,7 @@ function ModeToggle({ mode, onChange }) {
   }
   return (
     <div role="group" aria-label="Distance readout view" style={{
-      display: 'inline-flex', alignItems: 'center', gap: 3, padding: 3,
+      display: 'inline-flex', alignItems: 'center', gap: 2, padding: 2,
       background: 'rgb(var(--tm-ee-glass-rgb) / 0.62)',
       backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
       border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', borderRadius: 999,
