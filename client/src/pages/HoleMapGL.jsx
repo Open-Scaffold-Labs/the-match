@@ -286,7 +286,12 @@ export default function HoleMapGL({
   const shotDraftRef = useRef(shotDraft)
   const onShotTapRef = useRef(onShotTap)
   const redrawShotsRef = useRef(() => {})
-  useEffect(() => { shotModeRef.current = shotMode; redrawShotsRef.current() }, [shotMode])
+  useEffect(() => {
+    shotModeRef.current = shotMode
+    // Same S4c contract as editMode: pin taps must never fight the aim drag.
+    try { aimMarkerRef.current?.setDraggable(!(shotMode || editModeRef.current)) } catch { /* marker gone */ }
+    redrawShotsRef.current()
+  }, [shotMode])
   useEffect(() => { shotDraftRef.current = shotDraft; redrawShotsRef.current() }, [shotDraft])
   useEffect(() => { onShotTapRef.current = onShotTap }, [onShotTap])
   useEffect(() => { gpsRef.current = gps }, [gps])
@@ -605,7 +610,7 @@ export default function HoleMapGL({
         aimMarkerRef.current.on('dragend', () => { emitAimRef.current() })
         // S4c: if the marker is (re)created mid-edit-session, it must arrive
         // already inert (the editMode effect only fires on flips).
-        aimMarkerRef.current.setDraggable(!editModeRef.current)
+        aimMarkerRef.current.setDraggable(!(editModeRef.current || shotModeRef.current))
       } else aimMarkerRef.current.setLngLat([aim.lon, aim.lat])
     } else if (aimMarkerRef.current) { aimMarkerRef.current.remove(); aimMarkerRef.current = null }
 
