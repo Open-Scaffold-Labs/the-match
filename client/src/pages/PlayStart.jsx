@@ -15,9 +15,12 @@
 // per-course tee memory well).
 //
 // Solo is the default mode; Match is one tap. The heavy CreateWizard stays
-// on the Match tab for events/leagues. "Rangefinder only" preserves the
-// pre-funnel behavior (course on the map, no scoring) — the zero-commitment
-// GPS-only path.
+// on the Match tab for events/leagues. "Just browse a course map" preserves
+// the pre-funnel behavior (load a course on the map without starting a
+// round). IMPORTANT (Matt, 2026-07-10): Eagle Eye is ONE surface — an
+// AI-powered CADDIE where yardages and scoring live together (the Scorecard
+// is wired straight in). There is no separate "rangefinder mode"; never
+// frame any path as "yardages only, no scoring".
 
 import { useState } from 'react'
 import { api } from '../lib/api.js'
@@ -98,7 +101,7 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
           Back to map
         </button>
       )}
-      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: 'var(--tm-ee-gold)', marginBottom: 8 }}>EAGLE EYE · AI-POWERED RANGEFINDER</div>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: 'var(--tm-ee-gold)', marginBottom: 8 }}>EAGLE EYE · AI-POWERED CADDIE</div>
       <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 18, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
         Ready to play?
       </div>
@@ -187,7 +190,7 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
           : 'Select Course'}
       </button>
 
-      {/* Quiet paths: location + rangefinder-only. */}
+      {/* Quiet paths: location + browse-a-course. */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 16 }}>
         {!gps && (
           <button onClick={onRequestLocation} style={{
@@ -203,7 +206,7 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
           background: 'none', border: 'none', cursor: 'pointer',
           fontSize: 12, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.35)', textDecoration: 'underline',
         }}>
-          Rangefinder only — just yardages, no scoring
+          Just browse a course map — no round started
         </button>
       </div>
     </div>
