@@ -2163,6 +2163,17 @@ router.post('/:code/end', async (req, res) => {
     if (!outing) return res.status(404).json({ error: 'Outing not found' })
     if (String(outing.host_id) !== String(req.user.id)) return res.status(403).json({ error: 'Only host can end outing' })
 
+    // Idempotency + record-intent (2026-07-09, Matt). wasActive: ONLY the call
+    // that actually transitions active→closed may write stats — re-ending a
+    // closed match returns the summary but tallies nothing (fixes the "ended 4×,
+    // rivalry counted 4×" inflation). shouldRecord=false is the client's "don't
+    // save" choice on an unfinished round: the match closes without touching
+    // rivalries, rounds, or handicaps. Rivalries are also built from COMPLETED
+    // scorecards only (below), so an abandoned round never moves head-to-head.
+    const wasActive    = outing.status === 'active'
+    const shouldRecord = req.body?.save !== false
+    const { isRoundCompleted } = require('../lib/handicap')
+
     const dbParticipants = await db.many(
       `SELECT op.*, u.name, u.handicap
        FROM tm_outing_participants op
@@ -2211,7 +2222,8 @@ router.post('/:code/end', async (req, res) => {
     // N-choose-2 pairs and let the per-pair score comparison decide
     // winner/loser/tie. Backfill for outing 67 lives in
     // scripts/backfill-h2h-pairs.js.
-    if (outing.team_format === 'individual' && dbParticipants.length >= 2) {
+    const completedDb = dbParticipants.filter(isRoundCompleted)
+    if (wasActive && shouldRecord && outing.team_format === 'individual' && completedDb.length >= 2) {
       // BATCHED (Track F.6 / audit N4): the prior nested loop did one awaited
       // INSERT per pair — N-choose-2 sequential round-trips (~11k for a
       // 150-player field) that blew the Vercel timeout and half-closed the
@@ -2224,7 +2236,7 @@ router.post('/:code/end', async (req, res) => {
       // every reader checks is_tie before treating winner_id as a winner
       // (the 2026-06-23 NOT NULL fix; the 2026-05-07 all-pairs fix).
       const { buildPairRows, computeResults } = require('../lib/match-close')
-      const pairs = buildPairRows(dbParticipants)
+      const pairs = buildPairRows(completedDb)
       if (pairs.winnerIds.length) {
         await db.query(
           `INSERT INTO tm_match_history
@@ -2237,7 +2249,7 @@ router.post('/:code/end', async (req, res) => {
            pairs.winnerScores, pairs.loserScores, outing.course_name]
         )
       }
-      const { ids, results } = computeResults(dbParticipants)
+      const { ids, results } = computeResults(completedDb)
       if (ids.length) {
         await db.query(
           `UPDATE tm_outing_participants AS op
@@ -2254,7 +2266,7 @@ router.post('/:code/end', async (req, res) => {
     // leaderboard render respects state.no_show_policy ('dns' default,
     // 'max_plus_2', or 'manual'). Host can override via POST
     // /:code/no-show. Persisted in state.participants[i].no_show.
-    {
+    if (wasActive) {
       const stateNow = outing.state || { participants: [] }
       const updated = (stateNow.participants || []).map(sp => {
         if (sp.withdrawn || sp.no_show) return sp   // don't touch existing flags
@@ -2271,7 +2283,7 @@ router.post('/:code/end', async (req, res) => {
       await db.query('UPDATE tm_outings SET state=$1 WHERE id=$2', [JSON.stringify(stateNow), outing.id])
     }
 
-    await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])
+    if (wasActive) await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])
 
     // Emit a tm_rounds row for every non-guest participant whose scores
     // are valid (9+ holes, every hole > 0). Idempotent via the
@@ -2279,7 +2291,7 @@ router.post('/:code/end', async (req, res) => {
     // also fires a handicap recompute so the user's index updates
     // immediately when they cross the 5-completed-rounds threshold.
     // (2026-05-01 — fix for "matches don't show in recent rounds")
-    try {
+    if (wasActive && shouldRecord) try {
       const { maybeUpdateUserHandicap } = require('../lib/handicap')
       for (const p of dbParticipants) {
         // tm_outing_participants only carries rows for real users —

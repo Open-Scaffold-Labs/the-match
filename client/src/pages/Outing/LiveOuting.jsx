@@ -1202,6 +1202,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // unless they tap the `?` themselves. (Matt feedback.)
   const [showHcpHelp, setShowHcpHelp] = useState(false)
   const [ending, setEnding] = useState(false)
+  const [endPrompt, setEndPrompt] = useState(false) // "save unfinished round?" sheet
   const [saving, setSaving] = useState(false)
   // Most recent score event — pops a broadcast banner at the top of the
   // board for ~4s when a score is entered. (2026-04-30 PM round 10)
@@ -1339,13 +1340,29 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     } catch (e) { console.error(e) }
   }
 
-  async function endMatch() {
-    if (!window.confirm('End this match? Scores will be finalized and rivalries updated.')) return
+  // Actually close the match. `save` tells the server whether to record stats:
+  //   true  → finalize scores + rivalries + handicaps (a finished round, or the
+  //           user chose to save an unfinished one)
+  //   false → close the match WITHOUT tallying anything (they abandoned it)
+  async function doEnd(save) {
+    setEndPrompt(false)
     setEnding(true)
     try {
-      const data = await post(`/api/outings/${code}/end`, {})
+      const data = await post(`/api/outings/${code}/end`, { save })
       onMatchEnd?.(data.summary)
     } catch (e) { console.error(e); setEnding(false) }
+  }
+
+  // End Match entry point. A fully-scored round ends normally (records stats).
+  // An UNFINISHED round opens a sheet asking whether to save it — so a match
+  // stopped mid-round can never silently move rivalries/handicaps. (2026-07-09, Matt)
+  function endMatch() {
+    if (isRoundFullyScored()) {
+      if (!window.confirm('End this match? Scores will be finalized and rivalries updated.')) return
+      doEnd(true)
+    } else {
+      setEndPrompt(true)
+    }
   }
 
   // Returns true on success (including conflict-resolved force-write
@@ -1660,6 +1677,20 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     const arr = p.scores || []
     if (Array.isArray(arr)) return arr
     return []
+  }
+
+  // The round is "finished" only when every active (non-withdrawn) player has a
+  // score > 0 on every hole. Drives the End Match flow: a finished round records
+  // stats silently; an unfinished one prompts to save-or-discard. (2026-07-09)
+  function isRoundFullyScored() {
+    if (!participants.length) return false
+    return participants.every(p => {
+      const sc = getScores(p)
+      for (let h = 0; h < holeCount; h++) {
+        if (!(Number(sc[h]) > 0)) return false
+      }
+      return true
+    })
   }
 
   // +/- vs par for holes actually played
@@ -3081,6 +3112,42 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
 
       {/* Commissioner correction panel — host-only. Withdraw / reinstate
           participants and audit the score-change history. (B3) */}
+      {/* End-Match prompt for an UNFINISHED round (2026-07-09, Matt). A finished
+          round ends silently; an unfinished one asks whether to save the partial
+          scores (records rounds/stats/rivalries) or end without saving (tallies
+          nothing). Matches the app's bottom-sheet styling. */}
+      {endPrompt && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end' }}
+          onClick={ending ? undefined : () => setEndPrompt(false)}>
+          <div style={{ width: '100%', maxWidth: 430, margin: '0 auto', background: 'var(--tm-surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--tm-border-2)', margin: '0 auto 20px' }} />
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 6 }}>
+              This round isn’t finished
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 20, lineHeight: 1.5 }}>
+              Some holes are still blank. Save what’s scored — recording it to your <strong style={{ color: 'var(--tm-text)' }}>rounds, stats, and rivalries</strong> — or end the match without saving anything?
+            </div>
+            <button onClick={() => doEnd(true)} disabled={ending} style={{
+              width: '100%', padding: 14, borderRadius: 'var(--tm-radius-lg)',
+              background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
+              color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 15,
+              border: 'none', cursor: ending ? 'default' : 'pointer', marginBottom: 10, opacity: ending ? 0.7 : 1,
+            }}>{ending ? 'Working…' : 'Save & record stats'}</button>
+            <button onClick={() => doEnd(false)} disabled={ending} style={{
+              width: '100%', padding: 14, borderRadius: 'var(--tm-radius-lg)',
+              background: 'transparent', color: '#E5484D', fontWeight: 800, fontSize: 14,
+              border: '1px solid rgba(229,72,77,0.4)', cursor: ending ? 'default' : 'pointer', marginBottom: 10,
+            }}>End without saving</button>
+            <button onClick={() => setEndPrompt(false)} disabled={ending} style={{
+              width: '100%', padding: 14, borderRadius: 'var(--tm-radius-lg)',
+              background: 'transparent', color: 'var(--tm-text-3)', fontWeight: 700, fontSize: 14,
+              border: '1px solid var(--tm-border)', cursor: ending ? 'default' : 'pointer',
+            }}>Keep playing</button>
+          </div>
+        </div>
+      )}
+
       {showManage && isHost && outing && (
         <CommissionerPanel
           outing={outing}
