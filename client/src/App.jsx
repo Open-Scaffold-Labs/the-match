@@ -416,6 +416,7 @@ export default function App() {
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
               activeScoring={activeScoring}
+              isActive={tab === TABS.EYE}
               onMatchStarted={code => {
                 setPendingOpenCode(code)
                 // Mount the Match tab hidden (lazy-keep-alive) so Outing can

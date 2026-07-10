@@ -816,7 +816,7 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null, onMatchStarted } = {}) {
+export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null, onMatchStarted, isActive = true } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -831,6 +831,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   useEffect(() => {
     if (eyeHoleNudge == null) return
     if (eyeHoleNudge !== currentHole) setCurrentHole(eyeHoleNudge)
+    // GET DISTANCES is an explicit "take me to the map" — never land it on
+    // the start screen. (2026-07-10 session model.)
+    setShowStart(false)
     onConsumeEyeHoleNudge?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eyeHoleNudge])
@@ -1515,13 +1518,27 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [startBusy, setStartBusy] = useState(false)
   const [startError, setStartError] = useState('')
   const [startedMatchCode, setStartedMatchCode] = useState(null)
-  // Force the Play start screen OVER an active course view. Needed because
-  // sharedCourse persists across sessions — courseCtx is almost always set,
-  // which made PlayStart unreachable once any course had ever been viewed
-  // (2026-07-10, Matt: "there needs to be a way to get back to the play
-  // start screen"). Entered by tapping the course name in the header;
-  // cleared by Back-to-map, any course pick, or a round start.
-  const [showStart, setShowStart] = useState(false)
+  // Play session model (2026-07-10, Matt): the MAP is only the default when a
+  // round is actually ACTIVE (solo blob or live-outing scoring); otherwise the
+  // Play tab opens on the start screen — even though sharedCourse persists the
+  // last-viewed course underneath (reachable via "Back to map" / a pick).
+  // showStart forces the start screen over an existing course view. Cleared by
+  // Back-to-map, any course pick, any round start, or entering with an active
+  // round; re-armed every time the Play tab is (re)entered with no active round.
+  const [showStart, setShowStart] = useState(
+    () => !(activeScoring || readSavedSoloRound(user?.id))
+  )
+  // Re-evaluate on every Play-tab entry (EE stays mounted across tab switches,
+  // so mount-time state alone would go stale after a round ends elsewhere).
+  const wasActiveTabRef = useRef(isActive)
+  useEffect(() => {
+    if (isActive && !wasActiveTabRef.current) {
+      setShowStart(!(activeScoring || readSavedSoloRound(user?.id)))
+    }
+    wasActiveTabRef.current = isActive
+  }, [isActive, activeScoring, user?.id])
+  // Leave/end prompt for the back button while a round is active.
+  const [showLeavePrompt, setShowLeavePrompt] = useState(false)
   // When PlayStart routes through the full picker ("Not here?" / no recents),
   // the pending mode+holes ride here so the picker's onSelect can continue
   // the start instead of just loading the rangefinder. Null = plain pick.
@@ -1623,7 +1640,11 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     setCurrentHole(readEyeHole(sharedCourse.course.id) || 1)
     setTeeGps(gps)
     setShowPicker(false)
-    setShowStart(false)
+    // NOTE: deliberately does NOT clear showStart — this effect also fires on
+    // mount-time hydration of the persisted course, and the Play tab must
+    // open on the start screen when no round is active (2026-07-10, Matt).
+    // Mid-session seeds that should land on the map (live-outing open, GET
+    // DISTANCES) are covered by the eyeHoleNudge consume + tab-entry effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedCourse])
 
@@ -1780,7 +1801,17 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               so this back chevron is the way out, returning to the prior tab. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {onExit && (
-              <button onClick={onExit} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgb(var(--tm-ee-glass-rgb) / 0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', color: 'var(--tm-ee-gold-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
+              <button onClick={() => {
+                // Back semantics (2026-07-10 session model):
+                //   start screen → plain tab exit.
+                //   map, NO active round (browsing) → exit; re-arm the start
+                //     screen so the next Play open doesn't resume stale state.
+                //   map, ACTIVE round → ask (end via scorecard / exit & keep).
+                if (showStart) { onExit?.(); return }
+                const roundActive = !!activeScoring || !!readSavedSoloRound(user?.id)
+                if (!roundActive) { setShowStart(true); onExit?.(); return }
+                setShowLeavePrompt(true)
+              }} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgb(var(--tm-ee-glass-rgb) / 0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', color: 'var(--tm-ee-gold-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               </button>
             )}
@@ -2340,6 +2371,51 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       )}
       {/* One-active-match guard sheet (Play-funnel Match start). */}
       {activeMatchModal}
+
+      {/* Back-button end/leave prompt — only when a round is ACTIVE (2026-07-10,
+          Matt). "End round" routes to the scorecard where the PROPER end flows
+          live (solo Finish saves the round; match End runs the save-or-discard
+          sheet) — never a silent end from here, per never-lose-your-round.
+          After ending there, the next Play open lands on the start screen
+          automatically (tab-entry effect re-arms showStart). */}
+      {showLeavePrompt && (
+        <div onClick={() => setShowLeavePrompt(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgb(var(--tm-ee-black-rgb) / 0.6)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: '100%', maxWidth: 430, borderRadius: '20px 20px 0 0',
+            background: 'var(--tm-ee-bg-sheet)',
+            border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', borderBottom: 'none',
+            padding: '20px 20px calc(env(safe-area-inset-bottom, 0px) + 20px)',
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
+              You're in a round{courseCtx?.course?.club_name ? ` at ${courseCtx.course.club_name}` : ''}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1.5, marginBottom: 16 }}>
+              End it on the scorecard (so your scores are saved properly), or exit and pick it back up any time.
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button onClick={() => { setShowLeavePrompt(false); onGoToScorecard?.() }} style={{
+                width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg, var(--tm-ee-gold) 0%, var(--tm-ee-gold-bright) 100%)',
+                color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 15,
+              }}>End round on the scorecard</button>
+              <button onClick={() => { setShowLeavePrompt(false); onExit?.() }} style={{
+                width: '100%', padding: '14px 0', borderRadius: 14, cursor: 'pointer',
+                background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',
+                color: 'rgb(var(--tm-ee-white-rgb) / 0.75)', fontWeight: 700, fontSize: 14,
+              }}>Exit — keep the round going</button>
+              <button onClick={() => setShowLeavePrompt(false)} style={{
+                width: '100%', padding: '12px 0', borderRadius: 14, cursor: 'pointer',
+                background: 'none', border: 'none',
+                color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', fontWeight: 600, fontSize: 13,
+              }}>Keep playing</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Scorecard pill removed 2026-05-01 — the page header
           already exposes a Scorecard link, the floating pill duplicated
