@@ -1923,6 +1923,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     const first = (teeHoles.find(h => !editHoleConfident(h.hole)) || teeHoles[0]).hole
     setEditSaveState(null)
     setEditExitPrompt(false)
+    // An open QuickScoreSheet would cover the lower map while editing — the
+    // SCORE pill is hidden mid-edit (S4b), so close the sheet too.
+    if (quickSheet?.open) onQuickSheetChange?.({ open: false, hole: currentHole })
     setEditSession({ hole: first, step: 'tee', drafts, dirty: {}, savedHoles: {} })
     if (first !== currentHole) setCurrentHole(first)
     // Lazy one-shot candidate fetch — the editor's OWN (the OSM effect's
