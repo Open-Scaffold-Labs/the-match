@@ -2119,8 +2119,26 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 map/markers. (2026-06-23 — premium pass, first visual slice.) */}
             {/* C4 (2026-07-07): the DIAL instrument renders only when NOT in
                 Big-Numbers glance mode; BIG swaps to the full-screen readout below. */}
-            {!bigMode && (<>
-            <div style={{ alignSelf: 'center', order: 2, pointerEvents: 'auto', textAlign: 'center',
+            {/* ── Bottom control row (2026-07-09, Matt): DIAL|BIG toggle on the
+                LEFT, the distance rangefinder card CENTRED, LOG SHOT on the
+                RIGHT — all sharing one row. The card slid down from its old
+                standalone slot above. In BIG mode the card + LOG SHOT hide and
+                the toggle recentres (BIG has its own full-screen readout). ── */}
+            <div style={{ order: 3, alignSelf: 'stretch', marginTop: 12, marginBottom: 4,
+              pointerEvents: 'none', zIndex: 810, position: 'relative',
+              display: 'flex', justifyContent: 'center', alignItems: 'flex-end', minHeight: 46 }}>
+
+              {/* DIAL|BIG toggle — pinned LEFT in DIAL mode so the distance box
+                  can centre between it and LOG SHOT; recentres in BIG mode. */}
+              <div style={bigMode
+                ? { pointerEvents: 'auto' }
+                : { position: 'absolute', left: 0, bottom: 0, pointerEvents: 'auto' }}>
+                <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
+              </div>
+
+              {!bigMode && (<>
+              {/* ── distance rangefinder card — centred in the row ── */}
+              <div style={{ pointerEvents: 'auto', textAlign: 'center',
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'rgb(var(--tm-ee-glass-rgb) / 0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
               borderRadius: 20, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',
@@ -2128,9 +2146,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               boxShadow: '0 10px 34px rgb(var(--tm-ee-black-rgb) / 0.55), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.20), 0 0 46px rgb(var(--tm-ee-gold-rgb) / 0.13)',
               position: 'relative', overflow: 'hidden',
               minWidth: 124,
-              marginTop: 0,
-              marginBottom: 16,   /* sit low near the tee; compact (PAR pill removed) */
-              zIndex: 800,
             }}>
               {/* faint static grain — kills the flat-dark look (no blend mode → dodges the iOS mix-blend caveat) */}
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.05,
@@ -2215,69 +2230,26 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               )}
             </div>
 
-            {/* ── actions (LAST ANALYSIS) — sits just above the hero card ── */}
-            <div style={{ pointerEvents: 'auto', zIndex: 800, order: 1 }}>
-              {/* Conditions pills removed 2026-05-01 — same wind/temp
-                  values are already shown in the page header, so the
-                  duplicate row above the Analyze Shot button was dead
-                  weight blocking the satellite view. */}
-
-
-              {/* Analyze Shot button moved out of the HUD bottom-stack
-                  on 2026-05-01 — it now lives as a small floating pill
-                  at the bottom-left, mirroring the BAG toggle on the
-                  right. The previous full-width primary CTA was eating
-                  too much vertical map space. */}
-
-              {/* Mark Tee Position button removed 2026-05-01 — every
-                  hole now has tee coords from OSM (holePositions),
-                  so the user no longer needs to manually anchor the
-                  tee point. teeGps state stays defined on the off
-                  chance a future code path wants to capture a custom
-                  shot origin, but is no longer surfaced in the UI. */}
-
-              {/* LOG SHOT moved 2026-07-09 (Matt) — it now renders as a smaller
-                  pill to the RIGHT of the DIAL|BIG toggle row below, instead of
-                  a full-width button stacked above the hero card. */}
-            </div>
-            </>)}
-
-            {/* DIAL | BIG view switch — the primary readout mode toggle. Bottom-
-                centre = the one-handed thumb-reach zone; a labeled segmented
-                control keeps it discoverable (vs a hidden gesture) and reads as
-                the canonical mutually-exclusive-view switch. Persisted; present
-                in both modes. (C4, 2026-07-07) */}
-            <div style={{ order: 3, alignSelf: 'stretch', marginTop: 12, pointerEvents: 'none', zIndex: 810,
-              position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <div style={{ pointerEvents: 'auto' }}>
-                <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
-              </div>
-              {/* LOG SHOT — smaller pill anchored to the RIGHT of the centred
-                  DIAL|BIG toggle (2026-07-09). Same freeze-and-open handler as
-                  before; still dial-mode + active-round only (BIG has its own
-                  glance overlay). */}
-              {activeCapture && !bigMode && (
+              {/* LOG SHOT — right flank of the row; same freeze-and-open handler.
+                  DIAL-mode + active-round only (BIG has its own glance overlay). */}
+              {activeCapture && (
                 <button onClick={() => {
                   // Freeze BOTH the raw GPS-to-pin (for SG + the hero) and the
                   // PLAYS-LIKE distance (wind/elev/temp/alt-adjusted) so the club
-                  // is advised for what the shot actually plays — the best apps'
-                  // "Smart Distances"/"Plays Like" move, using our own engine.
+                  // is advised for what the shot actually plays.
                   const raw = gpsToGreen
                   setCaptureSnap(raw)
                   const pv = (raw != null && raw > 0 && weather)
                     ? playsLikeView(computePlaysLike(raw, { windSpeed: plEff.windSpeed, windFromDeg: plEff.windDir, shotBearing, tempF: plEff.tempF, altFt, elevDeltaFt: plEff.elevDeltaFt }))
                     : null
                   setCapturePlays(pv?.total ?? null)
-                  // On-green guard: if the player is standing inside the green
-                  // polygon, this is a putt, not a shot — warn in the sheet.
+                  // On-green guard: standing inside the green ⇒ this is a putt.
                   setCaptureOnGreen(pointInPolygon(gps, greenPolygon))
-                  // Slice 4: freeze the confidence-gated auto-lie (sand/fairway/
-                  // rough) from GPS vs OSM surface polygons. Never auto-commits —
-                  // only pre-selects (high) or suggests (medium) in the sheet.
+                  // Confidence-gated auto-lie from GPS vs OSM surface polygons.
                   setCaptureLie(classifyLie(gps, { fairwayPolys, bunkerPolys, accM: gps?.acc ?? null }))
                   setCaptureOpen(true)
                 }} style={{
-                  position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                  position: 'absolute', right: 0, bottom: 0,
                   pointerEvents: 'auto', height: 36, padding: '0 13px', borderRadius: 11,
                   border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
                   background: 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.26), rgb(var(--tm-ee-gold-rgb) / 0.14))',
@@ -2287,6 +2259,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   whiteSpace: 'nowrap',
                 }}>+ LOG SHOT</button>
               )}
+              </>)}
             </div>
           </div>
 
