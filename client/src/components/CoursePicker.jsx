@@ -37,11 +37,17 @@ export function useCourseSearch({ coords = null, debounceMs = 300, paused = fals
   const [query, setQuery]         = useState('')
   const [results, setResults]     = useState([])
   const [searching, setSearching] = useState(false)
+  // Honest failure surface (2026-07-10): when the search API errors (vendor
+  // rate limit / outage), the pickers must SAY so — a silent empty list reads
+  // as "search is broken" (Matt's GPS-off report; the server now returns a
+  // real 502 + message instead of 200 []).
+  const [searchError, setSearchError] = useState(null)
   useEffect(() => {
     if (paused) return
     const q = query.trim()
-    if (q.length < 2) { setResults([]); setSearching(false); return }
+    if (q.length < 2) { setResults([]); setSearching(false); setSearchError(null); return }
     setSearching(true)
+    setSearchError(null)
     const t = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q })
@@ -51,15 +57,16 @@ export function useCourseSearch({ coords = null, debounceMs = 300, paused = fals
         }
         const res = await api(`/api/courses/search?${params.toString()}`)
         setResults(Array.isArray(res?.courses) ? res.courses : [])
-      } catch {
+      } catch (e) {
         setResults([])
+        setSearchError(e?.message || 'Search is briefly unavailable — try again.')
       } finally {
         setSearching(false)
       }
     }, debounceMs)
     return () => clearTimeout(t)
   }, [query, coords?.lat, coords?.lng, paused, debounceMs]) // eslint-disable-line react-hooks/exhaustive-deps
-  return { query, setQuery, results, setResults, searching }
+  return { query, setQuery, results, setResults, searching, searchError }
 }
 
 // One-shot coarse geolocation — the inline picker's original pattern.
@@ -190,7 +197,7 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
   useEffect(() => { gpsRef.current = gps }, [gps])
 
   const coords = gps ? { lat: gps.lat, lng: gps.lon } : null
-  const { query, setQuery, results, searching } = useCourseSearch({
+  const { query, setQuery, results, searching, searchError } = useCourseSearch({
     coords,
     debounceMs: 350,
     paused: !!selected,
@@ -313,6 +320,19 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
           </>
         )}
 
+        {/* Honest search states (2026-07-10): a failed search says so (with
+            the server's message), and zero matches say so — never a silent
+            blank list. */}
+        {!selected && !showNearby && searchError && (
+          <div style={{ padding: '16px 0', fontSize: 13, color: 'var(--tm-ee-red, #F87171)', fontWeight: 600, lineHeight: 1.5 }}>
+            {searchError}
+          </div>
+        )}
+        {!selected && !showNearby && !searchError && !searching && results.length === 0 && (
+          <div style={{ padding: '16px 0', fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', lineHeight: 1.5 }}>
+            No courses match “{query.trim()}” — check the spelling or try the club’s full name.
+          </div>
+        )}
         {!selected && sortedResults.map(c => {
           const miles = distMiles(c)
           const distLabel = miles < Infinity ? (miles < 0.1 ? 'Here' : miles < 1 ? `${Math.round(miles * 10) / 10} mi` : `${Math.round(miles)} mi`) : null
@@ -388,7 +408,7 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
   // Request geolocation once; gracefully no-op if denied
   const coords = useOneShotCoords(true)
 
-  const { query, setQuery, results, setResults, searching } = useCourseSearch({
+  const { query, setQuery, results, setResults, searching, searchError } = useCourseSearch({
     coords,
     debounceMs: 250,
     paused: !!openCourse, // don't keep searching while picking a tee
@@ -565,7 +585,7 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
           outline: 'none', boxSizing: 'border-box',
         }}
       />
-      {(searching || loadingCourse || results.length > 0) && (
+      {(searching || loadingCourse || results.length > 0 || (query.trim().length >= 2 && searchError)) && (
         <div style={{
           marginTop: 8, maxHeight: 220, overflowY: 'auto',
           border: '1px solid var(--tm-border)', borderRadius: 'var(--tm-radius)',
@@ -574,6 +594,13 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
           {(searching || loadingCourse) && (
             <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--tm-text-3)' }}>
               {loadingCourse ? 'Loading course…' : 'Searching…'}
+            </div>
+          )}
+          {/* Honest failure (2026-07-10): a failed search says so — never a
+              silent blank (the vendor rate-limit bug read as broken search). */}
+          {!searching && !loadingCourse && searchError && (
+            <div style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: '#B22222', lineHeight: 1.5 }}>
+              {searchError}
             </div>
           )}
           {results.map(c => (
