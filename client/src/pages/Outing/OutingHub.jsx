@@ -5,6 +5,7 @@ import {
 } from './shared.jsx'
 import { SkeletonCard } from '../../components/primitives/Skeleton.jsx'
 import { readSavedSoloRound, SOLO_ROUND_STORAGE_KEY } from '../../lib/solo-round.js'
+import { readSession, clearSession } from '../../lib/active-round-session.js'
 
 // ─── Outing/OutingHub.jsx ─────────────────────────────────────────────────
 // The Scorecard tab's main landing page (formerly the "Match" tab).
@@ -212,6 +213,9 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
                   try {
                     localStorage.removeItem(SOLO_ROUND_STORAGE_KEY(user?.id))
                   } catch { /* localStorage disabled — no-op */ }
+                  // P2-A C5 — the discarded solo round was the active session.
+                  const s = readSession(user?.id)
+                  if (s?.kind === 'solo') clearSession(user?.id)
                   setSavedSolo(null)
                 }}
               />

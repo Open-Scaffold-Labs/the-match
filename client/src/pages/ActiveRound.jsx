@@ -17,6 +17,7 @@ import {
 } from './Outing/shared.jsx'
 import { CoursePicker } from '../components/CoursePicker.jsx'
 import { saveEyeHole } from '../lib/eye-hole.js'
+import { readSession, writeSession, clearSession } from '../lib/active-round-session.js'
 // S4 (2026-07-06): shared scorecard surface now lives in components/scorecard/ —
 // solo imports from there, not from the multi page.
 import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
@@ -964,6 +965,17 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
       if (!raw) return
       const saved = JSON.parse(raw)
       if (saved && saved.phase === 'scoring' && saved.config && Array.isArray(saved.config.pars)) {
+        // P2-A W4 — self-heal: a restored round from a pre-session blob gets
+        // its session index written so the Play surface knows about it.
+        if (!readSession(user?.id)) {
+          writeSession(user?.id, {
+            kind: 'solo',
+            courseId: saved.config.courseId ?? null,
+            courseName: saved.config.courseName ?? null,
+            courseTee: saved.config.courseTee ?? null,
+            holeCount: saved.config.pars.length,
+          })
+        }
         setPhase('scoring')
         setConfig(saved.config)
         setHole(Number.isFinite(saved.hole) ? saved.hole : 0)
@@ -1007,6 +1019,10 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
 
   function clearSavedRound() {
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+    // P2-A C4 — the solo round is saved or abandoned; drop its session index
+    // (only if the session IS a solo one — never touch a newer match session).
+    const s = readSession(user?.id)
+    if (s?.kind === 'solo') clearSession(user?.id)
   }
 
   // 2026-07-10 (Matt) — Eagle Eye's back-prompt "End round" ends a SOLO round
@@ -1033,6 +1049,8 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
   }, [])
 
   function handleStart({ courseName, pars, courseRating = null, slopeRating = null, holeHandicaps = null, courseId = null, courseTee = null }) {
+    // P2-A W3 — SetupSheet-started solo round registers the session index.
+    writeSession(user?.id, { kind: 'solo', courseId, courseName, courseTee, holeCount: pars.length })
     setConfig({ courseName, pars, courseRating, slopeRating, holeHandicaps, courseId, courseTee })
     setScores(new Array(pars.length).fill(0))
     setShots(new Array(pars.length).fill(null).map(() => []))

@@ -22,15 +22,16 @@
 // is wired straight in). There is no separate "rangefinder mode"; never
 // frame any path as "yardages only, no scoring".
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { api } from '../lib/api.js'
 import { dedupeTees } from '../lib/tees.js'
 import { readRecents, nearestRecent, lastUsed, recentDistMiles } from '../lib/course-recents.js'
 import { readSavedSoloRound } from '../lib/solo-round.js'
+import { readSession } from '../lib/active-round-session.js'
 
 // onBackToMap: present when a course view is active behind this screen
 // (showStart in EagleEye) — renders the escape back to the map.
-export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, onStart, onResumeSolo, onBackToMap, startBusy, startError }) {
+export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, onStart, onResumeSolo, onResumeMatch, onBackToMap, startBusy, startError }) {
   const [mode, setMode]   = useState('solo') // 'solo' | 'match'
   const [holes, setHoles] = useState(18)
   const [chosenId, setChosenId] = useState(null) // recent overridden by a tap
@@ -47,6 +48,18 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
   // An in-progress solo round with no course context (edge: pre-S2 blobs
   // never seeded sharedCourse). Never double-start — offer Resume.
   const savedSolo = readSavedSoloRound(user?.id)
+
+  // P2-B (2026-07-10) — active MATCH resume card from the session index
+  // (covers matches created/joined anywhere, even with the Match tab at the
+  // hub). Re-read on session changes so an end elsewhere drops the card.
+  const [, setSessionTick] = useState(0)
+  useEffect(() => {
+    const bump = () => setSessionTick(t => t + 1)
+    window.addEventListener('tm-session-changed', bump)
+    return () => window.removeEventListener('tm-session-changed', bump)
+  }, [])
+  const session = readSession(user?.id)
+  const matchSession = session?.kind === 'match' && session.code ? session : null
 
   const busy = startBusy || localBusy
   const error = startError || localError
@@ -105,6 +118,20 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
       <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 18, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
         Ready to play?
       </div>
+
+      {/* Resume card — an active MATCH (from the session index). */}
+      {matchSession && (
+        <button onClick={() => onResumeMatch?.(matchSession.code)} style={{
+          width: '100%', maxWidth: 360, padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
+          border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.5)', background: 'rgb(var(--tm-ee-gold-rgb) / 0.12)',
+          textAlign: 'left', marginBottom: 14,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', color: 'var(--tm-ee-gold)', marginBottom: 4 }}>MATCH IN PROGRESS</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>
+            MATCH {matchSession.code}{matchSession.courseName ? ` at ${matchSession.courseName}` : ''} — resume →
+          </div>
+        </button>
+      )}
 
       {/* Resume card — an in-progress solo round outranks everything. */}
       {savedSolo && (

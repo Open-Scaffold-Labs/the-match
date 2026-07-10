@@ -25,6 +25,7 @@ import ActiveRound from './ActiveRound.jsx'
 import OutingHub, { RivalryDetail } from './Outing/OutingHub.jsx'
 import Leagues from './Leagues.jsx'
 import { readSavedSoloRound } from '../lib/solo-round.js'
+import { writeSession } from '../lib/active-round-session.js'
 import LiveOuting from './Outing/LiveOuting.jsx'
 import EndMatchScreen from './Outing/EndMatchScreen.jsx'
 import CodeShare from './Outing/CodeShare.jsx'
@@ -134,6 +135,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
     if (!pendingOpenCode) return
     setActiveCode(String(pendingOpenCode).toUpperCase())
     setView('live')
+    writeSession(user?.id, { kind: 'match', code: pendingOpenCode }) // P2-A W9
     onClearPendingOpenCode?.()
   }, [pendingOpenCode]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -163,6 +165,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
         if (cancelled) return
         setActiveCode(pendingJoinCode)
         setView('live')
+        writeSession(user?.id, { kind: 'match', code: pendingJoinCode }) // P2-A W7
       } catch (err) {
         if (cancelled) return
         const msg = err?.status === 404 ? 'That match code doesn\'t exist anymore.'
@@ -285,7 +288,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
         <JoinSheet
           user={user}
           onClose={() => setShowJoin(false)}
-          onJoined={o => { setShowJoin(false); setActiveCode(o.code); setView('live') }}
+          onJoined={o => { setShowJoin(false); setActiveCode(o.code); setView('live'); writeSession(user?.id, { kind: 'match', code: o.code }) /* P2-A W6 */ }}
         />
       )}
       {/* CreateWizard renders over EITHER segment — a league's "+ New event"
@@ -302,6 +305,9 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
             setShowCreate(false)
             setFreshOuting(o)
             setView('code-share')
+            // P2-A W5 — a created match holds the one-active guard even before
+            // the host first opens the live view, so it IS the active round.
+            writeSession(user?.id, { kind: 'match', code: o.code, courseId: o.course_id ?? null, courseName: o.course_name ?? null })
             onClearPending?.()
             onClearPendingLeague?.()
           }}

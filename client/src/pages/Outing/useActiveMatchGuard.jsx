@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../../lib/api.js'
 import { warn } from '../../lib/logger.js'
+import { clearSession } from '../../lib/active-round-session.js'
 
 // ─── One-active-match guard ──────────────────────────────────────────────────
 // Enforces "you can only be in ONE active match at a time." Used by the create
@@ -81,6 +82,9 @@ export function useActiveMatchGuard(user) {
         : 'Could not leave your current match. Check your connection and try again.')
       return
     }
+    // P2-A C2 (2026-07-10) — that match is discarded/left; drop its session
+    // index (code-guarded so a newer session is never touched).
+    clearSession(user?.id, { code: outing.code })
     finish(true)
   }
 

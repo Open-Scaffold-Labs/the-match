@@ -12,6 +12,7 @@ import { readEyeHole, saveEyeHole } from '../lib/eye-hole.js'
 import PlayStart from './PlayStart.jsx'
 import { addRecent } from '../lib/course-recents.js'
 import { useActiveMatchGuard } from './Outing/useActiveMatchGuard.jsx'
+import { readSession, writeSession, clearSession } from '../lib/active-round-session.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -1441,9 +1442,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // live OUTING (published from the scorecard) OR a saved SOLO round (self-
   // discovered here). `scope` routes the buffer write; solo writes go through
   // the shared round blob (lib/solo-round) + notify ActiveRound to re-hydrate.
+  // P2-B (2026-07-10): the session index keeps outing capture alive even when
+  // the Match tab sits at the hub (activeScoring null but the match is live).
+  const sessionForCapture = readSession(user?.id)
   const activeCapture = activeScoring?.kind === 'outing'
     ? { scope: `outing:${activeScoring.code}` }
-    : (readSavedSoloRound(user?.id) ? { scope: 'solo' } : null)
+    : sessionForCapture?.kind === 'match' && sessionForCapture.code
+      ? { scope: `outing:${sessionForCapture.code}` }
+      : (readSavedSoloRound(user?.id) ? { scope: 'solo' } : null)
   // Current hole's logged shots — drives the sheet's first-shot lie default +
   // the "farther than your last shot" trust nudge.
   const captureBuf = activeCapture
@@ -1525,17 +1531,47 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // showStart forces the start screen over an existing course view. Cleared by
   // Back-to-map, any course pick, any round start, or entering with an active
   // round; re-armed every time the Play tab is (re)entered with no active round.
-  const [showStart, setShowStart] = useState(
-    () => !(activeScoring || readSavedSoloRound(user?.id))
-  )
+  // P2-B (2026-07-10): "is a round active?" now reads the active-round SESSION
+  // index first (lib/active-round-session.js) — fixing the Phase-1 blind spot
+  // where a live match with the Match tab at the hub read as "no round"
+  // (activeScoring publishes only while the live view is open). Doctrine:
+  // solo truth = blob; match truth = server (reconciled below); no session →
+  // degrade to the old inference.
+  const roundActive = () => {
+    const s = readSession(user?.id)
+    if (s?.kind === 'solo') return !!readSavedSoloRound(user?.id)
+    if (s?.kind === 'match') return true
+    return !!activeScoring || !!readSavedSoloRound(user?.id)
+  }
+  const [showStart, setShowStart] = useState(() => !roundActive())
   // Re-evaluate on every Play-tab entry (EE stays mounted across tab switches,
   // so mount-time state alone would go stale after a round ends elsewhere).
+  // Also self-heal the session: a solo session without its blob clears; a
+  // match session is verified against the server (throttled) — if the match
+  // is no longer active anywhere, clear + land on the start screen.
   const wasActiveTabRef = useRef(isActive)
+  const lastReconcileRef = useRef(0)
   useEffect(() => {
     if (isActive && !wasActiveTabRef.current) {
-      setShowStart(!(activeScoring || readSavedSoloRound(user?.id)))
+      setShowStart(!roundActive())
+      const s = readSession(user?.id)
+      if (s?.kind === 'solo' && !readSavedSoloRound(user?.id)) {
+        clearSession(user?.id)
+        setShowStart(true)
+      } else if (s?.kind === 'match' && Date.now() - lastReconcileRef.current > 60000) {
+        lastReconcileRef.current = Date.now()
+        api('/api/outings/recent').then(r => {
+          const live = (r?.outings || []).some(o =>
+            o?.status === 'active' && String(o.code).toUpperCase() === String(s.code).toUpperCase())
+          if (!live) {
+            clearSession(user?.id, { code: s.code })
+            setShowStart(true)
+          }
+        }).catch(() => { /* offline — keep trusting the session */ })
+      }
     }
     wasActiveTabRef.current = isActive
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, activeScoring, user?.id])
   // Leave/end prompt for the back button while a round is active.
   const [showLeavePrompt, setShowLeavePrompt] = useState(false)
@@ -1565,6 +1601,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         courseTee: tee.tee_name ?? null,
       })
       if (!ok) { setStartError('A round is already in progress — resume it from the Match tab.'); return }
+      // P2-A W1 — register the active-round session index.
+      writeSession(user?.id, { kind: 'solo', courseId: course.id, courseName, courseTee: tee.tee_name ?? null, holeCount: pars.length })
       addRecent({ id: course.id, club_name: courseName, lastTee: tee.tee_name ?? null })
       saveEyeHole(course.id, 1)
       handleCourseSelect(sel)
@@ -1605,6 +1643,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         handicapAllowance: 95,
       })
       const code = data?.outing?.code
+      // P2-A W2 — register the active-round session index.
+      if (code) writeSession(user?.id, { kind: 'match', code, courseId: course.id, courseName, courseTee: tee.tee_name ?? null, holeCount: pars.length })
       addRecent({ id: course.id, club_name: courseName, lastTee: tee.tee_name ?? null })
       saveEyeHole(course.id, 1)
       handleCourseSelect(sel)
@@ -1808,8 +1848,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 //     screen so the next Play open doesn't resume stale state.
                 //   map, ACTIVE round → ask (end via scorecard / exit & keep).
                 if (showStart) { onExit?.(); return }
-                const roundActive = !!activeScoring || !!readSavedSoloRound(user?.id)
-                if (!roundActive) { setShowStart(true); onExit?.(); return }
+                if (!roundActive()) { setShowStart(true); onExit?.(); return }
                 setShowLeavePrompt(true)
               }} aria-label="Back" style={{ width: 34, height: 34, flexShrink: 0, borderRadius: '50%', background: 'rgb(var(--tm-ee-glass-rgb) / 0.5)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)', color: 'var(--tm-ee-gold-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', WebkitTapHighlightColor: 'transparent' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -2034,6 +2073,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           }}
           onStart={startRound}
           onResumeSolo={() => onGoToScorecard?.()}
+          onResumeMatch={code => {
+            // P2-B — resume a live match from the start screen: the existing
+            // onMatchStarted plumbing mounts the Match tab hidden + opens the
+            // live view (activeScoring publishes); the map is right here.
+            setShowStart(false)
+            onMatchStarted?.(code)
+          }}
           onBackToMap={courseCtx ? () => setShowStart(false) : null}
           startBusy={startBusy}
           startError={startError}

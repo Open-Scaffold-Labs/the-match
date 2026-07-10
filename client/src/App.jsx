@@ -16,6 +16,7 @@ import PublicLeaderboard from './pages/PublicLeaderboard.jsx'
 import PrintResults from './pages/PrintResults.jsx'
 import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
+import { readSession } from './lib/active-round-session.js'
 
 
 // Active-tab persistence — restores the tab the user was on across
@@ -221,6 +222,31 @@ export default function App() {
   useEffect(() => {
     setMountedTabs(prev => prev.has(tab) ? prev : new Set([...prev, tab]))
   }, [tab])
+
+  // P2-C (2026-07-10) — owner-mounting guarantee. The round's OWNER component
+  // (LiveOuting for matches, ActiveRound for solo) must be mounted for the
+  // Play surface's portaled sheet + scoring to work, even if the user never
+  // visits the Match tab. On boot, re-mount owners from the active-round
+  // session index; a match session also reopens the live view hidden
+  // (pendingOpenCode does no join POST — the user is already a participant;
+  // LiveOuting's status reconciliation clears a stale session).
+  useEffect(() => {
+    if (!user?.id || !user.onboarding_completed_at) return
+    const s = readSession(user.id)
+    if (!s) return
+    setMountedTabs(prev => prev.has(TABS.OUTING) ? prev : new Set([...prev, TABS.OUTING]))
+    if (s.kind === 'match' && s.code) setPendingOpenCode(s.code)
+    // solo: Outing's mount-time auto-resume flips itself to the solo view.
+  }, [user?.id, user?.onboarding_completed_at])
+
+  // A solo round started from the Play funnel must mount the Match tab too
+  // (tm-solo-started fires before Outing exists on a fresh boot; mounting it
+  // here lets Outing's own auto-resume pick the round up).
+  useEffect(() => {
+    const onSolo = () => setMountedTabs(prev => prev.has(TABS.OUTING) ? prev : new Set([...prev, TABS.OUTING]))
+    window.addEventListener('tm-solo-started', onSolo)
+    return () => window.removeEventListener('tm-solo-started', onSolo)
+  }, [])
 
   // First-run permissions trigger. Only after the user is signed in
   // AND past onboarding. Shows the prompt if:

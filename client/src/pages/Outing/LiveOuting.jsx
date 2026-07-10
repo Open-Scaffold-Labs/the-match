@@ -6,6 +6,7 @@ import PuttChips from '../../components/scorecard/PuttChips.jsx'
 import { ShotSheet } from '../../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../../lib/shot-capture.js'
 import { addRecent } from '../../lib/course-recents.js'
+import { writeSession, clearSession } from '../../lib/active-round-session.js'
 import { warn } from '../../lib/logger.js'
 import { courseHandicap, playerTeeRatings } from '../../lib/handicapClient.js'
 import GuestModal from './GuestModal.jsx'
@@ -1169,9 +1170,26 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     try {
       const data = await api(`/api/outings/${code}`)
       setOuting(data.outing)
+      // P2-A (2026-07-10) — active-round session index maintenance. W8: an
+      // active outing enriches/repairs the session (covers hub-resume and
+      // opens from another device). Reconciliation C6: a non-active status
+      // clears it (remote end, commissioner cancel, host withdrew you) —
+      // the session is an index, server status is the truth.
+      if (data?.outing) {
+        if (data.outing.status === 'active') {
+          writeSession(user?.id, {
+            kind: 'match', code,
+            courseId:   data.outing.course_id ?? null,
+            courseName: data.outing.course_name ?? null,
+            courseTee:  data.outing.course_tee ?? null,
+          })
+        } else {
+          clearSession(user?.id, { code })
+        }
+      }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
-  }, [code])
+  }, [code, user?.id])
 
   useEffect(() => subscribeQueue(setQueuedCount), [])
   useEffect(() => subscribeQueueDrops((item, reason) => {
@@ -1358,6 +1376,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     setEnding(true)
     try {
       const data = await post(`/api/outings/${code}/end`, { save })
+      clearSession(user?.id, { code }) // P2-A C1 — the round is over either way
       onMatchEnd?.(data.summary)
     } catch (e) { console.error(e); setEnding(false) }
   }
