@@ -1498,6 +1498,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     setCurrentHole(1)
     setTeeGps(gps)
     setShowPicker(false)
+    setShowStart(false)
     // Push the pick up to App.jsx's sharedCourse so the Match tab and
     // future Eye sessions stay in sync. (2026-05-01)
     onCourseSelected?.(ctx)
@@ -1514,6 +1515,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [startBusy, setStartBusy] = useState(false)
   const [startError, setStartError] = useState('')
   const [startedMatchCode, setStartedMatchCode] = useState(null)
+  // Force the Play start screen OVER an active course view. Needed because
+  // sharedCourse persists across sessions — courseCtx is almost always set,
+  // which made PlayStart unreachable once any course had ever been viewed
+  // (2026-07-10, Matt: "there needs to be a way to get back to the play
+  // start screen"). Entered by tapping the course name in the header;
+  // cleared by Back-to-map, any course pick, or a round start.
+  const [showStart, setShowStart] = useState(false)
   // When PlayStart routes through the full picker ("Not here?" / no recents),
   // the pending mode+holes ride here so the picker's onSelect can continue
   // the start instead of just loading the rangefinder. Null = plain pick.
@@ -1615,6 +1623,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     setCurrentHole(readEyeHole(sharedCourse.course.id) || 1)
     setTeeGps(gps)
     setShowPicker(false)
+    setShowStart(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedCourse])
 
@@ -1756,7 +1765,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           it stays a normal solid band. (2026-06-26 — Matt: make it all map) */}
       <div style={{
         paddingTop: 'env(safe-area-inset-top, 44px)',
-        ...(courseCtx ? {
+        // Floating gradient header only over the MAP; the start screen
+        // (no course OR showStart) gets the normal solid band.
+        ...((courseCtx && !showStart) ? {
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
           background: 'linear-gradient(to bottom, rgb(var(--tm-ee-bg-rgb) / 0.92) 0%, rgb(var(--tm-ee-bg-rgb) / 0.55) 58%, rgb(var(--tm-ee-bg-rgb) / 0) 100%)',
           pointerEvents: 'none',
@@ -1777,8 +1788,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', background: 'linear-gradient(90deg, var(--tm-ee-gold-light), var(--tm-ee-gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 EAGLE EYE
               </div>
-              {courseCtx && (
-                <button onClick={() => setShowPicker(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+              {courseCtx && !showStart && (
+                /* Tap the course name → back to the Play start screen (course
+                   change, solo/match start, all live there). Was a direct
+                   picker-open; rerouted 2026-07-10 so the start screen is
+                   reachable once a course is active. */
+                <button onClick={() => setShowStart(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
                   <span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
@@ -1935,12 +1950,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       )}
 
       {/* ── Main content ── */}
-      {!courseCtx ? (
+      {(!courseCtx || showStart) ? (
         /* ── Play start funnel (Phase 1 / S3b, 2026-07-10) — replaced the old
             Welcome hero. Course confirm card (nearest recent / last played) →
             9|18 → Solo|Match → START; picker as fallback; "Rangefinder only"
-            keeps the old zero-scoring path. An active round never reaches
-            this branch (courseCtx present → map = instant resume). */
+            keeps the old zero-scoring path. Renders when no course is active
+            OR when showStart forces it over the map (course-name tap). */
         <PlayStart
           user={user}
           gps={gps}
@@ -1951,6 +1966,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           }}
           onStart={startRound}
           onResumeSolo={() => onGoToScorecard?.()}
+          onBackToMap={courseCtx ? () => setShowStart(false) : null}
           startBusy={startBusy}
           startError={startError}
         />

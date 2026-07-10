@@ -25,7 +25,9 @@ import { dedupeTees } from '../lib/tees.js'
 import { readRecents, nearestRecent, lastUsed, recentDistMiles } from '../lib/course-recents.js'
 import { readSavedSoloRound } from '../lib/solo-round.js'
 
-export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, onStart, onResumeSolo, startBusy, startError }) {
+// onBackToMap: present when a course view is active behind this screen
+// (showStart in EagleEye) — renders the escape back to the map.
+export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, onStart, onResumeSolo, onBackToMap, startBusy, startError }) {
   const [mode, setMode]   = useState('solo') // 'solo' | 'match'
   const [holes, setHoles] = useState(18)
   const [chosenId, setChosenId] = useState(null) // recent overridden by a tap
@@ -80,7 +82,22 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
   })
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px 16px', animation: 'ee-fade-in 0.4s ease' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px 16px', animation: 'ee-fade-in 0.4s ease', position: 'relative' }}>
+      {/* Back to the live map — only when a course view sits behind this
+          screen (course-name tap in the header). (2026-07-10) */}
+      {onBackToMap && (
+        <button onClick={onBackToMap} style={{
+          position: 'absolute', top: 8, left: 20,
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',
+          borderRadius: 999, padding: '8px 14px', cursor: 'pointer',
+          fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.65)',
+          WebkitTapHighlightColor: 'transparent',
+        }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to map
+        </button>
+      )}
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: 'var(--tm-ee-gold)', marginBottom: 8 }}>EAGLE EYE · AI-POWERED RANGEFINDER</div>
       <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 18, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
         Ready to play?
