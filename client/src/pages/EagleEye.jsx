@@ -7,6 +7,8 @@ import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
 import { readSavedSoloRound } from '../lib/solo-round.js'
+import { CoursePicker } from '../components/CoursePicker.jsx'
+import { readEyeHole, saveEyeHole } from '../lib/eye-hole.js'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -30,7 +32,6 @@ const GPS_ACCURACY_GATE_M = 10
 // but far from the currently-viewed hole's green.
 const GPS_RANGE_GATE_YDS = 800
 import { log } from '../lib/logger.js'
-import { dedupeTees } from '../lib/tees.js'
 import CoachMark from '../components/CoachMark.jsx'
 
 // Module-level cache: keyed by `${courseId}-${teeName}` — survives re-renders,
@@ -40,22 +41,9 @@ const osmPositionCache = new Map()
 // ─── localStorage persistence for OSM data (7-day TTL) ───────────────────────
 // After the first load of a course, pins are instant on every subsequent visit.
 const OSM_LS_TTL = 7 * 24 * 60 * 60 * 1000
-// Per-course hole persistence so a reload (pull-to-refresh / SW update)
-// resumes the exact hole instead of snapping back to hole 1. Keyed by
-// course id so switching courses doesn't carry a stale hole. (2026-06-06)
-const EYE_HOLE_KEY = 'tm-eye-hole'
-function readEyeHole(courseId) {
-  if (!courseId) return null
-  try {
-    const v = JSON.parse(localStorage.getItem(EYE_HOLE_KEY) || 'null')
-    if (v && String(v.courseId) === String(courseId) && v.hole >= 1) return v.hole
-  } catch { /* ignore */ }
-  return null
-}
-function saveEyeHole(courseId, hole) {
-  if (!courseId) return
-  try { localStorage.setItem(EYE_HOLE_KEY, JSON.stringify({ courseId, hole })) } catch { /* ignore */ }
-}
+// Per-course hole persistence (readEyeHole/saveEyeHole) extracted to
+// lib/eye-hole.js (Phase 1 / S2, 2026-07-10) so round-start flows outside
+// this file can reset the hole to 1 before seeding sharedCourse.
 
 function lsLoadOsm(key) {
   try {
@@ -429,157 +417,9 @@ function ModeToggle({ mode, onChange }) {
 }
 
 // ─── Course Picker ────────────────────────────────────────────────────────────
-function CoursePicker({ onSelect, onClose, gps, gender }) {
-  const [query, setQuery]     = useState('')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [selected, setSelected] = useState(null)
-  const [course, setCourse]   = useState(null)
-  const [teeIdx, setTeeIdx]   = useState(0)
-  const rawResults             = useRef([]) // unsorted cache so we can re-sort when gps arrives
-  const gpsRef                 = useRef(gps)
-
-  // Keep gpsRef current so async callbacks always see the latest value
-  useEffect(() => { gpsRef.current = gps }, [gps])
-
-  function distMiles(c, loc) {
-    const g = loc ?? gpsRef.current
-    if (!g || c.latitude == null || c.longitude == null) return Infinity
-    const R = 3958.8
-    const dLat = (c.latitude - g.lat) * Math.PI / 180
-    const dLon = (c.longitude - g.lon) * Math.PI / 180
-    const a = Math.sin(dLat/2)**2 + Math.cos(g.lat * Math.PI/180) * Math.cos(c.latitude * Math.PI/180) * Math.sin(dLon/2)**2
-    return R * 2 * Math.asin(Math.sqrt(a))
-  }
-
-  function sortAndSet(courses) {
-    const sorted = [...courses].sort((a, b) => distMiles(a) - distMiles(b))
-    setResults(sorted)
-  }
-
-  // Re-sort existing results whenever GPS locks in or updates
-  useEffect(() => {
-    if (rawResults.current.length > 0) sortAndSet(rawResults.current)
-  }, [gps])
-
-  // Live search — fires 350ms after the user stops typing, min 2 chars
-  useEffect(() => {
-    if (selected) return
-    const q = query.trim()
-    if (q.length < 2) { rawResults.current = []; setResults([]); return }
-    setLoading(true)
-    const timer = setTimeout(async () => {
-      try {
-        const d = await api(`/api/courses/search?q=${encodeURIComponent(q)}`)
-        rawResults.current = d.courses || []
-        sortAndSet(rawResults.current)
-      } catch {} finally { setLoading(false) }
-    }, 350)
-    return () => clearTimeout(timer)
-  }, [query])
-
-  async function pickCourse(c) {
-    setSelected(c)
-    setLoading(true)
-    try {
-      const d = await api(`/api/courses/${c.id}`)
-      setCourse(d)
-    } catch {} finally { setLoading(false) }
-  }
-
-  // Dedupe tees by tee_name + total_yards. The API returns separate male/female
-  // arrays, but most tee boxes (Blue, White, Red, etc.) are physically the same
-  // box — same name + same total yardage = same physical tees, same per-hole
-  // yardages. Showing both as chips made every multi-tee course display dupes.
-  // We keep the first occurrence (male if present, otherwise female), and
-  // suffix " (W)" on female-only tees to disambiguate when a course has a
-  // genuinely separate forward tee. Hole-position logic (cache keys, GPS
-  // matching, OSM lookups) is unchanged because tee_name and holes shape
-  // are identical across the male/female sources.
-  const tees = course ? dedupeTees(course.tees, gender) : []
-  const activeTee = tees[teeIdx]
-
-  return createPortal(
-    /* Outer backdrop container: full-viewport on every device, centers + clamps
-       the actual modal panel to mobile width on desktop. The existing modal
-       structure below this is unchanged — same #07100C background, same
-       padding, same content. Audit finding R2 / 2026-04-29. */
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgb(var(--tm-ee-black-rgb) / 0.5)',
-      display: 'flex', justifyContent: 'center',
-    }}>
-    <div style={{ width: '100%', maxWidth: 430, height: '100%', background: 'var(--tm-ee-bg-sheet)', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.1)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', fontSize: 22, cursor: 'pointer' }}>←</button>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>Select Course</div>
-        </div>
-        <div style={{ position: 'relative', marginTop: 12 }}>
-          <input
-            autoFocus value={query}
-            onChange={e => { setSelected(null); setCourse(null); setQuery(e.target.value) }}
-            placeholder="Search course name…"
-            style={{ width: '100%', background: 'rgb(var(--tm-ee-white-rgb) / 0.08)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.15)', borderRadius: 10, padding: '10px 40px 10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
-          />
-          {loading && (
-            <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, borderRadius: '50%', border: '2px solid rgb(var(--tm-ee-gold-light-rgb) / 0.3)', borderTopColor: 'var(--tm-ee-gold-light)', animation: 'ee-spin-slow 0.7s linear infinite' }} />
-          )}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
-        {!selected && results.map(c => {
-          const miles = distMiles(c)
-          const distLabel = miles < Infinity ? (miles < 0.1 ? 'Here' : miles < 1 ? `${Math.round(miles * 10) / 10} mi` : `${Math.round(miles)} mi`) : null
-          return (
-            <div key={c.id} onClick={() => pickCourse(c)} style={{ padding: '14px 0', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.club_name}</div>
-                <div style={{ fontSize: 12, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', marginTop: 2 }}>{[c.city, c.state, c.country].filter(Boolean).join(', ')}</div>
-              </div>
-              {distLabel && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: miles < 5 ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)', flexShrink: 0, marginLeft: 12 }}>{distLabel}</div>
-              )}
-            </div>
-          )
-        })}
-
-        {course && activeTee && (
-          <>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.8)', marginBottom: 10 }}>{course.club_name}</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-              {tees.map((t, i) => (
-                <button key={i} onClick={() => setTeeIdx(i)} style={{
-                  padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  background: i === teeIdx ? 'rgb(var(--tm-ee-gold-bright-rgb) / 0.2)' : 'rgb(var(--tm-ee-white-rgb) / 0.07)',
-                  border: `1px solid ${i === teeIdx ? 'rgb(var(--tm-ee-gold-bright-rgb) / 0.5)' : 'rgb(var(--tm-ee-white-rgb) / 0.1)'}`,
-                  color: i === teeIdx ? 'var(--tm-ee-gold-light)' : 'rgb(var(--tm-ee-white-rgb) / 0.6)',
-                }}>{t.tee_name} ({t.total_yards}y)</button>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
-              {activeTee.holes.map(h => (
-                <div key={h.hole} style={{ background: 'rgb(var(--tm-ee-white-rgb) / 0.05)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.1)', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', fontWeight: 700 }}>HOLE {h.hole} · PAR {h.par}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginTop: 2 }}>{h.yardage}<span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginLeft: 3 }}>yds</span></div>
-                  <div style={{ fontSize: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.35)' }}>Hdcp {h.handicap}</div>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => onSelect({ course, tee: activeTee })} style={{
-              width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg, var(--tm-ee-green-grad-a), var(--tm-ee-green-grad-b))',
-              color: '#fff', fontWeight: 800, fontSize: 16,
-            }}>Use This Course & Tee</button>
-          </>
-        )}
-      </div>
-    </div>
-    </div>,
-    document.body
-  )
-}
+// Extracted to components/CoursePicker.jsx (variant="sheet") — Phase 1 / S1a of
+// the Play-funnel plan (2026-07-10). One picker, two verbatim variants; this
+// file's dark sheet JSX moved unchanged.
 
 // ─── Plays-Like Sheet (Phase 3.1) ────────────────────────────────────────────
 // The transparent, adjustable breakdown. Tap the chip → this glass bottom sheet
@@ -2380,6 +2220,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       />
       {showPicker && (
         <CoursePicker
+          variant="sheet"
           onClose={() => setShowPicker(false)}
           onSelect={handleCourseSelect}
           gps={gps}

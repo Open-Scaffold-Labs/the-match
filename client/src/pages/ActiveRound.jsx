@@ -15,7 +15,8 @@ import {
   AUGUSTA_PANEL_HOVER,
   AUGUSTA_TEXT,
 } from './Outing/shared.jsx'
-import { CoursePicker } from './Outing/CreateWizard.jsx'
+import { CoursePicker } from '../components/CoursePicker.jsx'
+import { saveEyeHole } from '../lib/eye-hole.js'
 // S4 (2026-07-06): shared scorecard surface now lives in components/scorecard/ —
 // solo imports from there, not from the multi page.
 import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
@@ -45,7 +46,11 @@ function scoreColor(strokes, par) {
 // chosen tee; free-form course names fall back to DEFAULT_PARS).
 // (2026-05-07 PM — Matt: 'setup screen should be exactly the same as
 // the other just without the multiplayer questions'.)
-function SetupSheet({ onStart, onBack }) {
+// onCourseTeeSelected + gender added 2026-07-10 (Phase 1 / S2): solo course
+// picks now seed the App-level sharedCourse (so Eagle Eye auto-loads the solo
+// course with no manual re-pick) and the tee list dedupes gender-correctly —
+// the two halves of the long-standing "solo never seeds sharedCourse" seam.
+function SetupSheet({ onStart, onBack, onCourseTeeSelected, gender }) {
   // courseSelection holds the picked tee's data (courseId, courseName,
   // courseTee, holePars, coursePar, courseRating, slopeRating). Null when
   // the user hasn't picked one. typedName is the free-form fallback when
@@ -83,7 +88,14 @@ function SetupSheet({ onStart, onBack }) {
       pars = DEFAULT_PARS.slice(0, holes)
       courseName = typedName.trim() || 'Course'
     }
-    onStart({ courseName, pars, courseRating, slopeRating, holeHandicaps })
+    // courseId/courseTee carried since 2026-07-10 (Phase 1 / S2) so the
+    // course's identity survives in the solo blob (extra keys are ignored
+    // by the restore validator; null when free-form/unpicked).
+    onStart({
+      courseName, pars, courseRating, slopeRating, holeHandicaps,
+      courseId:  courseSelection?.courseId ?? null,
+      courseTee: courseSelection?.courseTee ?? null,
+    })
   }
 
   return (
@@ -122,6 +134,8 @@ function SetupSheet({ onStart, onBack }) {
             onPick={picked => setCourseSelection(picked)}
             onClear={() => setCourseSelection(null)}
             onTypedName={setTypedName}
+            onCourseTeeSelected={onCourseTeeSelected}
+            gender={gender}
           />
         </div>
         {/* Holes */}
@@ -924,7 +938,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 // lib/solo-round.js for the full bug narrative).
 const SOLO_ROUND_STORAGE_KEY = SOLO_KEY_LIB
 
-export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
+export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSelected }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'
   const [config, setConfig] = useState(null)  // { courseName, pars[], courseRating, slopeRating, holeHandicaps[] }
   const [hole, setHole]     = useState(0)     // 0-indexed
@@ -1006,8 +1020,8 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
     return () => navigator.geolocation.clearWatch(watchRef.current)
   }, [])
 
-  function handleStart({ courseName, pars, courseRating = null, slopeRating = null, holeHandicaps = null }) {
-    setConfig({ courseName, pars, courseRating, slopeRating, holeHandicaps })
+  function handleStart({ courseName, pars, courseRating = null, slopeRating = null, holeHandicaps = null, courseId = null, courseTee = null }) {
+    setConfig({ courseName, pars, courseRating, slopeRating, holeHandicaps, courseId, courseTee })
     setScores(new Array(pars.length).fill(0))
     setShots(new Array(pars.length).fill(null).map(() => []))
     setPutts(new Array(pars.length).fill(null))
@@ -1120,7 +1134,19 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye }) {
 
   if (phase === 'setup') return (
     <NoPullWrap>
-      <SetupSheet onStart={handleStart} onBack={onBack} />
+      <SetupSheet
+        onStart={handleStart}
+        onBack={onBack}
+        onCourseTeeSelected={sel => {
+          // Phase 1 / S2 (2026-07-10): a solo course pick seeds the App-level
+          // sharedCourse so Eagle Eye auto-loads it. Reset the per-course hole
+          // memory to 1 FIRST — this is a NEW round, and without the reset
+          // Eagle Eye's sync effect would resume the course's last-viewed hole.
+          if (sel?.course?.id) saveEyeHole(sel.course.id, 1)
+          onCourseSelected?.(sel)
+        }}
+        gender={user?.gender}
+      />
     </NoPullWrap>
   )
 

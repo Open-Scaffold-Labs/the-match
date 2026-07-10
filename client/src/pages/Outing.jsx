@@ -171,7 +171,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
     if (pendingLeagueId != null) setShowCreate(true)
   }, [pendingLeagueId])
 
-  if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} onGoToEagleEye={onGoToEagleEye} />
+  if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} onGoToEagleEye={onGoToEagleEye} onCourseSelected={onCourseSelected} />
 
   if (view === 'live' && activeCode) return (
     <LiveOuting
