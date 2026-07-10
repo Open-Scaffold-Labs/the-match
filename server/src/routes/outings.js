@@ -2400,6 +2400,15 @@ router.post('/:code/end', async (req, res) => {
     const mostEagles   = allParticipants.find(p => playerHighlights(p).eagles > 0)
     const mbHL         = mostBirdies ? playerHighlights(mostBirdies) : null
 
+    // Phase 3 (2026-07-10): per-user round ids so the ceremony can open the
+    // post-round shot editor on YOUR round. Additive — old clients ignore it;
+    // a missing/empty map just hides the button. Never fails the ceremony.
+    let roundIds = {}
+    try {
+      const rr = await db.many('SELECT id, user_id FROM tm_rounds WHERE outing_id = $1', [outing.id])
+      for (const r of rr) if (r.user_id != null) roundIds[r.user_id] = r.id
+    } catch { /* button-only data */ }
+
     res.json({
       ok: true,
       summary: {
@@ -2419,6 +2428,7 @@ router.post('/:code/end', async (req, res) => {
           most_eagles:  mostEagles && playerHighlights(mostEagles).eagles > 0
             ? { name: mostEagles.name, count: playerHighlights(mostEagles).eagles } : null,
         },
+        round_ids: roundIds,
       },
     })
   } catch (err) {

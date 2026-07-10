@@ -17,6 +17,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
+import ShotEditor from '../pages/ShotEditor.jsx'
 
 // Synthetic par distribution — used as a fallback when the round has no
 // hole_pars (e.g., legacy free-form round with no linked outing).
@@ -556,6 +557,7 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend, canEdit
   const [error, setError] = useState(null)
   const [puttSheetOpen, setPuttSheetOpen] = useState(false)
   const [savingPutts, setSavingPutts] = useState(false)
+  const [shotEditorOpen, setShotEditorOpen] = useState(false) // Phase 3 flyover editor
 
   useEffect(() => {
     let cancelled = false
@@ -623,6 +625,14 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend, canEdit
     return Array.isArray(arr) ? arr : null
   })()
   const puttHolesTagged = roundPutts ? roundPutts.filter(p => p != null).length : 0
+
+  // Phase 3 (2026-07-10) — per-shot facts for the flyover editor button.
+  const roundShots = (() => {
+    if (!round?.shots) return null
+    const arr = Array.isArray(round.shots) ? round.shots : (() => { try { return JSON.parse(round.shots) } catch { return null } })()
+    return Array.isArray(arr) ? arr : null
+  })()
+  const shotHolesTagged = roundShots ? roundShots.filter(h => Array.isArray(h) && h.length > 0).length : 0
 
   async function savePutts(putts, firstPutts) {
     setSavingPutts(true)
@@ -753,6 +763,35 @@ export default function RoundScorecard({ roundId, onClose, onOpenFriend, canEdit
                     {puttHolesTagged > 0 ? 'Edit' : '+'}
                   </span>
                 </button>
+              )}
+
+              {/* Phase 3 (2026-07-10) — flyover shot editor entry, sibling of
+                  the putts button (owner-only). Zero-capture rounds welcome:
+                  the editor supports full post-hoc entry. */}
+              {canEditPutts && scores.length > 0 && (
+                <button onClick={() => setShotEditorOpen(true)} style={{
+                  width: '100%', textAlign: 'left', cursor: 'pointer',
+                  borderRadius: 12, marginBottom: 12, padding: '11px 14px',
+                  background: shotHolesTagged > 0 ? 'rgba(42,122,56,0.14)' : 'rgba(232,192,90,0.10)',
+                  border: shotHolesTagged > 0 ? '1px solid rgba(42,122,56,0.35)' : '1px solid rgba(232,192,90,0.30)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: shotHolesTagged > 0 ? '#8FCB9B' : '#F5E070' }}>
+                    {shotHolesTagged > 0
+                      ? `Shots tagged on ${shotHolesTagged}/${scores.length} holes`
+                      : 'Review shots — see your round on the map'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', flexShrink: 0 }}>
+                    {shotHolesTagged > 0 ? 'Edit' : '+'}
+                  </span>
+                </button>
+              )}
+              {shotEditorOpen && (
+                <ShotEditor roundId={roundId} onClose={() => {
+                  setShotEditorOpen(false)
+                  // refresh the card so the tagged-count + any putt edits show
+                  api(`/api/rounds/${roundId}`).then(setRound).catch(() => {})
+                }} />
               )}
 
               {/* Focal player — the round's owner. Same card template

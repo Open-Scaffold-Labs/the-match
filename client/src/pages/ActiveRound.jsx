@@ -26,6 +26,7 @@ import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.js
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 import PuttChips from '../components/scorecard/PuttChips.jsx'
 import { ShotSheet } from '../components/scorecard/ShotSheet.jsx'
+import ShotEditor from './ShotEditor.jsx'
 
 const DEFAULT_PARS = [4,4,3,4,5,4,3,5,4, 4,4,3,4,5,4,3,5,4]
 
@@ -950,6 +951,11 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
   const [firstPutts, setFirstPutts] = useState([])  // SG putt facts: first-putt bucket per hole
   const [gps, setGps]       = useState(null)
   const [saving, setSaving] = useState(false)
+  // Phase 3 (2026-07-10) — after a successful save, offer the flyover shot
+  // review (OPTIONAL — research: forced post-round editing is homework, the
+  // #1 churn complaint against the market's editors). null = no offer.
+  const [reviewRoundId, setReviewRoundId] = useState(null)
+  const [reviewOpen, setReviewOpen] = useState(false)
   // P2-E — saved-cue timestamp for the QuickScoreSheet (solo has no server
   // round-trip; the autosave effect persists on the state change).
   const [soloSheetSavedAt, setSoloSheetSavedAt] = useState(0)
@@ -1136,15 +1142,14 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
       // Round persisted to server — clear the localStorage backup so a
       // fresh navigation back to Solo Round starts with a clean slate.
       clearSavedRound()
-      // Reset and return to hub if launched from Outing tab
-      setPhase('setup')
-      setConfig(null)
-      setHole(0)
-      setScores([])
-      setShots([])
-      setPutts([])
-      setFirstPutts([])
-      onBack?.()
+      // Phase 3 (2026-07-10): offer the optional flyover shot review before
+      // leaving — the post-round moment is when review actually happens
+      // (competitive research). No id → old behavior (straight out).
+      if (res?.id) {
+        setReviewRoundId(res.id)
+      } else {
+        finishAfterSave()
+      }
     } catch (e) {
       console.error(e)
       // Don't clearSavedRound on error — the user's data is still in
@@ -1152,6 +1157,20 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
     } finally {
       setSaving(false)
     }
+  }
+
+  // Phase 3 (2026-07-10) — leave the solo flow after save (+ optional review).
+  function finishAfterSave() {
+    setReviewRoundId(null)
+    setReviewOpen(false)
+    setPhase('setup')
+    setConfig(null)
+    setHole(0)
+    setScores([])
+    setShots([])
+    setPutts([])
+    setFirstPutts([])
+    onBack?.()
   }
 
   // 2026-05-05 — wrap everything Solo-Round renders in a div with
@@ -1168,6 +1187,33 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
       </div>
     )
   }
+
+  // Phase 3 — post-save review offer (renders over whatever phase remains).
+  if (reviewRoundId) return (
+    <NoPullWrap>
+      {reviewOpen ? (
+        <ShotEditor roundId={reviewRoundId} onClose={finishAfterSave} />
+      ) : (
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
+          <div style={{ fontSize: 40 }}>⛳</div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--tm-text)' }}>Round saved</div>
+          <div style={{ fontSize: 13, color: 'var(--tm-text-3)', lineHeight: 1.6, maxWidth: 300 }}>
+            Want to see it on the map? Review your shots hole by hole to unlock strokes gained.
+          </div>
+          <button onClick={() => setReviewOpen(true)} style={{
+            width: '100%', maxWidth: 320, padding: 15, borderRadius: 14, border: 'none', cursor: 'pointer',
+            background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
+            color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 15,
+          }}>Review shots — flyover</button>
+          <button onClick={finishAfterSave} style={{
+            width: '100%', maxWidth: 320, padding: 13, borderRadius: 14, cursor: 'pointer',
+            background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)',
+            color: 'var(--tm-text-3)', fontWeight: 700, fontSize: 13,
+          }}>Done for now</button>
+        </div>
+      )}
+    </NoPullWrap>
+  )
 
   if (phase === 'setup') return (
     <NoPullWrap>
