@@ -2395,14 +2395,23 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               You're in a round{courseCtx?.course?.club_name ? ` at ${courseCtx.course.club_name}` : ''}
             </div>
             <div style={{ fontSize: 12.5, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1.5, marginBottom: 16 }}>
-              End it on the scorecard (so your scores are saved properly), or exit and pick it back up any time.
+              Ending brings up the save options right away — nothing is recorded without asking. Or exit and pick it back up any time.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={() => { setShowLeavePrompt(false); onGoToScorecard?.() }} style={{
+              <button onClick={() => {
+                // Fires the SAME end flow the scorecard's End Match uses (match:
+                // endMatch() w/ its save-or-discard sheet, portaled to <body>;
+                // solo: jump to the summary/save phase) — no extra hunting
+                // through the menu (2026-07-10, Matt). Tab switch so the
+                // ceremony/summary lands in view.
+                setShowLeavePrompt(false)
+                window.dispatchEvent(new Event('tm-request-end-round'))
+                onGoToScorecard?.()
+              }} style={{
                 width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
                 background: 'linear-gradient(135deg, var(--tm-ee-gold) 0%, var(--tm-ee-gold-bright) 100%)',
                 color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 15,
-              }}>End round on the scorecard</button>
+              }}>End round</button>
               <button onClick={() => { setShowLeavePrompt(false); onExit?.() }} style={{
                 width: '100%', padding: '14px 0', borderRadius: 14, cursor: 'pointer',
                 background: 'rgb(var(--tm-ee-white-rgb) / 0.06)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',

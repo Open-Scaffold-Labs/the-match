@@ -1009,6 +1009,18 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
     try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
   }
 
+  // 2026-07-10 (Matt) — Eagle Eye's back-prompt "End round" ends a SOLO round
+  // directly too: EE dispatches this event + switches to the Match tab; we
+  // jump to the summary phase (the same place the Finish button lands), where
+  // the user reviews and saves. Nothing is recorded without their save tap.
+  useEffect(() => {
+    const onRequestEnd = () => {
+      if (phase === 'scoring') setPhase('summary')
+    }
+    window.addEventListener('tm-request-end-round', onRequestEnd)
+    return () => window.removeEventListener('tm-request-end-round', onRequestEnd)
+  }, [phase])
+
   // GPS watch
   useEffect(() => {
     if (!navigator.geolocation) return

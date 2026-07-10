@@ -1374,6 +1374,20 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
     }
   }
 
+  // 2026-07-10 (Matt) — Eagle Eye's back-prompt "End round" triggers the SAME
+  // end flow directly (no hunting End Match in the menu): EE dispatches this
+  // event + switches to the Match tab; we run endMatch() so the confirm /
+  // save-prompt is already up when the scorecard appears. The prompt sheet is
+  // portaled to <body>, so it renders even mid-tab-transition.
+  const endMatchRef = useRef(endMatch)
+  endMatchRef.current = endMatch
+  useEffect(() => {
+    const onRequestEnd = () => { if (!ending) endMatchRef.current() }
+    window.addEventListener('tm-request-end-round', onRequestEnd)
+    return () => window.removeEventListener('tm-request-end-round', onRequestEnd)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ending])
+
   // Returns true on success (including conflict-resolved force-write
   // and queued-while-offline), false on user-cancelled conflict, and
   // false on any unrecoverable failure. The bulk-foursome modal (6.2)
@@ -3125,7 +3139,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           round ends silently; an unfinished one asks whether to save the partial
           scores (records rounds/stats/rivalries) or end without saving (tallies
           nothing). Matches the app's bottom-sheet styling. */}
-      {endPrompt && (
+      {endPrompt && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end' }}
           onClick={ending ? undefined : () => setEndPrompt(false)}>
           <div style={{ width: '100%', maxWidth: 430, margin: '0 auto', background: 'var(--tm-surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px 36px' }}
@@ -3154,7 +3168,8 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               border: '1px solid var(--tm-border)', cursor: ending ? 'default' : 'pointer',
             }}>Keep playing</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {showManage && isHost && outing && (
