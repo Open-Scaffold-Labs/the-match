@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783666511.5408833,
-    "source_id": "2851e9ce-a332-4593-96aa-9eecbdf30a84",
-    "verified_at": 1783666542.3013818
+    "mtime": 1783668147.9449139,
+    "source_id": "b8c1a78b-77ab-4e7b-b641-a01768dbc0c3",
+    "verified_at": 1783668215.53892
   },
   "wiki/index.md": {
-    "mtime": 1783666497.2366562,
-    "source_id": "67dafc8d-82f5-40f8-a2da-78044f73d15b",
-    "verified_at": 1783666558.145808
+    "mtime": 1783668184.8840234,
+    "source_id": "30fe7da1-2f98-4343-a415-8d6a5921e7df",
+    "verified_at": 1783668233.7476301
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -182,9 +182,9 @@
     "verified_at": 1783383016.5478091
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1783665614.0882602,
-    "source_id": "520e51a6-e583-470c-b871-794b49694f5f",
-    "verified_at": 1783665684.442028
+    "mtime": 1783668171.380018,
+    "source_id": "2afe95cb-077e-44b6-b116-ab4d69cbf3a5",
+    "verified_at": 1783668256.536988
   },
   "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
     "mtime": 1783441571.9913416,
@@ -220,5 +220,10 @@
     "mtime": 1783666433.8352027,
     "source_id": "fbd6c5ea-caca-4b43-b2e2-496f84e92b7e",
     "verified_at": 1783666619.4834418
+  },
+  "wiki/synthesis/map-this-course-editor-build-spec-2026-07-10.md": {
+    "mtime": 1783668126.12383,
+    "source_id": "ac477a73-75c2-4372-8d67-2568963bca3d",
+    "verified_at": 1783668240.737217
   }
 }
