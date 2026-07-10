@@ -49,6 +49,28 @@ const OSM_LS_TTL = 7 * 24 * 60 * 60 * 1000
 // lib/eye-hole.js (Phase 1 / S2, 2026-07-10) so round-start flows outside
 // this file can reset the hole to 1 before seeding sharedCourse.
 
+// P2-F — per-course dismissals for the GPS hole-advance nudge. Scoped to one
+// course at a time (switching courses resets naturally); cleared on round
+// start so a fresh round can nudge again.
+const NUDGE_DISMISS_KEY = 'tm-eye-nudge-dismissed'
+function readNudgeDismissed(courseId) {
+  try {
+    const v = JSON.parse(localStorage.getItem(NUDGE_DISMISS_KEY) || 'null')
+    if (v && String(v.courseId) === String(courseId) && Array.isArray(v.holes)) return v.holes
+  } catch { /* ignore */ }
+  return []
+}
+function addNudgeDismissed(courseId, hole) {
+  try {
+    const holes = readNudgeDismissed(courseId)
+    if (!holes.includes(hole)) holes.push(hole)
+    localStorage.setItem(NUDGE_DISMISS_KEY, JSON.stringify({ courseId, holes }))
+  } catch { /* ignore */ }
+}
+function clearNudgeDismissed() {
+  try { localStorage.removeItem(NUDGE_DISMISS_KEY) } catch { /* ignore */ }
+}
+
 function lsLoadOsm(key) {
   try {
     const raw = localStorage.getItem(`tm-osm-${key}`)
@@ -1466,6 +1488,45 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole])
 
+  // ── P2-F: forgiving GPS hole-advance NUDGE (2026-07-10) ────────────────────
+  // NEVER silent, NEVER automatic, NEVER any end-of-round behavior — the
+  // market's wrong-hole complaints (Garmin fires mid-approach with no off
+  // switch; Arccos locks onto adjacent tees) all come from silent auto-advance.
+  // Trigger: trusted fix (≤ GPS_ACCURACY_GATE_M) AND within ~45 yds of the
+  // NEXT hole's tee AND closer to that tee than to the current green, on 3
+  // consecutive GPS ticks → a dismissible chip. Dismissal persists per
+  // course+hole; cleared on any round start / explicit course pick.
+  const [advanceNudge, setAdvanceNudge] = useState(null) // next hole # or null
+  const advTicksRef = useRef(0)
+  useEffect(() => {
+    if (!courseCtx || showStart) { advTicksRef.current = 0; setAdvanceNudge(null); return }
+    if (!gps || gps.accuracy == null || gps.accuracy > GPS_ACCURACY_GATE_M) { advTicksRef.current = 0; return }
+    const next = currentHole + 1
+    if (next > totalHoles) { setAdvanceNudge(null); return } // last hole: no chip, ever
+    const nextTee = holePositions[next]
+    if (!nextTee) return
+    const yds = (a, b) => {
+      const R = 6371000
+      const dLat = (b.lat - a.lat) * Math.PI / 180
+      const dLon = (b.lon - a.lon) * Math.PI / 180
+      const h = Math.sin(dLat/2)**2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLon/2)**2
+      return (2 * R * Math.asin(Math.sqrt(h))) * 1.09361
+    }
+    const dNext = yds(gps, nextTee)
+    const curGreen = greenPositions[currentHole]
+    const dGreen = curGreen ? yds(gps, curGreen) : Infinity
+    if (dNext <= 45 && dNext < dGreen) {
+      advTicksRef.current += 1
+      if (advTicksRef.current >= 3 && !readNudgeDismissed(courseCtx.course.id).includes(next)) {
+        setAdvanceNudge(next)
+      }
+    } else {
+      advTicksRef.current = 0
+      setAdvanceNudge(n => (n == null ? n : null))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gps, currentHole, holePositions, greenPositions, showStart, courseCtx?.course?.id])
+
   const holeData = courseCtx
     ? courseCtx.tee.holes.find(h => h.hole === currentHole) ?? null
     : null
@@ -1518,6 +1579,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     setTeeGps(gps)
     setShowPicker(false)
     setShowStart(false)
+    clearNudgeDismissed() // P2-F — fresh course view/round can nudge again
     // Push the pick up to App.jsx's sharedCourse so the Match tab and
     // future Eye sessions stay in sync. (2026-05-01)
     onCourseSelected?.(ctx)
@@ -2020,6 +2082,45 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </svg>
               {quickSheet?.open ? 'HIDE SCORING' : `SCORE HOLE ${currentHole}`}
             </button>
+          </div>
+        )}
+
+        {/* P2-F — GPS hole-advance NUDGE chip. Consent-based, dismissible,
+            per-hole-persistent dismissal; in the header stack so it never
+            overlaps the HUD. */}
+        {courseCtx && !showStart && advanceNudge != null && (
+          <div style={{ padding: '0 20px 10px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10, padding: '7px 8px 7px 14px',
+              borderRadius: 999,
+              background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)',
+              backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+              border: '1px solid rgb(var(--tm-ee-green-rgb) / 0.5)',
+              boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)',
+              whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.75)' }}>
+                On hole {advanceNudge}?
+              </span>
+              <button onClick={() => {
+                setCurrentHole(advanceNudge)
+                setTeeGps(gps)
+                advTicksRef.current = 0
+                setAdvanceNudge(null)
+              }} style={{
+                background: 'rgb(var(--tm-ee-green-rgb) / 0.18)', border: '1px solid rgb(var(--tm-ee-green-rgb) / 0.55)',
+                borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
+                fontSize: 12, fontWeight: 800, color: 'var(--tm-ee-green)',
+              }}>Move to hole {advanceNudge}</button>
+              <button onClick={() => {
+                addNudgeDismissed(courseCtx.course.id, advanceNudge)
+                advTicksRef.current = 0
+                setAdvanceNudge(null)
+              }} aria-label="Dismiss" style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
+                fontSize: 14, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1,
+              }}>✕</button>
+            </div>
           </div>
         )}
 
