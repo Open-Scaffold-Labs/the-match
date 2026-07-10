@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
 import { api, post, put } from '../lib/api.js'
@@ -48,16 +48,6 @@ const OSM_LS_TTL = 7 * 24 * 60 * 60 * 1000
 // Per-course hole persistence (readEyeHole/saveEyeHole) extracted to
 // lib/eye-hole.js (Phase 1 / S2, 2026-07-10) so round-start flows outside
 // this file can reset the hole to 1 before seeding sharedCourse.
-
-// Great-circle distance in YARDS between two {lat, lon} points. Used by the
-// geometry trust gate and the P2-F advance nudge.
-function ydsBetween(a, b) {
-  const R = 6371000
-  const dLat = (b.lat - a.lat) * Math.PI / 180
-  const dLon = (b.lon - a.lon) * Math.PI / 180
-  const h = Math.sin(dLat/2)**2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLon/2)**2
-  return (2 * R * Math.asin(Math.sqrt(h))) * 1.09361
-}
 
 // P2-F — per-course dismissals for the GPS hole-advance nudge. Scoped to one
 // course at a time (switching courses resets naturally); cleared on round
@@ -1003,8 +993,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
   // OSM course data: geocoded position, tee coords, green coords
   const [courseGeocoded, setCourseGeocoded] = useState(null)
-  const [holePositionsRaw, setHolePositionsRaw]   = useState({}) // { 1: {lat,lon}, ... } tees (pre-gate)
-  const [greenPositionsRaw, setGreenPositionsRaw] = useState({}) // { 1: {lat,lon}, ... } greens (pre-gate)
+  const [holePositions, setHolePositions]   = useState({}) // { 1: {lat,lon}, ... } tees
+  const [greenPositions, setGreenPositions] = useState({}) // { 1: {lat,lon}, ... } greens
   const [greenPolys, setGreenPolys]         = useState({}) // { 1: [{lat,lon},...] } OSM green polygons → F/C/B
   const [fairwayPolys, setFairwayPolys]     = useState([]) // Slice 4: course-wide golf=fairway polygons → auto-lie
   const [bunkerPolys, setBunkerPolys]       = useState([]) // Slice 4: course-wide golf=bunker polygons → auto-lie
@@ -1013,11 +1003,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // dogleg-aware aim-point default placement (par 4/5 layup along the
   // fairway centerline). Empty {} if OSM had no way data for the hole.
   // (2026-05-01)
-  const [holeGeometriesRaw, setHoleGeometriesRaw] = useState({})
+  const [holeGeometries, setHoleGeometries] = useState({})
   const [osmLoading, setOsmLoading]         = useState(false)
-
-  // (Geometry trust gate lives BELOW holeOverridesRef — its memo executes at
-  // render and reads the overrides; lexical order matters, TDZ gate.)
   // Curated per-course hole overrides (tm_course_holes, migration 043) — the
   // AUTHORITATIVE layout for courses OSM can't place (no golf=hole routing, e.g.
   // Beacon Hill). Kept in a ref so the OSM load can overlay them onto its result
@@ -1027,40 +1014,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // layout-confident downstream. (2026-07-09)
   const [holeOverrides, setHoleOverrides]   = useState({ tees: {}, greens: {}, geoms: {}, count: 0 })
   const holeOverridesRef = useRef({ tees: {}, greens: {}, geoms: {} })
-
-  // ── Geometry trust gate (2026-07-10 — Matt's Bayonne catch: FROM TEE said
-  // 365 from the scorecard while the drawn tee→green line measured 229;
-  // OSM's hole matching had grabbed a wrong point). Per hole: when BOTH a
-  // matched tee and green exist AND the card yardage disagrees with the
-  // drawn tee→green distance by >20% AND >30 yds, that hole's geometry is
-  // UNTRUSTED — tee, green, and hole-line are all dropped so the map
-  // degrades to the existing unmapped-hole path (card yardage, no
-  // confidently-wrong line or GPS-to-green). Curated tm_course_holes
-  // overrides are authoritative and exempt. The scorecard is the truth
-  // anchor; measured geometry must agree with it before we display it.
-  const { holePositions, greenPositions, holeGeometries, gatedHoles } = useMemo(() => {
-    const holes = courseCtx?.tee?.holes || []
-    const ovTees = holeOverrides?.tees || {}
-    const bad = new Set()
-    for (const h of holes) {
-      if (ovTees[h.hole]) continue // curated override — authoritative
-      const t = holePositionsRaw[h.hole]
-      const g = greenPositionsRaw[h.hole]
-      const card = Number(h.yardage)
-      if (!t || !g || !Number.isFinite(card) || card <= 0) continue
-      const drawn = ydsBetween(t, g)
-      const diff = Math.abs(drawn - card)
-      if (diff > 30 && diff / card > 0.2) bad.add(h.hole)
-    }
-    if (bad.size === 0) {
-      return { holePositions: holePositionsRaw, greenPositions: greenPositionsRaw, holeGeometries: holeGeometriesRaw, gatedHoles: bad }
-    }
-    const t2 = { ...holePositionsRaw }
-    const g2 = { ...greenPositionsRaw }
-    const geo2 = { ...holeGeometriesRaw }
-    for (const n of bad) { delete t2[n]; delete g2[n]; delete geo2[n] }
-    return { holePositions: t2, greenPositions: g2, holeGeometries: geo2, gatedHoles: bad }
-  }, [holePositionsRaw, greenPositionsRaw, holeGeometriesRaw, courseCtx, holeOverrides])
 
   const watchIdRef = useRef(null)
   // Weather is fetched from open-meteo and changes slowly over a round, so
@@ -1168,9 +1121,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   useEffect(() => {
     if (!courseCtx) return
     setCourseGeocoded(null)
-    setHolePositionsRaw({})
-    setGreenPositionsRaw({})
-    setHoleGeometriesRaw({})
+    setHolePositions({})
+    setGreenPositions({})
+    setHoleGeometries({})
     setOsmLoading(true)
 
     const { club_name, city, state } = courseCtx.course
@@ -1207,9 +1160,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       const cached = osmPositionCache.get(cacheKey)
       const ov = holeOverridesRef.current
       setCourseGeocoded(cached.geocoded)
-      setHolePositionsRaw({ ...cached.tees, ...ov.tees })
-      setGreenPositionsRaw({ ...cached.greens, ...ov.greens })
-      setHoleGeometriesRaw({ ...(cached.geoms || {}), ...ov.geoms })
+      setHolePositions({ ...cached.tees, ...ov.tees })
+      setGreenPositions({ ...cached.greens, ...ov.greens })
+      setHoleGeometries({ ...(cached.geoms || {}), ...ov.geoms })
       setGreenPolys(cached.polys || {})
       setFairwayPolys(cached.fairwayPolys || [])
       setBunkerPolys(cached.bunkerPolys || [])
@@ -1222,9 +1175,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       osmPositionCache.set(cacheKey, stored) // also warm in-memory cache
       const ov = holeOverridesRef.current
       setCourseGeocoded(stored.geocoded)
-      setHolePositionsRaw({ ...stored.tees, ...ov.tees })
-      setGreenPositionsRaw({ ...stored.greens, ...ov.greens })
-      setHoleGeometriesRaw({ ...(stored.geoms || {}), ...ov.geoms })
+      setHolePositions({ ...stored.tees, ...ov.tees })
+      setGreenPositions({ ...stored.greens, ...ov.greens })
+      setHoleGeometries({ ...(stored.geoms || {}), ...ov.geoms })
       setGreenPolys(stored.polys || {})
       setFairwayPolys(stored.fairwayPolys || [])
       setBunkerPolys(stored.bunkerPolys || [])
@@ -1404,9 +1357,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             // at setState only — the cache below stays PURE OSM so overrides can
             // change independently without poisoning the geometry cache.
             const ov = holeOverridesRef.current
-            setHolePositionsRaw({ ...holeTees, ...ov.tees })
-            setGreenPositionsRaw({ ...holeGreens, ...ov.greens })
-            setHoleGeometriesRaw({ ...holeGeoms, ...ov.geoms })
+            setHolePositions({ ...holeTees, ...ov.tees })
+            setGreenPositions({ ...holeGreens, ...ov.greens })
+            setHoleGeometries({ ...holeGeoms, ...ov.geoms })
             setGreenPolys(holePolys)
             // ── Slice 4: course-wide fairway + bunker polygons for auto-lie ──
             // Parse golf=fairway / golf=bunker (ways + multipolygon `outer`
@@ -1471,9 +1424,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       if (cancelled) return
       holeOverridesRef.current = { tees, greens, geoms }
       setHoleOverrides({ tees, greens, geoms, count: Object.keys({ ...tees, ...greens }).length })
-      setHolePositionsRaw(p => ({ ...p, ...tees }))
-      setGreenPositionsRaw(p => ({ ...p, ...greens }))
-      setHoleGeometriesRaw(p => ({ ...p, ...geoms }))
+      setHolePositions(p => ({ ...p, ...tees }))
+      setGreenPositions(p => ({ ...p, ...greens }))
+      setHoleGeometries(p => ({ ...p, ...geoms }))
     }).catch(() => { /* no overrides yet — OSM/reconstruction stands */ })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1689,9 +1642,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     if (next > totalHoles) { setAdvanceNudge(null); return } // last hole: no chip, ever
     const nextTee = holePositions[next]
     if (!nextTee) return
-    const dNext = ydsBetween(gps, nextTee)
+    const yds = (a, b) => {
+      const R = 6371000
+      const dLat = (b.lat - a.lat) * Math.PI / 180
+      const dLon = (b.lon - a.lon) * Math.PI / 180
+      const h = Math.sin(dLat/2)**2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLon/2)**2
+      return (2 * R * Math.asin(Math.sqrt(h))) * 1.09361
+    }
+    const dNext = yds(gps, nextTee)
     const curGreen = greenPositions[currentHole]
-    const dGreen = curGreen ? ydsBetween(gps, curGreen) : Infinity
+    const dGreen = curGreen ? yds(gps, curGreen) : Infinity
     if (dNext <= 45 && dNext < dGreen) {
       advTicksRef.current += 1
       if (advTicksRef.current >= 3 && !readNudgeDismissed(courseCtx.course.id).includes(next)) {
@@ -2111,21 +2071,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             </div>
           )
         })()}
-
-        {/* Geometry trust gate note — this hole's OSM tee/green contradicted
-            the scorecard, so the map shows no measured line (honest > wrong).
-            The Map-this-course editor is the permanent fix. (2026-07-10) */}
-        {courseCtx && !showStart && gatedHoles.has(currentHole) && (
-          <div style={{ padding: '0 20px 8px', display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-            <span style={{
-              fontSize: 10.5, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)',
-              background: 'rgb(var(--tm-ee-glass-rgb) / 0.5)', borderRadius: 999, padding: '4px 12px',
-              backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            }}>
-              Hole map data didn’t pass verification — yardage from the scorecard
-            </span>
-          </div>
-        )}
 
         {/* P2-D — SCORE pill: opens the QuickScoreSheet (rendered by the
             round's owner, portaled over this map) so the current hole is
