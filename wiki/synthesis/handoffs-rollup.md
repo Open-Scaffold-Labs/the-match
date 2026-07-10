@@ -1,7 +1,7 @@
 ---
 type: synthesis
 created: 2026-07-06
-updated: 2026-07-09
+updated: 2026-07-10
 tags: [the-match, handoff, rollup]
 ---
 
@@ -15,7 +15,110 @@ written (newest/ACTIVE first). Everything below the first section is
 SUPERSEDED history — trust the ACTIVE section.
 
 
-# [ACTIVE] next-session-handoff-2026-07-09.md
+
+# [ACTIVE] next-session-handoff-2026-07-10.md
+
+# Next-Session Handoff — 2026-07-10 (ACTIVE; supersedes 2026-07-09)
+
+Mandatory start: **roll-call → wiki/index.md → this file + latest `wiki/log.md` entries**
+(PM1–PM9 for this session), then the two live specs:
+[[synthesis/play-funnel-phase1-build-spec-2026-07-10]] and
+[[synthesis/play-oncourse-phase2-build-spec-2026-07-10]].
+
+## TL;DR
+Massive build day, session-start-to-finish with Matt device-testing live. **Phase 0
+(nav restructure), Phase 1 (Play start funnel), and Phase 2 (active-round session +
+QuickScoreSheet + GPS nudge) of the start-match-unified-flow plan ALL SHIPPED to the
+beta**, plus ~10 device-pass fixes from Matt's live feedback. One reverted regression
+(geometry trust gate). Everything gated (build + lint, now incl. a new TDZ rule);
+runtime verification of Phase 2 is Matt's ongoing device pass.
+
+## THE NEXT BUILD — "Map this course" editor (Matt greenlit, top priority)
+Bayonne proved OSM's tee/green matching can be SYSTEMATICALLY wrong (hero FROM TEE
+365 = scorecard truth vs drawn line 229 = wrong OSM point; the reverted gate showed
+MANY Bayonne holes fail card-vs-drawn verification). The permanent fix is the
+per-course editor → `tm_course_holes` overrides (authoritative, migration 043 +
+GET/PUT `/api/courses/:id/holes` already live on the server).
+- **A draft already exists UNCOMMITTED on Matt's Mac working tree** (`client/src/pages/HoleMapGL.jsx`,
+  ~41 lines): editMode/editDraft/editCandidates/onMapTap props + guarded edit
+  layers (editCand/editLine/editPts sources) + a tap handler. Guarded by
+  editModeRef — zero risk to normal mode. DO NOT lose it; build on it.
+- Still needed (the page side, in EagleEye): an entry point (course-name area /
+  a "Map this course" affordance when geometry is missing or wrong) → per-hole
+  step-through (tap tee → tap green → next hole) with snapping to OSM candidate
+  dots (`teegreen` data already fetched) → PUT overrides → reload
+  `holeOverrides` → map is exact.
+- Method: same as Phases 0–2 — Plan agent on the seams first, spec + checklist to
+  wiki, slices, gate, audit.
+- **If a display trust-gate is still wanted after the editor: RENDER-side only.**
+  The reverted attempt (`ad6eb83`, reverted `4831b2b`) filtered the shared
+  holePositions/greenPositions data maps — the OSM gap-fill logic read them too,
+  saw gated holes as forever-missing, and refetch-looped (app slowdown + no
+  holes). Lesson in log PM9.
+
+## Shipped this session (all on `main`, chronological)
+- **Phase 0** `c194432`: bar = Home · Match · ▶Play · Profile · Tour (Leagues → Match-tab
+  segmented toggle w/ tab-press reset; Profile own tab via new `pages/Profile.jsx` +
+  exported ProfileView; labels; stale-tab remap).
+- **Phase 1** `f15bcb8`+`9014c8b`: ONE CoursePicker (sheet|inline verbatim variants,
+  shared search layer); solo seeds sharedCourse + gender-correct tees;
+  `lib/eye-hole.js`; `lib/course-recents.js`; PlayStart funnel (confirm card, 9|18,
+  Solo|Match, light match create + invite chip, `pendingOpenCode` open-not-join).
+- **Device-pass fixes** `d8ff9b5`→`0431fd5`: PlayStart reachable over an active course
+  view (course-name tap + Back-to-map); map HUD hidden on the start screen; copy →
+  "AI-POWERED CADDIE" + framing rule (NO "rangefinder mode" copy — EE is ONE surface,
+  yardages+scoring together); session model = map only when a round is ACTIVE
+  (isActive re-arm + back-prompt end sheet routing to the real end flows);
+  **instant NEARBY COURSES** in both pickers (OSM `nearby` Overpass type, 0.1° grid
+  cells in tm_osm_cache; tap → name-resolve to GolfCourseAPI, never dead-ends);
+  invite chip into the header stack (no HUD overlap).
+- **Phase 2** `1dcd5b8`+`fc14f8a`+`e0c0af0`: `lib/active-round-session.js` (doctrine:
+  solo truth = blob, match truth = server, session = INDEX, never load-bearing;
+  merge-upsert, code-guarded clears, reconciliation via LiveOuting polls + throttled
+  /recent on Play entry) — hub blind spot CLOSED; owner-mounting on boot;
+  `QuickScoreSheet` (owner-rendered portal → real saveScore w/ queue/idempotency/OCC/
+  rides/celebrations, zero forked scoring; EE SCORE pill; hole follows EE one-way);
+  consent-based GPS advance nudge (45yd/3-tick/per-hole dismiss, never auto).
+- **Save=advance** `04bb504`: sheet save closes + advances map to next hole (failed
+  OCC saves keep it open; solo advances its scorecard hole in step).
+- **TDZ crash + gate hardening** `8d6b205`: 'vt' crash fixed (P2-F dep array read
+  showStart declared later); **`no-use-before-define` (variables) added as the 3rd
+  lint error rule** — it immediately caught a 2nd shipped crash (inline picker's
+  `useNearbyCourses(coords)` above `coords`). Every gate rule now has a crash story.
+- **Trust gate reverted** `ad6eb83` → `4831b2b` (see NEXT BUILD above).
+
+## Carry-forward invariants (additions this session in bold)
+- rivalries ONLY from completed scorecards; `/end` idempotent; `save:false` records
+  nothing; lie `recovery`; toPin = raw gpsToGreen; currentHole 1-idx vs solo/
+  saveScore/shot-buffer 0-idx (convert ONCE at the owner boundary).
+- **Session doctrine: solo truth = blob, match truth = server, session = index —
+  readers self-heal by clearing; never load-bearing.**
+- **EE framing: AI-powered CADDIE, one surface; never "rangefinder-only/no-scoring"
+  copy.**
+- **QuickScoreSheet: owner-rendered portal; EE only toggles; hole flow one-way.**
+- **Scorecard = truth anchor for yardage; but any geometry gate must be RENDER-side.**
+- **Dep arrays + hook arguments are render-time code — declaration order matters
+  (no-use-before-define now enforces).**
+- Beta discipline: build+lint (incl. new rule) straight to `main`; git via
+  desktop-commander (sandbox can't reach GitHub).
+
+## Open / blockers
+1. **NotebookLM main bucket FULL (50/50)** — [[synthesis/play-oncourse-phase2-build-spec-2026-07-10]]
+   FAILED to sync (upload_failed: 1). Consolidate sources (handoffs-rollup pattern /
+   IGNORED list / merge superseded specs) BEFORE the next wiki page is created.
+2. **HoleMapGL editor draft uncommitted** on Matt's Mac — the next build's foundation.
+3. **Phase 2 runtime verification** — none done: spec §7 device matrix (session
+   start/end matrix, sheet e2e w/ 2nd device + offline replay + OCC chip, nudge on a
+   real walk, reload-mid-match). Phase 1 residuals: wizard/league regression pass,
+   picker pixel check, nearby resolve accuracy in the field.
+4. Matt's on-course EE walk-and-confirm GPS pass + Slice 4 auto-lie (from 07-08) still
+   pending; POST-LAUNCH #25 (native-shell round) unchanged.
+5. Deferred product follow-ups: in-sheet full scorecard grid (match), bottom-strip
+   scorecard placement, `/nearby` server endpoint if OSM-nearby proves thin, GPS-only
+   mode (Phase 3), post-round flyover editor (Phase 3).
+
+
+# [SUPERSEDED] next-session-handoff-2026-07-09.md
 
 # Next-Session Handoff — 2026-07-09 (ACTIVE; supersedes 2026-07-08)
 
@@ -72,42 +175,82 @@ Key code seams (from the map, all under `client/src`): nav in `App.jsx`/`compone
 
 # [SUPERSEDED] next-session-handoff-2026-07-08.md
 
-# Next-Session Handoff — 2026-07-08 (ACTIVE; supersedes 2026-07-07)
-
-Mandatory start: **roll-call → wiki/index.md → this file + `wiki/log.md`'s latest entries**, then the two Eagle Eye docs — spec [[synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07]] and the live tracker [[synthesis/eagle-eye-walk-and-confirm-progress-2026-07-07]].
-
-## TL;DR
-Eagle Eye **"walk-and-confirm" shot capture** is built and mostly live-verified. **Slices 0, 1, 3 + solo clean-on-save are on `main`.** Capture works for **any** active EE round (solo OR outing). Remaining: **Matt's on-course pass** (real GPS) + **Slice 4** (stretch — full fairway/rough/sand auto-lie). Nothing blocked.
-
-## Commits on `main` this session
-`ff010cb` spec+tracker · `3fcbe28` Slice 0 (buffer + solo façade + ScoreModal rewire, 20 tests) · `bb83047` Slice 1 (ShotCaptureSheet, LOG SHOT, plays-like club rec, backfill, trust nudges) · `78d46b7` capture opened to ALL EE rounds (solo+outing, race-safe) · `444cb58` tracker · `7da5c3b` Slice 3 on-green guard (pointInPolygon) + solo clean-on-save.
-
-## Verified vs PENDING
-- **Verified** (unit + build + live browser via Claude-in-Chrome 2026-07-08): the capture data path + UI + solo/outing routing. A confirmed shot wrote `{lie:"tee",toPin:165,club:"7i"}` into the solo round blob; LOG SHOT shows for solo; map renders; plays-like computes.
-- **PENDING — needs real GPS on-course** (desktop Chrome geolocation is DENIED): the GPS→plays-like HERO and the on-green warning firing. Code + unit verified; GPS runtime unconfirmed → **Matt's on-course pass**.
-
-## Carry-forward invariants (do NOT regress)
-1. Lie keys = `tee/fairway/rough/sand/recovery` (label "Trouble"); NEVER emit `trouble` (server drops it). Single source: `SHOT_LIES` in `components/scorecard/ShotSheet.jsx`.
-2. `toPin` stored = RAW `gpsToGreen`; plays-like is club-advice only, never stored.
-3. EE `currentHole` 1-indexed vs 0-indexed arrays → convert once (`currentHole-1`).
-4. SG counts a hole only when `shots.length + putts === score` (ScoreModal hint + backfill surface it).
-5. Gate new capture on `activeCapture` (outing OR solo).
-6. Solo shots ride the ONE round blob via `writeSoloShots` → fires `tm-solo-shots` → `ActiveRound` re-hydrates (kills the clobber race). No second solo store.
-
-## Key files
-`client/src/lib/shot-capture.js` (buffer) · `lib/solo-round.js` (solo façade + event) · `pages/EagleEye.jsx` (ShotCaptureSheet ~816, activeCapture ~1403, LOG SHOT ~2057, render ~2187) · `pages/Outing/LiveOuting.jsx` (ScoreModal hint+backfill) · `pages/ActiveRound.jsx` (re-hydration listener) · `lib/clubModel.js` (recommendClub) · `lib/geo.js` (pointInPolygon) · `server/src/lib/shotFacts.js` (cleanHoleShots/cleanShotsForRound) · `server/src/routes/rounds.js` (solo clean-on-save) · `server/src/lib/sg/index.js` (read-time SG).
-
-## Remaining work
-1. **Matt's on-course pass** (real GPS): plays-like hero + on-green warning fire; real round → SG OTT/APP/ARG.
-2. **Slice 4 (stretch)** — full auto-lie: Overpass fetch `golf=fairway`/`golf=bunker` polygons + cache bump + PIP → auto fairway/rough/sand; degrade to Slice-3 defaults when OSM empty. On-course-only verify.
-3. Minor: confirm haptic is a WKWebView no-op (`tmHaptic`=`navigator.vibrate`); real Taptic needs a native bridge — separate native-shell task.
-
-## Gates / counts
-Every push: client lint+build+test · server test · `node --check`. **Beta = main; ASK before every push.** Counts: client geo 38 / clubModel 16 / shot-capture 20 · server 97 (shot-facts 14).
-
+---
+type: synthesis
+created: 2026-07-08
+updated: 2026-07-08
+tags: [the-match, handoff, active]
 ---
 
+# Next-Session Handoff — 2026-07-08 (ACTIVE; supersedes 2026-07-07)
+
+Mandatory start: **roll-call → wiki/index.md → this file + `wiki/log.md`'s latest entries**, then the two Eagle Eye docs:
+- Spec (design): [[synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07]]
+- **Progress tracker (the live checklist + risk register): [[synthesis/eagle-eye-walk-and-confirm-progress-2026-07-07]]** ← read this; it's the source of truth for status.
+
+Everything below is SHIPPED + verified unless marked pending.
+
+## TL;DR
+Eagle Eye **"walk-and-confirm" shot capture** is built and mostly live-verified. **Slices 0, 1, 3 + solo clean-on-save are on `main`.** Capture works for **any** active Eagle Eye round (solo OR outing). Remaining: **Matt's on-course pass** (real GPS) + **Slice 4** (stretch — full fairway/rough/sand auto-lie). Nothing is blocked.
+
+## What shipped this session (commits on `main`)
+- `ff010cb` — spec + progress tracker (docs)
+- `3fcbe28` — **Slice 0**: shared per-hole shot buffer (`shot-capture.js`) + solo façade + `ScoreModal` rewire + 20 unit tests (no behavior change)
+- `bb83047` — **Slice 1**: EE capture — `ShotCaptureSheet`, LOG SHOT pill, **plays-like club rec**, "forgot-to-log" backfill, trust nudges
+- `78d46b7` — **capture opened to ALL EE rounds** (solo + outing) with a race-safe solo-blob sync
+- `444cb58` — tracker (live-verification notes)
+- `7da5c3b` — **Slice 3**: on-green guard (`pointInPolygon`) + **solo clean-on-save**
+
+## Current state (what works)
+- **LOG SHOT** pill in the EE HUD whenever a round is active (live outing OR self-discovered solo). Standalone EE (no round) shows nothing new.
+- **Confirm sheet** (dark "instrument"): distance hero (or a **manual field when GPS isn't locked**), **plays-like** club recommendation + one-gesture club strip, lie chips (tee/fairway/rough/sand/**recovery**), **on-green guard**, **trust nudges** (>500y / non-decreasing distance).
+- Shots flow: outing → the existing score save (`shotRide`); solo → the shared round blob → both land in `tm_rounds.shots` → read-time SG (OTT/APP/ARG).
+- **LIVE-VERIFIED on the beta (Claude-in-Chrome, 2026-07-08):** LOG SHOT shows for a solo round; a confirmed shot wrote `{lie:"tee",toPin:165,club:"7i"}` into the round blob (correct SG shape); map renders; plays-like computes. (Test shot cleaned up.)
+
+## Verified vs PENDING (be honest with Matt)
+- **Verified** (unit + build + live browser): the whole capture data path + the UI render + solo/outing routing.
+- **PENDING — needs real GPS on-course** (desktop Chrome has geolocation **DENIED**, so these ran only their fallback path): the **GPS→plays-like HERO** ("150 · plays 162") and the **on-green warning actually firing**. Both are code + unit verified; only the GPS-driven runtime is unconfirmed. **→ This is Matt's on-course pass.**
+
+## Carry-forward invariants — DO NOT REGRESS
+1. **Lie keys = `tee/fairway/rough/sand/recovery`** (label "Trouble"). NEVER emit `lie:'trouble'` — the server (`shotFacts.js VALID_LIES`) silently drops it → the hole leaves SG. Single source = `SHOT_LIES` exported from `components/scorecard/ShotSheet.jsx`.
+2. **`toPin` stored = RAW `gpsToGreen`** (SG keys on actual distance-to-pin). Plays-like is CLUB ADVICE only — never stored.
+3. EE `currentHole` is **1-indexed**; buffer/scores/shots arrays are **0-indexed**. Convert once (`currentHole - 1`).
+4. SG counts a hole only when **`shots.length + putts === score`**. The `ScoreModal` completeness hint + "+ Add missing shot" backfill surface mismatches (non-blocking).
+5. Gate all new EE capture on **`activeCapture`** (outing OR solo).
+6. **Solo shots ride the ONE shared round blob** via `lib/solo-round writeSoloShots`, which fires `tm-solo-shots` → `ActiveRound` re-hydrates (kills the clobber race). Do NOT add a second solo store.
+
+## Key files
+- `client/src/lib/shot-capture.js` — the buffer (scopeKey/read/append/write/clear; solo delegates to the façade)
+- `client/src/lib/solo-round.js` — `readSoloShots`/`writeSoloShots` (+ `tm-solo-shots` dispatch)
+- `client/src/pages/EagleEye.jsx` — `ShotCaptureSheet` (~816); `activeCapture` + capture state (~1403); LOG SHOT onClick (~2057); sheet render (~2187)
+- `client/src/pages/Outing/LiveOuting.jsx` — `ScoreModal` (buffer-hydrated `holeShots`; completeness hint + backfill)
+- `client/src/pages/ActiveRound.jsx` — solo `shots` + the `tm-solo-shots` re-hydration listener
+- `client/src/lib/clubModel.js` — `recommendClub` (raw-bag closest `avg_yards`)
+- `client/src/lib/geo.js` — `pointInPolygon` (on-green)
+- `server/src/lib/shotFacts.js` — `cleanHoleShots` / `setShotsAtHole` / `cleanShotsForRound` / `VALID_LIES`
+- `server/src/routes/rounds.js` — solo `POST /rounds` (now cleans via `cleanShotsForRound`); `routes/outings.js` — outing write + `/end` sync
+- `server/src/lib/sg/index.js` — the read-time SG engine (complete-chain gate, ≥9 shot-holes for round-level)
+
+## Remaining work
+1. **Matt's on-course pass** (real GPS): confirm the plays-like hero + on-green warning fire; play/log a real round → SG OTT/APP/ARG populate end-to-end on a phone.
+2. **Slice 4 (stretch) — full lie auto-detect**: new Overpass fetch for `golf=fairway` + `golf=bunker` polygons + a cache bump (see `tm_osm_cache`), then PIP against those to auto-classify fairway/rough/sand; degrade to the Slice-3 tee/fairway defaults when OSM has no data. Only verifiable on-course. Spec §5 Slice 4.
+3. Minor: confirm haptic is a **no-op in WKWebView** (`tmHaptic` = `navigator.vibrate`, which iOS ignores). Real Taptic needs a `webkit.messageHandlers` → `UIImpactFeedbackGenerator` native bridge — a separate native-shell task, NOT part of this feature.
+
+## Verify gates (every push)
+`npm --prefix client run lint && npm --prefix client run build && npm --prefix client run test` · `npm run test --workspace=server` · `node --check` on changed server files. **Beta = `main`; ASK Matt before every commit/push** (CLAUDE.md hard rule).
+
+## Test counts (current, all green)
+client: **geo 38 · clubModel 16 · shot-capture 20** · server: **97** (shot-facts 14). `node --check` clean on touched server files.
+
+
 # [SUPERSEDED] next-session-handoff-2026-07-07.md
+
+---
+type: synthesis
+created: 2026-07-07
+updated: 2026-07-07
+tags: [the-match, handoff, active]
+---
 
 # Next-Session Handoff — 2026-07-07 (SUPERSEDED by 2026-07-08)
 
@@ -204,7 +347,15 @@ on ANY npm install · browser-walkthrough with a VISIBLE window for map work · 
 reload races the first post-deploy page load (retry before diagnosing) · slice definition
 defines done · same-target probes prove nothing tool-wide (anti-pattern #27).
 
+
 # [SUPERSEDED] next-session-handoff-2026-07-06.md
+
+---
+type: synthesis
+created: 2026-07-06
+updated: 2026-07-06
+tags: [the-match, handoff]
+---
 
 # Next-Session Handoff — 2026-07-06 (SUPERSEDED by 2026-07-07)
 
@@ -288,7 +439,15 @@ DB OSL/bqjd :6543, ANTHROPIC_API_KEY = the-match-prod-2, all SCORING_* flags on.
 Test accounts: #2 Test User, #14 Demo Tester; test outings 8L3U/UDCX (closed, keep).
 e2e harness: `scripts/e2e-putt-capture*.mjs` (JWT minted blind from .env).
 
+
 # [SUPERSEDED] next-session-handoff-2026-07-02.md
+
+---
+type: synthesis
+created: 2026-07-02
+updated: 2026-07-02
+tags: [the-match, eagle-eye, handoff, plays-like, distance, build-plan]
+---
 
 # Next-Session Handoff — Eagle Eye + Bulletproof Build (2026-07-02)
 
@@ -477,7 +636,15 @@ crashes; lint is what catches them.
 - If wiki/CLAUDE.md changed, run the NotebookLM refresh + preflight per the CLAUDE.md
   end-of-session checklist.
 
+
 # [SUPERSEDED] next-session-handoff-2026-06-30.md
+
+---
+type: synthesis
+created: 2026-06-30
+updated: 2026-06-30
+tags: [the-match, handoff, eagle-eye, plays-like, phase-0, accuracy]
+---
 
 # The Match — Next-Session Handoff (2026-06-30)
 
@@ -520,7 +687,15 @@ We're already visually ahead of the field (research-confirmed: no competitor doc
 ## Standing rules (unchanged)
 Roll Call first. Beta = `main` (gate every push: `npm --prefix client run build` + `run lint` + `node --check` changed server files + `npm test`; math via `node client/src/lib/geo.test.mjs`). audit-before-claim every claim. Framing check (anti-pattern #26). Never advertise/​show a precision figure.
 
+
 # [SUPERSEDED] next-session-handoff-2026-06-29.md
+
+---
+type: synthesis
+created: 2026-06-29
+updated: 2026-06-29
+tags: [the-match, handoff, eagle-eye, visual-flow, accuracy]
+---
 
 # The Match — Next-Session Handoff (2026-06-29) → Eagle Eye accuracy + visual flow
 
@@ -595,7 +770,15 @@ Supersedes `next-session-handoff-2026-06-28.md`. Read this first, then the two l
 
 **First decision for the next session to get from Matt:** Phase 0 foundation pass alone (fast, whole-app lift), or Phase 0 + the accuracy-polish slice together? Recommend Phase 0 first — it derisks and visibly lifts everything, and the token/type system is the substrate the accuracy chips + dispersion bands render on.
 
+
 # [SUPERSEDED] next-session-handoff-2026-06-28.md
+
+---
+type: synthesis
+created: 2026-06-28
+updated: 2026-06-28
+tags: [the-match, handoff, f5, foundation-lock]
+---
 
 # The Match — Next-Session Handoff (2026-06-28)
 
@@ -650,7 +833,15 @@ Then create a DB and `psql -f` the migrations. This is how F.6 parity and the 37
 - `migrations/004_tm_games.sql` (repair), `035_*` (indexes), `036_*` (score_version).
 - Specs: `f5-never-lose-your-round-build-spec-2026-06-28.md`, `foundation-lock-build-spec-2026-06-27.md`, `audit-2026-06-27.md`.
 
+
 # [SUPERSEDED] next-session-handoff-2026-06-27.md
+
+---
+type: synthesis
+created: 2026-06-27
+updated: 2026-06-27
+tags: [the-match, handoff, roadmap, eagle-eye]
+---
 
 # The Match — Next-Session Handoff (2026-06-27)
 
@@ -713,7 +904,15 @@ Commits: `bb355a5`→`4b15d9f`. build + lint + `node --check` clean throughout. 
 - `client/src/pages/HoleMapGL.jsx` — GL hole renderer (now with `ResizeObserver`).
 - `wiki/POST-LAUNCH-TODO.md` **#24** — the native safe-area fix.
 
+
 # [SUPERSEDED] next-session-handoff-2026-06-26.md
+
+---
+type: synthesis
+created: 2026-06-26
+updated: 2026-06-26
+tags: [the-match, handoff, roadmap]
+---
 
 # The Match — Next-Session Handoff (2026-06-26)
 
@@ -755,7 +954,15 @@ Eagle Eye's hero-instrument work (Phase 1 + 2) is done and device-verified: MapL
 - `client/src/pages/Outing/{CreateWizard,LiveOuting}.jsx` — match net strokes, CH chip, allowances.
 - Migrations 029–033. Audit: `handicap-accuracy-audit-2026-06-25.md`.
 
+
 # [SUPERSEDED] next-session-handoff-2026-06-24.md
+
+---
+type: synthesis
+created: 2026-06-24
+updated: 2026-06-24
+tags: [the-match, eagle-eye, roadmap, build-plan]
+---
 
 # The Match — Next-Session Handoff
 *Written 2026-06-24 (end of a long Cowork session). Read this, then the two plan docs alongside it in `wiki/synthesis/`.*
@@ -818,102 +1025,3 @@ One small held item: **concentric yardage range-rings** on the map (held pending
 
 ## 5. End-of-session checklist (for when YOU wrap)
 `wiki/log.md` entry → refresh trust anchors (CLAUDE.md / index.md) → commit+push `the-match` → `python3.11 tools/notebooklm-wiki-refresh.py` → verify `verify_failed: 0` → preflight green.
-
-# [SUPERSEDED] eagle-eye-tile-grid-handoff-2026-05-01.md
-
-# Handoff — Eagle Eye satellite tile grid lines (open issue)
-
-**Created:** 2026-05-01 — end of session
-**Status:** unresolved after multiple CSS attempts
-
-## TL;DR
-
-The satellite map in The Match's Eagle Eye tab shows visible grid lines between tiles. Multiple fixes attempted, none have closed the gap. Root cause is most likely the **leaflet-rotate plugin** introducing fractional-pixel positioning when the map rotates course-up — adjacent satellite tiles end up with sub-pixel seams that paint as visible lines.
-
-## What's been tried (in order)
-
-All changes scoped to `client/src/pages/EagleEye.jsx` inside the inline `<style>` block near line 1650.
-
-1. **`background: #070C09 !important` on `.leaflet-container`** — Changed gap color from white (Leaflet default `#ddd`) to dark green to match the page. **Result:** gaps still visible, just dark instead of light.
-2. **`outline: 1px solid transparent` on `.leaflet-tile`** — Hoped this would force the browser to rasterize tile boundaries cleanly. **Result:** no visible effect.
-3. **`transform: scale(1.01)` on `.leaflet-tile` + `transform-origin: 0 0`** — Slight oversample so adjacent tiles physically overlap by ~1 pixel. **Result:** Matt reports lines still showing.
-4. **`backface-visibility: hidden` + `transform: translateZ(0)` on `.leaflet-tile-pane` and `.leaflet-tile`** — Force GPU compositing to kill sub-pixel CPU rasterization seams. **Result:** combined with #3 above, still visible.
-5. **`will-change: transform` on `.leaflet-tile`** — Compositing layer hint. **Result:** no improvement.
-
-Current CSS in the file (lines ~1665-1690):
-
-```css
-.leaflet-container { background: #070C09 !important; }
-.leaflet-tile-pane {
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  transform: translateZ(0);
-}
-.leaflet-tile {
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  will-change: transform;
-  transform: scale(1.01);
-  transform-origin: 0 0;
-}
-```
-
-## Likely root cause
-
-The leaflet-rotate plugin (loaded from CDN at runtime, version 0.2.8) applies `transform: rotate(<bearing>)` to the entire map pane. When rotation is non-axis-aligned (anything other than 0°/90°/180°/270°), each tile's position is computed in fractional pixel coordinates. The browser anti-aliases the tile edges against whatever's beneath. Even with the container background matching the page, the anti-aliasing creates a visible darker line at the rasterization boundary.
-
-The `scale(1.01)` trick *should* have worked because it makes tiles physically overlap. The fact that it didn't suggests one of:
-- The rotate plugin's per-tile transform is overriding or composing with my scale in a way that cancels the overlap
-- iOS Safari is anti-aliasing each tile independently before compositing, so the seam line remains visible across tiles regardless of overlap
-- The grid lines aren't actually inter-tile seams but something else (e.g., a leaflet debug overlay, a CSS rule from a library, etc.)
-
-## What to try next (ranked)
-
-1. **Inspect computed CSS in iOS Safari dev tools.** Connect Matt's iPhone to a Mac running Safari, open Develop → his iPhone → the-match tab, inspect a `.leaflet-tile` element. Check what transforms are *actually* applied. The `scale(1.01)` may be getting clobbered by the rotate plugin's per-tile transform.
-
-2. **Try `tileSize: 257` in the `L.tileLayer` config.** Forces tiles to render slightly oversized at fetch time, which is conceptually similar to `scale(1.01)` but applied at the source. Less likely to be clobbered:
-   ```js
-   // EagleEye.jsx line ~323:
-   L.tileLayer(url, { tileSize: 257, zoomOffset: 0, ... })
-   ```
-   Image gets stretched 0.4% — invisible at any zoom. Will close ~1px seams.
-
-3. **Pin a newer leaflet-rotate version.** Currently `leaflet-rotate@0.2.8`. Check `https://github.com/Raruto/leaflet-rotate` for newer releases that may have fixed the tile-seam issue. Note the inverted-bearing bug we worked around in `wiki/synthesis/...` — if you bump the version, re-test orientation.
-
-4. **Disable rotation as a test.** Toggle off the rotate plugin's `bearing` and verify the grid lines disappear entirely. That confirms rotate is the cause. If they persist with no rotation, it's an unrelated rendering bug.
-
-5. **Switch to Mapbox satellite tiles.** ESRI World Imagery is current. Mapbox handles fractional-pixel positioning more robustly per leaflet GH issues. Would need a `MAPBOX_TOKEN` in env.
-
-6. **Add 1px box-shadow inset matching page bg.** Wraps each tile in a subtle border that matches the gap color, so the seam visually merges with tile content edges.
-
-## What's working (don't break these)
-
-- Onboarding wizard runs on signup; mandatory through step 4 (driver). Profile + bag + course + handicap save correctly via `POST /api/profile/update` and `PUT /api/clubs/bag/driver`.
-- Home checklist renders + auto-finalizes onboarding when all five items complete.
-- Coach marks fire once per user per id on Home, Match, Eagle Eye, My Bag, Profile, PlayerCard. Tour mark intentionally removed.
-- Admin gear icon shows for `mlav1114@aol.com` only; opens user roster newest-first.
-- Bag toggle on Eagle Eye picks closest club to GPS distance, ▲/▼ cycles, pulsing yellow target on map at projected landing point.
-- Match page swipe-left-to-delete works on host's own active matches.
-- Tour page renders position, TOT, THRU correctly from new ESPN scoreboard shape.
-
-## File inventory (everything touched this session, all pushed)
-
-- `client/src/pages/EagleEye.jsx` — bag toggle, landing zone marker, yardage card resize, conditions pill cleanup, **tile CSS attempts (this issue)**
-- `client/src/pages/Outing.jsx` — swipe-to-delete, expected_players, coach mark
-- `client/src/pages/MyBag.jsx` — bag inventory + distance, "+ Other" custom entry, bag complete overlay
-- `client/src/pages/Home.jsx` — admin gear, onboarding checklist, profile coach mark, dark calendar
-- `client/src/pages/PGAScores.jsx` — ESPN scoreboard shape fix
-- `client/src/components/OnboardingWizard.jsx` — new
-- `client/src/components/OnboardingChecklist.jsx` — new
-- `client/src/components/CoachMark.jsx` — new
-- `client/src/components/AdminUsersModal.jsx` — new
-- `client/src/components/RivalryDetail.jsx`, `RivalryHistory.jsx`, `FriendProfile.jsx`, `PlayerCard.jsx` — various tweaks
-- `client/src/components/BagPhoto.jsx` — created + reverted (file still in tree, unused)
-- `client/src/lib/clubCatalog.js` — new
-- `migrations/009_tm_user_clubs.sql`, `010_tm_user_clubs_avg_yards.sql`, `011_tm_outings_expected_players.sql`, `012_tm_users_onboarding.sql` — all applied to prod
-- `server/src/routes/clubs.js`, `onboarding.js`, `admin.js` — new
-- `server/src/routes/outings.js`, `availability.js`, `games.js`, `auth.js`, `profile.js` — additions
-
-## Tell next-Claude
-
-> Eagle Eye's satellite tiles show visible grid lines between adjacent tiles. The leaflet-rotate plugin is the proximate cause. Five CSS attempts have failed: container bg match, transparent outline, `scale(1.01)`, GPU compositing, will-change. Read `HANDOFF-2026-05-01.md` for full list. Start with **iOS Safari dev tools inspection** of the actual computed transforms on `.leaflet-tile`, then try **`tileSize: 257`** in the tileLayer config (high success rate, low risk), then try a **leaflet-rotate version bump**. Don't re-attempt the fixes already in `EagleEye.jsx` — they're documented as unsuccessful.
