@@ -1007,30 +1007,10 @@ function computeMatchPlay(p1, p2, getScores, holePars, holeStrokes = null) {
 }
 
 
-// ─── Header control-chip system (2026-07-09 design pass) ──────────────────────
-// One consistent pill recipe so the host / quick-action rows read as a calm
-// toolbar on the LIGHT board header (AUGUSTA_GREEN_DEEP is a pale grey) instead
-// of a rainbow of translucent, emoji-wearing buttons colored for a dark surface.
-// Settings chips are text-only; action chips carry a thin line icon (no emoji);
-// state shows as a gold tint; the one destructive action wears a red outline.
-const HDR_CHIP_BASE = {
-  display: 'inline-flex', alignItems: 'center', gap: 5,
-  height: 30, padding: '0 12px', borderRadius: 999,
-  fontSize: 11.5, fontWeight: 700, letterSpacing: '0.01em',
-  cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-  border: '1px solid rgba(14,59,35,0.16)',
-  background: 'rgba(255,255,255,0.78)',
-  color: '#1A6B28',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.6)',
-  WebkitTapHighlightColor: 'transparent',
-}
-// variant: 'neutral' | 'active' (gold state) | 'danger' (destructive)
-function hdrChip(variant = 'neutral') {
-  if (variant === 'active') return { ...HDR_CHIP_BASE, background: 'rgba(201,160,64,0.18)', border: '1px solid rgba(168,134,46,0.55)', color: '#8A6A1E' }
-  if (variant === 'danger')  return { ...HDR_CHIP_BASE, background: 'rgba(178,42,42,0.06)', border: '1px solid rgba(178,42,42,0.32)', color: '#B22A2A' }
-  return HDR_CHIP_BASE
-}
-// Thin line icon — 13px, currentColor, matches the app's stroke-SVG family.
+// ─── Header control system (2026-07-09 design pass) ───────────────────────────
+// All match controls live in one dropdown (MatchMenu, below) instead of a
+// scattered rainbow of emoji pills. Thin line icon — 13px, currentColor,
+// matches the app's stroke-SVG family.
 const HdrIcon = ({ d, size = 13 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
     {d}
@@ -1043,6 +1023,85 @@ const HDR_ICONS = {
   coins: <><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="M16.71 13.88l.7.71-2.82 2.82"/></>,
   chat: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>,
   sliders: <><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></>,
+  clipboard: <><path d="M9 2h6a1 1 0 0 1 1 1v1H8V3a1 1 0 0 1 1-1z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></>,
+  flag: <><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></>,
+  help: <><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+}
+
+// One menu row inside the MatchMenu dropdown.
+function MatchMenuRow({ icon, label, value, badge = 0, danger, disabled, onClick }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      display: 'flex', alignItems: 'center', gap: 11, width: '100%',
+      padding: '11px 14px', background: 'transparent', border: 'none',
+      cursor: disabled ? 'default' : 'pointer', textAlign: 'left', fontFamily: 'inherit',
+      color: danger ? '#B22A2A' : '#1A6B28', fontSize: 13.5, fontWeight: 700,
+      opacity: disabled ? 0.5 : 1, WebkitTapHighlightColor: 'transparent',
+    }}>
+      <span style={{ display: 'inline-flex', width: 16, justifyContent: 'center', flexShrink: 0 }}>
+        {icon ? <HdrIcon d={icon} size={16} /> : null}
+      </span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {value != null && <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(26,107,40,0.55)' }}>{value}</span>}
+      {badge > 0 && (
+        <span style={{ background: '#B22A2A', color: '#fff', fontSize: 10, fontWeight: 900, borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
+// Single dropdown that houses ALL the match controls (2026-07-09 design pass) —
+// replaces the scattered pill rows. Premium dark-green trigger (matches the
+// board's SCORECARD/BOARD toggle + gold code chip), tap-outside to close,
+// grouped sections. Chat unread surfaces as a dot on the collapsed trigger.
+function MatchMenu({ sections, triggerBadge = 0, align = 'right' }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Match menu" style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8, height: 34, padding: '0 15px',
+        borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 800,
+        letterSpacing: '0.08em', color: '#F5D78A', position: 'relative',
+        background: 'linear-gradient(135deg, #14512E 0%, #0E3B23 100%)',
+        border: '1px solid rgba(168,134,46,0.55)',
+        boxShadow: '0 3px 10px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)',
+        WebkitTapHighlightColor: 'transparent',
+      }}>
+        <HdrIcon d={HDR_ICONS.sliders} size={14} />
+        MENU
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s' }}><polyline points="6 9 12 15 18 9"/></svg>
+        {!open && triggerBadge > 0 && (
+          <span style={{ position: 'absolute', top: -4, right: -3, background: '#B22A2A', color: '#fff', fontSize: 9, fontWeight: 900, borderRadius: 999, minWidth: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '1.5px solid rgba(252,251,246,0.95)' }}>
+            {triggerBadge > 99 ? '99+' : triggerBadge}
+          </span>
+        )}
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div role="menu" style={{
+            position: 'absolute', top: 'calc(100% + 8px)', [align]: 0, zIndex: 41,
+            minWidth: 236, maxWidth: '82vw',
+            background: 'rgba(252,251,246,0.98)',
+            border: '1px solid rgba(14,59,35,0.14)', borderRadius: 14,
+            boxShadow: '0 18px 44px rgba(0,0,0,0.28), 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
+            overflow: 'hidden', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          }}>
+            {sections.map((sec, si) => (
+              <div key={si} style={si > 0 ? { borderTop: '1px solid rgba(14,59,35,0.10)' } : undefined}>
+                {sec.label && <div style={{ padding: '9px 14px 3px', fontSize: 9, fontWeight: 800, letterSpacing: '0.13em', color: 'rgba(26,107,40,0.5)' }}>{sec.label}</div>}
+                {sec.items.map((it, ii) => (
+                  <MatchMenuRow key={ii} {...it} onClick={it.onClick ? () => { setOpen(false); it.onClick() } : undefined} disabled={!it.onClick} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
@@ -2130,7 +2189,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
 
         {/* Host controls row */}
         {isHost && (
-          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ fontSize: 11, flex: 1, color: (scoringMode === 'designated' && markers.length === 0) ? 'var(--tm-gold-bright)' : 'var(--tm-text-3)', fontWeight: (scoringMode === 'designated' && markers.length === 0) ? 700 : 400 }}>
               {/* "Tap any cell to enter scores" removed 2026-04-30 PM round 11 —
                   the pulsing gold tap-hint on the first empty cell teaches
@@ -2141,70 +2200,32 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 ? '⚠ Assign a group scorer →'
                 : markers.length > 0 ? `${markers.length} scorer${markers.length !== 1 ? 's' : ''} assigned` : ''}
             </div>
-            {/* Settings chips (text-only) — Groups, scoring mode, gross/net */}
-            <button onClick={() => setShowGroups(true)}
-              style={markers.length > 0 ? hdrChip('active') : hdrChip()}>
-              <HdrIcon d={HDR_ICONS.users} />{markers.length > 0 ? 'Edit Groups' : 'Set Groups'}
-            </button>
-            {/* F.5 S6 — scoring-mode toggle. Designated = only host + assigned
-                scorers enter others' scores (assign via Edit Groups). */}
-            <button onClick={() => changeScoringMode(scoringMode === 'designated' ? 'open' : 'designated')}
-              style={scoringMode === 'designated' ? hdrChip('active') : hdrChip()}>
-              {scoringMode === 'designated' ? 'Designated scorer' : 'Scoring: Open'}
-            </button>
-            {hasHandicaps && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <button onClick={() => setNetMode(m => !m)}
-                  style={netMode ? hdrChip('active') : hdrChip()}
-                  title="GROSS = your raw strokes. NET = your strokes adjusted for handicap. Tap to toggle.">
-                  {netMode ? 'NET' : 'GROSS'}
-                </button>
-                <button
-                  onClick={() => setShowHcpHelp(true)}
-                  aria-label="What does GROSS / NET mean?"
-                  title="What's the difference?"
-                  style={{
-                    width: 18, height: 18, borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.7)',
-                    border: '1px solid rgba(14,59,35,0.22)',
-                    color: '#1A6B28',
-                    fontSize: 10, fontWeight: 800,
-                    lineHeight: 1, padding: 0,
-                    cursor: 'pointer',
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  }}>?</button>
-              </span>
-            )}
-            <button onClick={() => setShowGuestModal(true)} style={hdrChip()}>
-              <HdrIcon d={HDR_ICONS.userPlus} />Guest
-            </button>
-            {/* Action chips (line icon + label) — Share, Side Bets, Chat, Manage */}
-            {/* Share live leaderboard — opens a modal with the URL +
-                QR code + tee-box print page. (Round 2/3 audit.) */}
-            <button onClick={() => setShowLiveShare(true)} style={hdrChip()}
-              title="QR code, link, and printable tee-box flyer">
-              <HdrIcon d={HDR_ICONS.share} />Share
-            </button>
-            <button onClick={() => setShowSideBets(true)} style={hdrChip()}>
-              <HdrIcon d={HDR_ICONS.coins} />Side Bets
-            </button>
-            <button onClick={() => setShowChat(true)} style={{ ...hdrChip(), position: 'relative' }}>
-              <HdrIcon d={HDR_ICONS.chat} />Chat
-              {chatUnread > 0 && (
-                <span style={{
-                  background: '#B22A2A', color: '#fff',
-                  fontSize: 10, fontWeight: 900,
-                  borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
-                  marginLeft: 2,
-                }}>{chatUnread > 99 ? '99+' : chatUnread}</span>
-              )}
-            </button>
-            <button onClick={() => setShowManage(true)} style={hdrChip()}>
-              <HdrIcon d={HDR_ICONS.sliders} />Manage
-            </button>
-            <button onClick={endMatch} disabled={ending} style={hdrChip('danger')}>
-              {ending ? 'Ending…' : 'End Match'}
-            </button>
+            {/* All host controls consolidated into one dropdown (2026-07-09). */}
+            <MatchMenu
+              triggerBadge={chatUnread}
+              sections={[
+                { label: 'SETTINGS', items: [
+                  { icon: HDR_ICONS.users, label: markers.length > 0 ? 'Edit Groups' : 'Set Groups', value: markers.length > 0 ? String(markers.length) : undefined, onClick: () => setShowGroups(true) },
+                  { icon: HDR_ICONS.clipboard, label: 'Scoring', value: scoringMode === 'designated' ? 'Designated' : 'Open', onClick: () => changeScoringMode(scoringMode === 'designated' ? 'open' : 'designated') },
+                  ...(hasHandicaps ? [
+                    { icon: HDR_ICONS.flag, label: 'Leaderboard', value: netMode ? 'Net' : 'Gross', onClick: () => setNetMode(m => !m) },
+                    { icon: HDR_ICONS.help, label: 'What’s Gross vs Net?', onClick: () => setShowHcpHelp(true) },
+                  ] : []),
+                ] },
+                { label: 'PEOPLE', items: [
+                  { icon: HDR_ICONS.userPlus, label: 'Add Guest', onClick: () => setShowGuestModal(true) },
+                  { icon: HDR_ICONS.share, label: 'Share Live', onClick: () => setShowLiveShare(true) },
+                ] },
+                { label: 'PLAY', items: [
+                  { icon: HDR_ICONS.coins, label: 'Side Bets', onClick: () => setShowSideBets(true) },
+                  { icon: HDR_ICONS.chat, label: 'Chat', badge: chatUnread, onClick: () => setShowChat(true) },
+                ] },
+                { items: [
+                  { icon: HDR_ICONS.sliders, label: 'Manage Match', onClick: () => setShowManage(true) },
+                  { icon: HDR_ICONS.flag, label: ending ? 'Ending…' : 'End Match', danger: true, onClick: ending ? undefined : endMatch },
+                ] },
+              ]}
+            />
           </div>
         )}
         {/* Marker hint — shown to assigned markers who aren't host. In
@@ -2247,21 +2268,16 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             just the host. The host already has the same buttons in their
             controls row above; this gives non-hosts the same entry. */}
         {!isHost && (
-          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => setShowSideBets(true)} style={hdrChip()}>
-              <HdrIcon d={HDR_ICONS.coins} />Side Bets
-            </button>
-            <button onClick={() => setShowChat(true)} style={{ ...hdrChip(), position: 'relative' }}>
-              <HdrIcon d={HDR_ICONS.chat} />Chat
-              {chatUnread > 0 && (
-                <span style={{
-                  background: '#B22A2A', color: '#fff',
-                  fontSize: 10, fontWeight: 900,
-                  borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
-                  marginLeft: 2,
-                }}>{chatUnread > 99 ? '99+' : chatUnread}</span>
-              )}
-            </button>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <MatchMenu
+              triggerBadge={chatUnread}
+              sections={[
+                { label: 'PLAY', items: [
+                  { icon: HDR_ICONS.coins, label: 'Side Bets', onClick: () => setShowSideBets(true) },
+                  { icon: HDR_ICONS.chat, label: 'Chat', badge: chatUnread, onClick: () => setShowChat(true) },
+                ] },
+              ]}
+            />
           </div>
         )}
 
