@@ -1696,6 +1696,17 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     const sIdx = holeArr.map(h => h.handicap).slice(0, holes)
     setStartError('')
 
+    // C7 Phase 3 (2026-07-10) ⚑ — browse→scoring upgrade seam: starting a
+    // round on the SAME course you're actively browsing keeps your place
+    // (you're standing on hole 6 — don't yank the map back to 1; the
+    // scorecard backfills 1–5 whenever). The Phase-1 "new round opens on
+    // hole 1" doctrine targeted STALE per-course memory from a previous
+    // visit; a live-browse continuation is the opposite case, and it's the
+    // upgrade path no market app ships (research: the "keep score?" trap).
+    // Fresh or different course → hole 1, exactly as before. ⚑ Flagged for
+    // Matt's device pass.
+    const continueHole = (courseCtx?.course?.id === course.id && currentHole > 1) ? currentHole : 1
+
     if (mode === 'solo') {
       const ok = startSoloRound(user?.id, {
         courseName,
@@ -1710,8 +1721,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       // P2-A W1 — register the active-round session index.
       writeSession(user?.id, { kind: 'solo', courseId: course.id, courseName, courseTee: tee.tee_name ?? null, holeCount: pars.length })
       addRecent({ id: course.id, club_name: courseName, lastTee: tee.tee_name ?? null })
-      saveEyeHole(course.id, 1)
+      saveEyeHole(course.id, continueHole)
       handleCourseSelect(sel)
+      if (continueHole > 1) setCurrentHole(continueHole) // upgrade seam (C7)
       return
     }
 
@@ -1752,8 +1764,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       // P2-A W2 — register the active-round session index.
       if (code) writeSession(user?.id, { kind: 'match', code, courseId: course.id, courseName, courseTee: tee.tee_name ?? null, holeCount: pars.length })
       addRecent({ id: course.id, club_name: courseName, lastTee: tee.tee_name ?? null })
-      saveEyeHole(course.id, 1)
+      saveEyeHole(course.id, continueHole)
       handleCourseSelect(sel)
+      if (continueHole > 1) setCurrentHole(continueHole) // upgrade seam (C7)
       if (code) {
         setStartedMatchCode(code)
         // App mounts the Match tab hidden + opens the live outing there, so
