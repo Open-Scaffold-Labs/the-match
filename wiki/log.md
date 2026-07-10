@@ -1742,3 +1742,8 @@ Six commits to `main`, all build+lint+test-gated + Matt device-checked:
 - Root cause: EndMatchScreen rendered `background: transparent` over the Match tab's bright fairway photo with DARK-theme surfaces (#F5D78A pale gold, white-6% fills) — champion name at ~1.3:1 contrast, buttons invisible.
 - Design-critique-driven rebuild in the app's actual light Augusta language: parchment veil gradient (grass glows through), grass-tab doctrine panels (translucent white + blur, SOLID numerals), glowing gold medallion + CHAMPION kicker + gradient-gold winner name, gold #1 podium card w/ rank badges (gold/silver/bronze), highlights glass card, ONE gold primary action (Phase-3 shot review), shares collapsed from three stacked buttons to a compact row, staggered entrance animations honoring prefers-reduced-motion, 50px+ touch targets, over-par red #B22222 / under-par gold-text per light-theme readability.
 - Gate green (build+lint). Runtime NOT verified — Matt's next ended match is the visual check.
+
+## [2026-07-10 PM2] fix | Bottom nav full-bleed (`beb1e58`) — Matt's screenshot showed dead strips at both sides of the tab bar
+- Root cause: `BottomNav.jsx` capped the whole `<nav>` (background included) at `maxWidth: 430` and centered it — on any viewport wider than 430 CSS px the page background peeked through on both sides of the white bar.
+- Fix: the cream background + borderTop now span the full viewport (`left:0; right:0; width:100%`); the 430px cap moved to an inner wrapper around the icon row only, so item spacing doesn't stretch on wide screens. Safe-area/home-indicator handling unchanged.
+- Gate green (build to scratch outDir — sandbox can't unlink in `dist/` — + lint). Runtime check: Matt's device after the Vercel deploy.
