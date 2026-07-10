@@ -1014,6 +1014,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // layout-confident downstream. (2026-07-09)
   const [holeOverrides, setHoleOverrides]   = useState({ tees: {}, greens: {}, geoms: {}, count: 0 })
   const holeOverridesRef = useRef({ tees: {}, greens: {}, geoms: {} })
+  // ── "Map this course" editor (2026-07-10) — per-hole tee/green correction ──
+  // Session state for the manual editor that writes tm_course_holes overrides
+  // (the permanent fix for wrong OSM tee/green matching; replaces the reverted
+  // data-side trust gate — log [2026-07-10 PM9]). Declared in the geometry
+  // block: render-time entry conditions + JSX read these (no-use-before-define).
+  // Doctrine: the editor NEVER filters/drops keys from the shared geometry
+  // maps — it only ADDS, via the same override merge the GET effect uses.
+  const [editSession, setEditSession] = useState(null) // { hole, step:'tee'|'green', drafts:{[h]:{tee,green}}, dirty:{[h]:true}, savedHoles:{} } | null
+  const [editCandidates, setEditCandidates] = useState(null) // editor's OWN teegreen fetch: { tees:[], greens:[] } | null
+  const [mapChipDismissedFor, setMapChipDismissedFor] = useState(null) // course id — session-only chip dismissal
 
   const watchIdRef = useRef(null)
   // Weather is fetched from open-meteo and changes slowly over a round, so
@@ -1875,6 +1885,104 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
   const teeHoles = courseCtx?.tee?.holes ?? []
 
+  // ── "Map this course" editor: entry condition + session handlers ──────────
+  // (2026-07-10) Entry must be SUBTLE (Matt): the auto chip appears ONLY when
+  // geometry is missing or provably wrong vs the scorecard; accurate courses
+  // get just the pencil glyph by the course name. All wrongness detection is
+  // computed AT RENDER from the shared maps — never written back (the
+  // reverted trust gate's refetch-loop class, log PM9).
+  const editHoleConfident = (h) =>
+    !!(holePositions[h] && greenPositions[h] && Array.isArray(holeGeometries[h]) && holeGeometries[h].length >= 2)
+  const editCurMismatch = (() => {
+    const tee = holePositions[currentHole], green = greenPositions[currentHole]
+    const yd = holeData?.yardage
+    if (!tee || !green || !yd) return false
+    const d = haversineYards(tee, green)
+    return d != null && Math.abs(d - yd) > Math.max(25, yd * 0.12)
+  })()
+  const editNeedsMapping = !!courseCtx && !osmLoading &&
+    (teeHoles.some(h => !editHoleConfident(h.hole)) || editCurMismatch)
+
+  function enterEditMode() {
+    if (!teeHoles.length) return
+    // Seed each hole's draft from overrides first (authoritative), else the
+    // current OSM/reconstructed point — read-only reads of the shared maps.
+    const ov = holeOverridesRef.current
+    const drafts = {}
+    for (const h of teeHoles) {
+      drafts[h.hole] = {
+        tee: ov.tees[h.hole] || holePositions[h.hole] || null,
+        green: ov.greens[h.hole] || greenPositions[h.hole] || null,
+      }
+    }
+    const first = (teeHoles.find(h => !editHoleConfident(h.hole)) || teeHoles[0]).hole
+    setEditSession({ hole: first, step: 'tee', drafts, dirty: {}, savedHoles: {} })
+    if (first !== currentHole) setCurrentHole(first)
+    // Lazy one-shot candidate fetch — the editor's OWN (the OSM effect's
+    // teegreen parse is function-local and not cached, so it can't be
+    // reused). Failure → empty lists; free placement still works (no dead
+    // end). bbox math mirrors the OSM effect's.
+    if (!editCandidates) {
+      const gc = courseGeocoded
+      if (!gc) { setEditCandidates({ tees: [], greens: [] }); return }
+      const ovBbox = gc.bbox
+        ? `${gc.bbox.south},${gc.bbox.west},${gc.bbox.north},${gc.bbox.east}`
+        : `${gc.lat - 0.015},${gc.lon - 0.015},${gc.lat + 0.015},${gc.lon + 0.015}`
+      fetch(`/api/eagle-eye/osm?bbox=${encodeURIComponent(ovBbox)}&type=teegreen`)
+        .then(r => r.json())
+        .then(d => {
+          const tees = [], greens = []
+          for (const el of d?.elements || []) {
+            const lat = el.lat ?? el.center?.lat
+            const lon = el.lon ?? el.center?.lon ?? el.center?.lng
+            if (!lat || !lon) continue
+            if (el.tags?.golf === 'tee') tees.push({ lat, lon })
+            else if (el.tags?.golf === 'green') greens.push({ lat, lon })
+          }
+          setEditCandidates({ tees, greens })
+        })
+        .catch(() => setEditCandidates({ tees: [], greens: [] }))
+    }
+  }
+
+  function editGoToHole(hole) {
+    setEditSession(s => (s ? { ...s, hole, step: 'tee' } : s))
+    setCurrentHole(hole)
+  }
+
+  // Keep/skip: advance without re-tapping (the existing pin stands).
+  // tee step → green step; green step → next hole (or done after the last).
+  function editKeepNext() {
+    const s = editSession
+    if (!s) return
+    if (s.step === 'tee') { setEditSession({ ...s, step: 'green' }); return }
+    const idx = teeHoles.findIndex(h => h.hole === s.hole)
+    if (idx >= 0 && idx < teeHoles.length - 1) editGoToHole(teeHoles[idx + 1].hole)
+    else setEditSession(null)
+  }
+
+  // A map tap in edit mode: snap to the nearest candidate of the current
+  // step's kind within 15 yds (Matt, 2026-07-10 — tight, so dense tee/green
+  // clusters don't steal a deliberate tap), else the raw coord stands.
+  function onEditMapTap(coord) {
+    setEditSession(s => {
+      if (!s) return s
+      const list = (s.step === 'tee' ? editCandidates?.tees : editCandidates?.greens) || []
+      let best = null, bestD = Infinity
+      for (const c of list) {
+        const d = haversineYards(coord, c)
+        if (d != null && d < bestD) { bestD = d; best = c }
+      }
+      const placed = best && bestD <= 15 ? { lat: best.lat, lon: best.lon } : coord
+      const cur = s.drafts[s.hole] || { tee: null, green: null }
+      const drafts = {
+        ...s.drafts,
+        [s.hole]: s.step === 'tee' ? { ...cur, tee: placed } : { ...cur, green: placed },
+      }
+      return { ...s, drafts, dirty: { ...s.dirty, [s.hole]: true }, step: 'green' }
+    })
+  }
+
   return (
     // data-no-pull-refresh: Eagle Eye is a full-screen map tool — the view
     // never scrolls, so the app's pull-to-refresh (TabPanel) was firing on
@@ -1951,10 +2059,22 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                    change, solo/match start, all live there). Was a direct
                    picker-open; rerouted 2026-07-10 so the start screen is
                    reachable once a course is active. */
-                <button onClick={() => setShowStart(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-                  <span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: 1 }}>
+                  <button onClick={() => setShowStart(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontWeight: 500 }}>{courseCtx.course.club_name}</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.3)" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  {/* Discreet always-available entry to the "Map this course"
+                      editor — deliberately as quiet as the chevron beside it
+                      (Matt, 2026-07-10: must never read as a broken state).
+                      Padding gives a real touch target around the tiny glyph. */}
+                  {!editSession && (
+                    <button onClick={enterEditMode} aria-label="Map this course" title="Map this course"
+                      style={{ background: 'none', border: 'none', padding: '8px 8px', marginLeft: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', WebkitTapHighlightColor: 'transparent' }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -2032,7 +2152,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         {/* ── Hole selector ── one clean glass pill with ‹ › navigation, instead
             of the old cluttered 10-chip strip (the biggest "cheap" tell). The
             number+par read as a single elegant control. (2026-06-26 premium pass) */}
-        {courseCtx && !showStart && (() => {
+        {courseCtx && !showStart && !editSession && (() => {
           const idx = teeHoles.findIndex(h => h.hole === currentHole)
           const cur = teeHoles[idx] || teeHoles[0]
           const go = (delta) => {
@@ -2071,6 +2191,74 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             </div>
           )
         })()}
+
+        {/* ── "Map this course" editor HUD — replaces the hole pill while the
+            editor session is live. Step prompt + progress + Back / Keep /
+            Exit. Kept in the header stack (never overlaps the map HUD). */}
+        {courseCtx && !showStart && editSession && (() => {
+          const idx = teeHoles.findIndex(h => h.hole === editSession.hole)
+          const draft = editSession.drafts[editSession.hole] || {}
+          const onTee = editSession.step === 'tee'
+          const last = idx >= teeHoles.length - 1
+          const btn = {
+            background: 'rgb(var(--tm-ee-glass-rgb) / 0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)', borderRadius: 999, padding: '6px 12px',
+            cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.8)',
+            WebkitTapHighlightColor: 'transparent', fontFamily: 'inherit',
+          }
+          return (
+            <div style={{ padding: '0 20px 12px', marginTop: 8, pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999,
+                background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+                border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.5)', boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)', whiteSpace: 'nowrap',
+              }}>
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: '#fff' }}>Hole {editSession.hole}</span>
+                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgb(var(--tm-ee-white-rgb) / 0.35)' }} />
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--tm-ee-gold-light)' }}>
+                  {onTee ? 'TAP THE TEE' : 'TAP THE GREEN'}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>{idx + 1}/{teeHoles.length}</span>
+              </div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <button onClick={() => idx > 0 && editGoToHole(teeHoles[idx - 1].hole)} disabled={idx <= 0}
+                  style={{ ...btn, opacity: idx <= 0 ? 0.4 : 1, cursor: idx <= 0 ? 'default' : 'pointer' }}>‹ Back</button>
+                <button onClick={editKeepNext} style={{ ...btn, border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)', color: 'var(--tm-ee-gold-light)', fontWeight: 800 }}>
+                  {onTee ? (draft.tee ? 'Keep tee ›' : 'Skip ›') : (last ? 'Done' : 'Next hole ›')}
+                </button>
+                <button onClick={() => setEditSession(null)} style={btn}>Exit</button>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* "Map this course" chip — SUBTLE auto entry to the editor. Shows
+            ONLY when geometry is missing or provably wrong vs the scorecard
+            (an accurate course never sees it — the app must not look broken;
+            Matt 2026-07-10); the pencil by the course name is the
+            always-available path. Worded as an invitation, never an error. */}
+        {courseCtx && !showStart && !editSession && editNeedsMapping && mapChipDismissedFor !== courseCtx.course.id && (
+          <div style={{ padding: '0 20px 10px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10, padding: '7px 8px 7px 14px', borderRadius: 999,
+              background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)',
+              backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+              border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.40)',
+              boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)', whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.75)' }}>Fine-tune this course?</span>
+              <button onClick={enterEditMode} style={{
+                background: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.18)', border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)',
+                borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
+                fontSize: 12, fontWeight: 800, color: 'var(--tm-ee-gold-light)',
+              }}>Map holes</button>
+              <button onClick={() => setMapChipDismissedFor(courseCtx.course.id)} aria-label="Dismiss" style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
+                fontSize: 14, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1,
+              }}>✕</button>
+            </div>
+          </div>
+        )}
 
         {/* P2-D — SCORE pill: opens the QuickScoreSheet (rendered by the
             round's owner, portaled over this map) so the current hole is
@@ -2264,6 +2452,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             bagArcs={bagArcsData}
             rangeRingsOn={ringsOn}
             onAimChange={setAimInfo}
+            editMode={!!editSession}
+            editDraft={editSession ? (editSession.drafts[editSession.hole] || null) : null}
+            editCandidates={editCandidates}
+            onMapTap={onEditMapTap}
           />
 
           {/* Focus vignette — subtly darkens the map edges so the centre + the
