@@ -196,7 +196,13 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
   // Keep gpsRef current so distance labels always see the latest value
   useEffect(() => { gpsRef.current = gps }, [gps])
 
-  const coords = gps ? { lat: gps.lat, lng: gps.lon } : null
+  // FREEZE coords for the sheet's lifetime (2026-07-10 — THE quota leak):
+  // live `gps` ticks every second while walking, and coords in the search
+  // effect's deps re-fired a vendor search PER TICK with a query typed —
+  // this is what exhausted the course-data vendor's rate limit and killed
+  // search app-wide. A snapshot at open is all sorting needs; the live fix
+  // still drives the distance labels via gpsRef below.
+  const [coords] = useState(() => (gps ? { lat: gps.lat, lng: gps.lon } : null))
   const { query, setQuery, results, searching, searchError } = useCourseSearch({
     coords,
     debounceMs: 350,
