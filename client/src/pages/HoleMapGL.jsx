@@ -217,6 +217,10 @@ export default function HoleMapGL({
   rangeRingsOn = false,   // layup range-arcs to the green (100/150/200/250), opt-in
   onInitError,
   onAimChange,          // ({userPlaced, teeAimYds, aimGreenYds, aim}|null) — B: retarget plays-like to a user aim
+  editMode = false,     // "Map this course" editor — tap to place tee/green
+  editDraft = null,     // current hole's draft { tee, green, aim } (nulls allowed)
+  editCandidates = null,// { greens:[{lat,lon}], tees:[{lat,lon}] } — OSM guide dots
+  onMapTap,             // (coord) => void — a map tap in edit mode (raw lat/lon)
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -249,6 +253,18 @@ export default function HoleMapGL({
   const onAimChangeRef = useRef(onAimChange)   // latest callback for the once-attached dragend handler
   const emitAimRef = useRef(() => {})          // latest emitAim (avoids stale closure)
   useEffect(() => { onAimChangeRef.current = onAimChange }, [onAimChange])
+  // Editor snapshots — once-attached click handler reads these live. All edit
+  // rendering + the click handler are GUARDED by editModeRef, so normal mode is
+  // completely untouched (zero risk to the core hole view). (2026-07-09)
+  const editModeRef = useRef(editMode)
+  const editDraftRef = useRef(editDraft)
+  const editCandRef = useRef(editCandidates)
+  const onMapTapRef = useRef(onMapTap)
+  const redrawEditRef = useRef(() => {})
+  useEffect(() => { editModeRef.current = editMode; redrawEditRef.current() }, [editMode])
+  useEffect(() => { editDraftRef.current = editDraft; redrawEditRef.current() }, [editDraft])
+  useEffect(() => { editCandRef.current = editCandidates; redrawEditRef.current() }, [editCandidates])
+  useEffect(() => { onMapTapRef.current = onMapTap }, [onMapTap])
   useEffect(() => { gpsRef.current = gps }, [gps])
   useEffect(() => { clubRef.current = { yards: clubYards, label: clubLabel } }, [clubYards, clubLabel])
   useEffect(() => { bagArcsRef.current = bagArcs; redrawRef.current() }, [bagArcs]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -402,6 +418,31 @@ export default function HoleMapGL({
           'line-width': ['case', ['get', 'highlight'], 3.5, 2],
           'line-opacity': 0.95,
         }, layout: { 'line-cap': 'round' } })
+
+        // ── "Map this course" editor overlays (guarded by editModeRef) ──
+        // Candidate guide dots (real OSM greens/tees), the placed draft points,
+        // and the tee→(aim)→green draft line. Empty + inert unless editing.
+        map.addSource('editCand', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'editCand', type: 'circle', source: 'editCand', paint: {
+          'circle-radius': 5,
+          'circle-color': ['case', ['==', ['get', 'kind'], 'green'], eeColor('--tm-ee-green', null, '#5ED47A'), eeColor('--tm-ee-gold', null, '#C9A040')],
+          'circle-opacity': 0.45, 'circle-stroke-width': 1, 'circle-stroke-color': '#fff',
+        } })
+        map.addSource('editLine', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'editLine', type: 'line', source: 'editLine', paint: {
+          'line-color': eeColor('--tm-ee-gold-pulse', null, '#F5E070'), 'line-width': 2.5, 'line-dasharray': [2, 1.4],
+        }, layout: { 'line-cap': 'round' } })
+        map.addSource('editPts', { type: 'geojson', data: fc([]) })
+        map.addLayer({ id: 'editPts', type: 'circle', source: 'editPts', paint: {
+          'circle-radius': 8, 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#fff',
+        } })
+        // A tap in edit mode reports the raw coord up; the page snaps it to the
+        // nearest candidate for the current step. Inert when not editing.
+        map.on('click', (e) => {
+          if (!editModeRef.current) return
+          onMapTapRef.current?.({ lat: e.lngLat.lat, lon: e.lngLat.lng })
+        })
+        redrawEditRef.current()
 
         // tap-to-measure popup removed 2026-07 (Matt): redundant with the aim
         // line's distances, looked poor, and the popup didn't dismiss on tap.
