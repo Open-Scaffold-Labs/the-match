@@ -1648,7 +1648,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [advanceNudge, setAdvanceNudge] = useState(null) // next hole # or null
   const advTicksRef = useRef(0)
   useEffect(() => {
-    if (!courseCtx || showStart) { advTicksRef.current = 0; setAdvanceNudge(null); return }
+    // S4a: no advance nudge while the "Map this course" editor is open — the
+    // editor owns hole navigation; a nudge yanking currentHole mid-placement
+    // would desync the session.
+    if (!courseCtx || showStart || editSession) { advTicksRef.current = 0; setAdvanceNudge(null); return }
     if (!gps || gps.accuracy == null || gps.accuracy > GPS_ACCURACY_GATE_M) { advTicksRef.current = 0; return }
     const next = currentHole + 1
     if (next > totalHoles) { setAdvanceNudge(null); return } // last hole: no chip, ever
@@ -1674,7 +1677,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       setAdvanceNudge(n => (n == null ? n : null))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gps, currentHole, holePositions, greenPositions, showStart, courseCtx?.course?.id])
+  }, [gps, currentHole, holePositions, greenPositions, showStart, courseCtx?.course?.id, editSession])
   // When PlayStart routes through the full picker ("Not here?" / no recents),
   // the pending mode+holes ride here so the picker's onSelect can continue
   // the start instead of just loading the rangefinder. Null = plain pick.
@@ -2355,7 +2358,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             round's owner, portaled over this map) so the current hole is
             scored without leaving Play. Only when a round is active for
             capture. In the header stack — never overlaps the HUD. */}
-        {courseCtx && !showStart && activeCapture && onQuickSheetChange && (
+        {courseCtx && !showStart && !editSession && activeCapture && onQuickSheetChange && (
           <div style={{ padding: '0 20px 10px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={() => onQuickSheetChange({ open: !quickSheet?.open, hole: currentHole })}
@@ -2383,7 +2386,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         {/* P2-F — GPS hole-advance NUDGE chip. Consent-based, dismissible,
             per-hole-persistent dismissal; in the header stack so it never
             overlaps the HUD. */}
-        {courseCtx && !showStart && advanceNudge != null && (
+        {courseCtx && !showStart && !editSession && advanceNudge != null && (
           <div style={{ padding: '0 20px 10px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 10, padding: '7px 8px 7px 14px',
@@ -2424,7 +2427,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             overlap the map HUD (2026-07-10 — Matt: it was absolutely
             positioned and covered the hole pill). Tap → live outing (where
             MatchMenu has the full share flow); ✕ dismisses. */}
-        {courseCtx && !showStart && startedMatchCode && (
+        {courseCtx && !showStart && !editSession && startedMatchCode && (
           <div style={{ padding: '0 20px 12px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 10, padding: '7px 8px 7px 14px',

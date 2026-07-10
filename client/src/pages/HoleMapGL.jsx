@@ -261,7 +261,17 @@ export default function HoleMapGL({
   const editCandRef = useRef(editCandidates)
   const onMapTapRef = useRef(onMapTap)
   const redrawEditRef = useRef(() => {})
-  useEffect(() => { editModeRef.current = editMode; redrawEditRef.current() }, [editMode])
+  useEffect(() => {
+    editModeRef.current = editMode
+    // S4c: an edit tap must never fight the aim-point drag — the aim marker
+    // goes inert while editing and springs back after.
+    try { aimMarkerRef.current?.setDraggable(!editMode) } catch { /* marker gone */ }
+    redrawEditRef.current()
+    // S4d: re-frame the camera on the flip itself — drawHole's per-hole effect
+    // won't run when only editMode changes (enter → top-down, exit → cinematic).
+    if (readyRef.current) drawHole(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode])
   useEffect(() => { editDraftRef.current = editDraft; redrawEditRef.current() }, [editDraft])
   useEffect(() => { editCandRef.current = editCandidates; redrawEditRef.current() }, [editCandidates])
   useEffect(() => { onMapTapRef.current = onMapTap }, [onMapTap])
@@ -551,6 +561,9 @@ export default function HoleMapGL({
         // Retarget the HUD's plays-like to the user aim on release (not per
         // drag frame — avoids re-rendering the HUD mid-drag). (2026-06-30, B)
         aimMarkerRef.current.on('dragend', () => { emitAimRef.current() })
+        // S4c: if the marker is (re)created mid-edit-session, it must arrive
+        // already inert (the editMode effect only fires on flips).
+        aimMarkerRef.current.setDraggable(!editModeRef.current)
       } else aimMarkerRef.current.setLngLat([aim.lon, aim.lat])
     } else if (aimMarkerRef.current) { aimMarkerRef.current.remove(); aimMarkerRef.current = null }
 
@@ -561,7 +574,20 @@ export default function HoleMapGL({
     // Zoom adapts to hole length so the green stays on screen on long par 5s
     // (mirrors the Leaflet map's length-based zoom; a touch looser for pitch).
     const prefersReduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (tee && green && layoutConfident) {
+    if (editModeRef.current) {
+      // S4d: mapping from a 62° cinematic pitch is hostile — while editing,
+      // frame the hole top-down/north-up (a touch wider than play zoom) so
+      // taps land where the finger points. No animation: instant jumps.
+      const pts = [tee, green].filter(Boolean)
+      if (pts.length) {
+        const c = pts.length === 2
+          ? { lat: (tee.lat + green.lat) / 2, lon: (tee.lon + green.lon) / 2 }
+          : pts[0]
+        const holeDist = pts.length === 2 ? (haversineYards(tee, green) || 0) : 0
+        const zoom = holeDist > 550 ? 15.9 : holeDist > 220 ? 16.4 : 16.9
+        map.jumpTo({ center: [c.lon, c.lat], bearing: 0, pitch: 0, zoom })
+      }
+    } else if (tee && green && layoutConfident) {
       const brg = calcBearing(tee, green)
       const mid = [(tee.lon + green.lon) / 2, (tee.lat + green.lat) / 2]
       const holeDist = haversineYards(tee, green) || 0
