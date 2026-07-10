@@ -1944,6 +1944,38 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             </div>
           )
         })()}
+
+        {/* One-time invite chip after a Play-funnel Match start (S3c). Lives
+            IN the header stack, under the hole selector, so it can never
+            overlap the map HUD (2026-07-10 — Matt: it was absolutely
+            positioned and covered the hole pill). Tap → live outing (where
+            MatchMenu has the full share flow); ✕ dismisses. */}
+        {courseCtx && !showStart && startedMatchCode && (
+          <div style={{ padding: '0 20px 12px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10, padding: '7px 8px 7px 14px',
+              borderRadius: 999,
+              background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)',
+              backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+              border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
+              boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)',
+              whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--tm-ee-gold-light)' }}>
+                MATCH {startedMatchCode}
+              </span>
+              <button onClick={() => { setStartedMatchCode(null); onGoToScorecard?.() }} style={{
+                background: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.18)', border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)',
+                borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
+                fontSize: 12, fontWeight: 800, color: 'var(--tm-ee-gold-light)',
+              }}>Invite friends →</button>
+              <button onClick={() => setStartedMatchCode(null)} aria-label="Dismiss" style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
+                fontSize: 14, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1,
+              }}>✕</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── GPS error banner ── floats below the header on a course (map is
@@ -2014,37 +2046,6 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             absolute caused a 0-height mount race that broke the map render.
             (2026-06-26 — fix for the black map) ── */
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-
-          {/* One-time invite chip after a Play-funnel Match start (S3c,
-              2026-07-10): the round lives here on the map; this is the only
-              nudge toward sharing the join code. Tap → live outing (where
-              MatchMenu has the full share flow); ✕ dismisses. */}
-          {startedMatchCode && (
-            <div style={{
-              position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)',
-              left: '50%', transform: 'translateX(-50%)', zIndex: 60,
-              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px 9px 16px',
-              borderRadius: 999,
-              background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)',
-              backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
-              border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
-              boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)',
-              whiteSpace: 'nowrap',
-            }}>
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--tm-ee-gold-light)' }}>
-                MATCH {startedMatchCode}
-              </span>
-              <button onClick={() => { setStartedMatchCode(null); onGoToScorecard?.() }} style={{
-                background: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.18)', border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)',
-                borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
-                fontSize: 12, fontWeight: 800, color: 'var(--tm-ee-gold-light)',
-              }}>Invite friends →</button>
-              <button onClick={() => setStartedMatchCode(null)} aria-label="Dismiss" style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
-                fontSize: 14, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1,
-              }}>✕</button>
-            </div>
-          )}
 
           {/* Full-screen satellite hole map — MapLibre GL (NAIP + branded overlays) */}
           <HoleMapGL
