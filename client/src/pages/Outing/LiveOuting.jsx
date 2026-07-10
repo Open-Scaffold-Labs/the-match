@@ -2655,10 +2655,32 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           board panel. The gold pinstripe + dark inset rings live on the
           inner div so they sit just inside the wood.
           (2026-04-30 PM round 9 — Tier 2 polish, real wood look) */}
+      {/* GET DISTANCES — right-aligned, directly above the Leaders plaque / board
+          frame (scorecard view only). Sits in the non-scrolling top region so it
+          stays in view while the score table scrolls beneath. Plaque + frame
+          untouched. (2026-07-09, Matt) */}
+      {effectiveViewMode === 'scorecard' && onGoToEagleEye && myNextHole != null && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 12px', marginTop: 8 }}>
+          <button onClick={() => onGoToEagleEye(myNextHole)} style={{
+            background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
+            border: '1px solid rgba(245,215,138,0.6)',
+            borderRadius: 999, padding: '9px 15px',
+            color: 'var(--tm-text)',
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
+            cursor: 'pointer',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
+          }}>
+            GET DISTANCES
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-text)' }}><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      )}
+
       {effectiveViewMode === 'scorecard' && (
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
-        margin: '12px 12px',
+        margin: '4px 12px 12px',
         padding: 4,
         borderRadius: 7,
         backgroundColor: AUGUSTA_WOOD,
@@ -3050,30 +3072,9 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         />
       )}
 
-      {/* Floating bottom-right GET DISTANCES pill — symmetric counterpart
-          to EagleEye's SCORECARD pill. Always visible during a live match
-          for the current user (when they have a next hole to play and no
-          modal is open). Tapping it jumps to Eye on the user's own next
-          hole, regardless of where other players are. (2026-05-01) */}
-      {onGoToEagleEye && myNextHole != null && !scoreModal && !showTeams && !showGroups && !showGuestModal && (
-        <button onClick={() => onGoToEagleEye(myNextHole)} style={{
-          position: 'absolute',
-          bottom: 16, right: 16,
-          background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
-          border: '1px solid rgba(245,215,138,0.6)',
-          borderRadius: 999, padding: '10px 16px',
-          color: 'var(--tm-text)',
-          fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
-          cursor: 'pointer',
-          boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          fontFamily: 'inherit',
-          zIndex: 30,
-        }}>
-          GET DISTANCES
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-text)' }}><polyline points="9 18 15 12 9 6"/></svg>
-        </button>
-      )}
+      {/* GET DISTANCES pill relocated 2026-07-09 (Matt) — now a right-aligned
+          button directly above the Leaders plaque in the scorecard view (see
+          above), replacing the old floating bottom-right pill. */}
     </div>
   )
 }
