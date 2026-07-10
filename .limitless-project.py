@@ -87,6 +87,15 @@ NOTEBOOKLM = {
         # source instead of one slot each (2026-07-06 — 50-source cap hit).
         "wiki/synthesis/next-session-handoff-",
         "wiki/synthesis/eagle-eye-tile-grid-handoff-",
+        # F.5 sub-specs (all COMPLETE) are mirrored via the single
+        # wiki/synthesis/f5-specs-rollup.md source (2026-07-10 — 50-source cap).
+        # (NB: prefixes must not catch f5-specs-rollup.md itself — a broad
+        # "f5-s" prefix excluded the rollup on first attempt, 2026-07-10.)
+        "wiki/synthesis/f5-never-lose-your-round-build-spec-",
+        "wiki/synthesis/f5-s2-",
+        "wiki/synthesis/f5-s4-",
+        "wiki/synthesis/f5-s5-",
+        "wiki/synthesis/f5-s6-",
     ],
 }
 

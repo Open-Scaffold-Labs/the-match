@@ -1,7 +1,7 @@
 ---
 type: overview
 created: 2026-04-29
-updated: 2026-06-27
+updated: 2026-07-10
 ---
 
 # Wiki Index
@@ -12,7 +12,6 @@ Content catalog — every page listed here. The preflight's index-completeness c
 
 - [[overview]] — top-level synthesis of the wiki and the project's current shape
 - [[log]] — chronological append-only activity log (every session writes here)
-- [[HIGH-PRIORITY-TODO]] — urgent / overdue items; read every session
 - [[POST-LAUNCH-TODO]] — deferred items from polish-pass sessions
 
 ## Entities
@@ -61,6 +60,7 @@ Content catalog — every page listed here. The preflight's index-completeness c
 - [[synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07]] — **EE Stage C + HoleMapGL tokenization build spec — SHIPPED 2026-07-07 PM** (`7c260d4`+`a70a1b7`) — HoleMapGL colors → --tm-ee-* via hardened eeColor bridge (pixel-identical, 57/57 equivalence); C1 semantic re-rule (white=measured/green=computed/gold=locked/dim=acquiring) + C2 11px label floor live; C3 soft-halo staged (`tm-ee-halo-soft`); dual research agents (MapLibre internals + 10-app competitive) · created 2026-07-07
 - [[synthesis/next-session-handoff-2026-07-06]] — SUPERSEDED handoff — the 07-02→06 marathon: EE tokenization A+B, rings/dispersion, SG v2 merged + Caddie live, DB→OSL org (:6543 lesson), live putt capture, solo/multi unification complete; open items S4 + lint-gate re-land + on-course pass; hard-won process rules · created 2026-07-06
 - [[synthesis/handoffs-rollup]] — single NotebookLM source concatenating ALL session handoffs (ACTIVE first) — handoff files are excluded from notebook routing since the 50-source cap hit (manifest exclude_paths); regenerate on every new/edited handoff · created 2026-07-06
+- [[synthesis/f5-specs-rollup]] — single NotebookLM source concatenating the five COMPLETE F.5 build specs (f5-never-lose + s2-s3 + s4 + s5 + s6) — the individual f5-*.md files are excluded from notebook routing (manifest exclude_paths, 2026-07-10 — 50-source cap); regenerate if any f5 spec is edited · created 2026-07-10
 - [[synthesis/sg-map-tap-capture-build-spec-2026-07-02]] — SG map-tap shot-capture build spec (ShotSheet lineage) · created 2026-07-02
 - [[synthesis/next-session-handoff-2026-07-02]] — superseded by 2026-07-06 handoff — Phase-0 status corrected to PARTIAL (tabular done; shadows/grain/motion primitives in code, app-wide sweep + token refactor = Phase 4.3); both master plans brought current; Eagle Eye distance/label great-circle fix + ANALYZE button removed (parked pending proper wiring); where to pick up on Eagle Eye + the bulletproof/premium plans · created 2026-07-02
 - [[synthesis/eagle-eye-tokenization-plan-2026-07-02]] — **Phase 4.3 build plan — Stage A+B SHIPPED 2026-07-02 PM** (pixel-identical, §9 execution record) — `EagleEye.jsx` inline-style literals → governed `--tm-ee-*` token system; Stage C + other-file slices remain · created 2026-07-02
