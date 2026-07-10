@@ -278,4 +278,51 @@ router.patch('/:id/putts', async (req, res) => {
   res.json(row)
 })
 
+// PATCH /api/rounds/:id/shots — add or edit per-shot facts after the fact
+// (Phase 3 post-round shot editor, 2026-07-10). Sibling of PATCH /:id/putts:
+// owner-only (WHERE user_id), server-side re-clean via cleanShotsForRound
+// (never trust editor output), facts only — SG stays computed at read time
+// and handicap never reads shots, so this endpoint is provably analytics-only.
+// The body may ALSO carry { putts, firstPutts } so a full post-hoc entry
+// (shots + putts for a zero-capture round) lands in one atomic write; putts
+// validation is the /:id/putts logic verbatim. Shots that clean to nothing
+// store as SQL null (clearing a log is a legitimate edit).
+router.patch('/:id/shots', async (req, res) => {
+  const { shots, putts, firstPutts } = req.body || {}
+  if (!Array.isArray(shots)) {
+    return res.status(400).json({ error: 'shots must be an array of per-hole shot arrays (nulls allowed)' })
+  }
+  const { cleanShotsForRound } = require('../lib/shotFacts')
+  const cleanShots = cleanShotsForRound(shots)
+
+  const sets = ['shots = $1']
+  const vals = [cleanShots ? JSON.stringify(cleanShots) : null]
+  if (putts !== undefined) {
+    const SG_BUCKETS = ['in3', '3-10', '10-25', '25plus']
+    const cleanPutts = Array.isArray(putts) && putts.length > 0
+      && putts.every(p => p == null || (Number.isFinite(Number(p)) && Number(p) >= 0 && Number(p) <= 6))
+      ? putts.map(p => (p == null ? null : Number(p)))
+      : null
+    if (!cleanPutts) return res.status(400).json({ error: 'putts must be an array of per-hole counts (nulls allowed)' })
+    const cleanFirstPutts = Array.isArray(firstPutts)
+      && firstPutts.length === cleanPutts.length
+      && firstPutts.every(b => b == null || SG_BUCKETS.includes(b))
+      ? firstPutts.map(b => b ?? null)
+      : cleanPutts.map(() => null)
+    sets.push(`putts = $${vals.length + 1}`)
+    vals.push(JSON.stringify(cleanPutts))
+    sets.push(`first_putts = $${vals.length + 1}`)
+    vals.push(JSON.stringify(cleanFirstPutts))
+  }
+  vals.push(req.params.id, req.user.id)
+  const row = await db.one(
+    `UPDATE tm_rounds SET ${sets.join(', ')}
+     WHERE id = $${vals.length - 1} AND user_id = $${vals.length}
+     RETURNING id, shots, putts, first_putts`,
+    vals
+  )
+  if (!row) return res.status(404).json({ error: 'Not found' }) // wrong id OR not your round
+  res.json(row)
+})
+
 module.exports = router

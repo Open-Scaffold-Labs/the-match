@@ -26,6 +26,12 @@ function cleanHoleShots(raw) {
     if (!VALID_LIES.has(lie) || !(toPin > 0)) continue
     const shot = { lie, toPin: Math.round(toPin) }
     if (typeof s.club === 'string' && s.club) shot.club = s.club
+    // Phase 3 (2026-07-10): optional editor pin position — additive,
+    // editor/display-only. The SG chain walk reads ONLY lie/toPin, so a
+    // persisted position provably cannot change SG output (proven in
+    // shot-facts.test.js). Finite-gated pair; anything else is stripped.
+    const lat = Number(s.lat), lon = Number(s.lon)
+    if (Number.isFinite(lat) && Number.isFinite(lon)) { shot.lat = lat; shot.lon = lon }
     out.push(shot)
   }
   return out.length ? out : null

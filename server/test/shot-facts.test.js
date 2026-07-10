@@ -25,6 +25,15 @@ describe('cleanHoleShots', () => {
   it('non-array / empty → null (absent is not [])', () => {
     for (const bad of [null, undefined, 'x', 42, []]) expect(cleanHoleShots(bad)).toBe(null)
   })
+  // Phase 3 (2026-07-10): editor pin positions ride along, finite-gated.
+  it('keeps a finite {lat, lon} pin position; strips partial/garbage positions', () => {
+    expect(cleanHoleShots([{ lie: 'tee', toPin: 300, lat: 40.66, lon: -74.11 }]))
+      .toEqual([{ lie: 'tee', toPin: 300, lat: 40.66, lon: -74.11 }])
+    expect(cleanHoleShots([{ lie: 'tee', toPin: 300, lat: 40.66 }]))          // half a pair
+      .toEqual([{ lie: 'tee', toPin: 300 }])
+    expect(cleanHoleShots([{ lie: 'tee', toPin: 300, lat: 'x', lon: -74 }]))  // garbage lat
+      .toEqual([{ lie: 'tee', toPin: 300 }])
+  })
 })
 
 describe('setShotsAtHole', () => {
@@ -73,6 +82,21 @@ describe('cleaned shots → SG engine (the whole point)', () => {
     const shots = cleanHoleShots([{ lie: 'tee', toPin: 400 }])
     const cat = holeShotsSG('tour', { par: 4, score: 4, shots, putts: 2, firstPuttBucket: '3-10' })
     expect(cat).toEqual({ sgOTT: null, sgAPP: null, sgARG: null })
+  })
+  // Phase 3 (2026-07-10): the decision to persist editor pin positions rests
+  // on SG being provably indifferent to them — pin it with a test.
+  it('SG output is identical with and without persisted pin positions', () => {
+    const bare = cleanHoleShots([
+      { lie: 'tee', toPin: 400 },
+      { lie: 'fairway', toPin: 150 },
+    ])
+    const withPos = cleanHoleShots([
+      { lie: 'tee', toPin: 400, lat: 40.661, lon: -74.112 },
+      { lie: 'fairway', toPin: 150, lat: 40.663, lon: -74.114 },
+    ])
+    const args = { par: 4, score: 4, putts: 2, firstPuttBucket: '3-10' }
+    expect(holeShotsSG('tour', { ...args, shots: withPos }))
+      .toEqual(holeShotsSG('tour', { ...args, shots: bare }))
   })
 })
 
