@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783668147.9449139,
-    "source_id": "b8c1a78b-77ab-4e7b-b641-a01768dbc0c3",
-    "verified_at": 1783668215.53892
+    "mtime": 1783671955.4032779,
+    "source_id": "90540466-9252-4501-9794-7ca6b74cc98e",
+    "verified_at": 1783672068.504242
   },
   "wiki/index.md": {
-    "mtime": 1783668184.8840234,
-    "source_id": "30fe7da1-2f98-4343-a415-8d6a5921e7df",
-    "verified_at": 1783668233.7476301
+    "mtime": 1783671975.7960863,
+    "source_id": "7e37ab9e-b0f1-48b3-8300-c45f9539e8ac",
+    "verified_at": 1783672086.512081
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -182,9 +182,8 @@
     "verified_at": 1783383016.5478091
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1783668171.380018,
-    "source_id": "2afe95cb-077e-44b6-b116-ab4d69cbf3a5",
-    "verified_at": 1783668256.536988
+    "mtime": 1783672026.0075078,
+    "source_id": "a1fa0fe1-20d2-4f2a-b99a-ddc517e9c26b"
   },
   "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
     "mtime": 1783441571.9913416,
@@ -225,5 +224,10 @@
     "mtime": 1783668126.12383,
     "source_id": "ac477a73-75c2-4372-8d67-2568963bca3d",
     "verified_at": 1783668240.737217
+  },
+  "wiki/synthesis/phase3-premium-differentiators-build-spec-2026-07-10.md": {
+    "mtime": 1783671933.3881242,
+    "source_id": "3347a61f-fd1a-4730-aab6-6705eb8f4449",
+    "verified_at": 1783672141.2468338
   }
 }

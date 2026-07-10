@@ -25,9 +25,18 @@ SUPERSEDED history — trust the ACTIVE section.
 > green; spec+checklist [[synthesis/map-this-course-editor-build-spec-2026-07-10]];
 > log [2026-07-10 AM2]). The NotebookLM blocker is CLEARED (bucket 50/50 →
 > 41/50 after orphan deletes + [[synthesis/f5-specs-rollup]]; log [2026-07-10 AM]).
-> **NEXT SESSION = runtime verification:** the editor spec's §6 device
-> checklist (Bayonne mapping pass) + Phase 1/2 §7 device matrices below.
 > Open item #2 (uncommitted draft) is resolved — it's committed as S0.
+>
+> **UPDATE 2 (2026-07-10, Phase 3 session):** **Phase 3 premium differentiators
+> SHIPPED** (`d9da51e`→`6ba1f30`; spec+checklist
+> [[synthesis/phase3-premium-differentiators-build-spec-2026-07-10]]; log
+> [2026-07-10 AM3]) — post-round FLYOVER SHOT EDITOR (ShotEditor.jsx + HoleMapGL
+> shot seam + `PATCH /rounds/:id/shots` + **migration 044 course_id APPLIED TO
+> PROD**), plays-like source captions, browse→scoring upgrade seam (⚑ device-
+> pass judgment call). 107/107 vitest. Audited (audit-before-claim +
+> design-critique). **NEXT SESSION = runtime verification, now THREE device
+> checklists:** course-editor spec §6, Phase 1/2 §7 matrices, Phase 3 spec §6
+> (open a real round in the ShotEditor first — it has never been rendered).
 
 Mandatory start: **roll-call → wiki/index.md → this file + latest `wiki/log.md` entries**
 (PM1–PM9 + AM/AM2 for the editor session), then the live specs:
