@@ -236,9 +236,10 @@ export default function ShotEditor({ roundId, onClose }) {
   }
 
   // ── UI ──
+  // 44px min touch height (project rule; design-critique 2026-07-10).
   const btn = {
     background: 'var(--tm-surface-2)', border: '1px solid var(--tm-border)', borderRadius: 12,
-    padding: '8px 14px', color: 'var(--tm-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    padding: '8px 14px', minHeight: 44, color: 'var(--tm-text)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent', fontFamily: 'inherit',
   }
   const selShot = sel != null ? curShots[sel] : null
@@ -249,7 +250,7 @@ export default function ShotEditor({ roundId, onClose }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 8500, background: 'var(--tm-bg)', display: 'flex', flexDirection: 'column' }}>
       {/* ── Header ── */}
       <div style={{ padding: 'calc(env(safe-area-inset-top, 12px) + 8px) 16px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={done} aria-label="Close" style={{ ...btn, width: 36, height: 36, padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <button onClick={done} aria-label="Close" style={{ ...btn, width: 44, height: 44, minHeight: 44, padding: 0, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -313,20 +314,22 @@ export default function ShotEditor({ roundId, onClose }) {
       <div style={{ background: 'var(--tm-surface)', borderTop: '1px solid var(--tm-border)', padding: '10px 16px calc(env(safe-area-inset-bottom, 12px) + 10px)', maxHeight: '46vh', overflowY: 'auto' }}>
         {/* hole nav + facts */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <button onClick={() => goHole(-1)} disabled={hole <= 1 || saveState === 'saving'} style={{ ...btn, opacity: hole <= 1 ? 0.4 : 1 }}>‹</button>
+          <button onClick={() => goHole(-1)} disabled={hole <= 1 || saveState === 'saving'} aria-label="Previous hole" style={{ ...btn, minWidth: 44, opacity: hole <= 1 ? 0.4 : 1 }}>‹</button>
           <div style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--tm-text)' }}>
               Hole {hole}
               {par != null && <span style={{ fontWeight: 600, color: 'var(--tm-text-3)' }}> · Par {par}</span>}
               {score != null && <span style={{ fontWeight: 600, color: 'var(--tm-text-3)' }}> · Score {score}</span>}
             </div>
-            <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: ready ? 'var(--tm-green, #2A7A38)' : 'var(--tm-text-3)' }}>
+            {/* #8FCB9B: the RoundScorecard "tagged" green — readable on the
+                dark surface where the raw fairway green fails contrast. */}
+            <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: ready ? '#8FCB9B' : 'var(--tm-text-3)' }}>
               {ready ? 'SG-ready ✓' : expected != null
                 ? `${curShots.length}/${expected} shots + ${puttN} putts ${curShots.length + Number(puttN) === score ? '' : `(score ${score})`}`
                 : 'Add shots + putts to unlock strokes gained'}
             </div>
           </div>
-          <button onClick={() => goHole(1)} disabled={hole >= holeCount || saveState === 'saving'} style={{ ...btn, opacity: hole >= holeCount ? 0.4 : 1 }}>›</button>
+          <button onClick={() => goHole(1)} disabled={hole >= holeCount || saveState === 'saving'} aria-label="Next hole" style={{ ...btn, minWidth: 44, opacity: hole >= holeCount ? 0.4 : 1 }}>›</button>
         </div>
 
         {/* save-failed retry chip */}
