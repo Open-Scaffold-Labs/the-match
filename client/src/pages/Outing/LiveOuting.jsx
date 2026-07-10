@@ -1007,6 +1007,44 @@ function computeMatchPlay(p1, p2, getScores, holePars, holeStrokes = null) {
 }
 
 
+// ─── Header control-chip system (2026-07-09 design pass) ──────────────────────
+// One consistent pill recipe so the host / quick-action rows read as a calm
+// toolbar on the LIGHT board header (AUGUSTA_GREEN_DEEP is a pale grey) instead
+// of a rainbow of translucent, emoji-wearing buttons colored for a dark surface.
+// Settings chips are text-only; action chips carry a thin line icon (no emoji);
+// state shows as a gold tint; the one destructive action wears a red outline.
+const HDR_CHIP_BASE = {
+  display: 'inline-flex', alignItems: 'center', gap: 5,
+  height: 30, padding: '0 12px', borderRadius: 999,
+  fontSize: 11.5, fontWeight: 700, letterSpacing: '0.01em',
+  cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+  border: '1px solid rgba(14,59,35,0.16)',
+  background: 'rgba(255,255,255,0.78)',
+  color: '#1A6B28',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.6)',
+  WebkitTapHighlightColor: 'transparent',
+}
+// variant: 'neutral' | 'active' (gold state) | 'danger' (destructive)
+function hdrChip(variant = 'neutral') {
+  if (variant === 'active') return { ...HDR_CHIP_BASE, background: 'rgba(201,160,64,0.18)', border: '1px solid rgba(168,134,46,0.55)', color: '#8A6A1E' }
+  if (variant === 'danger')  return { ...HDR_CHIP_BASE, background: 'rgba(178,42,42,0.06)', border: '1px solid rgba(178,42,42,0.32)', color: '#B22A2A' }
+  return HDR_CHIP_BASE
+}
+// Thin line icon — 13px, currentColor, matches the app's stroke-SVG family.
+const HdrIcon = ({ d, size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    {d}
+  </svg>
+)
+const HDR_ICONS = {
+  users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+  userPlus: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></>,
+  share: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></>,
+  coins: <><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="M16.71 13.88l.7.71-2.82 2.82"/></>,
+  chat: <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>,
+  sliders: <><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></>,
+}
+
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
 export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
   const [outing, setOuting] = useState(null)
@@ -2103,28 +2141,22 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 ? '⚠ Assign a group scorer →'
                 : markers.length > 0 ? `${markers.length} scorer${markers.length !== 1 ? 's' : ''} assigned` : ''}
             </div>
-            <button onClick={() => setShowGroups(true)} style={{
-              background: markers.length > 0 ? 'rgba(138,180,248,0.12)' : 'rgba(255,255,255,0.07)',
-              border: `1px solid ${markers.length > 0 ? 'rgba(138,180,248,0.35)' : 'var(--tm-border)'}`,
-              borderRadius: 20, padding: '3px 10px',
-              color: markers.length > 0 ? '#93C5FD' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>{markers.length > 0 ? 'Edit Groups' : 'Set Groups'}</button>
+            {/* Settings chips (text-only) — Groups, scoring mode, gross/net */}
+            <button onClick={() => setShowGroups(true)}
+              style={markers.length > 0 ? hdrChip('active') : hdrChip()}>
+              <HdrIcon d={HDR_ICONS.users} />{markers.length > 0 ? 'Edit Groups' : 'Set Groups'}
+            </button>
             {/* F.5 S6 — scoring-mode toggle. Designated = only host + assigned
                 scorers enter others' scores (assign via Edit Groups). */}
-            <button onClick={() => changeScoringMode(scoringMode === 'designated' ? 'open' : 'designated')} style={{
-              background: scoringMode === 'designated' ? 'rgba(201,160,64,0.16)' : 'rgba(255,255,255,0.07)',
-              border: `1px solid ${scoringMode === 'designated' ? 'rgba(201,160,64,0.45)' : 'var(--tm-border)'}`,
-              borderRadius: 20, padding: '3px 10px',
-              color: scoringMode === 'designated' ? 'var(--tm-gold-bright)' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>{scoringMode === 'designated' ? '✓ Designated scorer' : 'Scoring: Open'}</button>
+            <button onClick={() => changeScoringMode(scoringMode === 'designated' ? 'open' : 'designated')}
+              style={scoringMode === 'designated' ? hdrChip('active') : hdrChip()}>
+              {scoringMode === 'designated' ? 'Designated scorer' : 'Scoring: Open'}
+            </button>
             {hasHandicaps && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <button onClick={() => setNetMode(m => !m)} style={{
-                  background: netMode ? 'rgba(197,160,64,0.15)' : 'rgba(255,255,255,0.07)',
-                  border: `1px solid ${netMode ? 'rgba(197,160,64,0.4)' : 'var(--tm-border)'}`,
-                  borderRadius: 20, padding: '3px 10px',
-                  color: netMode ? '#F5D78A' : 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                }} title="GROSS = your raw strokes. NET = your strokes adjusted for handicap. Tap to toggle.">
+                <button onClick={() => setNetMode(m => !m)}
+                  style={netMode ? hdrChip('active') : hdrChip()}
+                  title="GROSS = your raw strokes. NET = your strokes adjusted for handicap. Tap to toggle.">
                   {netMode ? 'NET' : 'GROSS'}
                 </button>
                 <button
@@ -2133,9 +2165,9 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                   title="What's the difference?"
                   style={{
                     width: 18, height: 18, borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    color: 'rgba(255,255,255,0.55)',
+                    background: 'rgba(255,255,255,0.7)',
+                    border: '1px solid rgba(14,59,35,0.22)',
+                    color: '#1A6B28',
                     fontSize: 10, fontWeight: 800,
                     lineHeight: 1, padding: 0,
                     cursor: 'pointer',
@@ -2143,53 +2175,36 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                   }}>?</button>
               </span>
             )}
-            <button onClick={() => setShowGuestModal(true)} style={{
-              background: 'rgba(255,255,255,0.07)', border: '1px solid var(--tm-border)',
-              borderRadius: 20, padding: '3px 10px',
-              color: 'var(--tm-text-2)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>+ Guest</button>
+            <button onClick={() => setShowGuestModal(true)} style={hdrChip()}>
+              <HdrIcon d={HDR_ICONS.userPlus} />Guest
+            </button>
+            {/* Action chips (line icon + label) — Share, Side Bets, Chat, Manage */}
             {/* Share live leaderboard — opens a modal with the URL +
                 QR code + tee-box print page. (Round 2/3 audit.) */}
-            <button onClick={() => setShowLiveShare(true)} style={{
-              background: 'rgba(94,212,122,0.10)', border: '1px solid rgba(94,212,122,0.40)',
-              borderRadius: 20, padding: '3px 10px',
-              color: '#5ED47A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }} title="QR code, link, and printable tee-box flyer">
-              📡 Share live
+            <button onClick={() => setShowLiveShare(true)} style={hdrChip()}
+              title="QR code, link, and printable tee-box flyer">
+              <HdrIcon d={HDR_ICONS.share} />Share
             </button>
-            <button onClick={() => setShowSideBets(true)} style={{
-              background: 'rgba(232,192,90,0.12)', border: '1px solid rgba(232,192,90,0.40)',
-              borderRadius: 20, padding: '3px 10px',
-              color: 'var(--tm-gold-bright)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>$ Side Bets</button>
-            <button onClick={() => setShowChat(true)} style={{
-              background: 'rgba(147,197,253,0.10)', border: '1px solid rgba(147,197,253,0.40)',
-              borderRadius: 20, padding: '3px 10px',
-              color: '#93C5FD', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              position: 'relative',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}>
-              💬 Chat
+            <button onClick={() => setShowSideBets(true)} style={hdrChip()}>
+              <HdrIcon d={HDR_ICONS.coins} />Side Bets
+            </button>
+            <button onClick={() => setShowChat(true)} style={{ ...hdrChip(), position: 'relative' }}>
+              <HdrIcon d={HDR_ICONS.chat} />Chat
               {chatUnread > 0 && (
                 <span style={{
-                  background: '#F87171', color: 'var(--tm-text)',
+                  background: '#B22A2A', color: '#fff',
                   fontSize: 10, fontWeight: 900,
                   borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
                   marginLeft: 2,
                 }}>{chatUnread > 99 ? '99+' : chatUnread}</span>
               )}
             </button>
-            <button onClick={() => setShowManage(true)} style={{
-              background: 'rgba(245,215,138,0.12)', border: '1px solid rgba(245,215,138,0.35)',
-              borderRadius: 20, padding: '3px 10px',
-              color: '#F5D78A', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>⚙ Manage</button>
-            <button onClick={endMatch} disabled={ending} style={{
-              background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)',
-              borderRadius: 20, padding: '3px 10px',
-              color: '#F87171', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>{ending ? 'Ending…' : 'End Match'}</button>
+            <button onClick={() => setShowManage(true)} style={hdrChip()}>
+              <HdrIcon d={HDR_ICONS.sliders} />Manage
+            </button>
+            <button onClick={endMatch} disabled={ending} style={hdrChip('danger')}>
+              {ending ? 'Ending…' : 'End Match'}
+            </button>
           </div>
         )}
         {/* Marker hint — shown to assigned markers who aren't host. In
@@ -2233,22 +2248,14 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             controls row above; this gives non-hosts the same entry. */}
         {!isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={() => setShowSideBets(true)} style={{
-              background: 'rgba(232,192,90,0.12)', border: '1px solid rgba(232,192,90,0.40)',
-              borderRadius: 20, padding: '3px 10px',
-              color: 'var(--tm-gold-bright)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            }}>$ Side Bets</button>
-            <button onClick={() => setShowChat(true)} style={{
-              background: 'rgba(147,197,253,0.10)', border: '1px solid rgba(147,197,253,0.40)',
-              borderRadius: 20, padding: '3px 10px',
-              color: '#93C5FD', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              position: 'relative',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}>
-              💬 Chat
+            <button onClick={() => setShowSideBets(true)} style={hdrChip()}>
+              <HdrIcon d={HDR_ICONS.coins} />Side Bets
+            </button>
+            <button onClick={() => setShowChat(true)} style={{ ...hdrChip(), position: 'relative' }}>
+              <HdrIcon d={HDR_ICONS.chat} />Chat
               {chatUnread > 0 && (
                 <span style={{
-                  background: '#F87171', color: 'var(--tm-text)',
+                  background: '#B22A2A', color: '#fff',
                   fontSize: 10, fontWeight: 900,
                   borderRadius: 999, padding: '1px 6px', minWidth: 18, textAlign: 'center',
                   marginLeft: 2,
