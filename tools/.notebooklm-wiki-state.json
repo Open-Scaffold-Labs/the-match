@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783665353.0557034,
-    "source_id": "dde2a093-50f9-473f-96cb-50bf37048b5d",
-    "verified_at": 1783665649.9890711
+    "mtime": 1783666511.5408833,
+    "source_id": "2851e9ce-a332-4593-96aa-9eecbdf30a84",
+    "verified_at": 1783666542.3013818
   },
   "wiki/index.md": {
-    "mtime": 1783665579.785436,
-    "source_id": "05f55195-4942-41dc-9381-bc50b5a43d1e",
-    "verified_at": 1783665666.792263
+    "mtime": 1783666497.2366562,
+    "source_id": "67dafc8d-82f5-40f8-a2da-78044f73d15b",
+    "verified_at": 1783666558.145808
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -210,5 +210,15 @@
     "mtime": 1783657984.142064,
     "source_id": "7ff58ceb-d159-4419-b00c-6a4b0ec23d1d",
     "verified_at": 1783658089.157794
+  },
+  "wiki/synthesis/play-oncourse-phase2-build-spec-2026-07-10.md": {
+    "mtime": 1783663283.6159456,
+    "source_id": "7e47c81e-3122-40ce-83bb-4c8b0a429724",
+    "verified_at": 1783666565.334421
+  },
+  "wiki/synthesis/f5-specs-rollup.md": {
+    "mtime": 1783666433.8352027,
+    "source_id": "fbd6c5ea-caca-4b43-b2e2-496f84e92b7e",
+    "verified_at": 1783666619.4834418
   }
 }
