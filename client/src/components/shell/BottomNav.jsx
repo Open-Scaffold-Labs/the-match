@@ -24,10 +24,16 @@ export default function BottomNav({ active, onChange }) {
     <nav style={{
       position: 'fixed',
       bottom: 0,
-      left: '50%',
-      transform: 'translateX(-50%)',
+      // Full-bleed background: span the entire viewport edge to edge.
+      // The old `maxWidth: 430` cap left dead strips of page background
+      // on both sides of the bar on viewports wider than 430 CSS px —
+      // Matt flagged it 2026-07-10 ("gaps on both sides... fill the
+      // dead space"). The 430 frame now applies only to the icon ROW
+      // (inner div below) so item spacing doesn't stretch on wide
+      // screens; the cream background + border always reach the edges.
+      left: 0,
+      right: 0,
       width: '100%',
-      maxWidth: 430,
       // 56px bar + the home-indicator inset. paddingBottom pushes the
       // icons up into the top 56px while the cream background fills all
       // the way to the physical bottom edge — so no cream "safe-area
@@ -41,12 +47,21 @@ export default function BottomNav({ active, onChange }) {
       borderTop: '1px solid rgba(27,94,59,0.14)',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-around',
+      justifyContent: 'center',
       zIndex: 200,
     }}>
-      {NAV_ITEMS.map(item => (
-        <NavItem key={item.tab} item={item} active={active === item.tab} onPress={() => onChange(item.tab)} />
-      ))}
+      <div style={{
+        width: '100%',
+        maxWidth: 430,
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+      }}>
+        {NAV_ITEMS.map(item => (
+          <NavItem key={item.tab} item={item} active={active === item.tab} onPress={() => onChange(item.tab)} />
+        ))}
+      </div>
     </nav>
   )
 }
