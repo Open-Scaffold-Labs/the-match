@@ -351,7 +351,7 @@ export default function App() {
   // perfectly tile. Eagle Eye's edges go dark to match its theme; everything
   // else uses the parchment base. (2026-06-23 — Matt: grass showing at the
   // borders because pages don't fill the screen edge-to-edge.)
-  const grassTab = (tab === TABS.HOME && homeView !== 'profile') || tab === TABS.TOUR
+  const grassTab = (tab === TABS.HOME && homeView !== 'profile') || tab === TABS.TOUR || tab === TABS.OUTING
   // Desktop breakout: only the Leagues tab widens past the phone frame, and only
   // on a real desktop viewport. Every other tab — and the entire iOS app — stays
   // at 430px. (2026-06-26)
@@ -417,7 +417,7 @@ export default function App() {
           </TabPanel>
         )}
         {mountedTabs.has(TABS.OUTING) && (
-          <TabPanel active={tab === TABS.OUTING}>
+          <TabPanel active={tab === TABS.OUTING} opaque={false}>
             <Outing
               user={user}
               pendingPlayers={pendingOutingPlayers}
