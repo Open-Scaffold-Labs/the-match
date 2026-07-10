@@ -122,7 +122,7 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
     // Match the Leagues list page's look: same warm cream gradient base
     // (Leagues `hubBase`) instead of the flat parchment, so the Matches page
     // and the Leagues page read as the same surface. (2026-06-23 — Matt)
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'linear-gradient(180deg, #FFFDF8 0%, #F1E7C8 100%)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'transparent' }}>
       {/* 2026-05-04 — header padding-top accounts for the iOS notch /
           Android status bar via --safe-top. Without it, the "Matches"
           title sits ~20px from viewport top and on a notched phone is
