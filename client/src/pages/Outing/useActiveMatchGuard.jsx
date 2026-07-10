@@ -13,14 +13,20 @@ import { warn } from '../../lib/logger.js'
 //   false → caller should abort (user cancelled)
 //
 // Resolving the old match depends on the user's role in it:
-//   host        → POST /:code/end       (closes it for everyone)
+//   host        → POST /:code/cancel    (DISCARDS it — no results saved)
 //   participant → POST /:code/withdraw  (self-withdraw — they only joined it)
 //
-// Network failures don't block the action — the guard is a UX guarantee, not a
-// hard correctness gate. (2026-06-23 — Matt: only one active match at a time.)
+// (2026-07-09, Matt) host branch was POST /:code/end — the heavy close-ceremony
+// (match-history writes, handicap recompute, round emits). On a Vercel timeout
+// that ceremony could fail AFTER we'd already decided to proceed, leaving the
+// old match 'active' → TWO live matches at once. Switched to /cancel, which is a
+// single lightweight status='cancelled' UPDATE (the match is discarded, not
+// closed-with-results), and we now REFUSE to proceed if the discard fails so a
+// second active match can never be created.
 export function useActiveMatchGuard(user) {
   const [conflict, setConflict] = useState(null) // { outing, isHost } | null
   const [busy, setBusy]         = useState(false)
+  const [error, setError]       = useState(null)
   const resolverRef = useRef(null)
 
   // Returns Promise<boolean>. excludeCode skips a match by code (the one being
@@ -49,6 +55,7 @@ export function useActiveMatchGuard(user) {
     resolverRef.current = null
     setConflict(null)
     setBusy(false)
+    setError(null)
     resolve?.(result)
   }
 
@@ -56,17 +63,23 @@ export function useActiveMatchGuard(user) {
     if (!conflict || busy) return
     const { outing, isHost } = conflict
     setBusy(true)
+    setError(null)
     try {
       if (isHost) {
-        await post(`/api/outings/${outing.code}/end`, {})
+        // DISCARD the old match (lightweight, reliable) — see header note.
+        await post(`/api/outings/${outing.code}/cancel`, { reason: 'Discarded to start a new match' })
       } else {
         await post(`/api/outings/${outing.code}/withdraw`, { user_id: user?.id, withdrawn: true })
       }
     } catch (e) {
-      // Proceed anyway: the user explicitly chose to move on. If the
-      // end/withdraw failed, the old match resurfaces in their list and
-      // they can clean it up — same soft-failure contract as before.
+      // Do NOT proceed on failure — proceeding is exactly what allowed a second
+      // active match to be created. Surface the error and let the user retry.
       warn('[active-match-guard] could not resolve old match', e?.message)
+      setBusy(false)
+      setError(isHost
+        ? 'Could not discard your current match. Check your connection and try again.'
+        : 'Could not leave your current match. Check your connection and try again.')
+      return
     }
     finish(true)
   }
@@ -77,14 +90,14 @@ export function useActiveMatchGuard(user) {
   }
 
   const modalEl = conflict
-    ? <ActiveMatchModal outing={conflict.outing} isHost={conflict.isHost} busy={busy} onConfirm={onConfirm} onCancel={onCancel} />
+    ? <ActiveMatchModal outing={conflict.outing} isHost={conflict.isHost} busy={busy} error={error} onConfirm={onConfirm} onCancel={onCancel} />
     : null
 
   return { ensureSingleActive, modalEl }
 }
 
 // Confirm sheet — bottom-sheet, matches GuestModal styling.
-function ActiveMatchModal({ outing, isHost, busy, onConfirm, onCancel }) {
+function ActiveMatchModal({ outing, isHost, busy, error, onConfirm, onCancel }) {
   const where = outing.course_name ? ` at ${outing.course_name}` : ''
   return createPortal(
     <div style={{
@@ -102,9 +115,14 @@ function ActiveMatchModal({ outing, isHost, busy, onConfirm, onCancel }) {
         </div>
         <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 20, lineHeight: 1.5 }}>
           {isHost
-            ? <><strong style={{ color: 'var(--tm-text)' }}>{outing.name}</strong> ({outing.code}){where} is still going. You can only be in one match at a time — continuing will <strong style={{ color: 'var(--tm-text)' }}>end it and close it for everyone</strong>.</>
+            ? <><strong style={{ color: 'var(--tm-text)' }}>{outing.name}</strong> ({outing.code}){where} is still going. You can only be in one match at a time — continuing will <strong style={{ color: 'var(--tm-text)' }}>discard it (no results are saved)</strong>.</>
             : <>You're in <strong style={{ color: 'var(--tm-text)' }}>{outing.name}</strong> ({outing.code}){where}. You can only be in one match at a time — continuing will <strong style={{ color: 'var(--tm-text)' }}>remove you from it</strong>.</>}
         </div>
+        {error && (
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#E5484D', marginBottom: 14, lineHeight: 1.4 }}>
+            {error}
+          </div>
+        )}
         <button
           onClick={onConfirm}
           disabled={busy}
@@ -115,7 +133,7 @@ function ActiveMatchModal({ outing, isHost, busy, onConfirm, onCancel }) {
             border: 'none', cursor: busy ? 'default' : 'pointer', marginBottom: 10,
             opacity: busy ? 0.7 : 1,
           }}
-        >{busy ? 'Working…' : isHost ? 'End it & continue' : 'Leave it & continue'}</button>
+        >{busy ? 'Working…' : isHost ? 'Discard it & continue' : 'Leave it & continue'}</button>
         <button
           onClick={onCancel}
           disabled={busy}
