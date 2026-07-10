@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783654759.4062803,
-    "source_id": "1ad82060-195f-4e81-a66d-c4993a7d4dd5",
-    "verified_at": 1783654874.118742
+    "mtime": 1783665353.0557034,
+    "source_id": "dde2a093-50f9-473f-96cb-50bf37048b5d",
+    "verified_at": 1783665649.9890711
   },
   "wiki/index.md": {
-    "mtime": 1783654797.367704,
-    "source_id": "377b1fb7-1cb7-43b0-808a-9c3c0171c045",
-    "verified_at": 1783654889.907058
+    "mtime": 1783665579.785436,
+    "source_id": "05f55195-4942-41dc-9381-bc50b5a43d1e",
+    "verified_at": 1783665666.792263
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -182,9 +182,9 @@
     "verified_at": 1783383016.5478091
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1783654832.2304187,
-    "source_id": "63c1fc08-b83d-479c-9175-dc226247c652",
-    "verified_at": 1783654930.036778
+    "mtime": 1783665614.0882602,
+    "source_id": "520e51a6-e583-470c-b871-794b49694f5f",
+    "verified_at": 1783665684.442028
   },
   "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
     "mtime": 1783441571.9913416,
@@ -205,5 +205,10 @@
     "mtime": 1783654022.4559717,
     "source_id": "20451a5b-d760-4ddc-baca-1ae983e227f5",
     "verified_at": 1783654897.063733
+  },
+  "wiki/synthesis/play-funnel-phase1-build-spec-2026-07-10.md": {
+    "mtime": 1783657984.142064,
+    "source_id": "7ff58ceb-d159-4419-b00c-6a4b0ec23d1d",
+    "verified_at": 1783658089.157794
   }
 }
