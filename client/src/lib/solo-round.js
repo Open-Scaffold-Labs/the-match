@@ -53,6 +53,39 @@ export function hasSavedSoloRound(uid) {
   return readSavedSoloRound(uid) != null
 }
 
+// ── Start a solo round from OUTSIDE ActiveRound (2026-07-10, Play funnel S3) ──
+// Writes a fresh 'scoring'-phase blob in EXACTLY the shape ActiveRound's
+// autosave writes and its restore validator accepts (phase 'scoring',
+// config.pars array, zeroed scores, per-hole [] shots, null putt facts).
+// Refuses when a scoring round already exists (never clobber an in-progress
+// round — the caller should offer Resume instead). Fires 'tm-solo-started'
+// so an already-mounted Outing can flip to the solo view (its auto-resume
+// check is one-shot per mount and would otherwise miss this).
+// config: { courseName, pars, courseRating, slopeRating, holeHandicaps,
+//           courseId, courseTee } — the same keys SetupSheet's onStart carries.
+export function startSoloRound(uid, config) {
+  if (!config || !Array.isArray(config.pars) || config.pars.length === 0) return false
+  if (readSavedSoloRound(uid)) return false
+  const n = config.pars.length
+  try {
+    localStorage.setItem(SOLO_ROUND_STORAGE_KEY(uid), JSON.stringify({
+      phase: 'scoring',
+      config,
+      hole: 0, // 0-indexed (ActiveRound convention)
+      scores: new Array(n).fill(0),
+      shots: new Array(n).fill(null).map(() => []),
+      putts: new Array(n).fill(null),
+      firstPutts: new Array(n).fill(null),
+    }))
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new Event('tm-solo-started'))
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 // ── Solo shot façade (2026-07-07, Slice 0) ──────────────────────────────
 // The walk-and-confirm buffer (lib/shot-capture.js) routes its `solo` scope
 // through THESE two helpers so solo has exactly ONE physical store — the

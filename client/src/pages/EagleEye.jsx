@@ -6,9 +6,12 @@ import { greenFCB, matchPolygonsToHoles, matchTeesToHoles, estimateAltFromPressu
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
 import { SHOT_LIES } from '../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../lib/shot-capture.js'
-import { readSavedSoloRound } from '../lib/solo-round.js'
+import { readSavedSoloRound, startSoloRound } from '../lib/solo-round.js'
 import { CoursePicker } from '../components/CoursePicker.jsx'
 import { readEyeHole, saveEyeHole } from '../lib/eye-hole.js'
+import PlayStart from './PlayStart.jsx'
+import { addRecent } from '../lib/course-recents.js'
+import { useActiveMatchGuard } from './Outing/useActiveMatchGuard.jsx'
 
 // Feature flags — flip to false to disable a feature that isn't yet
 // device-tested, without a revert/redeploy. Both degrade safely when off:
@@ -813,7 +816,7 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null } = {}) {
+export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null, onMatchStarted } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -1500,6 +1503,99 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     onCourseSelected?.(ctx)
   }
 
+  // ── Play funnel round start (Phase 1 / S3, 2026-07-10) ─────────────────────
+  // PlayStart hands us a resolved {course, tee} + mode + hole count. Solo
+  // writes the round blob directly (startSoloRound — refuses if one exists);
+  // Match creates a light outing (stroke play, 2 expected players; the heavy
+  // CreateWizard stays on the Match tab for events/leagues). Both paths reset
+  // the per-course hole memory to 1 BEFORE seeding the course context — a new
+  // round must open on hole 1, not resume the course's last-viewed hole.
+  const { ensureSingleActive, modalEl: activeMatchModal } = useActiveMatchGuard(user)
+  const [startBusy, setStartBusy] = useState(false)
+  const [startError, setStartError] = useState('')
+  const [startedMatchCode, setStartedMatchCode] = useState(null)
+  // When PlayStart routes through the full picker ("Not here?" / no recents),
+  // the pending mode+holes ride here so the picker's onSelect can continue
+  // the start instead of just loading the rangefinder. Null = plain pick.
+  const pendingStartRef = useRef(null)
+
+  async function startRound(sel, mode, holes = 18) {
+    const { course, tee } = sel || {}
+    if (!course?.id || !tee) { setStartError('Pick a course and tee first.'); return }
+    const holeArr = Array.isArray(tee.holes) ? tee.holes : []
+    const pars = holeArr.map(h => h.par).slice(0, holes)
+    if (pars.length === 0) { setStartError('No hole data for this tee — try another course.'); return }
+    const courseName = course.club_name || course.course_name || 'Course'
+    const sIdx = holeArr.map(h => h.handicap).slice(0, holes)
+    setStartError('')
+
+    if (mode === 'solo') {
+      const ok = startSoloRound(user?.id, {
+        courseName,
+        pars,
+        courseRating:  tee.course_rating ?? null,
+        slopeRating:   tee.slope_rating ?? null,
+        holeHandicaps: sIdx.some(h => h != null) ? sIdx : null,
+        courseId:  course.id,
+        courseTee: tee.tee_name ?? null,
+      })
+      if (!ok) { setStartError('A round is already in progress — resume it from the Match tab.'); return }
+      addRecent({ id: course.id, club_name: courseName, lastTee: tee.tee_name ?? null })
+      saveEyeHole(course.id, 1)
+      handleCourseSelect(sel)
+      return
+    }
+
+    // mode === 'match'
+    setStartBusy(true)
+    try {
+      // One-active-match guard — same sheet the wizard/join flows use.
+      const cleared = await ensureSingleActive()
+      if (!cleared) return
+      // Both genders' ratings for this physical tee (matched by total yards)
+      // so mixed-match Course Handicap works — same logic as the picker's
+      // selectTee (2026-06-25).
+      const findByYards = (list) => (list || []).find(t => t.total_yards === tee.total_yards)
+      const m = findByYards(course.tees?.male)
+      const f = findByYards(course.tees?.female)
+      const teeRatings = {}
+      if (m && (m.course_rating != null || m.slope_rating != null)) teeRatings.male = { cr: m.course_rating ?? null, sr: m.slope_rating ?? null }
+      if (f && (f.course_rating != null || f.slope_rating != null)) teeRatings.female = { cr: f.course_rating ?? null, sr: f.slope_rating ?? null }
+      const data = await post('/api/outings', {
+        name: `${user?.name ? `${user.name}'s` : 'Quick'} Match`,
+        courseName,
+        scoringFormats: ['stroke'],
+        teamFormat: 'individual',
+        coursePar: pars.reduce((a, b) => a + (b || 0), 0),
+        courseId:      course.id,
+        courseTee:     tee.tee_name ?? null,
+        holePars:      pars,
+        holeYardages:  holeArr.map(h => h.yardage).slice(0, holes),
+        holeHandicaps: sIdx.some(h => h != null) ? sIdx : null,
+        courseRating:  tee.course_rating ?? null,
+        slopeRating:   tee.slope_rating ?? null,
+        teeRatings:    (teeRatings.male || teeRatings.female) ? teeRatings : null,
+        expectedPlayers: 2,
+        // WHS Appendix C: individual stroke play = 95%.
+        handicapAllowance: 95,
+      })
+      const code = data?.outing?.code
+      addRecent({ id: course.id, club_name: courseName, lastTee: tee.tee_name ?? null })
+      saveEyeHole(course.id, 1)
+      handleCourseSelect(sel)
+      if (code) {
+        setStartedMatchCode(code)
+        // App mounts the Match tab hidden + opens the live outing there, so
+        // scoring/activeScoring are armed while the user stays on the map.
+        onMatchStarted?.(code)
+      }
+    } catch (e) {
+      setStartError(e?.message || 'Could not create the match.')
+    } finally {
+      setStartBusy(false)
+    }
+  }
+
   // Cross-tab course sync: when sharedCourse changes (e.g., user picked a
   // course on the Match tab, or LiveOuting just loaded a match with a
   // course), pick it up here. Guarded by a course-id "differs" check so
@@ -1840,73 +1936,24 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
       {/* ── Main content ── */}
       {!courseCtx ? (
-        /* ── Welcome hero ── */
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 28px 16px', animation: 'ee-fade-in 0.4s ease' }}>
-          {/* Animated crosshair */}
-          <div style={{ position: 'relative', width: 140, height: 140, marginBottom: 24 }}>
-            <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0, animation: 'ee-spin-slow 20s linear infinite' }}>
-              <circle cx="80" cy="80" r="74" stroke="rgb(var(--tm-ee-gold-rgb) / 0.10)" strokeWidth="1" strokeDasharray="6 8"/>
-            </svg>
-            <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0, animation: 'ee-spin-slow 12s linear infinite reverse' }}>
-              <circle cx="80" cy="80" r="60" stroke="rgb(var(--tm-ee-gold-rgb) / 0.14)" strokeWidth="1" strokeDasharray="4 10"/>
-            </svg>
-            <svg width="140" height="140" viewBox="0 0 160 160" fill="none" style={{ position: 'absolute', inset: 0 }}>
-              <circle cx="80" cy="80" r="46" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.55"/>
-              <circle cx="80" cy="80" r="26" stroke="var(--tm-ee-gold-bright)" strokeWidth="1.5" strokeOpacity="0.8"/>
-              <circle cx="80" cy="80" r="4" fill="var(--tm-ee-gold-light)"/>
-              <line x1="80" y1="6" x2="80" y2="50" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              <line x1="80" y1="110" x2="80" y2="154" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              <line x1="6" y1="80" x2="50" y2="80" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              <line x1="110" y1="80" x2="154" y2="80" stroke="var(--tm-ee-gold)" strokeWidth="1.5" strokeOpacity="0.6" strokeLinecap="round"/>
-              {[45,135,225,315].map(a => {
-                const rad = a * Math.PI / 180
-                const x1 = 80 + 52*Math.cos(rad), y1 = 80 + 52*Math.sin(rad)
-                const x2 = 80 + 62*Math.cos(rad), y2 = 80 + 62*Math.sin(rad)
-                return <line key={a} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--tm-ee-gold)" strokeWidth="1" strokeOpacity="0.3" strokeLinecap="round"/>
-              })}
-            </svg>
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', boxShadow: '0 0 80px rgb(var(--tm-ee-gold-rgb) / 0.08)', pointerEvents: 'none' }} />
-          </div>
-
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.22em', color: 'var(--tm-ee-gold)', marginBottom: 10 }}>AI-POWERED RANGEFINDER</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', marginBottom: 8, letterSpacing: '-0.03em', lineHeight: 1.1, textAlign: 'center' }}>
-            Know Every Yard.<br/>Play Every Shot.
-          </div>
-          <div style={{ fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.32)', lineHeight: 1.6, marginBottom: 24, maxWidth: 270, textAlign: 'center' }}>
-            Select your course for live hole distances, GPS tracking, and plays-like yardages.
-          </div>
-          {!gps && (
-            <button onClick={requestLocation} style={{
-              padding: '11px 28px', borderRadius: 12, border: '1px solid rgb(var(--tm-ee-green-rgb) / 0.4)', cursor: 'pointer',
-              background: 'rgb(var(--tm-ee-green-rgb) / 0.1)', color: 'var(--tm-ee-green)', fontWeight: 700, fontSize: 13,
-              marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 8px var(--tm-ee-green)' }} />
-              Enable Location
-            </button>
-          )}
-
-          <button onClick={() => setShowPicker(true)} style={{
-            padding: '15px 48px', borderRadius: 16, border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg, var(--tm-ee-gold) 0%, var(--tm-ee-gold-bright) 100%)',
-            color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 16, letterSpacing: '0.02em',
-            boxShadow: '0 6px 32px rgb(var(--tm-ee-gold-rgb) / 0.4), 0 2px 8px rgb(var(--tm-ee-black-rgb) / 0.3)',
-          }}>Select Course</button>
-
-          {/* Feature row */}
-          <div style={{ display: 'flex', gap: 24, marginTop: 24 }}>
-            {[
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold)" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>, label: 'GPS Live' },
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold)" strokeWidth="1.8" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, label: 'Plays-Like' },
-              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold)" strokeWidth="1.8" strokeLinecap="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>, label: 'Weather' },
-            ].map(f => (
-              <div key={f.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                {f.icon}
-                <span style={{ fontSize: 10, color: 'rgb(var(--tm-ee-white-rgb) / 0.3)', fontWeight: 600, letterSpacing: '0.06em' }}>{f.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        /* ── Play start funnel (Phase 1 / S3b, 2026-07-10) — replaced the old
+            Welcome hero. Course confirm card (nearest recent / last played) →
+            9|18 → Solo|Match → START; picker as fallback; "Rangefinder only"
+            keeps the old zero-scoring path. An active round never reaches
+            this branch (courseCtx present → map = instant resume). */
+        <PlayStart
+          user={user}
+          gps={gps}
+          onRequestLocation={requestLocation}
+          onOpenPicker={(mode, holes) => {
+            pendingStartRef.current = mode ? { mode, holes } : null
+            setShowPicker(true)
+          }}
+          onStart={startRound}
+          onResumeSolo={() => onGoToScorecard?.()}
+          startBusy={startBusy}
+          startError={startError}
+        />
       ) : (
         /* ── Distance view — satellite map background + HUD overlay. Full-bleed:
             the header floats (absolute, out of normal flow), so this flex:1 child
@@ -1915,6 +1962,37 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             absolute caused a 0-height mount race that broke the map render.
             (2026-06-26 — fix for the black map) ── */
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+
+          {/* One-time invite chip after a Play-funnel Match start (S3c,
+              2026-07-10): the round lives here on the map; this is the only
+              nudge toward sharing the join code. Tap → live outing (where
+              MatchMenu has the full share flow); ✕ dismisses. */}
+          {startedMatchCode && (
+            <div style={{
+              position: 'absolute', top: 'calc(env(safe-area-inset-top, 0px) + 64px)',
+              left: '50%', transform: 'translateX(-50%)', zIndex: 60,
+              display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px 9px 16px',
+              borderRadius: 999,
+              background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)',
+              backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+              border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
+              boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45)',
+              whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--tm-ee-gold-light)' }}>
+                MATCH {startedMatchCode}
+              </span>
+              <button onClick={() => { setStartedMatchCode(null); onGoToScorecard?.() }} style={{
+                background: 'rgb(var(--tm-ee-gold-bright-rgb) / 0.18)', border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)',
+                borderRadius: 999, padding: '5px 12px', cursor: 'pointer',
+                fontSize: 12, fontWeight: 800, color: 'var(--tm-ee-gold-light)',
+              }}>Invite friends →</button>
+              <button onClick={() => setStartedMatchCode(null)} aria-label="Dismiss" style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
+                fontSize: 14, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1,
+              }}>✕</button>
+            </div>
+          )}
 
           {/* Full-screen satellite hole map — MapLibre GL (NAIP + branded overlays) */}
           <HoleMapGL
@@ -2221,12 +2299,26 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       {showPicker && (
         <CoursePicker
           variant="sheet"
-          onClose={() => setShowPicker(false)}
-          onSelect={handleCourseSelect}
+          onClose={() => { pendingStartRef.current = null; setShowPicker(false) }}
+          onSelect={sel => {
+            // If PlayStart routed here mid-start ("Not here?" / no recents),
+            // continue the start in the pending mode; otherwise this is a
+            // plain course pick (rangefinder-only — today's behavior).
+            const pending = pendingStartRef.current
+            pendingStartRef.current = null
+            if (pending?.mode) {
+              setShowPicker(false)
+              startRound(sel, pending.mode, pending.holes)
+            } else {
+              handleCourseSelect(sel)
+            }
+          }}
           gps={gps}
           gender={user?.gender}
         />
       )}
+      {/* One-active-match guard sheet (Play-funnel Match start). */}
+      {activeMatchModal}
 
       {/* Floating Scorecard pill removed 2026-05-01 — the page header
           already exposes a Scorecard link, the floating pill duplicated

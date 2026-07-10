@@ -25,6 +25,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
 import { dedupeTees } from '../lib/tees.js'
+import { addRecent } from '../lib/course-recents.js'
 
 // ─── Shared data layer ────────────────────────────────────────────────────────
 
@@ -208,7 +209,18 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
                 </div>
               ))}
             </div>
-            <button onClick={() => onSelect({ course, tee: activeTee })} style={{
+            <button onClick={() => {
+              // Recents (S3a): the Play funnel's nearest-course default reads
+              // this list. lat/lon ride from the search row (detail lacks them).
+              addRecent({
+                id: course.id,
+                club_name: course.club_name || course.course_name,
+                lat: selected?.latitude ?? null,
+                lon: selected?.longitude ?? null,
+                lastTee: activeTee.tee_name ?? null,
+              })
+              onSelect({ course, tee: activeTee })
+            }} style={{
               width: '100%', padding: '16px', borderRadius: 14, border: 'none', cursor: 'pointer',
               background: 'linear-gradient(135deg, var(--tm-ee-green-grad-a), var(--tm-ee-green-grad-b))',
               color: '#fff', fontWeight: 800, fontSize: 16,
@@ -227,6 +239,9 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
 function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected, gender }) {
   const [openCourse, setOpenCourse] = useState(null) // { id, club_name, course_name, tees: { male, female } }
   const [loadingCourse, setLoadingCourse] = useState(false)
+  // The tapped search row — kept so the recents entry gets lat/lon (the
+  // course DETAIL payload doesn't carry coordinates). (S3a, 2026-07-10)
+  const pickedRowRef = useRef(null)
 
   // Request geolocation once; gracefully no-op if denied
   const coords = useOneShotCoords(true)
@@ -238,6 +253,7 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
   })
 
   async function selectCourse(c) {
+    pickedRowRef.current = c
     setLoadingCourse(true)
     try {
       const detail = await fetchCourseDetail(c.id)
@@ -251,6 +267,14 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
 
   function selectTee(tee) {
     if (!openCourse) return
+    // Recents (S3a): the Play funnel's nearest-course default reads this list.
+    addRecent({
+      id: openCourse.id,
+      club_name: openCourse.club_name || openCourse.course_name,
+      lat: pickedRowRef.current?.latitude ?? null,
+      lon: pickedRowRef.current?.longitude ?? null,
+      lastTee: tee.tee_name ?? null,
+    })
     const holes = (tee.holes || []).map(h => h.par)
     // Capture BOTH genders' ratings for this physical tee (matched by total
     // yards) so each player's Course Handicap can use their gender's rating in

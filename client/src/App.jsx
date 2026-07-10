@@ -95,6 +95,12 @@ export default function App() {
   // switches to view='live'. Cleared via onClearPendingJoinCode after
   // the join either succeeds or definitively fails.
   const [pendingJoinCode, setPendingJoinCode] = useState(null)
+  // 2026-07-10 — Play-funnel Match start (S3c). When Eagle Eye's Play screen
+  // creates a light match, the code lands here; Outing (mounted hidden below)
+  // opens the live outing WITHOUT a join POST (the host is already a
+  // participant) and publishes activeScoring, while the user stays on the
+  // Play map. Distinct from pendingJoinCode, which joins someone else's match.
+  const [pendingOpenCode, setPendingOpenCode] = useState(null)
   // Lazy-keep-alive: track which tabs the user has visited. Each visited
   // tab stays mounted (display: block when active, display: none otherwise)
   // so component state, polling, GPS subscriptions, and the BOARD/SCORECARD
@@ -410,6 +416,13 @@ export default function App() {
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
               activeScoring={activeScoring}
+              onMatchStarted={code => {
+                setPendingOpenCode(code)
+                // Mount the Match tab hidden (lazy-keep-alive) so Outing can
+                // flip to the live view + publish activeScoring while the
+                // user stays on the Play map.
+                setMountedTabs(prev => prev.has(TABS.OUTING) ? prev : new Set([...prev, TABS.OUTING]))
+              }}
             />
           </TabPanel>
         )}
@@ -432,6 +445,8 @@ export default function App() {
               onActiveScoringChange={setActiveScoring}
               onCreateEventInLeague={leagueId => setPendingLeagueId(leagueId)}
               tabPressedAt={tabPressedAt}
+              pendingOpenCode={pendingOpenCode}
+              onClearPendingOpenCode={() => setPendingOpenCode(null)}
             />
           </TabPanel>
         )}

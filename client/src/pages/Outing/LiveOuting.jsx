@@ -5,6 +5,7 @@ import { runWithQueue, subscribeQueue, subscribeQueueDrops } from '../../lib/off
 import PuttChips from '../../components/scorecard/PuttChips.jsx'
 import { ShotSheet } from '../../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../../lib/shot-capture.js'
+import { addRecent } from '../../lib/course-recents.js'
 import { warn } from '../../lib/logger.js'
 import { courseHandicap, playerTeeRatings } from '../../lib/handicapClient.js'
 import GuestModal from './GuestModal.jsx'
@@ -1313,6 +1314,14 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         const tee = allTees.find(t => t.tee_name === outing.course_tee) || allTees[0] || null
         if (!tee) return
         onCourseSelected({ course: detail, tee })
+        // Recents (Play funnel S3a, 2026-07-10): a live match's course counts
+        // as recently played. Detail lacks lat/lon; addRecent keeps any
+        // better coordinates an earlier picker write stored.
+        addRecent({
+          id: detail.id,
+          club_name: detail.club_name || detail.course_name,
+          lastTee: tee.tee_name ?? null,
+        })
         courseSyncedForOutingRef.current = outing.id
       } catch (e) {
         warn('[course-sync]', e?.message)

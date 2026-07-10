@@ -46,7 +46,7 @@ function readPersistedSeg() {
   return 'matches'
 }
 
-export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange, onCreateEventInLeague, tabPressedAt }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange, onCreateEventInLeague, tabPressedAt, pendingOpenCode = null, onClearPendingOpenCode }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo' | 'spectate'
   // 'matches' | 'leagues' — which surface the hub view shows. Leagues moved
   // into this tab behind a segmented toggle (Phase 0 nav restructure,
@@ -124,6 +124,28 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
       setView('solo')
     }
   }, [user?.id, pendingJoinCode])
+
+  // 2026-07-10 (Play funnel S3c) — open a match the user just CREATED from
+  // the Play screen. No join POST (the host is already a participant); flip
+  // straight to the live view so activeScoring publishes and shot capture is
+  // armed while they stay on the Play map. Runs before the solo-resume check
+  // ordering matters because view==='live' wins the render.
+  useEffect(() => {
+    if (!pendingOpenCode) return
+    setActiveCode(String(pendingOpenCode).toUpperCase())
+    setView('live')
+    onClearPendingOpenCode?.()
+  }, [pendingOpenCode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 2026-07-10 (Play funnel S3b) — a solo round started from the Play screen.
+  // The one-shot auto-resume below only runs on mount; if Outing is ALREADY
+  // mounted (lazy-keep-alive), this event flips it to the solo view so the
+  // Match tab shows the live round, matching a SetupSheet-started round.
+  useEffect(() => {
+    const onSoloStarted = () => setView('solo')
+    window.addEventListener('tm-solo-started', onSoloStarted)
+    return () => window.removeEventListener('tm-solo-started', onSoloStarted)
+  }, [])
 
   // 2026-05-05 — QR-scan auto-join. App.jsx parses ?join=ABCD off the
   // URL (or pulls a stash from localStorage post-onboarding) and
