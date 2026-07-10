@@ -2236,11 +2236,27 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   chance a future code path wants to capture a custom
                   shot origin, but is no longer surfaced in the UI. */}
 
-              {/* LOG SHOT — walk-and-confirm capture (Slice 1; 2026-07-08 opened
-                  to ALL EE rounds). Shows for any active round (live outing OR
-                  solo); tapping freezes the GPS-to-pin distance + opens the dark
-                  confirm sheet. Standalone Eagle Eye (no active round) hides it. */}
-              {activeCapture && (
+              {/* LOG SHOT moved 2026-07-09 (Matt) — it now renders as a smaller
+                  pill to the RIGHT of the DIAL|BIG toggle row below, instead of
+                  a full-width button stacked above the hero card. */}
+            </div>
+            </>)}
+
+            {/* DIAL | BIG view switch — the primary readout mode toggle. Bottom-
+                centre = the one-handed thumb-reach zone; a labeled segmented
+                control keeps it discoverable (vs a hidden gesture) and reads as
+                the canonical mutually-exclusive-view switch. Persisted; present
+                in both modes. (C4, 2026-07-07) */}
+            <div style={{ order: 3, alignSelf: 'stretch', marginTop: 12, pointerEvents: 'none', zIndex: 810,
+              position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <div style={{ pointerEvents: 'auto' }}>
+                <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
+              </div>
+              {/* LOG SHOT — smaller pill anchored to the RIGHT of the centred
+                  DIAL|BIG toggle (2026-07-09). Same freeze-and-open handler as
+                  before; still dial-mode + active-round only (BIG has its own
+                  glance overlay). */}
+              {activeCapture && !bigMode && (
                 <button onClick={() => {
                   // Freeze BOTH the raw GPS-to-pin (for SG + the hero) and the
                   // PLAYS-LIKE distance (wind/elev/temp/alt-adjusted) so the club
@@ -2261,24 +2277,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   setCaptureLie(classifyLie(gps, { fairwayPolys, bunkerPolys, accM: gps?.acc ?? null }))
                   setCaptureOpen(true)
                 }} style={{
-                  width: '100%', height: 46, borderRadius: 13,
+                  position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                  pointerEvents: 'auto', height: 36, padding: '0 13px', borderRadius: 11,
                   border: '1px solid rgb(var(--tm-ee-gold-rgb) / 0.45)',
                   background: 'linear-gradient(180deg, rgb(var(--tm-ee-gold-rgb) / 0.26), rgb(var(--tm-ee-gold-rgb) / 0.14))',
                   backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-                  color: 'var(--tm-ee-gold-light)', fontSize: 14, fontWeight: 800, letterSpacing: '0.06em',
+                  color: 'var(--tm-ee-gold-light)', fontSize: 12, fontWeight: 800, letterSpacing: '0.05em',
                   cursor: 'pointer', boxShadow: 'inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.15)',
+                  whiteSpace: 'nowrap',
                 }}>+ LOG SHOT</button>
               )}
-            </div>
-            </>)}
-
-            {/* DIAL | BIG view switch — the primary readout mode toggle. Bottom-
-                centre = the one-handed thumb-reach zone; a labeled segmented
-                control keeps it discoverable (vs a hidden gesture) and reads as
-                the canonical mutually-exclusive-view switch. Persisted; present
-                in both modes. (C4, 2026-07-07) */}
-            <div style={{ order: 3, alignSelf: 'center', marginTop: 12, pointerEvents: 'auto', zIndex: 810 }}>
-              <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
             </div>
           </div>
 
