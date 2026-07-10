@@ -18,6 +18,24 @@ const AUGUSTA_GREEN  = '#0E3B23'
 const AUGUSTA_GOLD   = 'var(--tm-gold)'
 const AUGUSTA_CREAM  = '#F1E7C8'
 
+// Shared style consts — hoisted here (2026-07-10): components above their old
+// bottom-of-file positions referenced them, and lexical use-before-define is
+// now a lint error (TDZ gate).
+const hubBase = {
+  display: 'flex', flexDirection: 'column', height: '100%',
+  background: `linear-gradient(180deg, #FFFDF8 0%, #F1E7C8 100%)`,
+}
+const inputStyle = {
+  width: '100%', padding: '10px 12px', fontSize: 14,
+  background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(13,31,18,0.18)',
+  borderRadius: 10, color: '#0E3B23', boxSizing: 'border-box',
+  fontFamily: 'inherit',
+}
+const hdr = {
+  fontSize: 9, fontWeight: 800, color: 'rgba(13,31,18,0.55)',
+  letterSpacing: '0.08em', textTransform: 'uppercase',
+}
+
 // ─── Top-level decision: paywall vs hub ─────────────────────────────────
 // headerAccessory (2026-07-09, Phase 0 nav restructure): the Matches|Leagues
 // segmented toggle from Outing.jsx — Leagues now lives inside the Match tab
@@ -652,10 +670,8 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false, heade
   )
 }
 
-const hubBase = {
-  display: 'flex', flexDirection: 'column', height: '100%',
-  background: `linear-gradient(180deg, #FFFDF8 0%, #F1E7C8 100%)`,
-}
+// (hubBase moved to the top consts — lexical use-before-define is now a
+// lint error, 2026-07-10 TDZ gate.)
 
 // ─── LeagueWizard — create a league ─────────────────────────────────────
 function LeagueWizard({ onClose, onCreated, on402 }) {
@@ -894,12 +910,7 @@ function WizardStep({ n, title, hint, children }) {
   )
 }
 
-const inputStyle = {
-  width: '100%', padding: '10px 12px', fontSize: 14,
-  background: 'rgba(255,255,255,0.85)', border: '1px solid rgba(13,31,18,0.18)',
-  borderRadius: 10, color: '#0E3B23', boxSizing: 'border-box',
-  fontFamily: 'inherit',
-}
+// (inputStyle moved to the top consts — 2026-07-10 TDZ gate.)
 
 function Field({ label, hint, children }) {
   return (
@@ -1456,10 +1467,7 @@ function MembersView({ members, isCommissioner, commissionerId, leagueId, onRefr
   )
 }
 
-const hdr = {
-  fontSize: 9, fontWeight: 800, color: 'rgba(13,31,18,0.55)',
-  letterSpacing: '0.08em', textTransform: 'uppercase',
-}
+// (hdr moved to the top consts — 2026-07-10 TDZ gate.)
 
 // ─── CardStatBlock — light-mode stat tile for LeaguesHub league cards ──
 // Distinct from StatTilePill (dark-on-dark for the hero). This one sits

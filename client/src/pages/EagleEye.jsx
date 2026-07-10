@@ -847,6 +847,61 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [courseCtx, setCourseCtx]   = useState(null)
   const [currentHole, setCurrentHole] = useState(() => readEyeHole(sharedCourse?.course?.id) || 1)
 
+  const fetchWeather = useCallback(async ({ lat, lon }) => {
+    try {
+      const r = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure&wind_speed_unit=mph&temperature_unit=fahrenheit`
+      )
+      const d = await r.json()
+      setWeather(d.current)
+    } catch {}
+  }, [])
+
+  // P2-B (2026-07-10): "is a round active?" now reads the active-round SESSION
+  // index first (lib/active-round-session.js) — fixing the Phase-1 blind spot
+  // where a live match with the Match tab at the hub read as "no round"
+  // (activeScoring publishes only while the live view is open). Doctrine:
+  // solo truth = blob; match truth = server (reconciled below); no session →
+  // degrade to the old inference. Declared THIS early because later effects
+  // (eyeHoleNudge consume, sharedCourse sync, P2-F nudge) reference
+  // showStart/setShowStart — lexical use-before-define is the TDZ crash class.
+  const roundActive = () => {
+    const s = readSession(user?.id)
+    if (s?.kind === 'solo') return !!readSavedSoloRound(user?.id)
+    if (s?.kind === 'match') return true
+    return !!activeScoring || !!readSavedSoloRound(user?.id)
+  }
+  const [showStart, setShowStart] = useState(() => !roundActive())
+  // Re-evaluate on every Play-tab entry (EE stays mounted across tab switches,
+  // so mount-time state alone would go stale after a round ends elsewhere).
+  // Also self-heal the session: a solo session without its blob clears; a
+  // match session is verified against the server (throttled) — if the match
+  // is no longer active anywhere, clear + land on the start screen.
+  const wasActiveTabRef = useRef(isActive)
+  const lastReconcileRef = useRef(0)
+  useEffect(() => {
+    if (isActive && !wasActiveTabRef.current) {
+      setShowStart(!roundActive())
+      const s = readSession(user?.id)
+      if (s?.kind === 'solo' && !readSavedSoloRound(user?.id)) {
+        clearSession(user?.id)
+        setShowStart(true)
+      } else if (s?.kind === 'match' && Date.now() - lastReconcileRef.current > 60000) {
+        lastReconcileRef.current = Date.now()
+        api('/api/outings/recent').then(r => {
+          const live = (r?.outings || []).some(o =>
+            o?.status === 'active' && String(o.code).toUpperCase() === String(s.code).toUpperCase())
+          if (!live) {
+            clearSession(user?.id, { code: s.code })
+            setShowStart(true)
+          }
+        }).catch(() => { /* offline — keep trusting the session */ })
+      }
+    }
+    wasActiveTabRef.current = isActive
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, activeScoring, user?.id])
+
   // Cross-tab nudge from the live match's score modal: "user just scored
   // hole N, take them to Eagle Eye on hole N+1." App.jsx sets the nudge,
   // we pick it up here, advance currentHole, and tell App we've consumed
@@ -1377,15 +1432,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseCtx?.course?.id])
 
-  const fetchWeather = useCallback(async ({ lat, lon }) => {
-    try {
-      const r = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,surface_pressure&wind_speed_unit=mph&temperature_unit=fahrenheit`
-      )
-      const d = await r.json()
-      setWeather(d.current)
-    } catch {}
-  }, [])
+  // (fetchWeather moved up next to the weather state — earlier effects
+  // referenced it, and lexical use-before-define is now a lint error.)
 
   // Plays-like elevation (Phase 3.1) — uphill/downhill is auto-derived from a
   // terrain model (USGS 3DEP) via /api/eagle-eye/elevation, keyed on the green
@@ -1488,44 +1536,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole])
 
-  // ── P2-F: forgiving GPS hole-advance NUDGE (2026-07-10) ────────────────────
-  // NEVER silent, NEVER automatic, NEVER any end-of-round behavior — the
-  // market's wrong-hole complaints (Garmin fires mid-approach with no off
-  // switch; Arccos locks onto adjacent tees) all come from silent auto-advance.
-  // Trigger: trusted fix (≤ GPS_ACCURACY_GATE_M) AND within ~45 yds of the
-  // NEXT hole's tee AND closer to that tee than to the current green, on 3
-  // consecutive GPS ticks → a dismissible chip. Dismissal persists per
-  // course+hole; cleared on any round start / explicit course pick.
-  const [advanceNudge, setAdvanceNudge] = useState(null) // next hole # or null
-  const advTicksRef = useRef(0)
-  useEffect(() => {
-    if (!courseCtx || showStart) { advTicksRef.current = 0; setAdvanceNudge(null); return }
-    if (!gps || gps.accuracy == null || gps.accuracy > GPS_ACCURACY_GATE_M) { advTicksRef.current = 0; return }
-    const next = currentHole + 1
-    if (next > totalHoles) { setAdvanceNudge(null); return } // last hole: no chip, ever
-    const nextTee = holePositions[next]
-    if (!nextTee) return
-    const yds = (a, b) => {
-      const R = 6371000
-      const dLat = (b.lat - a.lat) * Math.PI / 180
-      const dLon = (b.lon - a.lon) * Math.PI / 180
-      const h = Math.sin(dLat/2)**2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLon/2)**2
-      return (2 * R * Math.asin(Math.sqrt(h))) * 1.09361
-    }
-    const dNext = yds(gps, nextTee)
-    const curGreen = greenPositions[currentHole]
-    const dGreen = curGreen ? yds(gps, curGreen) : Infinity
-    if (dNext <= 45 && dNext < dGreen) {
-      advTicksRef.current += 1
-      if (advTicksRef.current >= 3 && !readNudgeDismissed(courseCtx.course.id).includes(next)) {
-        setAdvanceNudge(next)
-      }
-    } else {
-      advTicksRef.current = 0
-      setAdvanceNudge(n => (n == null ? n : null))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gps, currentHole, holePositions, greenPositions, showStart, courseCtx?.course?.id])
+  // (P2-F nudge block moved BELOW the showStart declaration — its dep array
+  // referenced showStart from up here, a TDZ crash at render: "Cannot access
+  // 'vt' before initialization". Same class as the documented loadOuting TDZ
+  // trip, 2026-05-02. Caught on Matt's device 2026-07-10.)
 
   const holeData = courseCtx
     ? courseCtx.tee.holes.find(h => h.hole === currentHole) ?? null
@@ -1603,50 +1617,52 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // showStart forces the start screen over an existing course view. Cleared by
   // Back-to-map, any course pick, any round start, or entering with an active
   // round; re-armed every time the Play tab is (re)entered with no active round.
-  // P2-B (2026-07-10): "is a round active?" now reads the active-round SESSION
-  // index first (lib/active-round-session.js) — fixing the Phase-1 blind spot
-  // where a live match with the Match tab at the hub read as "no round"
-  // (activeScoring publishes only while the live view is open). Doctrine:
-  // solo truth = blob; match truth = server (reconciled below); no session →
-  // degrade to the old inference.
-  const roundActive = () => {
-    const s = readSession(user?.id)
-    if (s?.kind === 'solo') return !!readSavedSoloRound(user?.id)
-    if (s?.kind === 'match') return true
-    return !!activeScoring || !!readSavedSoloRound(user?.id)
-  }
-  const [showStart, setShowStart] = useState(() => !roundActive())
-  // Re-evaluate on every Play-tab entry (EE stays mounted across tab switches,
-  // so mount-time state alone would go stale after a round ends elsewhere).
-  // Also self-heal the session: a solo session without its blob clears; a
-  // match session is verified against the server (throttled) — if the match
-  // is no longer active anywhere, clear + land on the start screen.
-  const wasActiveTabRef = useRef(isActive)
-  const lastReconcileRef = useRef(0)
-  useEffect(() => {
-    if (isActive && !wasActiveTabRef.current) {
-      setShowStart(!roundActive())
-      const s = readSession(user?.id)
-      if (s?.kind === 'solo' && !readSavedSoloRound(user?.id)) {
-        clearSession(user?.id)
-        setShowStart(true)
-      } else if (s?.kind === 'match' && Date.now() - lastReconcileRef.current > 60000) {
-        lastReconcileRef.current = Date.now()
-        api('/api/outings/recent').then(r => {
-          const live = (r?.outings || []).some(o =>
-            o?.status === 'active' && String(o.code).toUpperCase() === String(s.code).toUpperCase())
-          if (!live) {
-            clearSession(user?.id, { code: s.code })
-            setShowStart(true)
-          }
-        }).catch(() => { /* offline — keep trusting the session */ })
-      }
-    }
-    wasActiveTabRef.current = isActive
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, activeScoring, user?.id])
+  // (P2-B roundActive/showStart block moved UP, next to currentHole — earlier
+  // effects call setShowStart, and lexical use-before-define of a const is
+  // the TDZ crash class the 2026-07-10 lint gate now blocks.)
   // Leave/end prompt for the back button while a round is active.
   const [showLeavePrompt, setShowLeavePrompt] = useState(false)
+
+  // ── P2-F: forgiving GPS hole-advance NUDGE (2026-07-10) ────────────────────
+  // NEVER silent, NEVER automatic, NEVER any end-of-round behavior — the
+  // market's wrong-hole complaints (Garmin fires mid-approach with no off
+  // switch; Arccos locks onto adjacent tees) all come from silent auto-advance.
+  // Trigger: trusted fix (≤ GPS_ACCURACY_GATE_M) AND within ~45 yds of the
+  // NEXT hole's tee AND closer to that tee than to the current green, on 3
+  // consecutive GPS ticks → a dismissible chip. Dismissal persists per
+  // course+hole; cleared on any round start / explicit course pick.
+  // MUST live after the showStart declaration — the dep array below reads it
+  // synchronously at render (TDZ otherwise; hit live 2026-07-10, 'vt' crash).
+  const [advanceNudge, setAdvanceNudge] = useState(null) // next hole # or null
+  const advTicksRef = useRef(0)
+  useEffect(() => {
+    if (!courseCtx || showStart) { advTicksRef.current = 0; setAdvanceNudge(null); return }
+    if (!gps || gps.accuracy == null || gps.accuracy > GPS_ACCURACY_GATE_M) { advTicksRef.current = 0; return }
+    const next = currentHole + 1
+    if (next > totalHoles) { setAdvanceNudge(null); return } // last hole: no chip, ever
+    const nextTee = holePositions[next]
+    if (!nextTee) return
+    const yds = (a, b) => {
+      const R = 6371000
+      const dLat = (b.lat - a.lat) * Math.PI / 180
+      const dLon = (b.lon - a.lon) * Math.PI / 180
+      const h = Math.sin(dLat/2)**2 + Math.cos(a.lat * Math.PI/180) * Math.cos(b.lat * Math.PI/180) * Math.sin(dLon/2)**2
+      return (2 * R * Math.asin(Math.sqrt(h))) * 1.09361
+    }
+    const dNext = yds(gps, nextTee)
+    const curGreen = greenPositions[currentHole]
+    const dGreen = curGreen ? yds(gps, curGreen) : Infinity
+    if (dNext <= 45 && dNext < dGreen) {
+      advTicksRef.current += 1
+      if (advTicksRef.current >= 3 && !readNudgeDismissed(courseCtx.course.id).includes(next)) {
+        setAdvanceNudge(next)
+      }
+    } else {
+      advTicksRef.current = 0
+      setAdvanceNudge(n => (n == null ? n : null))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gps, currentHole, holePositions, greenPositions, showStart, courseCtx?.course?.id])
   // When PlayStart routes through the full picker ("Not here?" / no recents),
   // the pending mode+holes ride here so the picker's onSelect can continue
   // the start instead of just loading the rangefinder. Null = plain pick.
@@ -2711,6 +2727,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   )
 }
 
+// Slot labels (compact map for the toggle's center button — keeps the
+// component self-contained without importing the full clubCatalog.)
+const SLOT_LABELS_TOGGLE = {
+  driver: 'Driver', '3w': '3 Wood', '5w': '5 Wood', '7w': '7 Wood',
+  hybrid_1: 'Hybrid', hybrid_2: 'Hybrid 2',
+  iron_3: '3 Iron', iron_4: '4 Iron', iron_5: '5 Iron', iron_6: '6 Iron',
+  iron_7: '7 Iron', iron_8: '8 Iron', iron_9: '9 Iron',
+  pw: 'PW', gw: 'Gap', sw: 'Sand', lw: 'Lob',
+}
+
 // ─── Club toggle (right-edge floating UI) ───────────────────────────────────
 // Idle: single BAG button. Tap → recommend a club for the current
 // target yardage (closest avg_yards match). After selection it
@@ -2852,15 +2878,8 @@ function ClubToggle({ bag = [], selected, targetYards, onSelect, onClear, onOpen
   )
 }
 
-// Slot labels (compact map for the toggle's center button — keeps the
-// component self-contained without importing the full clubCatalog.)
-const SLOT_LABELS_TOGGLE = {
-  driver: 'Driver', '3w': '3 Wood', '5w': '5 Wood', '7w': '7 Wood',
-  hybrid_1: 'Hybrid', hybrid_2: 'Hybrid 2',
-  iron_3: '3 Iron', iron_4: '4 Iron', iron_5: '5 Iron', iron_6: '6 Iron',
-  iron_7: '7 Iron', iron_8: '8 Iron', iron_9: '9 Iron',
-  pw: 'PW', gw: 'Gap', sw: 'Sand', lw: 'Lob',
-}
+// (SLOT_LABELS_TOGGLE moved above ClubToggle — lexical use-before-define is
+// now a lint error, 2026-07-10 TDZ gate.)
 
 // ─── Bag picker bottom-sheet ────────────────────────────────────────────────
 // Lists the user's bag (filled slots only), excluding the putter (no

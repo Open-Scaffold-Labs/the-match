@@ -384,7 +384,20 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
   // The tapped search row — kept so the recents entry gets lat/lon (the
   // course DETAIL payload doesn't carry coordinates). (S3a, 2026-07-10)
   const pickedRowRef = useRef(null)
+
+  // Request geolocation once; gracefully no-op if denied
+  const coords = useOneShotCoords(true)
+
+  const { query, setQuery, results, setResults, searching } = useCourseSearch({
+    coords,
+    debounceMs: 250,
+    paused: !!openCourse, // don't keep searching while picking a tee
+  })
+
   // Instant nearby list under the field before any typing. (2026-07-10)
+  // MUST come after `coords` — the hook argument evaluates at render (this
+  // exact block above `coords` was a TDZ crash, caught by the 2026-07-10
+  // no-use-before-define lint gate).
   const nearby = useNearbyCourses(coords)
   const [resolvingName, setResolvingName] = useState(null)
   async function pickNearby(c) {
@@ -398,15 +411,6 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
       setResolvingName(null)
     }
   }
-
-  // Request geolocation once; gracefully no-op if denied
-  const coords = useOneShotCoords(true)
-
-  const { query, setQuery, results, setResults, searching } = useCourseSearch({
-    coords,
-    debounceMs: 250,
-    paused: !!openCourse, // don't keep searching while picking a tee
-  })
 
   async function selectCourse(c) {
     pickedRowRef.current = c

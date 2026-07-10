@@ -18,6 +18,24 @@
 // Counts in the parent surface (Profile / Home pills) re-fetch via
 // onCountsChange after any mutation so the headers stay live.
 //
+
+const primaryBtn = {
+  background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))',
+  color: '#fff', border: 'none', borderRadius: 999,
+  padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  fontFamily: 'inherit',
+  whiteSpace: 'nowrap',
+}
+
+const ghostBtn = {
+  background: 'rgba(13,31,18,0.04)',
+  color: 'rgba(13,31,18,0.65)',
+  border: '1px solid rgba(13,31,18,0.14)',
+  borderRadius: 999,
+  padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  fontFamily: 'inherit',
+  whiteSpace: 'nowrap',
+}
 // (2026-05-01 — follow Phase 1)
 
 import { useState, useEffect } from 'react'
@@ -319,20 +337,5 @@ function PendingBadge() {
   )
 }
 
-const primaryBtn = {
-  background: 'linear-gradient(135deg, var(--tm-green), var(--tm-green-bright))',
-  color: '#fff', border: 'none', borderRadius: 999,
-  padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-  fontFamily: 'inherit',
-  whiteSpace: 'nowrap',
-}
-
-const ghostBtn = {
-  background: 'rgba(13,31,18,0.04)',
-  color: 'rgba(13,31,18,0.65)',
-  border: '1px solid rgba(13,31,18,0.14)',
-  borderRadius: 999,
-  padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-  fontFamily: 'inherit',
-  whiteSpace: 'nowrap',
-}
+// (primaryBtn/ghostBtn moved above their first use — lexical
+// use-before-define is now a lint error, 2026-07-10 TDZ gate.)

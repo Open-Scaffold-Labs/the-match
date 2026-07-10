@@ -35,6 +35,14 @@ export default [
     rules: {
       'no-undef': 'error',
       'react/jsx-no-undef': 'error',
+      // TDZ gate (2026-07-10): a useEffect dep array referencing a const
+      // declared LATER in the component body is evaluated synchronously at
+      // render → "Cannot access 'X' before initialization" on device, while
+      // build AND the two rules above stay clean (shipped as the 'vt' crash,
+      // P2-F nudge effect vs showStart; same class as the documented
+      // loadOuting TDZ trip, 2026-05-02). variables-only: hoisted function
+      // declarations and class refs stay legal, matching codebase style.
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
     },
   },
   {
