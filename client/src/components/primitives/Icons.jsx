@@ -134,6 +134,19 @@ export function IconScorecard({ size = 24, color = 'currentColor', strokeWidth =
   )
 }
 
+// User icon — head + shoulders silhouette. Used by the Profile
+// bottom-nav tab (Phase 0 nav restructure, 2026-07-09).
+export function IconUser({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      {/* Head */}
+      <circle cx="12" cy="8" r="3.6" />
+      {/* Shoulders */}
+      <path d="M5 20.5v-.8a7 7 0 0 1 14 0v.8" />
+    </svg>
+  )
+}
+
 // League icon — trophy on a pedestal with two flag stems flanking it.
 // Used by the Leagues bottom-nav tab. (2026-05-02)
 export function IconLeague({ size = 24, color = 'currentColor', strokeWidth = 1.6 }) {

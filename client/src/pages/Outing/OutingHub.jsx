@@ -17,7 +17,7 @@ import { readSavedSoloRound, SOLO_ROUND_STORAGE_KEY } from '../../lib/solo-round
 // 2026-05-06 refactor (Stage 6/6 — final stage). Pure mechanical
 // move; no behavior change.
 
-export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound, onSpectate }) {
+export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpenRivalry, onSoloRound, onSpectate, headerAccessory = null }) {
   const [rivalries, setRivalries] = useState([])
   const [recentOutings, setRecentOutings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -128,18 +128,29 @@ export default function OutingHub({ user, onJoin, onCreate, onOpenOuting, onOpen
           title sits ~20px from viewport top and on a notched phone is
           mostly hidden behind the dynamic island / status area. Mirrors
           the same pattern used in Leagues.jsx and EagleEye.jsx. */}
-      <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', flexShrink: 0 }}>
-        <div style={{
-          fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
-          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          marginBottom: 2,
-        }}>Matches</div>
-        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)', textShadow: '0 1px 2px rgba(255,255,255,0.6)' }}>
-          {liveMatches.length > 0
-            ? `You have ${liveMatches.length} match${liveMatches.length > 1 ? 'es' : ''} in progress.`
-            : 'Create or join — your rivalries live here.'}
+      <div style={{
+        padding: 'calc(var(--safe-top) + 20px) 20px 0', flexShrink: 0,
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            marginBottom: 2,
+          }}>Matches</div>
+          <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)', textShadow: '0 1px 2px rgba(255,255,255,0.6)' }}>
+            {liveMatches.length > 0
+              ? `You have ${liveMatches.length} match${liveMatches.length > 1 ? 'es' : ''} in progress.`
+              : 'Create or join — your rivalries live here.'}
+          </div>
         </div>
+        {/* Matches | Leagues segmented toggle from Outing.jsx (Phase 0 nav
+            restructure, 2026-07-09). Sits right of the title, clear of the
+            title's gradient text. */}
+        {headerAccessory && (
+          <div style={{ marginTop: 6 }}>{headerAccessory}</div>
+        )}
       </div>
 
       <div className="page-scroll" style={{

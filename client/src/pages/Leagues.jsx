@@ -19,7 +19,12 @@ const AUGUSTA_GOLD   = 'var(--tm-gold)'
 const AUGUSTA_CREAM  = '#F1E7C8'
 
 // ─── Top-level decision: paywall vs hub ─────────────────────────────────
-export default function Leagues({ user, onCreateEventInLeague, isDesktop = false }) {
+// headerAccessory (2026-07-09, Phase 0 nav restructure): the Matches|Leagues
+// segmented toggle from Outing.jsx — Leagues now lives inside the Match tab
+// instead of its own bottom-nav slot. Rendered in the LeaguesHub header only;
+// detail/wizard views keep their own back controls, and the paywall's escape
+// hatch is the Match tab press (which resets the segment to Matches).
+export default function Leagues({ user, onCreateEventInLeague, isDesktop = false, headerAccessory = null }) {
   // Round 7 audit fix — tier handling is more nuanced than "Elite=hub,
   // free=paywall". A free-tier user added to a paying commissioner's
   // league STILL needs to see standings + announcements + events for
@@ -74,6 +79,7 @@ export default function Leagues({ user, onCreateEventInLeague, isDesktop = false
     <LeaguesHub
       isElite={user?.tier === 'elite'}
       isDesktop={isDesktop}
+      headerAccessory={headerAccessory}
       onOpen={(id) => { setActiveLeagueId(id); setView('detail') }}
       onCreate={() => {
         // Free user tapping Create → flip to full paywall with the
@@ -383,7 +389,7 @@ function FlourishDivider() {
 }
 
 // ─── LeaguesHub — list of my leagues ────────────────────────────────────
-function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
+function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false, headerAccessory = null }) {
   // Desktop breakout: center the column and lay the league cards out in a
   // responsive grid that uses the width, instead of one stretched phone-width
   // column. Mobile is unchanged. (2026-06-26)
@@ -432,20 +438,30 @@ function LeaguesHub({ isElite, onOpen, onCreate, on402, isDesktop = false }) {
           }
         }
       `}</style>
-      <div style={{ padding: 'calc(var(--safe-top) + 20px) 20px 0', ...centerCol }}>
-        <div style={{
-          fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
-          background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          marginBottom: 4,
-        }}>Leagues</div>
-        <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)' }}>
-          {leagues == null
-            ? 'Loading…'
-            : leagues.length === 0
-              ? 'No leagues yet — create your first.'
-              : `${leagues.length} league${leagues.length === 1 ? '' : 's'} on your roster.`}
+      <div style={{
+        padding: 'calc(var(--safe-top) + 20px) 20px 0', ...centerCol,
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{
+            fontSize: 28, fontWeight: 900, letterSpacing: '-1px',
+            background: 'linear-gradient(135deg, #F5D78A, var(--tm-gold-bright))',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            marginBottom: 4,
+          }}>Leagues</div>
+          <div style={{ fontSize: 13, color: 'rgba(13,31,18,0.55)' }}>
+            {leagues == null
+              ? 'Loading…'
+              : leagues.length === 0
+                ? 'No leagues yet — create your first.'
+                : `${leagues.length} league${leagues.length === 1 ? '' : 's'} on your roster.`}
+          </div>
         </div>
+        {/* Matches | Leagues segmented toggle from Outing.jsx (Phase 0 nav
+            restructure, 2026-07-09). */}
+        {headerAccessory && (
+          <div style={{ marginTop: 6 }}>{headerAccessory}</div>
+        )}
       </div>
 
       <div className="page-scroll" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, ...centerCol }}>

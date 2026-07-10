@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import BottomNav from './components/shell/BottomNav.jsx'
 import { TABS } from './constants.js'
-import { useIsDesktop } from './lib/useViewport.js'
 import Home from './pages/Home.jsx'
 
 import EagleEye from './pages/EagleEye.jsx'
 import Outing from './pages/Outing.jsx'
 import MyBag from './pages/MyBag.jsx'
-import Leagues from './pages/Leagues.jsx'
+import Profile from './pages/Profile.jsx'
 import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
 import OnboardingWizard from './components/OnboardingWizard.jsx'
@@ -30,6 +29,10 @@ const TAB_STORAGE_KEY = 'tm-last-tab'
 function readPersistedTab() {
   try {
     const v = localStorage.getItem(TAB_STORAGE_KEY)
+    // 2026-07-09 — Phase 0 nav restructure: 'leagues' is no longer a tab
+    // (Leagues lives inside the Match tab now). Remap a stale persisted
+    // value so those users land on the Match hub instead of a blank tab.
+    if (v === 'leagues') return TABS.OUTING
     if (v && Object.values(TABS).includes(v)) return v
   } catch { /* ignore — Safari private mode etc. */ }
   return TABS.HOME
@@ -70,7 +73,6 @@ export default function App() {
     document.body.style.backgroundColor = dark ? '#070C09' : ''
     return () => { document.documentElement.style.backgroundColor = ''; document.body.style.backgroundColor = '' }
   }, [tab])
-  const isDesktop = useIsDesktop()
   // Save on every tab change. Cheap localStorage write, no debounce
   // needed since taps are rare relative to other render work.
   useEffect(() => {
@@ -107,11 +109,9 @@ export default function App() {
   // profile sub-view doesn't stay sticky when the user taps Home again.
   // (2026-05-07 PM3.)
   const [tabPressedAt, setTabPressedAt] = useState(0)
-  // Home's current sub-view ('home' dashboard vs 'profile'), reported up by
-  // Home so the outer wrapper can drop the grass photo on My Profile — which
-  // otherwise bleeds into the side borders on phones wider than the 430px
-  // frame. (2026-06-23) Default 'home' so the grass hero shows on first paint.
-  const [homeView, setHomeView] = useState('home')
+  // (2026-07-09 — Phase 0 nav restructure: the old homeView state is gone.
+  // My Profile is its own tab now, so App no longer needs to know Home's
+  // sub-view to drop the grass photo — Home only has the dashboard.)
   // Cross-tab "next hole" nudge from the live match's score modal to Eagle
   // Eye. When set, EagleEye picks it up via useEffect, calls setCurrentHole,
   // and clears the nudge via onConsumeEyeHoleNudge. Tight loop:
@@ -351,11 +351,7 @@ export default function App() {
   // perfectly tile. Eagle Eye's edges go dark to match its theme; everything
   // else uses the parchment base. (2026-06-23 — Matt: grass showing at the
   // borders because pages don't fill the screen edge-to-edge.)
-  const grassTab = (tab === TABS.HOME && homeView !== 'profile') || tab === TABS.TOUR || tab === TABS.OUTING
-  // Desktop breakout: only the Leagues tab widens past the phone frame, and only
-  // on a real desktop viewport. Every other tab — and the entire iOS app — stays
-  // at 430px. (2026-06-26)
-  const desktopLeagues = isDesktop && tab === TABS.LEAGUES
+  const grassTab = tab === TABS.HOME || tab === TABS.TOUR || tab === TABS.OUTING
   const outerBg = grassTab
     ? {
         backgroundImage: 'url("https://images.unsplash.com/photo-1587174486073-ae5e5cff23aa?w=1200&q=90")',
@@ -375,7 +371,10 @@ export default function App() {
         // Eagle Eye is a full-bleed rangefinder — let it span the entire device
         // width (no 430 phone-frame cap) so the satellite map reaches both edges
         // like the leading apps. Every other tab keeps the centered phone frame.
-        width: '100%', maxWidth: tab === TABS.EYE ? '100%' : (desktopLeagues ? 1180 : 430),
+        // (The old Leagues-only desktop breakout to 1180px went with the Leagues
+        // tab in the 2026-07-09 nav restructure — Leagues now renders inside the
+        // Match tab's 430px frame.)
+        width: '100%', maxWidth: tab === TABS.EYE ? '100%' : 430,
         height: '100dvh',
         // Translucent Augusta cream — same tint that was on the
         // Home wrapper, lifted up one level so it covers the entire
@@ -397,8 +396,6 @@ export default function App() {
               user={user}
               onNavigate={setTab}
               onNavigateToOuting={players => { setPendingOutingPlayers(players); setTab(TABS.OUTING) }}
-              tabPressedAt={tabPressedAt}
-              onHomeViewChange={setHomeView}
             />
           </TabPanel>
         )}
@@ -433,6 +430,8 @@ export default function App() {
               sharedCourse={sharedCourse}
               onCourseSelected={setSharedCourse}
               onActiveScoringChange={setActiveScoring}
+              onCreateEventInLeague={leagueId => setPendingLeagueId(leagueId)}
+              tabPressedAt={tabPressedAt}
             />
           </TabPanel>
         )}
@@ -441,17 +440,13 @@ export default function App() {
             <MyBag user={user} />
           </TabPanel>
         )}
-        {mountedTabs.has(TABS.LEAGUES) && (
-          <TabPanel active={tab === TABS.LEAGUES}>
-            <Leagues
-              user={user}
-              isDesktop={isDesktop}
-              onCreateEventInLeague={(leagueId) => {
-                setPendingLeagueId(leagueId)
-                setTab(TABS.OUTING)
-              }}
-            />
-          </TabPanel>
+        {/* Profile — promoted from a Home sub-view to its own tab (Phase 0
+            nav restructure, 2026-07-09). Deliberately NOT lazy-keep-alive:
+            ProfileView portals a full-viewport fixed overlay to <body>,
+            which escapes TabPanel's display:none hiding — a kept-alive
+            Profile would cover every other tab. Mount only while active. */}
+        {tab === TABS.PROFILE && (
+          <Profile onNavigate={setTab} />
         )}
         {mountedTabs.has(TABS.TOUR) && (
           <TabPanel active={tab === TABS.TOUR} opaque={false}>

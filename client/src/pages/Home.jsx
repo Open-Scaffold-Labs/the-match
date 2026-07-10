@@ -6,8 +6,6 @@ import FriendProfile from '../components/FriendProfile.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
 import FollowPills from '../components/FollowPills.jsx'
 import RoundScorecard from '../components/RoundScorecard.jsx'
-import Practice from './Practice.jsx'
-import Caddie from './Caddie.jsx'
 import RivalryDetail from '../components/RivalryDetail.jsx'
 import RoundHistory from '../components/RoundHistory.jsx'
 import AdminUsersModal from '../components/AdminUsersModal.jsx'
@@ -2288,7 +2286,8 @@ function CreateGameModal({ initialDate, onClose, onCreated, onCreateOuting }) {
 }
 
 // ─── Edit Profile Modal ───────────────────────────────────────────────────────
-function EditProfileModal({ user, onSave, onClose }) {
+// Exported 2026-07-09: also used by the Profile tab (pages/Profile.jsx).
+export function EditProfileModal({ user, onSave, onClose }) {
   const [course, setCourse] = useState(user?.home_course ?? '')
   const [bio, setBio] = useState(user?.bio ?? '')
   const [hcp, setHcp] = useState(
@@ -2515,7 +2514,10 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // header (big avatar + name + course + handicap + season W-L-T-AVG3 +
 // streak chip). Stats body: HcpBadge, Avg/Best tiles, MiniTrendBar,
 // Distances card, Recent rounds. (2026-05-01)
-function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice, onOpenCaddie }) {
+// Exported 2026-07-09 (Phase 0 nav restructure): the Profile tab page
+// (pages/Profile.jsx) renders this same view now that My Profile is a
+// top-level tab instead of a Home sub-view.
+export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice, onOpenCaddie }) {
   // Golf handicap display convention (matches HcpBadge):
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
@@ -3787,7 +3789,7 @@ function NotificationsModal({
   )
 }
 
-export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onHomeViewChange }) {
+export default function Home({ onNavigate, onNavigateToOuting }) {
   const [profile, setProfile] = useState(null)
   // outgoing: [] was missing here — caused the REQUESTS box to crash
   // on first render (friends.outgoing.length on undefined) before the
@@ -3796,8 +3798,6 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [addFriendOpen, setAddFriendOpen] = useState(false)
-  const [practiceOpen, setPracticeOpen] = useState(false)
-  const [caddieOpen, setCaddieOpen]     = useState(false)
   const [selectedFriend, setSelectedFriend] = useState(null)
   const [games, setGames]               = useState({ incoming: [], confirmed: [] })
   const [teeRequests, setTeeRequests]   = useState({ incoming: [], outgoing: [] })
@@ -3809,53 +3809,14 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
   // calendar-based flow) — this is the manual roster + push flow.
   const [showNewTeeTime, setShowNewTeeTime] = useState(false)
   const [playerCardOpen, setPlayerCardOpen] = useState(false)
-  // 'home' = dashboard, 'profile' = full profile + stats screen.
-  // Profile is a sibling view inside the Home tab (not a top-level tab).
-  // (2026-05-01)
-  // View persistence — same pattern as App's tm-last-tab. Survives
-  // pull-to-refresh + window.location.reload() so a user on My Profile
-  // doesn't bounce back to the home view when they refresh. (2026-05-07
-  // PM3 — Matt: 'when on my profile, and I do the pull to refresh it
-  // brings me back to home screen... I should remain on the screen
-  // that I'm on'.) Validated against the known set so a corrupted /
-  // stale value falls back to 'home' instead of crashing the render.
-  const VIEW_STORAGE_KEY = 'tm-home-view'
-  const VALID_VIEWS = ['home', 'profile']
-  const [view, setView] = useState(() => {
-    try {
-      const v = localStorage.getItem(VIEW_STORAGE_KEY)
-      if (VALID_VIEWS.includes(v)) return v
-    } catch { /* ignore — Safari private mode etc. */ }
-    return 'home'
-  })
-  useEffect(() => {
-    try { localStorage.setItem(VIEW_STORAGE_KEY, view) } catch { /* ignore */ }
-  }, [view])
-
-  // Report the current sub-view up to App so it can drop the grass photo when
-  // we're on My Profile (a solid screen). Without this, on phones wider than
-  // the 430px app frame the grass bleeds into the side borders of My Profile
-  // (the Home tab keeps grass for its dashboard hero). (2026-06-23 — Matt 16e.)
-  useEffect(() => { onHomeViewChange?.(view) }, [view, onHomeViewChange])
-
-  // Reset back to the home view whenever the user taps a bottom-nav tab —
-  // including a tap on the Home tab itself when they're already inside
-  // the Home tab but on the Profile sub-view. (2026-05-07 PM3.) The
-  // ref-guard skips the initial mount so a freshly-mounted Home with a
-  // restored view='profile' from localStorage doesn't get clobbered by
-  // the effect's first run.
-  const initialTabPressedAtRef = useRef(tabPressedAt)
-  useEffect(() => {
-    if (tabPressedAt === initialTabPressedAtRef.current) return
-    setView('home')
-  }, [tabPressedAt])
-  // Stats data for the Profile view. Loaded alongside the dashboard data
-  // so the Profile screen renders instantly when the user taps "My Profile".
+  // 2026-07-09 — Phase 0 nav restructure: the 'profile' sub-view (and its
+  // tm-home-view persistence + tabPressedAt reset) moved out of Home. My
+  // Profile is now its own bottom-nav tab (TABS.PROFILE → pages/Profile.jsx);
+  // the two in-page entry points navigate via onNavigate('profile').
+  // Stats summary — the ProfileHeroCard shows the calculated handicap.
+  // (Rounds + rivalries fetches moved to pages/Profile.jsx with the
+  // profile sub-view; the dashboard never rendered them.)
   const [stats, setStats]   = useState(null)
-  const [rounds, setRounds] = useState([])
-  // Head-to-head rivalries for the Profile's Rivalries card (top 3).
-  // Endpoint returns up to 20; the card slices to the first 3.
-  const [rivalries, setRivalries] = useState([])
   // Live follow counts — driven by /api/follows/counts. Shown in pills on
   // the Profile view header AND on the Home ProfileHeroCard. Refreshed
   // every time the user follows/unfollows from inside the FollowList
@@ -3893,22 +3854,19 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
     setLoading(true)
     try {
       const month = new Date().toISOString().slice(0, 7)
-      const [p, f, g, tr, s, r, fc, riv, bag, av, mh] = await Promise.all([
+      const [p, f, g, tr, s, fc, bag, av, mh] = await Promise.all([
         api('/api/profile'),
         api('/api/friends'),
         api('/api/games'),
         api('/api/availability/tee-requests'),
-        // Stats summary + recent rounds for the Profile view. Both .catch
-        // to null/empty so the dashboard doesn't fail if the user hasn't
-        // logged any rounds yet.
+        // Stats summary for the hero card's handicap. Fail-soft so the
+        // dashboard doesn't fail if the user hasn't logged rounds yet.
+        // (Rounds + rivalries fetches moved to pages/Profile.jsx, 2026-07-09.)
         api('/api/stats/summary').catch(() => null),
-        api('/api/rounds?limit=20').catch(() => ({ rounds: [] })),
         // Follow counts for the header pills (Following / Followers /
         // Mutuals). Fail-soft to zeros so the rest of Home keeps loading
         // if the follows endpoint hits a transient error.
         api('/api/follows/counts').catch(() => null),
-        // Rivalries (top H2H records) for the Profile's Rivalries card.
-        api('/api/outings/my-rivalries').catch(() => null),
         // Onboarding-checklist inputs — bag, this month's availability,
         // recent matches. Failing soft is fine; checklist just shows
         // unchecked boxes if anything errors.
@@ -3921,9 +3879,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
       setGames(g ?? { incoming: [], confirmed: [] })
       setTeeRequests(tr ?? { incoming: [], outgoing: [] })
       setStats(s)
-      setRounds(r?.rounds ?? [])
       setFollowCounts(fc ?? { following: 0, followers: 0 })
-      setRivalries(riv?.rivalries ?? [])
       setBagClubs(bag?.clubs ?? [])
       setAvailabilityCount((av?.mine ?? []).length)
       setMatchCount((mh?.outings ?? []).length)
@@ -4044,66 +4000,6 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
 
   const { user, season, avg3, streak } = profile ?? {}
 
-  // Profile view — full-page user profile + stats inside the Home tab.
-  if (view === 'profile') {
-    return (
-      <>
-        <ProfileView
-          user={user} season={season} avg3={avg3} streak={streak}
-          stats={stats} rounds={rounds}
-          rivalries={rivalries}
-          followCounts={followCounts}
-          onCountsChange={refreshFollowCounts}
-          onBack={() => setView('home')}
-          onEditProfile={() => setEditOpen(true)}
-          onOpenCard={() => setPlayerCardOpen(true)}
-          onOpenPractice={() => setPracticeOpen(true)}
-          onOpenCaddie={() => setCaddieOpen(true)}
-          // Tap an opponent face inside a rivalry popup → open that
-          // user's FriendProfile on top of this view.
-          onOpenFriend={setSelectedFriend}
-        />
-        {/* Edit profile modal — opens from the Profile view's Edit button */}
-        {editOpen && (
-          <EditProfileModal user={user} onSave={handleProfileSaved} onClose={() => setEditOpen(false)} />
-        )}
-        {/* Practice plan (data → practice loop, 3.5) — opens from the Profile
-            view's Practice card. Full-screen overlay; fetches /api/practice. */}
-        {practiceOpen && (
-          <Practice onClose={() => setPracticeOpen(false)} />
-        )}
-
-        {/* The Caddie — AI chat (whitepaper §5.6). Full-screen overlay;
-            POSTs /api/caddie/chat with the running thread. */}
-        {caddieOpen && (
-          <Caddie onClose={() => setCaddieOpen(false)} />
-        )}
-        {/* Player card overlay — opens from the big avatar in the header */}
-        {playerCardOpen && (
-          <PlayerCard onClose={() => setPlayerCardOpen(false)} userId={profile?.id} />
-        )}
-        {/* Friend profile portal — also rendered here so tapping an
-            opponent face in a rivalry popup from My Profile opens their
-            FriendProfile without bouncing back to the home view. */}
-        {selectedFriend && (
-          <FriendProfile
-            friend={selectedFriend}
-            myName={user?.name}
-            confirmedGames={games.confirmed}
-            onClose={() => setSelectedFriend(null)}
-            onOpenFriend={(opp) => {
-              // Tapping an opponent inside a friend's rivalry popup. If
-              // it's me, close back to my own profile; otherwise swap to
-              // the new friend in place.
-              if (String(opp?.id) === String(user?.id)) setSelectedFriend(null)
-              else setSelectedFriend(opp)
-            }}
-          />
-        )}
-      </>
-    )
-  }
-
   // Today's date — for the polished overline above the wordmark.
   // Format: 'FRIDAY · MAY 1' — uppercase + spaced caps for editorial feel.
   const todayStr = (() => {
@@ -4202,7 +4098,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </button>
-          <button onClick={() => setView('profile')} style={{
+          <button onClick={() => onNavigate?.('profile')} style={{
             background: 'rgba(27,94,59,0.06)', border: '1px solid rgba(27,94,59,0.14)',
             borderRadius: 10, color: 'var(--tm-green)', fontSize: 12,
             padding: '7px 12px', cursor: 'pointer',
@@ -4313,7 +4209,7 @@ export default function Home({ onNavigate, onNavigateToOuting, tabPressedAt, onH
           availabilityCount={availabilityCount}
           matchCount={matchCount}
           onNavigate={dest => {
-            if (dest === 'profile')      setView('profile')
+            if (dest === 'profile')      onNavigate?.('profile')
             else if (dest === 'bag')     onNavigate?.('bag')
             else if (dest === 'match')   onNavigate?.('outing')
           }}

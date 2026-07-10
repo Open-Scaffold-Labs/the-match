@@ -23,6 +23,7 @@ import { post } from '../lib/api.js'
 import CoachMark from '../components/CoachMark.jsx'
 import ActiveRound from './ActiveRound.jsx'
 import OutingHub, { RivalryDetail } from './Outing/OutingHub.jsx'
+import Leagues from './Leagues.jsx'
 import { readSavedSoloRound } from '../lib/solo-round.js'
 import LiveOuting from './Outing/LiveOuting.jsx'
 import EndMatchScreen from './Outing/EndMatchScreen.jsx'
@@ -32,8 +33,39 @@ import CreateWizard from './Outing/CreateWizard.jsx'
 import SpectateView from './Outing/SpectateView.jsx'
 
 // ─── Main Outing Component ────────────────────────────────────────────────────
-export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange }) {
+// 2026-07-09 — Phase 0 nav restructure: the segment the Match tab's hub is
+// showing ('matches' hub vs the Leagues surface, which lost its own bottom-nav
+// tab). Persisted so pull-to-refresh doesn't dump a league browser back onto
+// Matches; validated so a stale value falls back to 'matches'.
+const SEG_STORAGE_KEY = 'tm-match-seg'
+function readPersistedSeg() {
+  try {
+    const v = localStorage.getItem(SEG_STORAGE_KEY)
+    if (v === 'matches' || v === 'leagues') return v
+  } catch { /* ignore — Safari private mode etc. */ }
+  return 'matches'
+}
+
+export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange, onCreateEventInLeague, tabPressedAt }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo' | 'spectate'
+  // 'matches' | 'leagues' — which surface the hub view shows. Leagues moved
+  // into this tab behind a segmented toggle (Phase 0 nav restructure,
+  // 2026-07-09); the round/live/solo views are untouched by the segment.
+  const [seg, setSeg] = useState(readPersistedSeg)
+  useEffect(() => {
+    try { localStorage.setItem(SEG_STORAGE_KEY, seg) } catch { /* ignore */ }
+  }, [seg])
+  // Reset to the Matches segment whenever the user taps a bottom-nav tab —
+  // same "tab icon → that tab's home page" convention Home used for its old
+  // profile sub-view (2026-05-07 PM3). Also the escape hatch if the Leagues
+  // segment is showing the full-screen paywall (which has no back control).
+  // Ref-guard skips the initial mount so a restored 'leagues' segment isn't
+  // clobbered on first render.
+  const initialTabPressedAtRef = useRef(tabPressedAt)
+  useEffect(() => {
+    if (tabPressedAt === initialTabPressedAtRef.current) return
+    setSeg('matches')
+  }, [tabPressedAt])
   const [showJoin, setShowJoin]   = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [activeCode, setActiveCode] = useState(null)
@@ -180,17 +212,30 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
     />
   )
 
+  // Matches | Leagues segmented toggle — rendered inside whichever hub
+  // header is active so each surface keeps its own safe-top handling.
+  const segToggle = <MatchSegToggle seg={seg} onChange={setSeg} />
+
   return (
     <>
-      <OutingHub
-        user={user}
-        onJoin={() => setShowJoin(true)}
-        onCreate={() => setShowCreate(true)}
-        onOpenOuting={code => { setActiveCode(code); setView('live') }}
-        onOpenRivalry={r => { setActiveRivalry(r); setView('rivalry') }}
-        onSoloRound={() => setView('solo')}
-        onSpectate={code => { setSpectateCode(code); setView('spectate') }}
-      />
+      {seg === 'leagues' ? (
+        <Leagues
+          user={user}
+          headerAccessory={segToggle}
+          onCreateEventInLeague={onCreateEventInLeague}
+        />
+      ) : (
+        <OutingHub
+          user={user}
+          headerAccessory={segToggle}
+          onJoin={() => setShowJoin(true)}
+          onCreate={() => setShowCreate(true)}
+          onOpenOuting={code => { setActiveCode(code); setView('live') }}
+          onOpenRivalry={r => { setActiveRivalry(r); setView('rivalry') }}
+          onSoloRound={() => setView('solo')}
+          onSpectate={code => { setSpectateCode(code); setView('spectate') }}
+        />
+      )}
       <CoachMark
         id="match"
         user={user}
@@ -221,6 +266,8 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
           onJoined={o => { setShowJoin(false); setActiveCode(o.code); setView('live') }}
         />
       )}
+      {/* CreateWizard renders over EITHER segment — a league's "+ New event"
+          opens it while the Leagues surface is showing. */}
       {showCreate && (
         <CreateWizard
           user={user}
@@ -239,5 +286,40 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
         />
       )}
     </>
+  )
+}
+
+// ─── Matches | Leagues segmented toggle ──────────────────────────────────
+// Compact pill control rendered in the hub headers (OutingHub + LeaguesHub
+// via their headerAccessory prop). Active segment = primary green fill,
+// inactive = quiet green text — same palette as the app's other pills.
+// (Phase 0 nav restructure, 2026-07-09.)
+function MatchSegToggle({ seg, onChange }) {
+  const opts = [['matches', 'Matches'], ['leagues', 'Leagues']]
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center',
+      background: 'rgba(255,253,248,0.85)',
+      border: '1px solid rgba(27,94,59,0.18)',
+      borderRadius: 999, padding: 3, gap: 2,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      flexShrink: 0,
+    }}>
+      {opts.map(([key, label]) => {
+        const active = seg === key
+        return (
+          <button key={key} onClick={() => onChange(key)} style={{
+            border: 'none', cursor: 'pointer',
+            borderRadius: 999, padding: '6px 12px',
+            fontSize: 12, fontWeight: 800, letterSpacing: '0.02em',
+            background: active ? 'linear-gradient(135deg, #1A6B28, #2E9E45)' : 'transparent',
+            color: active ? '#fff' : 'rgba(27,94,59,0.60)',
+            boxShadow: active ? '0 2px 8px rgba(46,158,69,0.30)' : 'none',
+            transition: 'background 180ms ease, color 180ms ease',
+            WebkitTapHighlightColor: 'transparent',
+          }}>{label}</button>
+        )
+      })}
+    </div>
   )
 }
