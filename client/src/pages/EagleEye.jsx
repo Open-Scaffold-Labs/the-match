@@ -817,7 +817,7 @@ function ShotCaptureSheet({ open, snapshot, playsLike = null, gpsUsable, bag = [
 }
 
 // ─── Main EagleEye ────────────────────────────────────────────────────────────
-export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null, onMatchStarted, isActive = true } = {}) {
+export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge = null, onConsumeEyeHoleNudge, sharedCourse = null, onCourseSelected, activeScoring = null, onMatchStarted, isActive = true, quickSheet = null, onQuickSheetChange } = {}) {
   const [gps, setGps]               = useState(null)
   const [gpsError, setGpsError]     = useState(null) // 'denied' | 'unavailable' | 'timeout'
   const [teeGps, setTeeGps]         = useState(null)
@@ -1456,6 +1456,16 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     ? readHoleBuffer({ scope: activeCapture.scope, uid: user?.id, holeIdx: currentHole - 1 })
     : []
 
+  // P2-D — the QuickScoreSheet FOLLOWS Eagle Eye's current hole while open
+  // (one-way sync: EE hole drives the sheet; the sheet never drives the hole —
+  // that two-way loop is the race the risk register warned about).
+  useEffect(() => {
+    if (quickSheet?.open && quickSheet.hole !== currentHole) {
+      onQuickSheetChange?.({ open: true, hole: currentHole })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentHole])
+
   const holeData = courseCtx
     ? courseCtx.tee.holes.find(h => h.hole === currentHole) ?? null
     : null
@@ -1983,6 +1993,35 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             </div>
           )
         })()}
+
+        {/* P2-D — SCORE pill: opens the QuickScoreSheet (rendered by the
+            round's owner, portaled over this map) so the current hole is
+            scored without leaving Play. Only when a round is active for
+            capture. In the header stack — never overlaps the HUD. */}
+        {courseCtx && !showStart && activeCapture && onQuickSheetChange && (
+          <div style={{ padding: '0 20px 10px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => onQuickSheetChange({ open: !quickSheet?.open, hole: currentHole })}
+              aria-pressed={!!quickSheet?.open}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                background: quickSheet?.open ? 'rgb(var(--tm-ee-gold-rgb) / 0.30)' : 'rgb(var(--tm-ee-glass-rgb) / 0.55)',
+                backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
+                border: `1px solid ${quickSheet?.open ? 'rgb(var(--tm-ee-gold-light-rgb) / 0.85)' : 'rgb(var(--tm-ee-gold-light-rgb) / 0.40)'}`,
+                borderRadius: 999, padding: '8px 14px', cursor: 'pointer',
+                color: 'var(--tm-ee-gold-light)', fontSize: 11, fontWeight: 800, letterSpacing: '0.06em',
+                boxShadow: '0 6px 18px rgb(var(--tm-ee-black-rgb) / 0.45), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.12)',
+                WebkitTapHighlightColor: 'transparent', fontFamily: 'inherit',
+              }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--tm-ee-gold-light)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="2" width="6" height="3" rx="0.8" />
+                <path d="M9 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-3" />
+                <line x1="8" y1="11" x2="16" y2="11" /><line x1="8" y1="15" x2="16" y2="15" />
+              </svg>
+              {quickSheet?.open ? 'HIDE SCORING' : `SCORE HOLE ${currentHole}`}
+            </button>
+          </div>
+        )}
 
         {/* One-time invite chip after a Play-funnel Match start (S3c). Lives
             IN the header stack, under the hole selector, so it can never

@@ -7,6 +7,7 @@ import { ShotSheet } from '../../components/scorecard/ShotSheet.jsx'
 import { readHoleBuffer, appendShot } from '../../lib/shot-capture.js'
 import { addRecent } from '../../lib/course-recents.js'
 import { writeSession, clearSession } from '../../lib/active-round-session.js'
+import QuickScoreSheet from '../../components/scorecard/QuickScoreSheet.jsx'
 import { warn } from '../../lib/logger.js'
 import { courseHandicap, playerTeeRatings } from '../../lib/handicapClient.js'
 import GuestModal from './GuestModal.jsx'
@@ -1126,7 +1127,7 @@ function GetDistancesPill({ onClick }) {
 }
 
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
-export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
+export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCourse = null, onCourseSelected, quickSheet = null, onQuickSheetChange, onRequestMatchTab }) {
   const [outing, setOuting] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showTeams, setShowTeams] = useState(false)
@@ -3158,6 +3159,35 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           round ends silently; an unfinished one asks whether to save the partial
           scores (records rounds/stats/rivalries) or end without saving (tallies
           nothing). Matches the app's bottom-sheet styling. */}
+      {/* P2-D (2026-07-10) — QuickScoreSheet: score the current hole from the
+          Play map. Rendered HERE (the round's owner) and portaled to <body>,
+          so Save routes through this component's real saveScore — offline
+          queue, idempotency key, OCC conflict chip, putt/shot rides,
+          celebrations all inherited, zero forked scoring logic. Self-score
+          only (v1); hole is 1-indexed from EE, converted here exactly once. */}
+      {quickSheet?.open && outing?.status === 'active' && meParticipant
+        && quickSheet.hole >= 1 && quickSheet.hole <= holeCount && (
+        <QuickScoreSheet
+          open
+          hole={quickSheet.hole}
+          par={holePars[quickSheet.hole - 1] ?? 4}
+          currentScore={getScores(meParticipant)[quickSheet.hole - 1] || 0}
+          contextLabel={`MATCH ${code}`}
+          saving={saving}
+          savedAt={savedAt}
+          onSave={(score, puttFacts) => {
+            const holeIdx = quickSheet.hole - 1
+            const shots = readHoleBuffer({ scope: `outing:${code}`, uid: user?.id, holeIdx })
+            saveScore(holeIdx, score, user?.id, puttFacts, Array.isArray(shots) && shots.length > 0 ? shots : null)
+          }}
+          onClose={() => onQuickSheetChange?.({ ...quickSheet, open: false })}
+          onFullScorecard={() => {
+            onQuickSheetChange?.({ ...quickSheet, open: false })
+            onRequestMatchTab?.()
+          }}
+        />
+      )}
+
       {endPrompt && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end' }}
           onClick={ending ? undefined : () => setEndPrompt(false)}>

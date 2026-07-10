@@ -47,7 +47,7 @@ function readPersistedSeg() {
   return 'matches'
 }
 
-export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange, onCreateEventInLeague, tabPressedAt, pendingOpenCode = null, onClearPendingOpenCode }) {
+export default function Outing({ user, pendingPlayers = [], onClearPending, pendingLeagueId = null, onClearPendingLeague, pendingJoinCode = null, onClearPendingJoinCode, onGoToEagleEye, sharedCourse = null, onCourseSelected, onActiveScoringChange, onCreateEventInLeague, tabPressedAt, pendingOpenCode = null, onClearPendingOpenCode, quickSheet = null, onQuickSheetChange, onRequestMatchTab }) {
   const [view, setView]           = useState('hub')   // 'hub' | 'live' | 'code-share' | 'end' | 'rivalry' | 'solo' | 'spectate'
   // 'matches' | 'leagues' — which surface the hub view shows. Leagues moved
   // into this tab behind a segmented toggle (Phase 0 nav restructure,
@@ -196,7 +196,7 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
     if (pendingLeagueId != null) setShowCreate(true)
   }, [pendingLeagueId])
 
-  if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} onGoToEagleEye={onGoToEagleEye} onCourseSelected={onCourseSelected} />
+  if (view === 'solo')  return <ActiveRound  user={user} onBack={() => setView('hub')} onGoToEagleEye={onGoToEagleEye} onCourseSelected={onCourseSelected} quickSheet={quickSheet} onQuickSheetChange={onQuickSheetChange} onRequestMatchTab={onRequestMatchTab} />
 
   if (view === 'live' && activeCode) return (
     <LiveOuting
@@ -207,6 +207,9 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
       onGoToEagleEye={onGoToEagleEye}
       sharedCourse={sharedCourse}
       onCourseSelected={onCourseSelected}
+      quickSheet={quickSheet}
+      onQuickSheetChange={onQuickSheetChange}
+      onRequestMatchTab={onRequestMatchTab}
     />
   )
   if (view === 'end' && endSummary) return (

@@ -18,6 +18,7 @@ import {
 import { CoursePicker } from '../components/CoursePicker.jsx'
 import { saveEyeHole } from '../lib/eye-hole.js'
 import { readSession, writeSession, clearSession } from '../lib/active-round-session.js'
+import QuickScoreSheet from '../components/scorecard/QuickScoreSheet.jsx'
 // S4 (2026-07-06): shared scorecard surface now lives in components/scorecard/ —
 // solo imports from there, not from the multi page.
 import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
@@ -939,7 +940,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
 // lib/solo-round.js for the full bug narrative).
 const SOLO_ROUND_STORAGE_KEY = SOLO_KEY_LIB
 
-export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSelected }) {
+export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSelected, quickSheet = null, onQuickSheetChange, onRequestMatchTab }) {
   const [phase, setPhase] = useState('setup') // 'setup' | 'scoring' | 'summary'
   const [config, setConfig] = useState(null)  // { courseName, pars[], courseRating, slopeRating, holeHandicaps[] }
   const [hole, setHole]     = useState(0)     // 0-indexed
@@ -949,6 +950,9 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
   const [firstPutts, setFirstPutts] = useState([])  // SG putt facts: first-putt bucket per hole
   const [gps, setGps]       = useState(null)
   const [saving, setSaving] = useState(false)
+  // P2-E — saved-cue timestamp for the QuickScoreSheet (solo has no server
+  // round-trip; the autosave effect persists on the state change).
+  const [soloSheetSavedAt, setSoloSheetSavedAt] = useState(0)
   const watchRef = useRef(null)
   const restoredRef = useRef(false)
   const STORAGE_KEY = SOLO_ROUND_STORAGE_KEY(user?.id)
@@ -1211,6 +1215,33 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
         onBack={onBack}
         onGoToEagleEye={onGoToEagleEye}
       />
+      {/* P2-E (2026-07-10) — QuickScoreSheet for SOLO rounds: scored from the
+          Play map; Save routes into this component's own state + autosave blob
+          (the single solo write path). Sheet hole is 1-indexed; this
+          component's state is 0-indexed — converted here exactly once. */}
+      {quickSheet?.open && config
+        && quickSheet.hole >= 1 && quickSheet.hole <= config.pars.length && (
+        <QuickScoreSheet
+          open
+          hole={quickSheet.hole}
+          par={config.pars[quickSheet.hole - 1] ?? 4}
+          currentScore={scores[quickSheet.hole - 1] || 0}
+          contextLabel={config.courseName || 'Solo round'}
+          saving={false}
+          savedAt={soloSheetSavedAt}
+          onSave={(score, puttFacts) => {
+            const idx = quickSheet.hole - 1
+            setScore(idx, score)
+            setPuttFacts(idx, puttFacts)
+            setSoloSheetSavedAt(Date.now())
+          }}
+          onClose={() => onQuickSheetChange?.({ ...quickSheet, open: false })}
+          onFullScorecard={() => {
+            onQuickSheetChange?.({ ...quickSheet, open: false })
+            onRequestMatchTab?.()
+          }}
+        />
+      )}
     </NoPullWrap>
   )
 }

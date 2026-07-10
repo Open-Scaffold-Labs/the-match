@@ -102,6 +102,15 @@ export default function App() {
   // participant) and publishes activeScoring, while the user stays on the
   // Play map. Distinct from pendingJoinCode, which joins someone else's match.
   const [pendingOpenCode, setPendingOpenCode] = useState(null)
+  // P2-D (2026-07-10) — QuickScoreSheet coordination. EE toggles it (hole is
+  // 1-indexed, synced to EE's current hole); the round's OWNER (LiveOuting /
+  // ActiveRound, mounted hidden) renders the portaled sheet and routes Save
+  // into its existing write path. Play-surface overlay only: forced closed
+  // whenever the user leaves the Play tab.
+  const [quickSheet, setQuickSheet] = useState({ open: false, hole: 1 })
+  useEffect(() => {
+    if (tab !== TABS.EYE) setQuickSheet(q => (q.open ? { ...q, open: false } : q))
+  }, [tab])
   // Lazy-keep-alive: track which tabs the user has visited. Each visited
   // tab stays mounted (display: block when active, display: none otherwise)
   // so component state, polling, GPS subscriptions, and the BOARD/SCORECARD
@@ -443,6 +452,8 @@ export default function App() {
               onCourseSelected={setSharedCourse}
               activeScoring={activeScoring}
               isActive={tab === TABS.EYE}
+              quickSheet={quickSheet}
+              onQuickSheetChange={setQuickSheet}
               onMatchStarted={code => {
                 setPendingOpenCode(code)
                 // Mount the Match tab hidden (lazy-keep-alive) so Outing can
@@ -474,6 +485,9 @@ export default function App() {
               tabPressedAt={tabPressedAt}
               pendingOpenCode={pendingOpenCode}
               onClearPendingOpenCode={() => setPendingOpenCode(null)}
+              quickSheet={quickSheet}
+              onQuickSheetChange={setQuickSheet}
+              onRequestMatchTab={() => setTab(TABS.OUTING)}
             />
           </TabPanel>
         )}
