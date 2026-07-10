@@ -1104,6 +1104,25 @@ function MatchMenu({ sections, triggerBadge = 0, align = 'right' }) {
   )
 }
 
+// Gold primary CTA — jumps to Eagle Eye for the current player's next hole.
+// Sized (h34) to sit level with the MENU trigger on the same controls row.
+function GetDistancesPill({ onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 15px',
+      borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 800,
+      letterSpacing: '0.06em', color: 'var(--tm-text)', whiteSpace: 'nowrap',
+      background: 'linear-gradient(135deg, rgba(232,192,90,0.98), rgba(201,160,64,0.98))',
+      border: '1px solid rgba(245,215,138,0.6)',
+      boxShadow: '0 3px 10px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.25)',
+      WebkitTapHighlightColor: 'transparent',
+    }}>
+      GET DISTANCES
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-text)' }}><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  )
+}
+
 // ─── Live Outing Scorer ───────────────────────────────────────────────────────
 export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagleEye, sharedCourse = null, onCourseSelected }) {
   const [outing, setOuting] = useState(null)
@@ -2190,18 +2209,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
         {/* Host controls row */}
         {isHost && (
           <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 11, flex: 1, color: (scoringMode === 'designated' && markers.length === 0) ? 'var(--tm-gold-bright)' : 'var(--tm-text-3)', fontWeight: (scoringMode === 'designated' && markers.length === 0) ? 700 : 400 }}>
-              {/* "Tap any cell to enter scores" removed 2026-04-30 PM round 11 —
-                  the pulsing gold tap-hint on the first empty cell teaches
-                  the same thing without instructional copy. F.5 S6 nudge: in
-                  designated mode with no scorer assigned, only the host can
-                  score — prompt them to assign one via Edit Groups. */}
-              {scoringMode === 'designated' && markers.length === 0
-                ? '⚠ Assign a group scorer →'
-                : markers.length > 0 ? `${markers.length} scorer${markers.length !== 1 ? 's' : ''} assigned` : ''}
-            </div>
-            {/* All host controls consolidated into one dropdown (2026-07-09). */}
+            {/* MENU on the LEFT, GET DISTANCES on the RIGHT (2026-07-09, Matt);
+                scorer-status hint sits between them. */}
             <MatchMenu
+              align="left"
               triggerBadge={chatUnread}
               sections={[
                 { label: 'SETTINGS', items: [
@@ -2226,6 +2237,16 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 ] },
               ]}
             />
+            <div style={{ fontSize: 11, flex: 1, textAlign: 'center', padding: '0 4px', color: (scoringMode === 'designated' && markers.length === 0) ? 'var(--tm-gold-bright)' : 'var(--tm-text-3)', fontWeight: (scoringMode === 'designated' && markers.length === 0) ? 700 : 400 }}>
+              {/* F.5 S6 nudge: designated mode with no scorer assigned prompts
+                  the host to assign one via Edit Groups. */}
+              {scoringMode === 'designated' && markers.length === 0
+                ? '⚠ Assign a group scorer'
+                : markers.length > 0 ? `${markers.length} scorer${markers.length !== 1 ? 's' : ''} assigned` : ''}
+            </div>
+            {onGoToEagleEye && myNextHole != null && (
+              <GetDistancesPill onClick={() => onGoToEagleEye(myNextHole)} />
+            )}
           </div>
         )}
         {/* Marker hint — shown to assigned markers who aren't host. In
@@ -2268,8 +2289,9 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             just the host. The host already has the same buttons in their
             controls row above; this gives non-hosts the same entry. */}
         {!isHost && (
-          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
             <MatchMenu
+              align="left"
               triggerBadge={chatUnread}
               sections={[
                 { label: 'PLAY', items: [
@@ -2278,6 +2300,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 ] },
               ]}
             />
+            <div style={{ flex: 1 }} />
+            {onGoToEagleEye && myNextHole != null && (
+              <GetDistancesPill onClick={() => onGoToEagleEye(myNextHole)} />
+            )}
           </div>
         )}
 
@@ -2678,32 +2704,13 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           board panel. The gold pinstripe + dark inset rings live on the
           inner div so they sit just inside the wood.
           (2026-04-30 PM round 9 — Tier 2 polish, real wood look) */}
-      {/* GET DISTANCES — right-aligned, directly above the Leaders plaque / board
-          frame (scorecard view only). Sits in the non-scrolling top region so it
-          stays in view while the score table scrolls beneath. Plaque + frame
-          untouched. (2026-07-09, Matt) */}
-      {effectiveViewMode === 'scorecard' && onGoToEagleEye && myNextHole != null && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 12px', marginTop: 8 }}>
-          <button onClick={() => onGoToEagleEye(myNextHole)} style={{
-            background: 'linear-gradient(135deg, rgba(232,192,90,0.95), rgba(201,160,64,0.95))',
-            border: '1px solid rgba(245,215,138,0.6)',
-            borderRadius: 999, padding: '9px 15px',
-            color: 'var(--tm-text)',
-            fontSize: 12, fontWeight: 800, letterSpacing: '0.06em',
-            cursor: 'pointer',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.45), 0 0 0 1px rgba(245,215,138,0.15)',
-            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'inherit',
-          }}>
-            GET DISTANCES
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: 'var(--tm-text)' }}><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      )}
-
+      {/* GET DISTANCES moved 2026-07-09 (Matt) — it now lives on the RIGHT of the
+          controls row up in the header (paired with the MENU trigger on the
+          left), so it's no longer a strip above the board. */}
       {effectiveViewMode === 'scorecard' && (
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
-        margin: '4px 12px 12px',
+        margin: '12px 12px',
         padding: 4,
         borderRadius: 7,
         backgroundColor: AUGUSTA_WOOD,
