@@ -83,30 +83,56 @@ summarized here)
 
 ## 4. Slices + progress checklist (gate per slice: client build + lint; no server changes anywhere in Phase 2)
 
-- [ ] **P2-A** Session lib + writers W1–W9 + clears C1–C5 + both reconciliation
-      readers; NO reader-UI change (pure instrumentation)
-      → verify: build+lint; devtools matrix — start/end via every path, inspect
-      `tm-active-session-v1-*` after each.
-- [ ] **P2-B** Play reads the session (4 predicates + resume card + onOpenMatch)
-      → verify: hub-state live match + Play entry → map & back-prompt; resume card
-      "MATCH ABCD"; stale session self-heals to start screen.
-- [ ] **P2-C** Owner-mounting guarantee (onRoundStarted for solo too; App boot
-      effect re-mounts owners from session)
-      → verify: solo start from Play w/o visiting Match tab → round live there;
-      reload mid-match on Play → scoring re-arms.
-- [ ] **P2-D** QuickScoreSheet (match): component + App quickSheet + LiveOuting
-      wiring
-      → verify: sheet score lands on Match scorecard + server; airplane-mode queue
-      replay exactly-once; OCC conflict chip over the map; celebration over the
-      map; putts persist; re-save wipes nothing.
-- [ ] **P2-E** QuickScoreSheet (solo): ActiveRound wiring
-      → verify: sheet hole 1 = blob index 0; ActiveRound reflects sheet scores;
-      Finish shows them all.
-- [ ] **P2-F** GPS auto-advance nudge + per-hole dismissal + accept/undo
-      → verify (device): appears only near next tee w/ trusted fix; dismiss sticks
-      per hole; never on last hole; accept advances + undo returns.
-- [ ] **Audit** (audit-before-claim): per-claim evidence; honest verified/not list;
-      device checklist for Matt.
+- [x] **P2-A** Session lib + writers W1–W9 + clears C1–C5 + both reconciliation
+      readers — BUILT 2026-07-10 (`1dcd5b8`). Verified: build+lint+tests; all
+      writer/clear sites wired per seam map (C3 commissioner-cancel covered by
+      LiveOuting status reconciliation — no uid in that component's scope).
+      NOT verified: the devtools start/end matrix (browser) — device checklist.
+- [x] **P2-B** Play reads the session (predicates + capture scope + resume card
+      + onResumeMatch via existing onMatchStarted) — BUILT 2026-07-10
+      (`1dcd5b8`). Verified: build+lint. NOT verified: live hub-blind-spot
+      walkthrough + stale-session self-heal on device.
+- [x] **P2-C** Owner-mounting guarantee (App boot re-mounts from session;
+      tm-solo-started mounts Match tab) — BUILT 2026-07-10 (`1dcd5b8`).
+      Verified: build+lint. NOT verified: reload-mid-match walkthrough.
+- [x] **P2-D** QuickScoreSheet (match) — BUILT 2026-07-10 (`fc14f8a`).
+      Owner-rendered portal (LiveOuting) → real saveScore (queue/idempotency/
+      OCC/rides/celebrations inherited); EE SCORE pill; sheet follows EE hole
+      one-way; hole bounds guarded. Verified: build+lint. NOT verified: ALL
+      runtime behavior (sheet score → server, offline replay, conflict chip,
+      celebrations over the map) — browser/device.
+- [x] **P2-E** QuickScoreSheet (solo) — BUILT 2026-07-10 (`fc14f8a`).
+      ActiveRound renders it; Save = setScore+setPuttFacts (autosave blob);
+      1-idx→0-idx at the boundary. Verified: build+lint. NOT verified: runtime.
+- [x] **P2-F** GPS advance nudge — BUILT 2026-07-10 (`e0c0af0`). Trusted-fix +
+      45yd + closer-than-current-green + 3-tick chip; per-course+hole dismissal
+      (cleared on course pick); never last hole, never automatic. Deviation
+      from research rec #6: no undo TOAST — ours is consent-based (chip), so
+      undo = the hole arrows; toast+undo becomes relevant only if auto-advance
+      ever ships. Verified: build+lint. NOT verified: any GPS behavior (needs
+      a real walk — Matt).
+- [~] **Audit** (audit-before-claim) — run 2026-07-10; honest split above.
+      v1 scope deviations from the Plan-agent architecture, logged: expanded
+      sheet = "Full scorecard →" jump for BOTH match and solo (the in-sheet
+      ScorecardTable is a follow-up); no save→advance (hole movement = nudge +
+      arrows). REMAINING: the whole §7 device matrix.
+
+## 7. Device checklist for Matt (all NOT-yet-verified)
+
+1. Session: start/end rounds every way (Play solo, Play match, SetupSheet,
+   wizard, join, QR, guard discard, hub solo discard, commissioner cancel from
+   a 2nd account) — Play should always know: map when live, start screen when
+   not, resume cards correct. The old hub blind spot: open a match, back out
+   to the hub, go to Play → should show the MAP now.
+2. QuickScoreSheet match: SCORE HOLE N pill → sheet; save → Match tab
+   scorecard + a 2nd device sees it; airplane mode save → replays once;
+   conflicting write from the marker → conflict chip pops over the map;
+   birdie → celebration over the map; putts persist; re-save wipes nothing.
+3. QuickScoreSheet solo: sheet scores land in the solo round; Finish shows
+   them; hole numbers line up (sheet hole 1 = card hole 1).
+4. Nudge (on-course): chip near the next tee only with a good fix; dismiss
+   sticks for that hole; accept moves the map; nothing on 18.
+5. Reload mid-match on the Play tab → scoring still armed (owner remounts).
 
 ## 5. Risk register (full table in Plan-agent output)
 
