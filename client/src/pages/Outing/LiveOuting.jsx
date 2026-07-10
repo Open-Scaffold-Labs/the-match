@@ -3175,10 +3175,19 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           contextLabel={`MATCH ${code}`}
           saving={saving}
           savedAt={savedAt}
-          onSave={(score, puttFacts) => {
+          onSave={async (score, puttFacts) => {
             const holeIdx = quickSheet.hole - 1
             const shots = readHoleBuffer({ scope: `outing:${code}`, uid: user?.id, holeIdx })
-            saveScore(holeIdx, score, user?.id, puttFacts, Array.isArray(shots) && shots.length > 0 ? shots : null)
+            const ok = await saveScore(holeIdx, score, user?.id, puttFacts, Array.isArray(shots) && shots.length > 0 ? shots : null)
+            // Save = advance (2026-07-10, Matt): close the sheet and move the
+            // map to the next hole in one motion — via the existing
+            // eyeHoleNudge plumbing (onGoToEagleEye), so the hole flow stays
+            // one-way. A failed/cancelled save (OCC "keep theirs" etc.)
+            // keeps the sheet open to retry; queued-offline counts as saved.
+            if (ok === false) return
+            onQuickSheetChange?.({ open: false, hole: quickSheet.hole })
+            const next = quickSheet.hole + 1
+            if (next <= holeCount) onGoToEagleEye?.(next)
           }}
           onClose={() => onQuickSheetChange?.({ ...quickSheet, open: false })}
           onFullScorecard={() => {

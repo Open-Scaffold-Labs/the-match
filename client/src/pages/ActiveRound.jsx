@@ -1234,6 +1234,16 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
             setScore(idx, score)
             setPuttFacts(idx, puttFacts)
             setSoloSheetSavedAt(Date.now())
+            // Save = advance (2026-07-10, Matt): close + move the map to the
+            // next hole via the existing eyeHoleNudge plumbing. Solo state
+            // writes are synchronous; the autosave effect persists the blob.
+            // The solo scorecard's own active hole advances in step.
+            onQuickSheetChange?.({ open: false, hole: quickSheet.hole })
+            const next = quickSheet.hole + 1
+            if (next <= config.pars.length) {
+              setHole(next - 1) // 0-indexed
+              onGoToEagleEye?.(next)
+            }
           }}
           onClose={() => onQuickSheetChange?.({ ...quickSheet, open: false })}
           onFullScorecard={() => {
