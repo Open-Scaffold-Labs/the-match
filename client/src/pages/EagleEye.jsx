@@ -1939,7 +1939,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             </button>
           )
           return (
-            <div style={{ padding: '0 20px 12px', pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ padding: '0 20px 12px', marginTop: 8, pointerEvents: 'auto', display: 'flex', justifyContent: 'center' }}>
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 2,
                 background: 'rgb(var(--tm-ee-glass-rgb) / 0.55)', backdropFilter: 'blur(16px) saturate(150%)', WebkitBackdropFilter: 'blur(16px) saturate(150%)',
