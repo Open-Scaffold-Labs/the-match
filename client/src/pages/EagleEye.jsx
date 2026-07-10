@@ -1024,6 +1024,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [editSession, setEditSession] = useState(null) // { hole, step:'tee'|'green', drafts:{[h]:{tee,green}}, dirty:{[h]:true}, savedHoles:{} } | null
   const [editCandidates, setEditCandidates] = useState(null) // editor's OWN teegreen fetch: { tees:[], greens:[] } | null
   const [mapChipDismissedFor, setMapChipDismissedFor] = useState(null) // course id — session-only chip dismissal
+  const [editSaveState, setEditSaveState] = useState(null) // null | { hole, status:'saving'|'error' } — per-hole PUT progress
+  const [editExitPrompt, setEditExitPrompt] = useState(false) // exit tapped with a half-placed dirty hole
 
   const watchIdRef = useRef(null)
   // Weather is fetched from open-meteo and changes slowly over a round, so
@@ -1916,6 +1918,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       }
     }
     const first = (teeHoles.find(h => !editHoleConfident(h.hole)) || teeHoles[0]).hole
+    setEditSaveState(null)
+    setEditExitPrompt(false)
     setEditSession({ hole: first, step: 'tee', drafts, dirty: {}, savedHoles: {} })
     if (first !== currentHole) setCurrentHole(first)
     // Lazy one-shot candidate fetch — the editor's OWN (the OSM effect's
@@ -1945,42 +1949,110 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     }
   }
 
-  function editGoToHole(hole) {
-    setEditSession(s => (s ? { ...s, hole, step: 'tee' } : s))
-    setCurrentHole(hole)
+  // ── S3 save path (per-hole PUT — Matt, 2026-07-10): each hole is durable
+  // the moment its green lands. On success, the SAME local additive merge the
+  // GET effect performs (overrides ref/state + shared maps gain keys — never
+  // drop any), so the map turns exact immediately with no refetch. On failure
+  // the hole stays open with a retry chip — the draft is never lost.
+  async function editCommit(s) {
+    const hole = s.hole, d = s.drafts[hole]
+    if (!s.dirty[hole] || !d?.tee || !d?.green) return s   // nothing to save
+    setEditSaveState({ hole, status: 'saving' })
+    try {
+      await put(`/api/courses/${courseCtx.course.id}/holes`, { holes: [{ hole, tee: d.tee, green: d.green, aim: null }] })
+      const ov = holeOverridesRef.current
+      const tees = { ...ov.tees, [hole]: d.tee }
+      const greens = { ...ov.greens, [hole]: d.green }
+      const geoms = { ...ov.geoms, [hole]: [d.tee, d.green] }
+      holeOverridesRef.current = { tees, greens, geoms }
+      setHoleOverrides({ tees, greens, geoms, count: Object.keys({ ...tees, ...greens }).length })
+      setHolePositions(p => ({ ...p, [hole]: d.tee }))
+      setGreenPositions(p => ({ ...p, [hole]: d.green }))
+      setHoleGeometries(p => ({ ...p, [hole]: [d.tee, d.green] }))
+      setEditSaveState(null)
+      const dirty = { ...s.dirty }
+      delete dirty[hole]
+      return { ...s, dirty, savedHoles: { ...s.savedHoles, [hole]: true } }
+    } catch {
+      setEditSaveState({ hole, status: 'error' })
+      return null
+    }
+  }
+
+  // Save (when dirty-complete) then move to the next hole — or finish the
+  // session after the last. A failed save keeps the hole open (error chip).
+  async function editAdvanceFrom(s) {
+    const cs = await editCommit(s)
+    if (!cs) return
+    const idx = teeHoles.findIndex(h => h.hole === cs.hole)
+    if (idx >= 0 && idx < teeHoles.length - 1) {
+      const nh = teeHoles[idx + 1].hole
+      setEditSession({ ...cs, hole: nh, step: 'tee' })
+      setCurrentHole(nh)
+    } else {
+      setEditSession(null)   // last hole done — leave the editor
+    }
+  }
+
+  async function editBackFrom(s) {
+    const cs = await editCommit(s)
+    if (!cs) return
+    const idx = teeHoles.findIndex(h => h.hole === cs.hole)
+    if (idx > 0) {
+      const ph = teeHoles[idx - 1].hole
+      setEditSession({ ...cs, hole: ph, step: 'tee' })
+      setCurrentHole(ph)
+    }
+  }
+
+  // Exit: dirty-complete hole → save then leave; dirty half-placed → confirm
+  // discard (saved holes are already durable either way); clean → just leave.
+  async function editExit(s) {
+    const d = s.drafts[s.hole]
+    if (s.dirty[s.hole] && d?.tee && d?.green) {
+      const cs = await editCommit(s)
+      if (!cs) return
+      setEditSession(null)
+    } else if (s.dirty[s.hole]) {
+      setEditExitPrompt(true)
+    } else {
+      setEditSession(null)
+    }
   }
 
   // Keep/skip: advance without re-tapping (the existing pin stands).
-  // tee step → green step; green step → next hole (or done after the last).
+  // tee step → green step; green step → save-if-dirty + next hole.
   function editKeepNext() {
     const s = editSession
-    if (!s) return
+    if (!s || editSaveState?.status === 'saving') return
     if (s.step === 'tee') { setEditSession({ ...s, step: 'green' }); return }
-    const idx = teeHoles.findIndex(h => h.hole === s.hole)
-    if (idx >= 0 && idx < teeHoles.length - 1) editGoToHole(teeHoles[idx + 1].hole)
-    else setEditSession(null)
+    editAdvanceFrom(s)
   }
 
   // A map tap in edit mode: snap to the nearest candidate of the current
   // step's kind within 15 yds (Matt, 2026-07-10 — tight, so dense tee/green
   // clusters don't steal a deliberate tap), else the raw coord stands.
+  // Placing the GREEN saves + advances (tap tee → tap green → next hole).
   function onEditMapTap(coord) {
-    setEditSession(s => {
-      if (!s) return s
-      const list = (s.step === 'tee' ? editCandidates?.tees : editCandidates?.greens) || []
-      let best = null, bestD = Infinity
-      for (const c of list) {
-        const d = haversineYards(coord, c)
-        if (d != null && d < bestD) { bestD = d; best = c }
-      }
-      const placed = best && bestD <= 15 ? { lat: best.lat, lon: best.lon } : coord
-      const cur = s.drafts[s.hole] || { tee: null, green: null }
-      const drafts = {
-        ...s.drafts,
-        [s.hole]: s.step === 'tee' ? { ...cur, tee: placed } : { ...cur, green: placed },
-      }
-      return { ...s, drafts, dirty: { ...s.dirty, [s.hole]: true }, step: 'green' }
-    })
+    const s = editSession
+    if (!s || editSaveState?.status === 'saving') return
+    const list = (s.step === 'tee' ? editCandidates?.tees : editCandidates?.greens) || []
+    let best = null, bestD = Infinity
+    for (const c of list) {
+      const d = haversineYards(coord, c)
+      if (d != null && d < bestD) { bestD = d; best = c }
+    }
+    const placed = best && bestD <= 15 ? { lat: best.lat, lon: best.lon } : coord
+    const cur = s.drafts[s.hole] || { tee: null, green: null }
+    const nextDraft = s.step === 'tee' ? { ...cur, tee: placed } : { ...cur, green: placed }
+    const ns = {
+      ...s,
+      drafts: { ...s.drafts, [s.hole]: nextDraft },
+      dirty: { ...s.dirty, [s.hole]: true },
+      step: 'green',
+    }
+    setEditSession(ns)
+    if (s.step === 'green') editAdvanceFrom(ns)
   }
 
   return (
@@ -2200,6 +2272,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
           const draft = editSession.drafts[editSession.hole] || {}
           const onTee = editSession.step === 'tee'
           const last = idx >= teeHoles.length - 1
+          const saving = editSaveState?.status === 'saving'
+          const saveErr = editSaveState?.status === 'error'
           const btn = {
             background: 'rgb(var(--tm-ee-glass-rgb) / 0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)', borderRadius: 999, padding: '6px 12px',
@@ -2216,18 +2290,35 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 <span style={{ fontSize: 12.5, fontWeight: 800, color: '#fff' }}>Hole {editSession.hole}</span>
                 <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgb(var(--tm-ee-white-rgb) / 0.35)' }} />
                 <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--tm-ee-gold-light)' }}>
-                  {onTee ? 'TAP THE TEE' : 'TAP THE GREEN'}
+                  {saving ? 'SAVING…' : onTee ? 'TAP THE TEE' : 'TAP THE GREEN'}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)' }}>{idx + 1}/{teeHoles.length}</span>
               </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => idx > 0 && editGoToHole(teeHoles[idx - 1].hole)} disabled={idx <= 0}
-                  style={{ ...btn, opacity: idx <= 0 ? 0.4 : 1, cursor: idx <= 0 ? 'default' : 'pointer' }}>‹ Back</button>
-                <button onClick={editKeepNext} style={{ ...btn, border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)', color: 'var(--tm-ee-gold-light)', fontWeight: 800 }}>
-                  {onTee ? (draft.tee ? 'Keep tee ›' : 'Skip ›') : (last ? 'Done' : 'Next hole ›')}
-                </button>
-                <button onClick={() => setEditSession(null)} style={btn}>Exit</button>
-              </div>
+              {saveErr && !editExitPrompt && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 8px 6px 12px', borderRadius: 999,
+                  background: 'rgb(var(--tm-ee-glass-rgb) / 0.72)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                  border: '1px solid rgb(var(--tm-ee-red-rgb) / 0.5)', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--tm-ee-red)' }}>Couldn't save hole {editSaveState.hole}</span>
+                  <button onClick={() => editAdvanceFrom(editSession)} style={{ ...btn, padding: '4px 10px', border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)', color: 'var(--tm-ee-gold-light)', fontWeight: 800 }}>Retry</button>
+                  <button onClick={() => setEditSaveState(null)} aria-label="Dismiss" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', fontSize: 14, color: 'rgb(var(--tm-ee-white-rgb) / 0.5)', lineHeight: 1 }}>✕</button>
+                </div>
+              )}
+              {editExitPrompt ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'rgb(var(--tm-ee-white-rgb) / 0.75)' }}>Discard this hole's pins?</span>
+                  <button onClick={() => { setEditExitPrompt(false); setEditSession(null) }} style={{ ...btn, border: '1px solid rgb(var(--tm-ee-red-rgb) / 0.5)', color: 'var(--tm-ee-red)' }}>Discard</button>
+                  <button onClick={() => setEditExitPrompt(false)} style={btn}>Keep editing</button>
+                </div>
+              ) : (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: saving ? 0.5 : 1 }}>
+                  <button onClick={() => !saving && idx > 0 && editBackFrom(editSession)} disabled={saving || idx <= 0}
+                    style={{ ...btn, opacity: idx <= 0 ? 0.4 : 1, cursor: saving || idx <= 0 ? 'default' : 'pointer' }}>‹ Back</button>
+                  <button onClick={editKeepNext} disabled={saving} style={{ ...btn, border: '1px solid rgb(var(--tm-ee-gold-bright-rgb) / 0.5)', color: 'var(--tm-ee-gold-light)', fontWeight: 800 }}>
+                    {onTee ? (draft.tee ? 'Keep tee ›' : 'Skip ›') : (last ? (editSession.dirty[editSession.hole] && draft.tee && draft.green ? 'Save & done' : 'Done') : (editSession.dirty[editSession.hole] && draft.tee && draft.green ? 'Save & next ›' : 'Next hole ›'))}
+                  </button>
+                  <button onClick={() => !saving && editExit(editSession)} disabled={saving} style={btn}>Exit</button>
+                </div>
+              )}
             </div>
           )
         })()}
