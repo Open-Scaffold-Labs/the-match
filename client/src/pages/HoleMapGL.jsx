@@ -681,6 +681,40 @@ export default function HoleMapGL({
   }
   redrawRef.current = redrawAim
 
+  // ── "Map this course" editor overlays redraw (2026-07-10) ──
+  // Paints the three edit sources from the live edit refs (kept current by the
+  // effects near the top). GUARDED: when editMode is off all three sources are
+  // emptied, so normal mode stays pixel-identical. Function declaration +
+  // assign-after-declaration mirrors the redrawRef/redrawAim contract above
+  // (no-use-before-define safe: the mount-time redrawEditRef.current() calls
+  // run post-render / at map load, after this assignment).
+  function redrawEdit() {
+    const map = mapRef.current
+    if (!map || !readyRef.current) return
+    if (!editModeRef.current) {
+      map.getSource('editCand')?.setData(fc([]))
+      map.getSource('editLine')?.setData(fc([]))
+      map.getSource('editPts')?.setData(fc([]))
+      return
+    }
+    const cand = editCandRef.current
+    const candFeats = []
+    for (const t of cand?.tees || []) candFeats.push({ type: 'Feature', properties: { kind: 'tee' }, geometry: { type: 'Point', coordinates: [t.lon, t.lat] } })
+    for (const g of cand?.greens || []) candFeats.push({ type: 'Feature', properties: { kind: 'green' }, geometry: { type: 'Point', coordinates: [g.lon, g.lat] } })
+    map.getSource('editCand')?.setData(fc(candFeats))
+    const draft = editDraftRef.current
+    const pts = []
+    if (draft?.tee) pts.push({ type: 'Feature', properties: { color: eeColor('--tm-ee-gold', null, '#C9A040') }, geometry: { type: 'Point', coordinates: [draft.tee.lon, draft.tee.lat] } })
+    if (draft?.green) pts.push({ type: 'Feature', properties: { color: eeColor('--tm-ee-green', null, '#5ED47A') }, geometry: { type: 'Point', coordinates: [draft.green.lon, draft.green.lat] } })
+    map.getSource('editPts')?.setData(fc(pts))
+    map.getSource('editLine')?.setData(
+      draft?.tee && draft?.green
+        ? fc([lineF([[draft.tee.lon, draft.tee.lat], [draft.green.lon, draft.green.lat]])])
+        : fc([])
+    )
+  }
+  redrawEditRef.current = redrawEdit
+
   // Report the current aim up to the parent (Option B). userPlaced=false for the
   // auto-default (par-aware layup / green); true once the golfer drags it. Yards
   // are the same split-proportional values the on-map pills show. Called on
