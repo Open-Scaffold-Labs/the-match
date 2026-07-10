@@ -57,7 +57,7 @@ router.get('/osm', async (req, res) => {
     // (never interpolated into the Overpass QL), so it can't inject. Unknown
     // type → holes. Resolving it here keeps the cache key + DB key consistent
     // with the query actually run. (2026-06-06; hardened 2026-06-24)
-    const osmType = ['holes', 'teegreen', 'greengeom', 'surfaces'].includes(type) ? type : 'holes'
+    const osmType = ['holes', 'teegreen', 'greengeom', 'surfaces', 'nearby'].includes(type) ? type : 'holes'
     const cacheKey = `${osmType}|${bbox}`
 
     // L1 — in-memory (instant within a warm Vercel instance)
@@ -94,11 +94,15 @@ router.get('/osm', async (req, res) => {
     // 'greengeom' = golf=green polygons for Front/Center/Back distances — out geom
     // 'surfaces'  = golf=fairway + golf=bunker polygons (ways + multipolygon
     //               relations) for Slice-4 confidence-gated auto-lie — out geom
+    // 'nearby'    = leisure=golf_course names+centers for the course picker's
+    //               instant nearby list (2026-07-10, Play funnel) — out center.
+    //               Client snaps the bbox to a 0.1° grid so cells cache-hit.
     const queries = {
       teegreen:  `[out:json][timeout:25];(node["golf"="tee"](${bbox});way["golf"="tee"](${bbox});node["golf"="green"](${bbox});way["golf"="green"](${bbox}););out center;`,
       greengeom: `[out:json][timeout:20];(way["golf"="green"](${bbox}););out geom;`,
       holes:     `[out:json][timeout:15];(way["golf"="hole"](${bbox}););out geom;`,
       surfaces:  `[out:json][timeout:25];(way["golf"="fairway"](${bbox});relation["golf"="fairway"](${bbox});way["golf"="bunker"](${bbox});relation["golf"="bunker"](${bbox}););out geom;`,
+      nearby:    `[out:json][timeout:15];(node["leisure"="golf_course"](${bbox});way["leisure"="golf_course"](${bbox});relation["leisure"="golf_course"](${bbox}););out center;`,
     }
     const query = queries[osmType]
     const headers = {

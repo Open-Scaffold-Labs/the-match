@@ -82,6 +82,95 @@ async function fetchCourseDetail(id) {
   return api(`/api/courses/${id}`)
 }
 
+// Haversine, miles — module-level so nearby + both variants share it.
+function milesBetween(lat1, lon1, lat2, lon2) {
+  if ([lat1, lon1, lat2, lon2].some(v => v == null || !Number.isFinite(Number(v)))) return Infinity
+  const R = 3958.8
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2
+  return R * 2 * Math.asin(Math.sqrt(a))
+}
+
+function milesLabel(mi) {
+  if (!(mi < Infinity)) return null
+  return mi < 0.1 ? 'Here' : mi < 1 ? `${Math.round(mi * 10) / 10} mi` : `${Math.round(mi)} mi`
+}
+
+// ── Instant nearby list (2026-07-10 — Matt: the picker must open with the
+// closest courses already showing, like every leading app; a blank sheet
+// until a full word is typed reads cheap). The course-data vendor is
+// text-search only, so nearby comes from OSM: leisure=golf_course names +
+// centers around the fix, served through the server's hardened Overpass
+// proxy (durable tm_osm_cache, mirror fallbacks). The bbox is snapped to a
+// 0.1° grid so everyone in the same area shares one cached cell.
+// Returns: undefined = no fix yet · null = loading · [] = none · [list].
+function useNearbyCourses(coords) {
+  const [nearby, setNearby] = useState(coords ? null : undefined)
+  const fetchedCellRef = useRef(null)
+  useEffect(() => {
+    if (!coords) return
+    const lat0 = Math.round(coords.lat * 10) / 10
+    const lng0 = Math.round(coords.lng * 10) / 10
+    const cell = `${lat0},${lng0}`
+    if (fetchedCellRef.current === cell) return
+    fetchedCellRef.current = cell
+    setNearby(n => (Array.isArray(n) && n.length ? n : null)) // keep an existing list while refreshing
+    let cancelled = false
+    ;(async () => {
+      try {
+        // ±0.25° around the snapped cell center ≈ 17–28 mi of guaranteed
+        // coverage in every direction anywhere in the cell.
+        const bbox = `${(lat0 - 0.25).toFixed(2)},${(lng0 - 0.25).toFixed(2)},${(lat0 + 0.25).toFixed(2)},${(lng0 + 0.25).toFixed(2)}`
+        const d = await api(`/api/eagle-eye/osm?type=nearby&bbox=${bbox}`)
+        if (cancelled) return
+        const seen = new Map()
+        for (const el of (d?.elements || [])) {
+          const name = el.tags?.name
+          const lat = el.lat ?? el.center?.lat
+          const lon = el.lon ?? el.center?.lon
+          if (!name || lat == null || lon == null) continue
+          const miles = milesBetween(coords.lat, coords.lng, lat, lon)
+          const prev = seen.get(name)
+          if (!prev || miles < prev.miles) seen.set(name, { name, lat, lon, miles })
+        }
+        setNearby([...seen.values()].filter(c => c.miles <= 30).sort((a, b) => a.miles - b.miles).slice(0, 12))
+      } catch {
+        if (!cancelled) setNearby([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [coords?.lat, coords?.lng]) // eslint-disable-line react-hooks/exhaustive-deps
+  return nearby
+}
+
+// Resolve a tapped OSM nearby course to its course-data record: text-search
+// the name (then a simplified form), accept the hit nearest the OSM pin when
+// it's within 5 miles. Null → caller falls back to a visible text search.
+async function resolveNearbyCourse(c, coords) {
+  const search = async (q) => {
+    const params = new URLSearchParams({ q })
+    if (coords) { params.set('lat', String(coords.lat)); params.set('lng', String(coords.lng)) }
+    try {
+      const res = await api(`/api/courses/search?${params.toString()}`)
+      return Array.isArray(res?.courses) ? res.courses : []
+    } catch { return [] }
+  }
+  let results = await search(c.name)
+  if (results.length === 0) {
+    const simplified = c.name
+      .replace(/\b(golf|country|club|course|links|resort|the)\b/gi, ' ')
+      .replace(/\s+/g, ' ').trim()
+    if (simplified && simplified.toLowerCase() !== c.name.toLowerCase()) results = await search(simplified)
+  }
+  let best = null, bestMi = Infinity
+  for (const r of results) {
+    const mi = milesBetween(c.lat, c.lon, r.latitude, r.longitude)
+    if (mi < bestMi) { best = r; bestMi = mi }
+  }
+  return best && bestMi <= 5 ? best : null
+}
+
 // ─── Public component ─────────────────────────────────────────────────────────
 
 export function CoursePicker({ variant = 'inline', ...props }) {
@@ -100,12 +189,29 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
   // Keep gpsRef current so distance labels always see the latest value
   useEffect(() => { gpsRef.current = gps }, [gps])
 
+  const coords = gps ? { lat: gps.lat, lng: gps.lon } : null
   const { query, setQuery, results, searching } = useCourseSearch({
-    coords: gps ? { lat: gps.lat, lng: gps.lon } : null,
+    coords,
     debounceMs: 350,
     paused: !!selected,
   })
   const loading = searching || loadingCourse
+
+  // Instant nearby list — fills the sheet the moment it opens. (2026-07-10)
+  const nearby = useNearbyCourses(coords)
+  const [resolvingName, setResolvingName] = useState(null)
+  async function pickNearby(c) {
+    if (resolvingName) return
+    setResolvingName(c.name)
+    try {
+      const match = await resolveNearbyCourse(c, coords)
+      if (match) await pickCourse(match)
+      else setQuery(c.name) // no confident match — run it as a visible search
+    } finally {
+      setResolvingName(null)
+    }
+  }
+  const showNearby = !selected && query.trim().length < 2
 
   function distMiles(c, loc) {
     const g = loc ?? gpsRef.current
@@ -158,8 +264,11 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
           <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>Select Course</div>
         </div>
         <div style={{ position: 'relative', marginTop: 12 }}>
+          {/* No autoFocus: the sheet opens on the NEARBY list — popping the
+              keyboard immediately would cover it. Tap the field to search.
+              (2026-07-10) */}
           <input
-            autoFocus value={query}
+            value={query}
             onChange={e => { setSelected(null); setCourse(null); setQuery(e.target.value) }}
             placeholder="Search course name…"
             style={{ width: '100%', background: 'rgb(var(--tm-ee-white-rgb) / 0.08)', border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.15)', borderRadius: 10, padding: '10px 40px 10px 14px', color: '#fff', fontSize: 15, outline: 'none' }}
@@ -171,6 +280,39 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+        {/* ── Nearby courses — instant, before any typing ── */}
+        {showNearby && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.16em', color: 'rgb(var(--tm-ee-gold-rgb) / 0.75)', margin: '4px 0 2px' }}>
+              NEARBY COURSES
+            </div>
+            {nearby === undefined && (
+              <div style={{ padding: '14px 0', fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)' }}>
+                Turn on location to see the courses around you — or search by name below.
+              </div>
+            )}
+            {nearby === null && (
+              <div style={{ padding: '14px 0', fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgb(var(--tm-ee-gold-light-rgb) / 0.3)', borderTopColor: 'var(--tm-ee-gold-light)', animation: 'ee-spin-slow 0.7s linear infinite' }} />
+                Finding courses near you…
+              </div>
+            )}
+            {Array.isArray(nearby) && nearby.length === 0 && (
+              <div style={{ padding: '14px 0', fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)' }}>
+                No courses found within 30 miles — search by name below.
+              </div>
+            )}
+            {Array.isArray(nearby) && nearby.map(c => (
+              <div key={`${c.name}-${c.lat}`} onClick={() => pickNearby(c)} style={{ padding: '14px 0', borderBottom: '1px solid rgb(var(--tm-ee-white-rgb) / 0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: resolvingName && resolvingName !== c.name ? 0.45 : 1 }}>
+                <div style={{ fontWeight: 700, color: '#fff', fontSize: 15 }}>{c.name}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c.miles < 5 ? 'var(--tm-ee-green)' : 'rgb(var(--tm-ee-white-rgb) / 0.3)', flexShrink: 0, marginLeft: 12 }}>
+                  {resolvingName === c.name ? 'Loading…' : milesLabel(c.miles)}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
         {!selected && sortedResults.map(c => {
           const miles = distMiles(c)
           const distLabel = miles < Infinity ? (miles < 0.1 ? 'Here' : miles < 1 ? `${Math.round(miles * 10) / 10} mi` : `${Math.round(miles)} mi`) : null
@@ -242,6 +384,20 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
   // The tapped search row — kept so the recents entry gets lat/lon (the
   // course DETAIL payload doesn't carry coordinates). (S3a, 2026-07-10)
   const pickedRowRef = useRef(null)
+  // Instant nearby list under the field before any typing. (2026-07-10)
+  const nearby = useNearbyCourses(coords)
+  const [resolvingName, setResolvingName] = useState(null)
+  async function pickNearby(c) {
+    if (resolvingName) return
+    setResolvingName(c.name)
+    try {
+      const match = await resolveNearbyCourse(c, coords)
+      if (match) await selectCourse(match)
+      else setQuery(c.name) // no confident match — run it as a visible search
+    } finally {
+      setResolvingName(null)
+    }
+  }
 
   // Request geolocation once; gracefully no-op if denied
   const coords = useOneShotCoords(true)
@@ -440,6 +596,52 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
               )}
             </button>
           ))}
+        </div>
+      )}
+      {/* ── Nearby courses — instant, before any typing (2026-07-10) ── */}
+      {query.trim().length < 2 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: 'var(--tm-text-3)', margin: '2px 0 4px' }}>
+            NEARBY COURSES
+          </div>
+          {nearby === undefined && (
+            <div style={{ fontSize: 12, color: 'var(--tm-text-3)', padding: '6px 0' }}>
+              Turn on location to see the courses around you.
+            </div>
+          )}
+          {nearby === null && (
+            <div style={{ fontSize: 12, color: 'var(--tm-text-3)', padding: '6px 0' }}>
+              Finding courses near you…
+            </div>
+          )}
+          {Array.isArray(nearby) && nearby.length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--tm-text-3)', padding: '6px 0' }}>
+              None found within 30 miles — search by name above.
+            </div>
+          )}
+          {Array.isArray(nearby) && nearby.length > 0 && (
+            <div style={{
+              border: '1px solid var(--tm-border)', borderRadius: 'var(--tm-radius)',
+              background: 'var(--tm-surface-2)', maxHeight: 220, overflowY: 'auto',
+            }}>
+              {nearby.map(c => (
+                <button key={`${c.name}-${c.lat}`} onClick={() => pickNearby(c)} style={{
+                  width: '100%', textAlign: 'left', cursor: 'pointer',
+                  padding: '10px 14px', border: 'none', background: 'transparent',
+                  borderBottom: '1px solid var(--tm-border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  opacity: resolvingName && resolvingName !== c.name ? 0.5 : 1,
+                }}>
+                  <div style={{ fontWeight: 700, color: 'var(--tm-text)', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--tm-green-text)', flexShrink: 0 }}>
+                    {resolvingName === c.name ? 'Loading…' : milesLabel(c.miles)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 8 }}>
