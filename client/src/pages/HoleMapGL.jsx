@@ -974,8 +974,17 @@ export default function HoleMapGL({
   useEffect(() => { redrawRef.current() // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clubYards, clubLabel])
 
-  // move the puck on each GPS fix
-  useEffect(() => { syncPuck() // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Move the puck on each GPS fix. The gps-ANCHORED overlays (club landing
+  // zone, bag arcs, range rings — all drawn from the player's position) also
+  // refresh here, but ONLY when one is actually visible. (2026-07-11: they
+  // used to refresh every tick by ACCIDENT — EagleEye minted a new bagArcs
+  // [] each render, so the bagArcs effect fired per GPS tick and dragged the
+  // whole aim redraw with it. That identity is now stable, so this is the
+  // explicit, intentional trigger; the default walking state — no club, no
+  // arcs, no rings — skips the redraw entirely.)
+  useEffect(() => { syncPuck()
+    if (clubRef.current?.yards || bagArcsRef.current?.length || ringsOnRef.current) redrawRef.current()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gps?.lat, gps?.lon, gps?.acc])
 
   // Genuine init/load failure (no fallback renderer anymore) → a graceful,

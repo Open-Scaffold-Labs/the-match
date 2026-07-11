@@ -35,6 +35,14 @@ const GPS_ACCURACY_GATE_M = 10
 // reads OUT OF RANGE. Per-hole, so it also covers standing on the course
 // but far from the currently-viewed hole's green.
 const GPS_RANGE_GATE_YDS = 800
+
+// Stable empty-arcs identity (2026-07-11 perf): `bagArcsOn ? … : []` minted a
+// NEW [] every render, and every GPS tick re-renders EagleEye → HoleMapGL's
+// bagArcs effect saw a fresh reference each tick → full aim-overlay redraw
+// (multiple setData + label DOM work) once per second for the entire round
+// with arcs OFF (the default). One shared constant makes the effect a no-op
+// until arcs actually change.
+const EMPTY_BAG_ARCS = []
 import { log } from '../lib/logger.js'
 import CoachMark from '../components/CoachMark.jsx'
 
@@ -1031,6 +1039,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   const [editExitPrompt, setEditExitPrompt] = useState(false) // exit tapped with a half-placed dirty hole
 
   const watchIdRef = useRef(null)
+  // GPS watch health (2026-07-11 — Matt's on-course report: pill kept dropping
+  // out of gold, yardages went stale after the screen locked between shots).
+  // iOS suspends WKWebView on screen lock and the geolocation watch silently
+  // dies or degrades on resume — the wake-lock handler re-armed the SCREEN,
+  // nothing re-armed the WATCH. These refs power the resurrection layer below.
+  const lastFixAtRef = useRef(0)          // Date.now() of the last successful fix
+  const watchEverStartedRef = useRef(false) // user has enabled GPS at least once
+  const lastWatchRestartRef = useRef(0)   // rate-limit restarts (no thrash)
   // Weather is fetched from open-meteo and changes slowly over a round, so
   // we throttle it to once per WEATHER_TTL instead of firing it on every
   // GPS tick (the watch fires continuously while walking — the per-tick
@@ -1079,8 +1095,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
   function startGpsWatch() {
     if (!navigator.geolocation || watchIdRef.current != null) return
+    watchEverStartedRef.current = true
     watchIdRef.current = navigator.geolocation.watchPosition(
       pos => {
+        lastFixAtRef.current = Date.now()
         setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude, acc: pos.coords.accuracy }
         setGps(coords)
@@ -1105,6 +1123,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
     if (!navigator.geolocation) { setGpsError('unavailable'); return }
     navigator.geolocation.getCurrentPosition(
       pos => {
+        lastFixAtRef.current = Date.now()
         setGpsError(null)
         const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude, acc: pos.coords.accuracy }
         setGps(coords)
@@ -1130,6 +1149,60 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         watchIdRef.current = null
       }
     }
+  }, [])
+
+  // ── GPS watch RESURRECTION (2026-07-11) ────────────────────────────────────
+  // The fix for "GPS felt slow / pill dropped out of gold" on course: iOS
+  // suspends WKWebView when the screen locks between shots, and the
+  // geolocation watch silently stops delivering on resume (known WebKit
+  // behavior). Three layers, all no-ops for users who never enabled GPS:
+  //   1. On visibility/pageshow resume: bounce the watch AND take a one-shot
+  //      re-fix (maximumAge 3s) so the first yardage after unlock is instant
+  //      instead of waiting for the fresh watch to warm up.
+  //   2. Watchdog: a >20s gap in fixes while VISIBLE means the watch is dead
+  //      or wedged → bounce it. (Also self-heals Low Power Mode starvation.)
+  //   3. Restarts are rate-limited to one per 15s so a genuinely unavailable
+  //      GPS (indoors, airplane mode) can't thrash the radio.
+  function restartGpsWatch() {
+    if (!watchEverStartedRef.current || !navigator.geolocation) return
+    const now = Date.now()
+    if (now - lastWatchRestartRef.current < 15000) return
+    lastWatchRestartRef.current = now
+    if (watchIdRef.current != null) {
+      try { navigator.geolocation.clearWatch(watchIdRef.current) } catch { /* gone */ }
+      watchIdRef.current = null
+    }
+    startGpsWatch()
+  }
+  useEffect(() => {
+    const onResume = () => {
+      if (document.visibilityState !== 'visible' || !watchEverStartedRef.current) return
+      restartGpsWatch()
+      try {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            lastFixAtRef.current = Date.now()
+            setGpsError(null)
+            setGps({ lat: pos.coords.latitude, lon: pos.coords.longitude, alt: pos.coords.altitude, acc: pos.coords.accuracy })
+          },
+          () => { /* the watch restart is the real recovery path */ },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+        )
+      } catch { /* no geolocation */ }
+    }
+    document.addEventListener('visibilitychange', onResume)
+    window.addEventListener('pageshow', onResume)
+    const watchdog = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      if (!watchEverStartedRef.current || lastFixAtRef.current === 0) return
+      if (Date.now() - lastFixAtRef.current > 20000) restartGpsWatch()
+    }, 10000)
+    return () => {
+      document.removeEventListener('visibilitychange', onResume)
+      window.removeEventListener('pageshow', onResume)
+      clearInterval(watchdog)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Geocode course + fetch tee/green coordinates from OSM when course is selected
@@ -1888,7 +1961,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   // Own-club distance ARCS: the player's relevant clubs swept across the hole.
   // arcClubs handles a null distance (→ whole bag), so the arcs render whenever
   // the toggle is on — they don't wait for a live GPS-to-green lock. (rebuilt 2026-06-26)
-  const bagArcsData = bagArcsOn ? arcClubs(playerBag, displayYards) : []
+  const bagArcsData = bagArcsOn ? arcClubs(playerBag, displayYards) : EMPTY_BAG_ARCS
 
   // Front/Center/Back green from the OSM polygon (Feature B). Player = GPS
   // when available, else the tee. Null → single number, unchanged. (2026-06-06)
