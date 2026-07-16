@@ -26,6 +26,7 @@ import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
 import { dedupeTees } from '../lib/tees.js'
 import { addRecent } from '../lib/course-recents.js'
+import AddCourseSheet from './AddCourseSheet.jsx'
 
 // ─── Shared data layer ────────────────────────────────────────────────────────
 
@@ -191,6 +192,7 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
   const [course, setCourse]     = useState(null)
   const [teeIdx, setTeeIdx]     = useState(0)
   const [loadingCourse, setLoadingCourse] = useState(false)
+  const [addOpen, setAddOpen]   = useState(false) // community add (047)
   const gpsRef = useRef(gps)
 
   // Keep gpsRef current so distance labels always see the latest value
@@ -339,6 +341,29 @@ function SheetPicker({ onSelect, onClose, gps, gender }) {
             No courses match “{query.trim()}” — check the spelling or try the club’s full name.
           </div>
         )}
+        {/* Community add (047): private clubs the vendor doesn't carry.
+            Offered whenever a real query is typed — most valuable at zero
+            results, harmless as the last row otherwise. */}
+        {!selected && !showNearby && !searching && query.trim().length >= 2 && (
+          <div onClick={() => setAddOpen(true)} style={{ padding: '14px 0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: 'var(--tm-ee-gold-light)', fontWeight: 900, fontSize: 16 }}>＋</span>
+            <div>
+              <div style={{ fontWeight: 700, color: 'var(--tm-ee-gold-light)', fontSize: 14 }}>Add “{query.trim()}” to The Match</div>
+              <div style={{ fontSize: 11.5, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginTop: 2 }}>Private club or missing course — pars are all it takes</div>
+            </div>
+          </div>
+        )}
+        {addOpen && (
+          <AddCourseSheet
+            initialName={query.trim()}
+            onClose={() => setAddOpen(false)}
+            onCreated={(detail) => {
+              setAddOpen(false)
+              setSelected({ id: detail.id, club_name: detail.club_name, latitude: detail.latitude, longitude: detail.longitude })
+              setCourse(detail)
+            }}
+          />
+        )}
         {!selected && sortedResults.map(c => {
           const miles = distMiles(c)
           const distLabel = miles < Infinity ? (miles < 0.1 ? 'Here' : miles < 1 ? `${Math.round(miles * 10) / 10} mi` : `${Math.round(miles)} mi`) : null
@@ -449,6 +474,15 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
     } finally {
       setLoadingCourse(false)
     }
+  }
+
+  // Community add (047) — a created course arrives already in detail shape,
+  // so it drops straight into the normal tee-selection state.
+  const [addOpen, setAddOpen] = useState(false)
+  function handleCreated(detail) {
+    setAddOpen(false)
+    pickedRowRef.current = { id: detail.id, club_name: detail.club_name, latitude: detail.latitude, longitude: detail.longitude }
+    setOpenCourse(detail)
   }
 
   function selectTee(tee) {
@@ -591,7 +625,9 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
           outline: 'none', boxSizing: 'border-box',
         }}
       />
-      {(searching || loadingCourse || results.length > 0 || (query.trim().length >= 2 && searchError)) && (
+      {/* Dropdown opens for any real query — even zero vendor results must
+          show the community-add row (047), not a silent nothing. */}
+      {(searching || loadingCourse || results.length > 0 || query.trim().length >= 2) && (
         <div style={{
           marginTop: 8, maxHeight: 220, overflowY: 'auto',
           border: '1px solid var(--tm-border)', borderRadius: 'var(--tm-radius)',
@@ -608,6 +644,22 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
             <div style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: '#B22222', lineHeight: 1.5 }}>
               {searchError}
             </div>
+          )}
+          {/* Community add (047) — last row of the dropdown whenever a real
+              query is typed; the escape hatch for private clubs the vendor
+              doesn't carry. */}
+          {!searching && !loadingCourse && query.trim().length >= 2 && (
+            <button onClick={() => setAddOpen(true)} style={{
+              width: '100%', textAlign: 'left', cursor: 'pointer',
+              padding: '10px 14px', border: 'none', background: 'transparent',
+              borderBottom: '1px solid var(--tm-border)',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span style={{ color: 'var(--tm-green-text)', fontWeight: 900, fontSize: 15 }}>＋</span>
+              <span style={{ fontWeight: 700, color: 'var(--tm-green-text)', fontSize: 13 }}>
+                Add “{query.trim()}” to The Match
+              </span>
+            </button>
           )}
           {results.map(c => (
             <button key={c.id} onClick={() => selectCourse(c)} style={{
@@ -682,8 +734,15 @@ function InlinePicker({ value, onPick, onClear, onTypedName, onCourseTeeSelected
         </div>
       )}
       <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginTop: 8 }}>
-        Can't find it? Just leave the name typed — we'll use your course name without the per-hole pars.
+        Can't find it? Add it with “＋ Add” above — or leave the name typed and we'll use it without per-hole pars.
       </div>
+      {addOpen && (
+        <AddCourseSheet
+          initialName={query.trim()}
+          onClose={() => setAddOpen(false)}
+          onCreated={handleCreated}
+        />
+      )}
     </div>
   )
 }

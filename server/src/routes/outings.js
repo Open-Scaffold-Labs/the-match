@@ -549,7 +549,11 @@ router.post('/', async (req, res) => {
       courseName || 'TBD', coursePar || 72,
       teamFormat || 'individual', pointMethod || null,
       JSON.stringify(scoringFormats || ['stroke']), JSON.stringify(state),
-      courseId || null,
+      // course_id is BIGINT and vendor-only. Community courses (047) carry
+      // string ids ('u5') — they flow through courseName/hole_pars like
+      // typed-own courses; a non-numeric id here must become null, not a
+      // Postgres type error.
+      (Number.isFinite(Number(courseId)) && Number(courseId) > 0) ? Math.trunc(Number(courseId)) : null,
       courseTee || null,
       Array.isArray(holePars)      ? JSON.stringify(holePars)      : null,
       Array.isArray(holeYardages)  ? JSON.stringify(holeYardages)  : null,
