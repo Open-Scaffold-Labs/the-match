@@ -1,5 +1,5 @@
 {
-  "appId": "com.openscaffold.thematch",
+  "appId": "com.openscaffoldlabs.thematch",
   "appName": "The Match",
   "webDir": "dist",
   "ios": {

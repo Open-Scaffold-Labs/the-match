@@ -26,7 +26,7 @@ tags: [app-store, ios, launch, packaging, compliance]
 
 **Done + verified this session** (nothing committed/pushed yet — all local on the branch):
 
-- ✅ **Capacitor 8.4.2 added** to the `client` workspace; native iOS project generated at `client/ios` (`npx cap add ios` succeeded; Capacitor 8 uses Swift Package Manager, no CocoaPods needed). Config: `client/capacitor.config.json` (bundled web assets, appId `com.openscaffold.thematch` — placeholder to confirm).
+- ✅ **Capacitor 8.4.2 added** to the `client` workspace; native iOS project generated at `client/ios` (`npx cap add ios` succeeded; Capacitor 8 uses Swift Package Manager, no CocoaPods needed). Config: `client/capacitor.config.json` (bundled web assets, appId **`com.openscaffoldlabs.thematch`** — set 2026-07-16 to match FireHazmat's `com.openscaffoldlabs.firehazmat` namespace; verified in the built `.app`).
 - ✅ **API-origin fix** (`client/src/lib/api.js` + `client/src/main.jsx`) — the #1 wrap-breaker. A build-time `VITE_API_ORIGIN` + a startup fetch shim route every root-relative `/api` and `/health` call (incl. ~a dozen that bypass the api helper) to the deployed backend on native. **No-op on web** (verified: test origin present in a native build, absent in the web build). Web build/lint/tests unaffected.
 - ✅ **Permission usage strings** in `Info.plist` — location (when-in-use), camera, microphone, all specific/user-facing — plus `ITSAppUsesNonExemptEncryption=false`.
 - ✅ **Privacy manifest** `PrivacyInfo.xcprivacy` (baseline: email + precise location + user content; UserDefaults required-reason CA92.1).
@@ -47,8 +47,8 @@ tags: [app-store, ios, launch, packaging, compliance]
 
 - ⚠️ **Native GPS/camera/mic rely on the WKWebView web-API bridge** + the Info.plist strings (not native Capacitor plugins yet). Standard and should work, but **unverified on device** — background GPS especially may want the native Geolocation plugin later.
 - ⚠️ **Push notifications (APNs)** not implemented yet (Apple Developer account already exists — see below — so this is buildable now, just not done).
-- ⚠️ **`VITE_API_ORIGIN` prod domain is a placeholder** (`the-match.vercel.app`) — confirm the real production API domain.
-- ⚠️ **Bundle ID `com.openscaffold.thematch` is a placeholder** — confirm before first submission (semi-permanent once published).
+- ✅ **`VITE_API_ORIGIN` confirmed** — `https://the-match-roan.vercel.app` (backend `/health` live; proven end-to-end with real account data on the sim).
+- ✅ **Bundle ID set** — `com.openscaffoldlabs.thematch` (matches FireHazmat's `com.openscaffoldlabs.firehazmat` namespace). Verified in the built bundle. Locked once published.
 - ⚠️ **Not committed or pushed** — awaiting Matt's go-ahead (per the never-push-without-asking rail).
 
 ---
