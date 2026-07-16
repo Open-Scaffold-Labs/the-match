@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
+import { getCurrentPosition as geoGetCurrentPosition, watchPosition as geoWatchPosition, clearWatch as geoClearWatch, geoAvailable } from '../lib/geolocation.js'
 import { api, post, put } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, matchTeesToHoles, estimateAltFromPressure, pointInPolygon, classifyLie } from '../lib/geo.js'
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
@@ -1094,9 +1095,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   }, [])
 
   function startGpsWatch() {
-    if (!navigator.geolocation || watchIdRef.current != null) return
+    if (!geoAvailable() || watchIdRef.current != null) return
     watchEverStartedRef.current = true
-    watchIdRef.current = navigator.geolocation.watchPosition(
+    watchIdRef.current = geoWatchPosition(
       pos => {
         lastFixAtRef.current = Date.now()
         setGpsError(null)
@@ -1120,8 +1121,8 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
 
   // requestLocation must be called from a user tap — iOS won't show the dialog otherwise
   function requestLocation() {
-    if (!navigator.geolocation) { setGpsError('unavailable'); return }
-    navigator.geolocation.getCurrentPosition(
+    if (!geoAvailable()) { setGpsError('unavailable'); return }
+    geoGetCurrentPosition(
       pos => {
         lastFixAtRef.current = Date.now()
         setGpsError(null)
@@ -1145,7 +1146,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   useEffect(() => {
     return () => {
       if (watchIdRef.current != null) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
+        geoClearWatch(watchIdRef.current)
         watchIdRef.current = null
       }
     }
@@ -1164,12 +1165,12 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
   //   3. Restarts are rate-limited to one per 15s so a genuinely unavailable
   //      GPS (indoors, airplane mode) can't thrash the radio.
   function restartGpsWatch() {
-    if (!watchEverStartedRef.current || !navigator.geolocation) return
+    if (!watchEverStartedRef.current || !geoAvailable()) return
     const now = Date.now()
     if (now - lastWatchRestartRef.current < 15000) return
     lastWatchRestartRef.current = now
     if (watchIdRef.current != null) {
-      try { navigator.geolocation.clearWatch(watchIdRef.current) } catch { /* gone */ }
+      try { geoClearWatch(watchIdRef.current) } catch { /* gone */ }
       watchIdRef.current = null
     }
     startGpsWatch()
@@ -1179,7 +1180,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
       if (document.visibilityState !== 'visible' || !watchEverStartedRef.current) return
       restartGpsWatch()
       try {
-        navigator.geolocation.getCurrentPosition(
+        geoGetCurrentPosition(
           pos => {
             lastFixAtRef.current = Date.now()
             setGpsError(null)

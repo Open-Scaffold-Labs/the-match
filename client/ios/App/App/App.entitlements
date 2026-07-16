@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Push Notifications entitlement (APNs).
+
+  NOTE FOR THE FIRST DEVICE BUILD: the cleanest way to enable push is in Xcode →
+  select the App target → Signing & Capabilities → "+ Capability" → Push
+  Notifications. That both wires this entitlement into the build settings
+  (CODE_SIGN_ENTITLEMENTS) AND provisions push on the App ID under your Apple
+  Developer account (com.openscaffoldlabs.thematch). This file is a ready
+  template; `aps-environment` is `development` for dev/TestFlight and Xcode/Apple
+  flip it to `production` for App Store builds automatically.
+-->
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

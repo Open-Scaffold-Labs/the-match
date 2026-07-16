@@ -18,6 +18,7 @@
 // (2026-05-01 — Matt: web push.)
 
 import { api, post } from './api.js'
+import { Capacitor } from '@capacitor/core'
 
 // Convert the URL-safe base64 VAPID public key into the Uint8Array
 // format that PushManager.subscribe wants.
@@ -113,6 +114,50 @@ export function isIosSafari() {
 export function isNativeShell() {
   if (typeof window === 'undefined') return false
   if (window.__TM_NATIVE__ === true) return true
+  // Capacitor iOS/Android shell (the App Store build).
+  try { if (Capacitor?.isNativePlatform?.()) return true } catch { /* not native */ }
   const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || ''
   return /TheMatchNative/i.test(ua)
+}
+
+// ── Native push (APNs via Capacitor) ────────────────────────────────────────
+// The App Store build receives notifications through APNs, not web push. This
+// registers the device with APNs, then POSTs the device token to the server so
+// it can send pushes. No-op on web (returns immediately). Call AFTER sign-in
+// (needs the auth token to POST). Idempotent: the server upserts on token.
+let _nativePushListenersBound = false
+export async function registerNativePush() {
+  if (!Capacitor?.isNativePlatform?.()) return { ok: false, reason: 'not-native' }
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications')
+
+    let perm = await PushNotifications.checkPermissions()
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      perm = await PushNotifications.requestPermissions()
+    }
+    if (perm.receive !== 'granted') return { ok: false, reason: 'no-permission' }
+
+    // Bind listeners once per session.
+    if (!_nativePushListenersBound) {
+      _nativePushListenersBound = true
+      await PushNotifications.addListener('registration', async token => {
+        try {
+          await post('/api/notifications/register-native', {
+            token: token.value,
+            platform: Capacitor.getPlatform(),
+          })
+        } catch (e) { console.warn('[push] native token post failed', e?.message) }
+      })
+      await PushNotifications.addListener('registrationError', err => {
+        console.warn('[push] native registration error', err?.error)
+      })
+    }
+
+    // Triggers the 'registration' event above with the APNs token.
+    await PushNotifications.register()
+    return { ok: true }
+  } catch (e) {
+    console.warn('[push] native register failed', e?.message)
+    return { ok: false, reason: 'error', error: e }
+  }
 }
