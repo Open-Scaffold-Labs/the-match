@@ -1,10 +1,21 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-06-27
+updated: 2026-07-15
 ---
 
 # Activity Log
+
+## [2026-07-15] feature | Voice ("Talk Your Round") 0/1/1.5 + GamePlan Phase 0 + community courses — three branches, two strategy memos
+
+Big product day driven by Dale (origin: son-in-law's 07-10 feedback — in-round entry too slow). All code on branches per push discipline; NOTHING merged to main yet. Docs on main: [[synthesis/voice-interface-build-spec-2026-07-15]], [[synthesis/gameday-strategy-build-spec-2026-07-15]] (+ weather follow-up), this entry. Memos in ~/Projects: The-Match-Voice-Interface-Strategy.docx, The-Match-GameDayStrategy-Strategy.docx.
+
+- **`feat/voice-phase0`** (3 commits, 7b2f81b → 488ee30): **Phase 0** hold-to-talk in solo rounds — webkitSpeechRecognition → POST /api/voice/parse (Haiku forced tool-use NLU, sanitizeIntent gate) → the SAME commit path as the tap modal (commitScore extracted) → TTS confirm. Intents: log_score(+putt facts), log_shot, get_status, undo, ask_caddie. **E2E-verified against prod config**: 7/7 utterances parsed correctly at 0.9–2.0s, incl. "birdie" resolving against the active hole's par; the model's own status math was WRONG and it didn't matter — client overrides with computed truth (the design working). **Phase 1 Round Mode**: WebRTC direct to OpenAI Realtime (ephemeral secrets via GET /api/voice/session — honest 501 until OPENAI_API_KEY exists; pill feature-detects and hides), 6-tool schema, server VAD + user-barge-in, context re-injected after every write, screen wake lock. Client-side arg guards (data-channel tool calls skip the server sanitize pass). **Phase 1.5 Walking Mode**: full-black pocket shield (OLED-off, touches swallowed, 1.2s hold-anywhere to wake) so walkers pocket the phone with earbuds. NOT live-tested (no key). 125/125 vitest + 5/5 node --test.
+- **`feat/gameplan-phase0`** (9906c01): Game Day Strategy — night-before hole-by-hole plan. lib/gameplan deterministic layer (WHS course handicap + net-stroke allocation via strokesOnHole, course-history digest, honest-degradation fact blocks, mergePlan keeps par/yards/SI/net OURS); Claude narrates via forced tool use; stored in **tm_gameplans (migration 046 — NOT applied anywhere yet)**; GamePlan overlay from Profile (course → tee → medal/net/money → summary + hole cards). 17 tests, 130/130 on that branch.
+- **`feat/community-courses`** (3b1083a): Dale's private-course report. Root causes: vendor coverage (~30k; verified live — Augusta National → 0 vendor results; 045's rate-limit cache was the other half, already live). Fix: **tm_user_courses (migration 047 — NOT applied)**, id 'u<row>' (never collides with vendor ints), POST /api/courses/custom (soft dedup → 409 + existing), community rows ride beside vendor /search results, u-id detail serves from our table, AddCourseSheet + "＋ Add" row in BOTH picker variants (inline dropdown now opens on any real query — zero results must offer add, not silence); outings.js course_id coerced numeric-or-null ('u5' was a Postgres type error waiting; rounds.js already guarded). 120/120.
+- **Voice strategy answers on record:** competitor scan (Barkie is voice-first w/ Watch + SG at $4.99/mo — we differentiate on GPS context + SG engine + rivalry graph); a system-wide "Hey Match" is impossible on iOS (Siri owns the wake coprocessor) — in-app wake word (Porcupine WASM) works foreground-only; the lock-screen path is iOS 27 App Intents 2.0 via a native shell ("Hey Siri, tell The Match…", Action Button mapping) — SiriKit deprecated at WWDC 2026.
+- **Also this session:** stale `feat/strokes-gained` (June 6) deleted after verifying the sg-v2 port superseded it — ONE unported piece found (onboarding tendencies step; decision open); its uncommitted WIP was stashed then dropped; the origin fork still holds the branch as archive.
+- **Open before Friday:** OPENAI_API_KEY (Round Mode dark until set) · apply migrations 046+047 · merge decisions on all three branches · Friday on-course test = Phase 0/1 grammar + Walking-Mode battery acceptance gate · Picovoice decision · GamePlan weather follow-up (in spec) · onboarding tendencies re-port.
 
 ## [2026-06-29] refactor | Handoff for the Eagle Eye accuracy/visual-flow push + checklist refresh
 
