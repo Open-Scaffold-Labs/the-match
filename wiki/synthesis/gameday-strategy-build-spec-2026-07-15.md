@@ -89,6 +89,22 @@ end-to-end from voice-captured facts.
 **3 — Voice + tier (2 wks).** Tee brief reads the hole card (voice spec hook);
 aggressiveness dial; net-match mode; Elite gating with Pro teaser card.
 
+## Follow-ups
+
+- **Weather as a first-class endpoint input (Dale, 2026-07-15).** The plan
+  should take the tee-time forecast as an input to `POST /api/gameplan` and
+  reason about how conditions change the day — **wind above all** (direction
+  vs. each hole's bearing → plays-like shifts, club changes, aim-line
+  re-weighting; a two-club crosswind can flip attack→position on its own),
+  plus rain (softer greens = more attackable, less roll = longer effective
+  yardage, wet rough penalty up) and temperature (carry distance). Sources
+  already wired: tee-time forecast via the eagle-eye weather path + USGS
+  elevation cache; hole bearings derivable from OSM hole lines. Surface:
+  weather line in the fact blocks (Phase 0), wind-adjusted candidate pricing
+  in the Layer-1 optimizer (Phase 1), and a "conditions changed since you
+  planned" morning re-check push. Not yet built — Phase 0 shipped without a
+  weather input.
+
 ## Risks
 
 - Bad plans burn trust → conviction margins + "either way" honesty + Layer 3
