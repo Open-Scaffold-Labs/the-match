@@ -15,7 +15,8 @@ Stood up the native iOS wrapper Apple reviews — the repo had **no** native she
 - **`Info.plist`**: location(when-in-use)/camera/microphone usage strings (specific wording) + `ITSAppUsesNonExemptEncryption=false`. **`PrivacyInfo.xcprivacy`**: baseline data-collection (email, precise location, user content) + UserDefaults required-reason CA92.1.
 - **`client/src/lib/native.js`** bootstrap: status bar style, splash dismiss, Android back button — guarded, no-op on web. Safe-area already handled (`viewport-fit=cover` + `env()` tokens).
 - **Verified web unaffected**: `build` ✓, `lint` ✓ (exit 0), test suites green, `cap sync ios` ✓. Apple Developer enrollment already done (Dale; FireHazmat shipped) — biggest external dependency already solved.
-- **NOT done** (honest): never built in Xcode / run on device; `PrivacyInfo.xcprivacy` still needs adding to the App target bundle resources; native GPS/cam/mic ride the webview bridge (unverified on device); APNs push not implemented; bundle-id + prod API domain are placeholders.
+- **Native compile verified**: `xcodebuild -sdk iphonesimulator ... build` → **BUILD SUCCEEDED** (exit 0). Built `.app` bundle confirmed to carry the 3 permission strings + encryption flag + bundled web app. (SwiftPM gotcha: a killed mid-download corrupted `~/Library/Caches/org.swift.swiftpm` → "already exists in file system"; fix = clear that cache + rebuild.) **`PrivacyInfo.xcprivacy` added to the App target's resources** (`cap add ios` doesn't auto-register it) via the `xcodeproj` gem and verified present in the rebuilt bundle.
+- **NOT done** (honest): compiled but never RUN in a sim/device (runtime unverified); native GPS/cam/mic ride the webview bridge (unverified on device); APNs push not implemented; bundle-id + prod API domain are placeholders.
 
 ## [2026-06-29] refactor | Handoff for the Eagle Eye accuracy/visual-flow push + checklist refresh
 

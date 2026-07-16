@@ -32,11 +32,12 @@ tags: [app-store, ios, launch, packaging, compliance]
 - ✅ **Privacy manifest** `PrivacyInfo.xcprivacy` (baseline: email + precise location + user content; UserDefaults required-reason CA92.1).
 - ✅ **Native bootstrap** (`client/src/lib/native.js`) — status bar style, splash dismiss, Android back-button — all guarded, no-op on web. Safe-area handling already correct (`viewport-fit=cover` + `env()` tokens).
 - ✅ **Web unaffected**: `npm run build` ✓, `npm run lint` ✓ (exit 0), test suites green, `npx cap sync ios` ✓.
+- ✅ **Native app compiles** — `xcodebuild ... -sdk iphonesimulator ... build` → **BUILD SUCCEEDED** (exit 0). Bundle verified: all three permission strings + `ITSAppUsesNonExemptEncryption` present in the built `Info.plist`, and the web app (`public/index.html`) is bundled. (Note: `cap add ios` needs Capacitor's SwiftPM cache intact; a killed mid-download left a corrupt artifact once — fix was `rm -rf ~/Library/Caches/org.swift.swiftpm` then rebuild.)
+- ✅ **`PrivacyInfo.xcprivacy` now ships in the bundle** — `cap add ios` doesn't auto-register it, so it was added to the App target's resources build phase (via the `xcodeproj` gem) and **verified present in the rebuilt `.app`**.
 
 **NOT yet done / needs a device or Matt** (honest gaps — do not assume these work):
 
-- ⚠️ **Never built in Xcode / never run on a simulator or device.** `cap sync` assembling ≠ the native app compiling and running. First real build is the next step.
-- ⚠️ **`PrivacyInfo.xcprivacy` must be added to the App target's "Copy Bundle Resources"** in Xcode or it won't ship.
+- ⚠️ **Compiled, but never RUN.** BUILD SUCCEEDED proves it links; it has not been launched in a simulator or on a device, so runtime behavior (web app loads in the shell, API reaches the backend, GPS/camera/mic prompts) is unverified.
 - ⚠️ **Native GPS/camera/mic rely on the WKWebView web-API bridge** + the Info.plist strings (not native Capacitor plugins yet). Standard and should work, but **unverified on device** — background GPS especially may want the native Geolocation plugin later.
 - ⚠️ **Push notifications (APNs)** not implemented yet (Apple Developer account already exists — see below — so this is buildable now, just not done).
 - ⚠️ **`VITE_API_ORIGIN` prod domain is a placeholder** (`the-match.vercel.app`) — confirm the real production API domain.
