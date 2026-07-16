@@ -20,6 +20,7 @@ import FriendProfile from '../components/FriendProfile.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
 import Practice from './Practice.jsx'
 import Caddie from './Caddie.jsx'
+import GamePlan from './GamePlan.jsx'
 import { TMEmblem } from '../components/primitives/Icons.jsx'
 import { TABS } from '../constants.js'
 
@@ -37,6 +38,7 @@ export default function Profile({ onNavigate }) {
   const [editOpen, setEditOpen]             = useState(false)
   const [practiceOpen, setPracticeOpen]     = useState(false)
   const [caddieOpen, setCaddieOpen]         = useState(false)
+  const [gamePlanOpen, setGamePlanOpen]     = useState(false)
   const [playerCardOpen, setPlayerCardOpen] = useState(false)
   const [selectedFriend, setSelectedFriend] = useState(null)
 
@@ -108,6 +110,7 @@ export default function Profile({ onNavigate }) {
         onOpenCard={() => setPlayerCardOpen(true)}
         onOpenPractice={() => setPracticeOpen(true)}
         onOpenCaddie={() => setCaddieOpen(true)}
+        onOpenGamePlan={() => setGamePlanOpen(true)}
         // Tap an opponent face inside a rivalry popup → open that user's
         // FriendProfile on top of this view.
         onOpenFriend={setSelectedFriend}
@@ -125,6 +128,11 @@ export default function Profile({ onNavigate }) {
           POSTs /api/caddie/chat with the running thread. */}
       {caddieOpen && (
         <Caddie onClose={() => setCaddieOpen(false)} />
+      )}
+      {/* GamePlan — Game Day Strategy (Phase 0). Full-screen overlay;
+          POSTs /api/gameplan, reopens the latest stored plan. */}
+      {gamePlanOpen && (
+        <GamePlan onClose={() => setGamePlanOpen(false)} />
       )}
       {/* Player card overlay — opens from the big avatar in the header.
           userId mirrors the Home sub-view's `profile?.id` pass-through. */}

@@ -2517,7 +2517,7 @@ function PlayerCardTeaser({ avatar, onOpen }) {
 // Exported 2026-07-09 (Phase 0 nav restructure): the Profile tab page
 // (pages/Profile.jsx) renders this same view now that My Profile is a
 // top-level tab instead of a Home sub-view.
-export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice, onOpenCaddie }) {
+export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalries = [], followCounts, onCountsChange, onBack, onEditProfile, onOpenCard, onOpenFriend, onOpenPractice, onOpenCaddie, onOpenGamePlan }) {
   // Golf handicap display convention (matches HcpBadge):
   //   high cap (≥0)  → "17.0"  (no prefix)
   //   plus cap (<0)  → "+3.5"  (sign added because the player gives back strokes)
@@ -3059,6 +3059,34 @@ export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalri
               <div style={{ fontSize: 14, fontWeight: 800, color: '#F5D78A' }}>Practice Plan</div>
               <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
                 Find your focus areas &amp; a session to fix them
+              </div>
+            </div>
+            <IconChevronRight size={18} color="rgba(255,255,255,0.40)" />
+          </button>
+        )}
+
+        {/* GamePlan — Game Day Strategy (Phase 0, gameday-strategy-build-spec-
+            2026-07-15). Night-before hole-by-hole plan from the SG profile,
+            tendencies, and history on the course. */}
+        {onOpenGamePlan && (
+          <button onClick={onOpenGamePlan} className="touch-press" style={{
+            width: '100%', textAlign: 'left', cursor: 'pointer',
+            borderRadius: 14, marginBottom: 12, padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(201,160,64,0.16) 0%, rgba(255,255,255,0.03) 70%)',
+            border: '1px solid rgba(201,160,64,0.30)',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+              background: 'rgba(201,160,64,0.20)', border: '1px solid rgba(201,160,64,0.40)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="5" y1="21" x2="5" y2="3"/><path d="M5 4h13l-3 4 3 4H5"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#F5D78A' }}>GamePlan</div>
+              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.50)', marginTop: 2 }}>
+                Tomorrow&rsquo;s hole-by-hole strategy, built tonight
               </div>
             </div>
             <IconChevronRight size={18} color="rgba(255,255,255,0.40)" />
