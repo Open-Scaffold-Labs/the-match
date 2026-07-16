@@ -1,19 +1,25 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import BottomNav from './components/shell/BottomNav.jsx'
 import { TABS } from './constants.js'
 import Home from './pages/Home.jsx'
-
-import EagleEye from './pages/EagleEye.jsx'
-import Outing from './pages/Outing.jsx'
-import MyBag from './pages/MyBag.jsx'
-import Profile from './pages/Profile.jsx'
-import PGAScores from './pages/PGAScores.jsx'
 import Login from './pages/Login.jsx'
-import OnboardingWizard from './components/OnboardingWizard.jsx'
 import PermissionsPrompt from './components/PermissionsPrompt.jsx'
 import AchievementToast from './components/AchievementToast.jsx'
-import PublicLeaderboard from './pages/PublicLeaderboard.jsx'
-import PrintResults from './pages/PrintResults.jsx'
+
+// Heavy / non-initial routes are code-split so they're OUT of the startup
+// bundle — this shrinks the first parse on cold / low-end launches. The
+// keep-alive router already defers MOUNTING these until first visit; lazy()
+// additionally defers loading their CODE. Each usage sits under a
+// <Suspense fallback={<Splash/>}>. Home + Login stay eager (first paint).
+// (2026-07-16 — native iOS perf pass.)
+const EagleEye = lazy(() => import('./pages/EagleEye.jsx'))
+const Outing = lazy(() => import('./pages/Outing.jsx'))
+const MyBag = lazy(() => import('./pages/MyBag.jsx'))
+const Profile = lazy(() => import('./pages/Profile.jsx'))
+const PGAScores = lazy(() => import('./pages/PGAScores.jsx'))
+const OnboardingWizard = lazy(() => import('./components/OnboardingWizard.jsx'))
+const PublicLeaderboard = lazy(() => import('./pages/PublicLeaderboard.jsx'))
+const PrintResults = lazy(() => import('./pages/PrintResults.jsx'))
 import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
 import { readSession } from './lib/active-round-session.js'
@@ -356,7 +362,7 @@ export default function App() {
       return c ? c.toUpperCase() : null
     } catch { return null }
   })()
-  if (liveCode) return <PublicLeaderboard code={liveCode} />
+  if (liveCode) return <Suspense fallback={<Splash />}><PublicLeaderboard code={liveCode} /></Suspense>
 
   // Item 9 — Print-friendly results page. ?print=ABCD short-circuits
   // before auth so the host can pop a print-optimized view in a new
@@ -370,7 +376,7 @@ export default function App() {
       return c ? c.toUpperCase() : null
     } catch { return null }
   })()
-  if (printCode) return <PrintResults code={printCode} />
+  if (printCode) return <Suspense fallback={<Splash />}><PrintResults code={printCode} /></Suspense>
 
   if (loading) return <Splash />
   if (!user)   return <Login onLogin={setUser} />
@@ -382,11 +388,13 @@ export default function App() {
   // onboarding_completed_at server-side.
   if (!user.onboarding_completed_at) {
     return (
-      <OnboardingWizard
-        user={user}
-        onUserUpdate={setUser}
-        onComplete={() => setUser(u => ({ ...u, onboarding_completed_at: new Date().toISOString() }))}
-      />
+      <Suspense fallback={<Splash />}>
+        <OnboardingWizard
+          user={user}
+          onUserUpdate={setUser}
+          onComplete={() => setUser(u => ({ ...u, onboarding_completed_at: new Date().toISOString() }))}
+        />
+      </Suspense>
     )
   }
 
@@ -436,6 +444,7 @@ export default function App() {
             positioned panel; only the active tab is display:block. Inactive
             tabs stay in the React tree (state preserved) but are visually
             hidden and not interactive. */}
+        <Suspense fallback={<Splash />}>
         {mountedTabs.has(TABS.HOME) && (
           <TabPanel active={tab === TABS.HOME} opaque={false}>
             <Home
@@ -514,6 +523,7 @@ export default function App() {
             <PGAScores user={user} />
           </TabPanel>
         )}
+        </Suspense>
 
         {/* Fixed nav pinned to bottom of screen.
             handleTabPress fires on EVERY tap, including taps on the
