@@ -83,6 +83,16 @@ injector, earcons, undo, keep-awake, wake word.
 *Accept:* latency table met on-course; scorecard matches voice log 18/18;
 "scratch that" always recovers.
 
+**Phase 1.5 — Walking Mode (Dale, 2026-07-15; shipped with Phase 1).** Cart
+mode assumes a mounted, visible screen; a walker pockets the phone with
+earbuds — and a PWA can't listen screen-locked. Running-app pattern: the
+session + wake lock stay alive under a full-black pocket shield (black ≈ off
+on OLED), all touches swallowed, deliberate 1.2s hold to wake, minimal status
+(hole number + listening/caddie/muted dot) at low brightness. WALK button in
+the live Round Mode pill. Battery honesty: continuous session + wake lock over
+a 4h walking round is the stress case — measure on-course; auto-mute-on-idle
+is the first lever if it's hungry.
+
 **Phase 2 — Proactive caddie (2–3 wks).** Geofenced hole transitions speak the
 tee brief unprompted; shot-detection nudges; post-hole SG one-liners.
 *Accept:* SG fact coverage per round measurably up vs. tap-only baseline.

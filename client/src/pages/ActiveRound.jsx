@@ -23,6 +23,8 @@ import QuickScoreSheet from '../components/scorecard/QuickScoreSheet.jsx'
 // solo imports from there, not from the multi page.
 import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
+import VoiceLogger from '../components/VoiceLogger.jsx'
+import RoundMode from '../components/RoundMode.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 import PuttChips from '../components/scorecard/PuttChips.jsx'
 import { ShotSheet } from '../components/scorecard/ShotSheet.jsx'
@@ -514,14 +516,15 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
     setEditingHole(idx)
   }
 
-  function handleSaveScore(val, puttFacts) {
-    if (editingHole == null) return
-    const par = config.pars[editingHole] || 4
-    const holeNumberDisplay = editingHole + 1
-    onScoreHole(editingHole, val)
+  // Shared score-commit path — the modal save and the voice logger both land
+  // here, so voice can never write anything a tap couldn't. (Talk Your Round
+  // Phase 0, wiki/synthesis/voice-interface-build-spec-2026-07-15.md)
+  function commitScore(idx, val, puttFacts) {
+    const par = config.pars[idx] || 4
+    const holeNumberDisplay = idx + 1
+    onScoreHole(idx, val)
     // SG putt facts ride along with the score save (docs/SG-DESIGN.md).
-    if (onSavePutts && puttFacts) onSavePutts(editingHole, puttFacts)
-    setEditingHole(null)
+    if (onSavePutts && puttFacts) onSavePutts(idx, puttFacts)
     // Fire the gold "Saved" chip — same UX as LiveOuting. Score is
     // committed locally + persisted to localStorage immediately by
     // ActiveRound's autosave effect, so the user-facing confirmation
@@ -544,13 +547,134 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
     // so the gold flag pin tracks the user's progress without forcing
     // them to manually pick the next one. (Same UX as HoleScorer's
     // implicit "next hole" arrow.)
-    const next = scores.findIndex((s, i) => i > editingHole && !s)
+    const next = scores.findIndex((s, i) => i > idx && !s)
     if (next >= 0) onSetActiveHole(next)
+  }
+
+  function handleSaveScore(val, puttFacts) {
+    if (editingHole == null) return
+    commitScore(editingHole, val, puttFacts)
+    setEditingHole(null)
   }
 
   function handleAddShot(shot) {
     if (editingHole == null) return
     onAddShot(editingHole, { ...shot, gps })
+  }
+
+  // ── Talk Your Round Phase 0 — voice intents ────────────────────────────────
+  // The server parsed + sanitized; this maps intents onto the exact handlers
+  // the tap UI uses. Returns a string to speak for status/caddie/undo;
+  // null lets the parser's confirmation speak.
+  const activeIdx = () => {
+    const unscored = scores.findIndex(s => !s)
+    const h = Number(hole)
+    return (Number.isFinite(h) && h >= 0 && h < holeCount) ? h : (unscored >= 0 ? unscored : 0)
+  }
+
+  async function handleVoiceIntent(intent) {
+    if (intent.intent === 'log_score') {
+      const idx = intent.hole != null ? intent.hole - 1 : activeIdx()
+      if (idx < 0 || idx >= holeCount) return 'That hole isn’t on this card.'
+      commitScore(idx, String(intent.score),
+        intent.putts != null ? { putts: intent.putts, firstPutt: intent.firstPutt ?? null } : null)
+      return null
+    }
+    if (intent.intent === 'log_shot') {
+      const idx = activeIdx()
+      const shot = {}
+      if (intent.club) shot.club = intent.club
+      if (intent.lie) shot.lie = intent.lie
+      if (intent.toPin != null) shot.toPin = intent.toPin
+      onAddShot(idx, { ...shot, gps })
+      return null
+    }
+    if (intent.intent === 'get_status') {
+      const played = scores.map((s, i) => ({ s: Number(s), p: config.pars[i] || 4 })).filter(x => x.s > 0)
+      if (!played.length) return 'Nothing on the card yet.'
+      const total = played.reduce((a, x) => a + x.s, 0)
+      const toPar = total - played.reduce((a, x) => a + x.p, 0)
+      const rel = toPar === 0 ? 'even par' : toPar > 0 ? `${toPar} over` : `${-toPar} under`
+      return `${total} through ${played.length} — ${rel}.`
+    }
+    if (intent.intent === 'undo') {
+      let last = -1
+      for (let i = 0; i < holeCount; i++) if (scores[i]) last = i
+      if (last < 0) return 'Nothing to undo.'
+      onScoreHole(last, '')
+      if (onSavePutts) onSavePutts(last, { putts: null, firstPutt: null })
+      onSetActiveHole(last)
+      return `Cleared hole ${last + 1}.`
+    }
+    if (intent.intent === 'ask_caddie') {
+      try {
+        const idx = activeIdx()
+        const d = await post('/api/caddie/chat', {
+          messages: [{ role: 'user', content: intent.question }],
+          round: { courseName: config.courseName, holeNumber: idx + 1, holePar: config.pars[idx] },
+        })
+        return d?.reply || 'The caddie lost signal — try again.'
+      } catch { return 'The caddie lost signal — try again.' }
+    }
+    return null // unknown → parser's confirmation speaks
+  }
+
+  // ── Round Mode (Phase 1) tool executor ─────────────────────────────────────
+  // The realtime model's arguments arrive WITHOUT the server's sanitize pass
+  // (tool calls come over the WebRTC data channel), so the guards live here.
+  // Same enums as server/src/lib/voice; every write goes through the same
+  // handlers as the tap UI; every return value is the string the caddie
+  // speaks — the model never computes facts itself.
+  const RM_BUCKETS = ['in3', '3-10', '10-25', '25plus']
+  const RM_LIES = ['tee', 'fairway', 'rough', 'sand', 'recovery', 'green']
+  const rmNum = (v, min, max) => {
+    const x = Number(v)
+    return Number.isFinite(x) && x >= min && x <= max ? Math.round(x) : null
+  }
+
+  async function executeVoiceTool(name, args = {}) {
+    if (name === 'log_hole_score') {
+      const score = rmNum(args.score, 1, 15)
+      if (score == null) return 'I didn’t get a score out of that.'
+      const idx = args.hole != null ? (rmNum(args.hole, 1, holeCount) ?? -1) - 1 : activeIdx()
+      if (idx < 0 || idx >= holeCount) return 'That hole isn’t on this card.'
+      const putts = rmNum(args.putts, 0, 6)
+      const firstPutt = RM_BUCKETS.includes(args.firstPutt) && (putts ?? 0) > 0 ? args.firstPutt : null
+      commitScore(idx, String(score), putts != null ? { putts, firstPutt } : null)
+      const par = config.pars[idx] || 4
+      const rel = score - par
+      const relWord = rel === 0 ? 'par' : rel === -1 ? 'birdie' : rel === 1 ? 'bogey' : rel === -2 ? 'eagle' : rel === 2 ? 'double' : `${rel > 0 ? '+' : ''}${rel}`
+      return `Saved: ${score} on ${idx + 1} — ${relWord}${putts != null ? `, ${putts} putt${putts === 1 ? '' : 's'}` : ''}.`
+    }
+    if (name === 'log_shot') {
+      const idx = activeIdx()
+      const shot = {}
+      if (typeof args.club === 'string' && args.club.trim()) shot.club = args.club.trim().slice(0, 20)
+      if (RM_LIES.includes(args.lie)) shot.lie = args.lie
+      const toPin = rmNum(args.toPin, 1, 500)
+      if (toPin != null) shot.toPin = toPin
+      if (!Object.keys(shot).length) return 'Nothing usable in that shot — say the club or the lie.'
+      onAddShot(idx, { ...shot, gps })
+      return `Logged on ${idx + 1}${shot.club ? `: ${shot.club}` : ''}${shot.lie ? `, ${shot.lie}` : ''}${shot.toPin ? `, ${shot.toPin} to the pin` : ''}.`
+    }
+    if (name === 'set_hole') {
+      const h = rmNum(args.hole, 1, holeCount)
+      if (h == null) return 'Which hole?'
+      onSetActiveHole(h - 1)
+      return `On ${h}, par ${config.pars[h - 1] || 4}.`
+    }
+    if (name === 'get_round_status') {
+      return (await handleVoiceIntent({ intent: 'get_status' })) ?? 'Nothing on the card yet.'
+    }
+    if (name === 'undo_last') {
+      return (await handleVoiceIntent({ intent: 'undo' })) ?? 'Nothing to undo.'
+    }
+    if (name === 'get_caddie_advice') {
+      const q = typeof args.question === 'string' ? args.question.trim().slice(0, 300) : ''
+      if (!q) return 'What do you want to know?'
+      return (await handleVoiceIntent({ intent: 'ask_caddie', question: q })) ?? 'The caddie lost signal.'
+    }
+    return 'I can’t do that one.'
   }
 
   return (
@@ -834,6 +958,40 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
           shows for multi-player score commits. Portals itself to
           document.body so positioning is viewport-relative. */}
       <SavedChip savedAt={savedAt} />
+
+      {/* Talk Your Round Phase 0 — hold-to-talk voice logging. Renders
+          nothing on browsers without dictation; hidden once the card is
+          full. "Five, two putts from twenty feet" → same commit path as
+          the score modal. */}
+      {!allDone && (
+        <VoiceLogger
+          bottom={96}
+          getContext={() => ({
+            activeHole: activeIdx() + 1,
+            holeCount,
+            pars: config.pars,
+            scores,
+          })}
+          onIntent={handleVoiceIntent}
+        />
+      )}
+
+      {/* Round Mode (Phase 1) — continuous realtime voice session. Hides
+          itself when /api/voice/session says 501 (no provider key yet);
+          hold-to-talk above stays as the universal fallback. */}
+      {!allDone && (
+        <RoundMode
+          bottom={162}
+          getContext={() => ({
+            activeHole: activeIdx() + 1,
+            holeCount,
+            pars: config.pars,
+            scores,
+            courseName: config.courseName,
+          })}
+          executeTool={executeVoiceTool}
+        />
+      )}
 
       {/* Celebration share-card modal — same one LiveOuting fires for
           multi-player birdies/eagles/HIO. shouldCelebrate gates entry;
