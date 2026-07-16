@@ -9,6 +9,7 @@
 // (501) the pill hides itself and hold-to-talk remains the only surface.
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { api } from '../lib/api.js'
 import { startRoundMode } from '../lib/voiceRoundMode.js'
 
@@ -21,11 +22,73 @@ function MicGlyph({ size = 14, color = 'currentColor' }) {
   )
 }
 
+// ── Walking Mode pocket shield (Dale, 2026-07-15) ────────────────────────────
+// A walker carries the phone in a pocket with earbuds — no cart mount, and a
+// PWA can't listen with the screen locked. The running-app trick: keep the
+// session (and wake lock) alive under a full-black touch shield. Black pixels
+// ≈ off on OLED, every touch is swallowed except a deliberate 1.2s hold to
+// wake, and the caddie keeps talking through the earbuds.
+function PocketShield({ state, muted, activeHole, onExit }) {
+  const holdRef = useRef(null)
+  const [holding, setHolding] = useState(false)
+
+  const startHold = () => {
+    setHolding(true)
+    holdRef.current = setTimeout(() => { setHolding(false); onExit() }, 1200)
+  }
+  const cancelHold = () => {
+    setHolding(false)
+    if (holdRef.current) { clearTimeout(holdRef.current); holdRef.current = null }
+  }
+  useEffect(() => () => { if (holdRef.current) clearTimeout(holdRef.current) }, [])
+
+  const live = state === 'listening' || state === 'speaking'
+  return createPortal(
+    <div
+      onPointerDown={startHold}
+      onPointerUp={cancelHold}
+      onPointerCancel={cancelHold}
+      onTouchMove={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000, background: '#000',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', cursor: 'default',
+      }}
+    >
+      <div style={{
+        width: 10, height: 10, borderRadius: '50%', marginBottom: 18,
+        background: !live ? '#5A5A5A' : muted ? '#7A3B3B' : state === 'speaking' ? '#F5D78A' : '#3E6B48',
+        boxShadow: state === 'speaking' ? '0 0 18px rgba(245,215,138,0.5)' : 'none',
+        animation: state === 'listening' && !muted ? 'tm-live-pulse 2.2s ease-in-out infinite' : 'none',
+      }} />
+      {activeHole != null && (
+        <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: 34, fontWeight: 900, letterSpacing: '-0.02em' }}>
+          {activeHole}
+        </div>
+      )}
+      <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.22em', marginTop: 10, textTransform: 'uppercase' }}>
+        {!live ? 'Reconnecting…' : muted ? 'Muted' : state === 'speaking' ? 'Caddie' : 'Walking · listening'}
+      </div>
+      <div style={{
+        position: 'absolute', bottom: 'calc(var(--safe-bottom) + 26px)',
+        color: holding ? 'rgba(245,215,138,0.85)' : 'rgba(255,255,255,0.16)',
+        fontSize: 10, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
+        transition: 'color 150ms ease',
+      }}>
+        {holding ? 'Keep holding…' : 'Hold anywhere to wake'}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // state: hidden | off | connecting | listening | speaking | error
 export default function RoundMode({ getContext, executeTool, bottom = 162 }) {
   const [state, setState] = useState('off')
   const [available, setAvailable] = useState(null) // null = unknown yet
   const [muted, setMuted] = useState(false)
+  const [pocket, setPocket] = useState(false) // Walking Mode shield up
   const ctrlRef = useRef(null)
 
   // Feature-detect once, quietly: 501 → hide the pill entirely.
@@ -47,7 +110,7 @@ export default function RoundMode({ getContext, executeTool, bottom = 162 }) {
         getContext,
         executeTool,
         onState: (s) => {
-          if (s === 'ended') { ctrlRef.current = null; setState('off') }
+          if (s === 'ended') { ctrlRef.current = null; setState('off'); setPocket(false) }
           else setState(s)
         },
       })
@@ -80,6 +143,21 @@ export default function RoundMode({ getContext, executeTool, bottom = 162 }) {
 
   return (
     <div style={{ position: 'fixed', right: 16, bottom, zIndex: 60, display: 'flex', gap: 8 }}>
+      {pocket && (
+        <PocketShield
+          state={state} muted={muted}
+          activeHole={getContext?.()?.activeHole ?? null}
+          onExit={() => setPocket(false)}
+        />
+      )}
+      {live && (
+        <button onClick={() => setPocket(true)} aria-label="Walking mode — pocket the phone" style={{
+          padding: '8px 12px', borderRadius: 999, cursor: 'pointer',
+          background: 'rgba(13,31,18,0.92)', color: '#F5D78A',
+          border: '1px solid rgba(201,160,64,0.4)', fontSize: 10, fontWeight: 800,
+          letterSpacing: '0.1em',
+        }}>WALK</button>
+      )}
       {live && (
         <button onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'} style={{
           padding: '8px 10px', borderRadius: 999, cursor: 'pointer',
