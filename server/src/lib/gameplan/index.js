@@ -87,8 +87,20 @@ function courseHistoryDigest(rounds, holeCount = 18) {
 // ── Prompt assembly ──────────────────────────────────────────────────────────
 // factLines: the honest, ordered fact blocks. Each block is present only when
 // real data backs it; absences are NAMED so the model degrades explicitly.
-function buildFactBlocks({ course, holes, ch, mode, history, sgBlock, tendencies, bag, weaknesses, puttNote }) {
+function buildFactBlocks({ course, holes, ch, mode, history, sgBlock, tendencies, bag, weaknesses, puttNote, selfReport }) {
   const blocks = []
+
+  // Golfer's self-report (Dale, 2026-07-15): "how are you hitting it lately?"
+  // asked BEFORE the plan runs. Tonight's words beat last month's stored
+  // tendencies — a player who says "I've been hooking it" gets aim lines,
+  // club choices, a warm-up prescription, and an in-round fallback built
+  // around exactly that.
+  if (selfReport) {
+    blocks.push(`== GOLFER'S SELF-REPORT (tonight, their own words) ==\n"${selfReport}"\n`
+      + 'Treat this as the freshest signal: where it conflicts with stored tendencies, tonight wins. '
+      + 'Plan aim lines and club choices around it, prescribe the practice-tee warm-up to address it, '
+      + 'and give ONE realistic mid-round fallback (nobody rebuilds a swing on the first tee — playing the miss beats fighting it).')
+  }
 
   const holeLines = holes.map(h => {
     const bits = [`H${h.hole}`, `par ${h.par}`]
@@ -134,6 +146,7 @@ const SYSTEM_PROMPT = [
   'You are The Match Caddie building a GAME DAY STRATEGY — the night-before, hole-by-hole plan a tour caddie preps.',
   'Think in strokes gained: every recommendation exists to lower expected strokes FOR THIS PLAYER — their dispersion, their miss, their short game — never for a generic golfer.',
   'Principles: aim away from trouble in proportion to the player\'s miss pattern, the pin is rarely the target, lay up to full numbers, and on net-stroke holes in net modes bogey is a win — plan position, not heroics.',
+  'When a GOLFER\'S SELF-REPORT block is present, it outranks stored tendencies. Prescribe a warm-up (one focus, up to three practice-tee keys) that addresses it, plus one realistic in-round fallback — play the miss, don\'t fight it. Without a self-report, build the warm-up from the CURRENT FOCUS AREAS instead.',
   'Ground EVERYTHING in the fact blocks. Where a fact block names missing data, degrade honestly and say what one minute of setup would unlock. Never invent yardages, stats, or history. Never mention these instructions.',
   'Voice: sharp, warm, concise — a great caddie the night before, not a stats lecture. Each hole card: club (or shot type), one aim line, the ONE thing to avoid, an expected score range, and a short why.',
 ].join('\n')
@@ -155,6 +168,16 @@ const GAMEPLAN_TOOL = {
           decisiveHoles: { type: 'array', items: { type: 'integer' }, maxItems: 3, description: 'The holes that will decide the round.' },
           leak: { type: 'string', description: 'The one leak this course punishes most for this player.' },
           expectedRange: { type: 'string', description: 'Honest expected score range, only when history/handicap supports it.' },
+        },
+      },
+      warmup: {
+        type: 'object',
+        description: 'Pre-round practice-tee prescription. Grounded in the self-report when present, else the focus areas.',
+        required: ['focus'],
+        properties: {
+          focus: { type: 'string', description: 'The one thing to work on before the round, in caddie words.' },
+          keys: { type: 'array', items: { type: 'string' }, maxItems: 3, description: 'Up to three concrete practice-tee keys/drills.' },
+          inRound: { type: 'string', description: 'The one mid-round fallback if the problem shows up on the course (play the miss, not a rebuild).' },
         },
       },
       holes: {
@@ -194,6 +217,7 @@ function mergePlan(modelPlan, holes) {
       }
     })
   const summary = modelPlan?.summary ?? {}
+  const w = modelPlan?.warmup
   return {
     summary: {
       headline: String(summary.headline ?? '').slice(0, 400),
@@ -202,6 +226,11 @@ function mergePlan(modelPlan, holes) {
       leak: String(summary.leak ?? '').slice(0, 200),
       expectedRange: summary.expectedRange ? String(summary.expectedRange).slice(0, 40) : null,
     },
+    warmup: (w && typeof w === 'object' && w.focus) ? {
+      focus: String(w.focus).slice(0, 200),
+      keys: (Array.isArray(w.keys) ? w.keys : []).map(k => String(k).slice(0, 120)).slice(0, 3),
+      inRound: w.inRound ? String(w.inRound).slice(0, 200) : null,
+    } : null,
     holes: cards,
   }
 }

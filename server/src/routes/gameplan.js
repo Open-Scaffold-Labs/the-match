@@ -99,6 +99,9 @@ router.post('/', gameplanLimiter, async (req, res) => {
   const holes = sanitizeHoles(b.holes)
   if (holes.length < 9) return res.status(400).json({ error: 'holes required (9 or 18 with pars)' })
   const mode = ['medal', 'net', 'money'].includes(b.mode) ? b.mode : 'medal'
+  // Golfer's self-report (Dale, 2026-07-15) — free text, sanitized like every
+  // other client string that enters a prompt.
+  const selfReport = clean(b.playerNotes, 400) || null
   const courseId = Number.isFinite(Number(b.courseId)) ? Number(b.courseId) : null
   const teeName = clean(b.teeName, 40) || null
   const gender = b.gender === 'female' ? 'female' : b.gender === 'male' ? 'male' : null
@@ -133,6 +136,7 @@ router.post('/', gameplanLimiter, async (req, res) => {
     const factBlocks = buildFactBlocks({
       course: courseName, holes: allocated, ch, mode, history,
       sgBlock, puttNote, tendencies: tendenciesLine(ctx.user), bag: bagLine(ctx.clubData), weaknesses,
+      selfReport,
     })
 
     const msg = await client.messages.create({
@@ -157,6 +161,7 @@ router.post('/', gameplanLimiter, async (req, res) => {
 
     const facts = {
       courseHandicap: ch, mode, par,
+      selfReport, // stored verbatim — Phase 2's learning loop compares plan-vs-actual against it
       history: { roundsUsed: history.roundsUsed },
       degraded: {
         noBag: !bagLine(ctx.clubData),

@@ -55,6 +55,7 @@ export default function GamePlan({ onClose }) {
   const [loadingCourse, setLoadingCourse] = useState(false)
   const [gender, setGender] = useState('male')
   const [mode, setMode] = useState('medal')
+  const [notes, setNotes] = useState('') // golfer's self-report (2026-07-15)
   const [generating, setGenerating] = useState(false)
   const [genErr, setGenErr] = useState(null)
 
@@ -110,6 +111,7 @@ export default function GamePlan({ onClose }) {
         courseName: course.club_name || course.course_name,
         teeName: tee.tee_name, gender, mode,
         courseRating: tee.course_rating, slopeRating: tee.slope_rating, coursePar: tee.par_total,
+        playerNotes: notes.trim() || undefined,
         holes,
       })
       setPlan(d)
@@ -213,6 +215,17 @@ export default function GamePlan({ onClose }) {
                 </button>
               ))}
             </div>
+            {/* Self-report (2026-07-15): "how are you hitting it lately?"
+                asked BEFORE the plan runs — tonight's words outrank stored
+                tendencies, and they drive the warm-up prescription. */}
+            <div style={{ ...S.label, marginBottom: 8 }}>How&rsquo;s your game lately? <span style={{ opacity: 0.55, letterSpacing: 0, textTransform: 'none', fontWeight: 600 }}>(optional — the caddie plans around it)</span></div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value.slice(0, 400))}
+              placeholder="e.g. I've been hooking my driver lately, and my chipping has felt great"
+              rows={3}
+              style={{ ...S.input, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, marginBottom: 18 }}
+            />
             <div style={{ ...S.label, marginBottom: 8 }}>Pick your tee</div>
             {['male', 'female'].map(g => (course.tees?.[g] || []).length > 0 && (
               <div key={g} style={{ marginBottom: 6 }}>
@@ -284,6 +297,34 @@ function PlanView({ data }) {
           </div>
         )}
       </div>
+
+      {/* Warm-up prescription (2026-07-15) — what to hit on the range before
+          the round, grounded in the golfer's own self-report. */}
+      {plan?.warmup?.focus && (
+        <div style={{
+          borderRadius: 16, padding: '16px 18px', marginBottom: 14,
+          background: 'linear-gradient(135deg, rgba(42,122,56,0.18) 0%, rgba(255,255,255,0.03) 70%)',
+          border: '1px solid rgba(42,122,56,0.4)',
+        }}>
+          <div style={{ ...S.label, marginBottom: 6, color: '#9FD8A8' }}>On the range first</div>
+          <div style={{ fontSize: 14, lineHeight: 1.55 }}>{plan.warmup.focus}</div>
+          {(plan.warmup.keys ?? []).length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              {plan.warmup.keys.map((k, i) => (
+                <div key={i} style={{ fontSize: 12.5, color: 'var(--tm-dark-text-2)', marginTop: 4, display: 'flex', gap: 8 }}>
+                  <span style={{ color: '#9FD8A8', fontWeight: 900 }}>{i + 1}.</span>
+                  <span>{k}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {plan.warmup.inRound && (
+            <div style={{ fontSize: 12.5, marginTop: 10, color: 'var(--tm-dark-text-2)' }}>
+              <span style={{ color: '#9FD8A8', fontWeight: 800 }}>If it shows up mid-round: </span>{plan.warmup.inRound}
+            </div>
+          )}
+        </div>
+      )}
 
       {(plan?.holes ?? []).map(h => (
         <div key={h.hole} style={{

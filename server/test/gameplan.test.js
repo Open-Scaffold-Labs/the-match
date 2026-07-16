@@ -119,6 +119,14 @@ describe('buildFactBlocks — honest degradation', () => {
     const text = buildFactBlocks({ ...base, ch: null, holes: allocateStrokes(sanitizeHoles(HOLES_9), null) }).join('\n')
     expect(text).toContain('plan gross only')
   })
+  it('self-report block leads and instructs tonight-beats-stored (2026-07-15)', () => {
+    const blocks = buildFactBlocks({ ...base, selfReport: 'been hooking my driver lately' })
+    expect(blocks[0]).toContain("GOLFER'S SELF-REPORT")
+    expect(blocks[0]).toContain('been hooking my driver lately')
+    expect(blocks[0]).toContain('tonight wins')
+    // absent → no block at all
+    expect(buildFactBlocks({ ...base }).join('\n')).not.toContain('SELF-REPORT')
+  })
 })
 
 describe('mergePlan — deterministic facts win', () => {
@@ -137,6 +145,19 @@ describe('mergePlan — deterministic facts win', () => {
     expect(out.holes[0].yards).toBe(520)    // ours, not 1
     expect(out.holes[0].netStroke).toBe(1)
     expect(out.summary.decisiveHoles).toEqual([3, 4]) // 99 filtered
+  })
+  it('carries the warmup prescription, sanitized and capped', () => {
+    const out = mergePlan({
+      summary: { headline: 'x', decisiveHoles: [], leak: '' },
+      warmup: { focus: 'Tame the hook', keys: ['grip check', 'aim right edge', 'slow tempo', 'extra dropped'], inRound: 'Play the draw, aim right.' },
+      holes: [{ hole: 1, club: 'Driver', aim: 'a', avoid: 'b', expect: '4' }],
+    }, holes)
+    expect(out.warmup.focus).toBe('Tame the hook')
+    expect(out.warmup.keys).toHaveLength(3) // capped at 3
+    expect(out.warmup.inRound).toBe('Play the draw, aim right.')
+    // no focus → no warmup object
+    const none = mergePlan({ summary: {}, warmup: { keys: ['x'] }, holes: [] }, holes)
+    expect(none.warmup).toBeNull()
   })
   it('length-caps model strings', () => {
     const out = mergePlan({
