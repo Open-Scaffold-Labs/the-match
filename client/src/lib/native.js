@@ -4,6 +4,19 @@
 // executes them. See wiki/synthesis/app-store-readiness-gameplan-2026-07-16.md.
 import { Capacitor } from '@capacitor/core'
 
+// Dismiss the native launch splash. Called from React once the first screen has
+// painted (App.jsx mount effect), so the splash covers the entire cold-load
+// instead of vanishing after a fixed timer. No-op on web.
+export async function hideSplash() {
+  if (!Capacitor.isNativePlatform()) return
+  try {
+    const { SplashScreen } = await import('@capacitor/splash-screen')
+    await SplashScreen.hide()
+  } catch (e) {
+    console.warn('[native] splash hide skipped:', e?.message)
+  }
+}
+
 let started = false
 
 export async function initNativeShell() {
@@ -27,13 +40,10 @@ export async function initNativeShell() {
     console.warn('[native] status bar init skipped:', e?.message)
   }
 
-  // Dismiss the launch splash once the web app has taken over the screen.
-  try {
-    const { SplashScreen } = await import('@capacitor/splash-screen')
-    await SplashScreen.hide()
-  } catch (e) {
-    console.warn('[native] splash hide skipped:', e?.message)
-  }
+  // NOTE: the splash is configured launchAutoHide:false, so it stays up until
+  // hideSplash() is called from React's first paint (see App.jsx). This avoids
+  // the ~10s blank-dark-screen gap where the splash used to auto-hide at 600ms
+  // long before the heavy web bundle finished loading.
 
   // Hardware back button (Android has one; iOS does not). Without this, back at
   // the root can leave a blank webview instead of backgrounding the app.

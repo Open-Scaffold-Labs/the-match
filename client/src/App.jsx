@@ -17,6 +17,7 @@ import PrintResults from './pages/PrintResults.jsx'
 import { getToken } from './lib/api.js'
 import { ensurePushSubscription, pushSupported } from './lib/push.js'
 import { readSession } from './lib/active-round-session.js'
+import { hideSplash } from './lib/native.js'
 
 
 // Active-tab persistence — restores the tab the user was on across
@@ -64,6 +65,10 @@ export default function App() {
   // is hidden there) returns the user to where they came from. (2026-06-26)
   const lastNonEyeTabRef = useRef(tab === TABS.EYE ? TABS.HOME : tab)
   useEffect(() => { if (tab !== TABS.EYE) lastNonEyeTabRef.current = tab }, [tab])
+  // Native shell: dismiss the launch splash now that the first screen has
+  // painted (splash is launchAutoHide:false, so this is what hides it — it
+  // covers the whole cold-load instead of vanishing on a timer). No-op on web.
+  useEffect(() => { hideSplash() }, [])
   // The <body> is cream (#FFFDF8) to hide safe-area bleed behind the cream nav.
   // Eagle Eye is a full-bleed dark map with no nav, so that cream shows as a
   // white strip in the bottom/edge safe areas. Paint html+body dark while on
