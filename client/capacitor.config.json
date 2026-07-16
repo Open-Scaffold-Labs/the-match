@@ -7,6 +7,9 @@
     "backgroundColor": "#070C09"
   },
   "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
     "SplashScreen": {
       "launchShowDuration": 600,
       "backgroundColor": "#070C09",

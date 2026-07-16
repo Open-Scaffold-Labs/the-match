@@ -34,10 +34,15 @@ tags: [app-store, ios, launch, packaging, compliance]
 - ✅ **Web unaffected**: `npm run build` ✓, `npm run lint` ✓ (exit 0), test suites green, `npx cap sync ios` ✓.
 - ✅ **Native app compiles** — `xcodebuild ... -sdk iphonesimulator ... build` → **BUILD SUCCEEDED** (exit 0). Bundle verified: all three permission strings + `ITSAppUsesNonExemptEncryption` present in the built `Info.plist`, and the web app (`public/index.html`) is bundled. (Note: `cap add ios` needs Capacitor's SwiftPM cache intact; a killed mid-download left a corrupt artifact once — fix was `rm -rf ~/Library/Caches/org.swift.swiftpm` then rebuild.)
 - ✅ **`PrivacyInfo.xcprivacy` now ships in the bundle** — `cap add ios` doesn't auto-register it, so it was added to the App target's resources build phase (via the `xcodeproj` gem) and **verified present in the rebuilt `.app`**.
+- ✅ **Ran on a simulator (iPhone 17 Pro) — the login screen renders natively** (screenshot captured). Prod-pointed bundle: `VITE_API_ORIGIN=https://the-match-roan.vercel.app` (backend confirmed live: `/health` → `{status:ok, db:true}`). **CapacitorHttp enabled** so native API calls bypass the server's single-origin CORS (`cors({ origin: CLIENT_ORIGIN })` would reject `capacitor://localhost`).
+
+**Runtime findings (from the sim launch) — must fix before submission:**
+
+- 🔴 **Slow first paint (~11.5s) + blank gap.** The web app takes ~11s to first-commit in the webview (root cause: the **24 MB ONNX-runtime wasm** + ~1 MB MapLibre are on the launch critical path). The splash hides at ~600ms, so the user stares at a **blank dark screen for ~10s** — looks broken, and a real App Store / UX risk. Fix: (a) keep the splash up until the web app signals "ready" (`launchAutoHide:false` + hide from React after first meaningful paint), and (b) code-split the ONNX / Eagle-Eye model so it lazy-loads only when Eagle Eye opens, off the launch path. Directly serves the usability/visual-flow bar.
+- 🟡 **API round-trip not yet proven.** The bundle loads and the login screen renders, but an actual authenticated call from the native app hasn't been confirmed (no test creds used). CapacitorHttp + origin are wired; needs a real login (or a debug ping) to confirm end-to-end.
 
 **NOT yet done / needs a device or Matt** (honest gaps — do not assume these work):
 
-- ⚠️ **Compiled, but never RUN.** BUILD SUCCEEDED proves it links; it has not been launched in a simulator or on a device, so runtime behavior (web app loads in the shell, API reaches the backend, GPS/camera/mic prompts) is unverified.
 - ⚠️ **Native GPS/camera/mic rely on the WKWebView web-API bridge** + the Info.plist strings (not native Capacitor plugins yet). Standard and should work, but **unverified on device** — background GPS especially may want the native Geolocation plugin later.
 - ⚠️ **Push notifications (APNs)** not implemented yet (Apple Developer account already exists — see below — so this is buildable now, just not done).
 - ⚠️ **`VITE_API_ORIGIN` prod domain is a placeholder** (`the-match.vercel.app`) — confirm the real production API domain.
