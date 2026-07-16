@@ -23,6 +23,7 @@ import QuickScoreSheet from '../components/scorecard/QuickScoreSheet.jsx'
 // solo imports from there, not from the multi page.
 import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
+import VoiceLogger from '../components/VoiceLogger.jsx'
 import { SOLO_ROUND_STORAGE_KEY as SOLO_KEY_LIB } from '../lib/solo-round.js'
 import PuttChips from '../components/scorecard/PuttChips.jsx'
 import { ShotSheet } from '../components/scorecard/ShotSheet.jsx'
@@ -514,14 +515,15 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
     setEditingHole(idx)
   }
 
-  function handleSaveScore(val, puttFacts) {
-    if (editingHole == null) return
-    const par = config.pars[editingHole] || 4
-    const holeNumberDisplay = editingHole + 1
-    onScoreHole(editingHole, val)
+  // Shared score-commit path — the modal save and the voice logger both land
+  // here, so voice can never write anything a tap couldn't. (Talk Your Round
+  // Phase 0, wiki/synthesis/voice-interface-build-spec-2026-07-15.md)
+  function commitScore(idx, val, puttFacts) {
+    const par = config.pars[idx] || 4
+    const holeNumberDisplay = idx + 1
+    onScoreHole(idx, val)
     // SG putt facts ride along with the score save (docs/SG-DESIGN.md).
-    if (onSavePutts && puttFacts) onSavePutts(editingHole, puttFacts)
-    setEditingHole(null)
+    if (onSavePutts && puttFacts) onSavePutts(idx, puttFacts)
     // Fire the gold "Saved" chip — same UX as LiveOuting. Score is
     // committed locally + persisted to localStorage immediately by
     // ActiveRound's autosave effect, so the user-facing confirmation
@@ -544,13 +546,76 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
     // so the gold flag pin tracks the user's progress without forcing
     // them to manually pick the next one. (Same UX as HoleScorer's
     // implicit "next hole" arrow.)
-    const next = scores.findIndex((s, i) => i > editingHole && !s)
+    const next = scores.findIndex((s, i) => i > idx && !s)
     if (next >= 0) onSetActiveHole(next)
+  }
+
+  function handleSaveScore(val, puttFacts) {
+    if (editingHole == null) return
+    commitScore(editingHole, val, puttFacts)
+    setEditingHole(null)
   }
 
   function handleAddShot(shot) {
     if (editingHole == null) return
     onAddShot(editingHole, { ...shot, gps })
+  }
+
+  // ── Talk Your Round Phase 0 — voice intents ────────────────────────────────
+  // The server parsed + sanitized; this maps intents onto the exact handlers
+  // the tap UI uses. Returns a string to speak for status/caddie/undo;
+  // null lets the parser's confirmation speak.
+  const activeIdx = () => {
+    const unscored = scores.findIndex(s => !s)
+    const h = Number(hole)
+    return (Number.isFinite(h) && h >= 0 && h < holeCount) ? h : (unscored >= 0 ? unscored : 0)
+  }
+
+  async function handleVoiceIntent(intent) {
+    if (intent.intent === 'log_score') {
+      const idx = intent.hole != null ? intent.hole - 1 : activeIdx()
+      if (idx < 0 || idx >= holeCount) return 'That hole isn’t on this card.'
+      commitScore(idx, String(intent.score),
+        intent.putts != null ? { putts: intent.putts, firstPutt: intent.firstPutt ?? null } : null)
+      return null
+    }
+    if (intent.intent === 'log_shot') {
+      const idx = activeIdx()
+      const shot = {}
+      if (intent.club) shot.club = intent.club
+      if (intent.lie) shot.lie = intent.lie
+      if (intent.toPin != null) shot.toPin = intent.toPin
+      onAddShot(idx, { ...shot, gps })
+      return null
+    }
+    if (intent.intent === 'get_status') {
+      const played = scores.map((s, i) => ({ s: Number(s), p: config.pars[i] || 4 })).filter(x => x.s > 0)
+      if (!played.length) return 'Nothing on the card yet.'
+      const total = played.reduce((a, x) => a + x.s, 0)
+      const toPar = total - played.reduce((a, x) => a + x.p, 0)
+      const rel = toPar === 0 ? 'even par' : toPar > 0 ? `${toPar} over` : `${-toPar} under`
+      return `${total} through ${played.length} — ${rel}.`
+    }
+    if (intent.intent === 'undo') {
+      let last = -1
+      for (let i = 0; i < holeCount; i++) if (scores[i]) last = i
+      if (last < 0) return 'Nothing to undo.'
+      onScoreHole(last, '')
+      if (onSavePutts) onSavePutts(last, { putts: null, firstPutt: null })
+      onSetActiveHole(last)
+      return `Cleared hole ${last + 1}.`
+    }
+    if (intent.intent === 'ask_caddie') {
+      try {
+        const idx = activeIdx()
+        const d = await post('/api/caddie/chat', {
+          messages: [{ role: 'user', content: intent.question }],
+          round: { courseName: config.courseName, holeNumber: idx + 1, holePar: config.pars[idx] },
+        })
+        return d?.reply || 'The caddie lost signal — try again.'
+      } catch { return 'The caddie lost signal — try again.' }
+    }
+    return null // unknown → parser's confirmation speaks
   }
 
   return (
@@ -834,6 +899,23 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
           shows for multi-player score commits. Portals itself to
           document.body so positioning is viewport-relative. */}
       <SavedChip savedAt={savedAt} />
+
+      {/* Talk Your Round Phase 0 — hold-to-talk voice logging. Renders
+          nothing on browsers without dictation; hidden once the card is
+          full. "Five, two putts from twenty feet" → same commit path as
+          the score modal. */}
+      {!allDone && (
+        <VoiceLogger
+          bottom={96}
+          getContext={() => ({
+            activeHole: activeIdx() + 1,
+            holeCount,
+            pars: config.pars,
+            scores,
+          })}
+          onIntent={handleVoiceIntent}
+        />
+      )}
 
       {/* Celebration share-card modal — same one LiveOuting fires for
           multi-player birdies/eagles/HIO. shouldCelebrate gates entry;
