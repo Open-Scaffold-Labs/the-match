@@ -16,6 +16,46 @@ function versioned(url) {
   return url
 }
 
+// Native-shell API base. When the app is bundled into the Capacitor iOS/Android
+// shell, the webview origin is capacitor://localhost, so root-relative "/api"
+// and "/health" calls would resolve to the local bundle instead of our backend
+// and every request would fail. VITE_API_ORIGIN is injected at NATIVE build time
+// (e.g. `VITE_API_ORIGIN=https://<prod-domain> npm run build`) to point requests
+// at the deployed API. On the web build it is unset → empty string → same-origin
+// relative calls, so existing web/PWA behavior is byte-for-byte unchanged.
+const API_ORIGIN = (import.meta.env.VITE_API_ORIGIN || '').replace(/\/+$/, '')
+function withOrigin(url) {
+  if (API_ORIGIN && typeof url === 'string' && url.startsWith('/')) {
+    return API_ORIGIN + url
+  }
+  return url
+}
+
+// Native-shell safety net. ~A dozen call sites across the app call fetch("/api/…")
+// or fetch("/health") directly, bypassing this helper. On the web build those are
+// same-origin and fine; in the Capacitor shell (origin capacitor://localhost) they
+// would all 404. Rather than edit every call site (and risk missing one, or a new
+// one being added later), we install a single fetch shim at startup that rewrites
+// root-relative "/api" and "/health" requests to the deployed backend.
+//
+// This is a NO-OP on web: API_ORIGIN is empty there, so the shim is never installed
+// and window.fetch is untouched — existing behavior is byte-for-byte unchanged.
+// Absolute URLs (including ones this module already prefixed via withOrigin) start
+// with "http", not "/", so they pass straight through with no double-prefixing.
+let nativeApiBaseInstalled = false
+export function installNativeApiBase() {
+  if (nativeApiBaseInstalled || !API_ORIGIN) return
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return
+  const origFetch = window.fetch.bind(window)
+  window.fetch = (input, init) => {
+    if (typeof input === 'string' && (input.startsWith('/api') || input.startsWith('/health'))) {
+      return origFetch(API_ORIGIN + input, init)
+    }
+    return origFetch(input, init)
+  }
+  nativeApiBaseInstalled = true
+}
+
 export function getToken() {
   return localStorage.getItem('tm_token')
 }
@@ -25,7 +65,7 @@ export function clearToken() {
 }
 
 async function fetchWithRetry(url, opts = {}, attempt = 0) {
-  url = versioned(url)
+  url = withOrigin(versioned(url))
   const token = getToken()
   const res = await fetch(url, {
     ...opts,

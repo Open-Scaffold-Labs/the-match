@@ -1,0 +1,19 @@
+{
+  "appId": "com.openscaffold.thematch",
+  "appName": "The Match",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#070C09"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#070C09",
+      "showSpinner": false
+    },
+    "Keyboard": {
+      "resize": "native"
+    }
+  }
+}

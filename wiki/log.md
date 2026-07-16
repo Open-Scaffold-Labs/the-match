@@ -6,6 +6,17 @@ updated: 2026-06-27
 
 # Activity Log
 
+## [2026-07-16] feat | Native iOS shell (Capacitor) Phase 0 — App Store packaging foundation
+
+Stood up the native iOS wrapper Apple reviews — the repo had **no** native shell before this. Branch `feat/ios-capacitor-shell` (not main). See [[synthesis/app-store-readiness-gameplan-2026-07-16]] for the full plan + honest gap list.
+
+- **Capacitor 8.4.2** added to the `client` workspace; `npx cap add ios` generated `client/ios` (Capacitor 8 = Swift Package Manager, no CocoaPods). `client/capacitor.config.json` bundles the web assets (NOT a remote-URL wrapper — avoids the Guideline 4.2 lazy-wrapper rejection) — appId `com.openscaffold.thematch` (placeholder, confirm before submit).
+- **API-origin fix** (`client/src/lib/api.js` + `main.jsx`) — the #1 wrap-breaker. The client calls the API with root-relative `/api`, and ~a dozen sites bypass the central helper; inside the webview (origin `capacitor://localhost`) they'd all 404. Added build-time `VITE_API_ORIGIN` + a startup fetch shim that rewrites root-relative `/api` and `/health` to the deployed backend. **No-op on web** — verified: test origin present in a native build, absent in the web build.
+- **`Info.plist`**: location(when-in-use)/camera/microphone usage strings (specific wording) + `ITSAppUsesNonExemptEncryption=false`. **`PrivacyInfo.xcprivacy`**: baseline data-collection (email, precise location, user content) + UserDefaults required-reason CA92.1.
+- **`client/src/lib/native.js`** bootstrap: status bar style, splash dismiss, Android back button — guarded, no-op on web. Safe-area already handled (`viewport-fit=cover` + `env()` tokens).
+- **Verified web unaffected**: `build` ✓, `lint` ✓ (exit 0), test suites green, `cap sync ios` ✓. Apple Developer enrollment already done (Dale; FireHazmat shipped) — biggest external dependency already solved.
+- **NOT done** (honest): never built in Xcode / run on device; `PrivacyInfo.xcprivacy` still needs adding to the App target bundle resources; native GPS/cam/mic ride the webview bridge (unverified on device); APNs push not implemented; bundle-id + prod API domain are placeholders.
+
 ## [2026-06-29] refactor | Handoff for the Eagle Eye accuracy/visual-flow push + checklist refresh
 
 Wrote [[synthesis/next-session-handoff-2026-06-29]] (supersedes 06-28) to point the next session at the user-facing Eagle Eye visual-flow + accuracy-polish layer now that F.5 is complete. Refreshed the two roadmap checklists to match reality: `build-plan-bulletproof-2026-06-23.md` — F.5 marked COMPLETE (all 7 stages live, with the four sub-spec links), F.2 pooler-safety confirmed, F.3 (035 indexes) marked applied to prod; `eagle-eye-premium-plan-2026-06-23.md` — Phase 2 status note updated (plays-like/own-club-arcs/data→practice + F.5 reliability all shipped; next = Phase 0 foundation + Phase 3 polish + accuracy refinements). Index ACTIVE-handoff pointer moved to the new doc. No code change.
