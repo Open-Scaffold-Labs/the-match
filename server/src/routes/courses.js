@@ -1,6 +1,10 @@
 const router = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db = require('../db')
+const {
+  isUserCourseId, userCourseRowId, sanitizeCustomCourse,
+  userCourseSearchResult, userCourseDetail,
+} = require('../lib/customCourse')
 
 const GC_API = 'https://api.golfcourseapi.com/v1'
 const GC_KEY = process.env.GOLF_COURSE_API_KEY
@@ -112,7 +116,22 @@ router.get('/search', requireAuth, async (req, res) => {
     }
   }
 
-  const courses = base.map(c => ({
+  // Community courses (migration 047) ride beside vendor results — the fix
+  // for private clubs the vendor dataset doesn't carry. Best-effort: a miss
+  // here must never break vendor search.
+  let community = []
+  try {
+    const { rows } = await db.query(
+      `SELECT id, club_name, course_name, city, state, country, latitude, longitude
+       FROM tm_user_courses
+       WHERE club_name ILIKE $1 OR course_name ILIKE $1
+       ORDER BY created_at DESC LIMIT 10`,
+      [`%${q}%`]
+    )
+    community = rows.map(userCourseSearchResult)
+  } catch { /* table may not exist yet in an env — vendor results still serve */ }
+
+  const courses = [...community, ...base].map(c => ({
     ...c,
     distance_km: (hasLoc && Number.isFinite(c.latitude) && Number.isFinite(c.longitude))
       ? haversineKm(lat, lng, c.latitude, c.longitude)
@@ -130,11 +149,62 @@ router.get('/search', requireAuth, async (req, res) => {
   res.json({ courses })
 })
 
+// POST /api/courses/custom — add a community course (migration 047).
+// Body: { clubName, holePars: [9|18 ints], courseName?, city?, state?,
+//         country?, latitude?, longitude?, teeName?, courseRating?,
+//         slopeRating?, holeYards?, holeSis? }
+// Soft dedup: same normalized club name in the same city → 409 with the
+// existing course so the picker selects it instead of forking data.
+router.post('/custom', requireAuth, async (req, res) => {
+  const parsed = sanitizeCustomCourse(req.body)
+  if (!parsed.ok) return res.status(400).json({ error: parsed.error })
+  const c = parsed.course
+  try {
+    const dupe = await db.one(
+      `SELECT id, club_name, course_name, city, state, country, latitude, longitude
+       FROM tm_user_courses
+       WHERE lower(club_name) = lower($1) AND coalesce(lower(city),'') = coalesce(lower($2),'')
+       LIMIT 1`,
+      [c.club_name, c.city]
+    ).catch(() => null)
+    if (dupe) {
+      return res.status(409).json({ error: 'That course is already in The Match.', course: userCourseSearchResult(dupe) })
+    }
+    const row = await db.one(
+      `INSERT INTO tm_user_courses
+         (created_by, club_name, course_name, city, state, country, latitude, longitude,
+          tee_name, course_rating, slope_rating, hole_pars, hole_yards, hole_sis)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       RETURNING *`,
+      [req.user.id, c.club_name, c.course_name, c.city, c.state, c.country, c.latitude, c.longitude,
+       c.tee_name, c.course_rating, c.slope_rating,
+       JSON.stringify(c.hole_pars),
+       c.hole_yards ? JSON.stringify(c.hole_yards) : null,
+       c.hole_sis ? JSON.stringify(c.hole_sis) : null]
+    )
+    res.json(userCourseDetail(row))
+  } catch (err) {
+    console.error('[courses/custom]', err.message)
+    res.status(500).json({ error: 'Couldn’t save the course — try again.' })
+  }
+})
+
 // GET /api/courses/:id — full hole data. Cache-through (045): course detail
 // is near-static and fetched constantly (course loads, Play funnel resolve,
 // shot editor) — each course hits the vendor at most once per 30 days, and
 // stale rows serve through vendor outages/rate limits.
 router.get('/:id', requireAuth, async (req, res) => {
+  // Community course ids are 'u<row id>' — served from our table, no vendor.
+  if (isUserCourseId(req.params.id)) {
+    try {
+      const row = await db.one('SELECT * FROM tm_user_courses WHERE id = $1', [userCourseRowId(req.params.id)]).catch(() => null)
+      if (!row) return res.status(404).json({ error: 'Course not found' })
+      return res.json(userCourseDetail(row))
+    } catch (err) {
+      console.error('[courses/get community]', err.message)
+      return res.status(500).json({ error: 'Failed' })
+    }
+  }
   const cid = Number(req.params.id)
   let cached = null
   if (Number.isFinite(cid)) {
