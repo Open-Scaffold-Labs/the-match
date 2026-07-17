@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
   const rows  = await db.many(
     `SELECT r.id, r.course_name, r.course_par, r.total, r.date, r.game_type, r.scores
      FROM tm_rounds r
-     WHERE r.user_id = $1
+     WHERE r.user_id = $1 AND r.total > 0
      ORDER BY r.date DESC LIMIT $2`,
     [req.user.id, limit]
   )
@@ -45,6 +45,17 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const { courseName, coursePar, courseRating, slopeRating, gameType, scores, shots, holePars, holeHandicaps, putts, firstPutts, courseId } = req.body
   const total = scores?.reduce((s, x) => s + (x ?? 0), 0) ?? 0
+
+  // 2026-07-16 — reject scoreless rounds at the source. Two all-zero rounds
+  // (ids 163/164) reached the DB via the solo summary Save with no holes
+  // scored, then rendered as "-71" and polluted avg3 / avgScore / bestScore.
+  // The outing /end path has always guarded this (9+ holes, every hole > 0);
+  // the solo POST never did. Guard here too so old cached clients can't
+  // recreate the bug. Partial rounds (some holes scored) still save.
+  const scoredHoles = Array.isArray(scores) ? scores.filter(s => Number(s) > 0).length : 0
+  if (!scoredHoles || total <= 0) {
+    return res.status(400).json({ error: 'No scores entered — nothing to save' })
+  }
 
   // Phase 3 (2026-07-10, migration 044) — golfcourseapi course id so the
   // post-round shot editor can load hole geometry. Free-form courses → null.

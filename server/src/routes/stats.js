@@ -132,7 +132,7 @@ router.get('/summary', async (req, res) => {
   const [roundData, clubData, userRow] = await Promise.all([
     db.many(
       `SELECT total, course_par, course_rating, slope_rating, date, scores
-       FROM tm_rounds WHERE user_id = $1 ORDER BY date DESC LIMIT 20`,
+       FROM tm_rounds WHERE user_id = $1 AND total > 0 ORDER BY date DESC LIMIT 20`,
       [uid]
     ),
     db.one('SELECT club_data FROM tm_club_stats WHERE user_id = $1', [uid]),

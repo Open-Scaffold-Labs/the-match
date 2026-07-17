@@ -1023,6 +1023,10 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
 function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
   const totalPar   = pars.reduce((s, p) => s + p, 0)
   const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
+  // 2026-07-16 — a summary with zero scored holes must not be savable.
+  // Eagle Eye's "End round" back-prompt (2026-07-10) can land here before
+  // any score is entered; saving produced total-0 rounds rendered as "-71".
+  const scoredHoles = scores.filter(s => Number(s) > 0).length
   const diff       = totalScore - totalPar
   const diffLabel  = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
   const diffColor  = diff < 0 ? 'var(--tm-birdie)' : diff === 0 ? 'var(--tm-par)' : 'var(--tm-bogey)'
@@ -1080,9 +1084,9 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
       </div>
 
       <div style={{ padding: '16px 20px', flexShrink: 0 }}>
-        <button onClick={() => { tmHaptic(15); onSave() }} disabled={saving}
-          style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: saving ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: saving ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 17, border: 'none' }}>
-          {saving ? 'Saving…' : '💾 Save Round'}
+        <button onClick={() => { tmHaptic(15); onSave() }} disabled={saving || scoredHoles === 0}
+          style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: (saving || scoredHoles === 0) ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: (saving || scoredHoles === 0) ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 17, border: 'none' }}>
+          {saving ? 'Saving…' : scoredHoles === 0 ? 'No scores entered' : '💾 Save Round'}
         </button>
       </div>
     </div>
@@ -1252,6 +1256,9 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
 
   async function saveRound() {
     if (!config) return
+    // 2026-07-16 — backstop for the ScorecardSummary disabled-button guard:
+    // never POST a round with zero scored holes (server 400s it anyway).
+    if (!scores.some(s => Number(s) > 0)) return
     setSaving(true)
     try {
       const totalPar = config.pars.reduce((s, p) => s + p, 0)

@@ -32,9 +32,11 @@ router.get('/', async (req, res) => {
         [uid, start]
       ),
 
-      // Last 3 rounds for rolling average
+      // Last 3 rounds for rolling average. total > 0 excludes scoreless
+      // rounds — none should exist (POST /api/rounds rejects them since
+      // 2026-07-16), but a bad row here tanked 3-RND AVG once. Belt-and-braces.
       db.many(
-        `SELECT total, course_par FROM tm_rounds WHERE user_id = $1 ORDER BY date DESC LIMIT 3`,
+        `SELECT total, course_par FROM tm_rounds WHERE user_id = $1 AND total > 0 ORDER BY date DESC LIMIT 3`,
         [uid]
       ),
 

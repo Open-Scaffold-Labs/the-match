@@ -175,7 +175,7 @@ router.get('/:friendId/profile', async (req, res) => {
         `SELECT r.id, r.course_name, r.course_par, r.course_rating, r.slope_rating,
                 r.total, r.date, r.scores, r.outing_id, r.game_type
          FROM tm_rounds r
-         WHERE r.user_id = $1
+         WHERE r.user_id = $1 AND r.total > 0
          ORDER BY r.date DESC LIMIT 20`,
         [friendId]
       ),
