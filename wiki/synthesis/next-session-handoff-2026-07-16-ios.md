@@ -111,3 +111,23 @@ answers + age rating into the wiki for Matt.
 - Branches: `main` (shell merged) · `feat/ios-native-capabilities` (geo+push, unmerged,
   possibly dirty with the Capgo retry)
 - Sim: iPhone 17 Pro `B781E199-E966-454A-BD20-E20FA5084A07` · prod: `the-match-roan.vercel.app`
+
+---
+
+## UPDATE 2026-07-17 (overnight session, Matt + Claude) — ITEM 1 DONE + major UX fixes shipped
+
+**Item 1 (App Store listing package) is COMPLETE** → [[synthesis/app-store-listing-2026-07-17]] (+ .docx for Pages in `wiki/assets/app-store-2026-07/`). 11 screenshots at the required 1320×2868 (Pro Max sim `25095754-CD1C-4548-947F-BAC4116AEDEE`, logged-in container copied from the 17 Pro sim), store copy drafted (name/subtitle/keywords verified against ASO research), review-notes + reviewer-account plan, age rating, URLs, get-noticed playbook. **Awaiting Matt's sign-off on the copy.**
+
+**Also shipped to main tonight (all sim-verified, gates green):**
+- Solo end-round ceremony rebuild (pinned Save/Keep playing/Discard, summary resume, honest zero-score copy) — spec + evidence in [[synthesis/solo-end-round-ceremony-build-spec-2026-07-16]]
+- Scorecard: FIXED row order (join order — board keeps standings), rank column removed, responsive columns (all 18 holes, zero scroll), TRUE full-bleed (root cause: App.jsx 430pt frame cap vs 440pt Pro Max — affected EVERY tab)
+- On-light contrast fixes (finished banner, format chips, league pill) + react/react-dom pinned ^19.2.7 (node_modules drift white-screened native builds — React #527)
+
+**Next session priority (updated):**
+1. **Item 2 — APNs send path** (unchanged from below; migration 048 still NOT applied to prod)
+2. **Deploy the marketing page** (`marketing/` built by the ship-night session) to `the-match.openscaffoldlabs.com` + `/support` — Apple checks listing links; blocks submission
+3. Seed the reviewer account per the listing doc §3
+4. Item 3 — compliance paperwork (nutrition label ↔ PrivacyInfo.xcprivacy)
+5. Small builds queued by tonight: in-app rating prompt at round end (ASO input), pale-gold-on-light sweep in LiveOuting (~20 instances), dual `tm-request-end-round` listener seam (fired a match confirm for a CANCELLED outing — reproduce via EE back-prompt with a stale mounted LiveOuting)
+
+**New rails learned tonight:** measure, don't squint — the frame-cap bug survived three eyeball fixes and fell in one getBoundingClientRect dump; sim UI automation is flaky at 24pt targets (enter scores via the app's own API with the session token instead); a "fully scored" match's End path RECORDS RIVALRIES — clean up test matches via `POST /:code/cancel`, never `/end`.

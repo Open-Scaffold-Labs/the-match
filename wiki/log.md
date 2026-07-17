@@ -6,6 +6,35 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-17] feat | App Store listing package — 11 screenshots + store copy + ASO research + get-noticed playbook
+
+Item 1 of the iOS handoff, DONE. All in [[synthesis/app-store-listing-2026-07-17]] + `wiki/assets/app-store-2026-07/` (+ a .docx of the package for Pages).
+
+- **Screenshots (11, at the REQUIRED 6.9" size 1320×2868):** created an iPhone 17 Pro Max sim (17 Pro renders 1206×2622 — not an accepted size), copied the logged-in app container over (Matt re-consented), captured Home, Eagle Eye (clean + club-arcs), live match scorecard + board (real test match w/ Daniel + James — cancelled via `/cancel` after, zero rivalry/stat pollution), Profile/handicap, Matt-vs-Daniel rivalry card, Practice Focus Areas, GamePlan, The Caddie (empty + live answer). Scores entered via the app's own `/scores` + `/scores/host` APIs with Matt's session (UI tapping at sim scale was too flaky).
+- **Store copy drafted** (limits verified): name `The Match: Golf Scorecard` (25) — "golf scorecard/score card" is the soft high-volume term while gps/rangefinder head terms are incumbent-locked; subtitle `Match Play, Skins & Leagues` (27) — the winnable social cluster; keyword field 97/100 incl. `score,card,ai,caddie` split-token coverage; promo text + 4000-char description (rivalry-first: "Golf is better with something on the line").
+- **ASO research (agent, ~16 sources):** screenshot captions INDEXED since June 2025; custom product pages rank organically (July 2025); ratings VELOCITY is a ranking input → in-app rating prompt at round end is a real ASO task; league-commissioner outreach is the structural wedge (8–40 sticky installs each); ship now (peak season), Masters week 2027 = growth launch w/ featuring nomination late Feb.
+- Review-notes draft + dedicated reviewer-account seeding plan (Matt's choice) + age rating (4+, Simulated Gambling = None — no "betting" language in visible metadata) + URLs (marketing page must be LIVE pre-submission — `marketing/` was built by the parallel ship-night session; deploy still owed).
+
+## [2026-07-17] feat | Scorecard: fixed row order, rank column removed, all 18 holes visible, TRUE full-bleed on phones (root-caused App.jsx frame cap)
+
+Matt's live design-audit session on the sim. Merged to main (`53cecd0`, pushed as `8e11df9` after rebase over Dale's ship-night work).
+
+- **Root cause of the "grass at the edges" that survived three attempted fixes:** `App.jsx` wraps every tab in a **430pt max-width phone frame** — on the 440pt Pro Max every page had a 5pt gutter per side, and the scorecard's viewport-sized column math overflowed the 430 frame (the clipped OUT column). Found via on-device geometry instrumentation (debug outlines + a getBoundingClientRect alert) after eyeball-diffing failed — the lesson is measure, don't squint. Fix: full viewport on phones (≤520pt), centered frame kept for desktop; `scorecardCols()` keyed to the same rule.
+- **Fixed scorecard order** (Matt: rows jumping mid-round made score entry error-prone): scorecard + totals render join-order `participants`, never re-sorted; the BOARD keeps live standings. Rank column (1/2/3) REMOVED from scorecard + totals — identity is avatar+name (sticky, isMe gold bar on avatar).
+- **Responsive columns:** shared `scorecardCols()` (solo + match) sizes HOLE_COL so 9 holes + OUT fit with ZERO horizontal scroll on any phone.
+- **On-light contrast fixes** (design-critique pass, Matt: "banner unreadable"): ALL PLAYERS FINISHED banner, league pill, format chips + label — pale dark-theme gold (#F5D78A) swapped for `--tm-gold-text` on-light tokens. NOTE: ~20 more pale-gold-on-light instances remain in LiveOuting — systemic sweep owed.
+- Board full-bleed w/ top/bottom wood bands. Gate: eslint 0 · tests 20/20 · build 0 · xcodebuild SUCCEEDED · sim-verified.
+
+## [2026-07-17] feat | Solo end-round ceremony — pinned Save/Keep playing/Discard, summary-phase resume, honest zero-score copy (merged to main)
+
+Matt hit the bug live during screenshot capture: ending a solo round dumped him with Save Round ~2 screens below the fold, no discard anywhere, "Round Complete · 0 −71" for a scoreless round. Full treatment per his directive (research agents + spec + audit): [[synthesis/solo-end-round-ceremony-build-spec-2026-07-16]].
+
+- **Root cause:** `ScorecardSummary` misused the full-viewport `.page-scroll` class as an INNER flex region → footer pushed off-screen. Fix: viewport-height column, scrolling middle, frosted pinned action bar.
+- **Action stack** (mirrors the match end sheet; competitive research: one-tap discard adjacent to save is the market's #1 lost-round grief): Save (gold) / **Keep playing** (the in-flow undo) / **Discard round** (red-outline tertiary behind a portaled confirm). No emojis (Matt rule).
+- **Summary-phase resume (D5):** autosave + restore now accept `'summary'` — kill the app on the summary, come back to the summary. 9 new tests (`solo-round-phase.test.mjs`). Zero-score edge: "Round ended — no scores entered" + "—" hero (no more −71); "(1 hole)" grammar.
+- Verified end-to-end on the Pro Max sim incl. kill+relaunch ×2 and discard-clears-blob-and-session. **Incident found during verification, root-caused, NOT this fix:** react 19.2.5/react-dom 19.2.7 node_modules drift white-screened the native build (React #527) — both pinned `^19.2.7`, rode the merge.
+- Dale's same-day partial-rounds build (D7) had already covered the partial-header honesty — scope narrowed to avoid duplication. **Known seam left open:** dual `tm-request-end-round` listeners fired a match end-confirm for an already-cancelled outing during cleanup (trap #4 in the spec) — needs its own fix.
+
 ## [2026-07-16] strategy | Ship night: everything merged + LIVE · competitive deep research · Watch + Swing Intelligence strategy papers
 
 Continuation of the 07-15 session. **All three branches merged to main and DEPLOYED to prod** (43283cd): voice 0/1/1.5, GamePlan Phase 0, community courses. OPENAI_API_KEY installed in Vercel prod (Round Mode mints verified live); migrations **046 + 047 applied to prod Supabase**. gameplan self-report branch (`feat/gameplan-self-report`, 8181f95) still unmerged pending Dale's driveway test. Update-for-Matt memo written.
