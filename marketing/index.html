@@ -58,9 +58,12 @@
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
   }
   nav.site .brand {
-    font-family: var(--serif); font-weight: 600; font-size: 19px; color: var(--ink);
+    font-family: var(--serif); font-weight: 600; font-size: 19px;
+    /* Polished gold — same gradient as the cover wordmark (Matt 2026-07-17:
+       whole brand gold, not two-tone). */
+    background: linear-gradient(180deg, #CBA95B 0%, #B08D45 55%, #8E7433 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
-  nav.site .brand span { color: var(--gold-deep); }
   nav.site .btn { padding: 9px 22px; font-size: 12px; }
   .rule-gold { width: 56px; height: 1px; background: var(--gold); margin: 22px 0 26px; }
 
@@ -267,7 +270,7 @@
 
 <nav class="site">
   <div class="inner">
-    <a class="brand" href="#top">The <span>Match</span></a>
+    <a class="brand" href="#top">The Match</a>
     <a class="btn" href="https://the-match-roan.vercel.app" target="_blank" rel="noopener">Play the beta</a>
   </div>
 </nav>
@@ -277,7 +280,7 @@
   <div class="cover-frame">
     <div class="cover-arc"></div>
     <div class="cover-top">
-      <span class="micro">Golf with your friends · settled on the card</span>
+      <span class="micro">Where Competition Lives</span>
       <div class="monogram">M</div>
     </div>
 
