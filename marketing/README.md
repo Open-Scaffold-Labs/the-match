@@ -11,15 +11,21 @@ app origin or `thematch.app` here).
   (720px wide, JPEG q82, 26–70 KB each). Regenerate with:
   `sips -Z 720 -s format jpeg -s formatOptions 82 <src>.png --out assets/<name>.jpg`
 
-## Deploy (one-time setup)
+## Deploy — LIVE since 2026-07-17
 
-1. Vercel → Add New Project → import `Open-Scaffold-Labs/the-match` **again**
-   (a second project from the same repo).
-2. Set **Root Directory = `marketing`**, Framework Preset = **Other** (static).
-   No build command, output dir = `.`.
-3. Project → Domains → add `the-match.openscaffoldlabs.com`.
-4. DNS for `openscaffoldlabs.com`: CNAME `the-match` → `cname.vercel-dns.com`.
-5. After it's live: swap social bios / share-card CTAs / GolfNow affiliate
-   materials to this URL (POST-LAUNCH-TODO #23).
+Vercel project **`the-match-marketing`** (Open-Scaffold-Labs team), CLI-linked
+from this folder (`.vercel/`, gitignored). `openscaffoldlabs.com` is registered
+with Vercel on Vercel nameservers, so the `the-match` subdomain's DNS was
+auto-provisioned when the domain was added to the project — no manual CNAME.
 
-Pushes to `main` that touch `marketing/` auto-deploy once the project exists.
+To redeploy after editing this folder:
+
+```bash
+cd marketing && vercel deploy --prod --yes
+```
+
+(This project is CLI-deployed, NOT git-integrated — pushes to `main` do not
+auto-deploy it.)
+
+Still open (POST-LAUNCH-TODO #23): swap social bios / share-card CTAs /
+GolfNow affiliate materials to this URL.
