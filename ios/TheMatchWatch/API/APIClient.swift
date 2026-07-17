@@ -8,11 +8,12 @@
 import Foundation
 
 struct TMUser: Decodable {
-    let id: Int
+    // Production sends id as a STRING ("35") on the login path — verified
+    // live 2026-07-17 (the watch's first real-world bug). Numbers from
+    // Postgres arrive as strings on several paths; accept both everywhere.
+    let id: Flexible<Int>
     let name: String?
     let email: String?
-    // NUMERIC(4,1) arrives from Postgres as a string on some paths and a
-    // number on others (same quirk the web client handles) — accept both.
     let handicap: Flexible<Double>?
 }
 

@@ -18,7 +18,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
     MARKETING_VERSION: "0.1.0"
     # Open Scaffold Labs LLC (dale@openscaffoldlabs.com) — signed in 2026-07-17.
     DEVELOPMENT_TEAM: 8P96A2SK8X
@@ -47,6 +47,9 @@ targets:
         NSMicrophoneUsageDescription: "The Match uses the microphone for voice score entry and talking with the caddie."
         NSLocationWhenInUseUsageDescription: "Your location powers GPS distances, hole detection, and shot tracking."
         NSAppTransportSecurity: { NSAllowsArbitraryLoads: false }
+        # Standard HTTPS only — answers the export-compliance question at build
+        # time so TestFlight never silently parks a build again (learned 7/17).
+        ITSAppUsesNonExemptEncryption: false
 
   # ── watchOS app: native SwiftUI, standalone-capable (talks to /api/v1) ─────
   TheMatchWatch:
@@ -65,3 +68,4 @@ targets:
         WKCompanionAppBundleIdentifier: com.openscaffoldlabs.thematch
         WKRunsIndependentlyOfCompanionApp: true
         NSLocationWhenInUseUsageDescription: "Distances to the green come from your location."
+        ITSAppUsesNonExemptEncryption: false
