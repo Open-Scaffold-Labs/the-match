@@ -12,7 +12,9 @@
     },
     "CapacitorUpdater": {
       "autoUpdate": false,
-      "resetWhenUpdate": true
+      "resetWhenUpdate": true,
+      "updateUrl": "https://the-match-roan.vercel.app/api/v1/ota/updates",
+      "statsUrl": "https://the-match-roan.vercel.app/api/v1/ota/stats"
     },
     "SplashScreen": {
       "launchAutoHide": false,

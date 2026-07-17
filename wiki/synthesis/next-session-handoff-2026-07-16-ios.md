@@ -47,11 +47,15 @@ Root cause of the original failures (audited, evidence in log): the machine's Gi
 rate was throttled — NOT a version conflict, NOT Capgo's encryption. Packages are now cached,
 so future builds don't refetch.
 
-**Still open on OTA:** Capgo backend decision with Matt (Cloud ~$14/mo vs self-host) + account
-+ `CAPGO_*` config before the first real OTA update ships. `autoUpdate` stays false until then
-— the CAPABILITY is in the binary (required for the first submitted build), inert until
-configured. One benign log line to know about: `CapgoUpdater: Semaphore wait timed out after
-0ms` at launch — expected with no update server configured.
+**Backend decision: RESOLVED — Matt greenlit Option A (self-hosted) and it is BUILT** (same
+session, late): endpoint `server/src/routes/ota.js` (fail-safe by design), migration 049
+(NOT applied to prod), `scripts/ota-publish.mjs` + `ota-rollback.mjs`, 14 tests (suite
+163/163), `docs/OTA-RUNBOOK.md` with the go-live checklist. capacitor.config.json points
+updateUrl/statsUrl at prod; **`autoUpdate` stays false until the runbook's sim e2e passes**
+(needs: migration 049 on prod → SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY in .env → deploy →
+curl smoke → e2e → flip autoUpdate in the binary that gets submitted). No Capgo account
+needed — we self-host. Benign log line at launch until then: `CapgoUpdater: Semaphore wait
+timed out after 0ms`.
 
 ## Priority order (Matt-approved)
 

@@ -62,6 +62,7 @@ apiRouter.use('/practice',      require('./routes/practice'))
 apiRouter.use('/caddie',        require('./routes/caddie'))
 apiRouter.use('/gameplan',      require('./routes/gameplan'))
 apiRouter.use('/voice',         require('./routes/voice'))
+apiRouter.use('/ota',           require('./routes/ota'))
 
 // Versioned path first, legacy alias second (order matters for prefix match).
 app.use('/api/v1', apiRouter)

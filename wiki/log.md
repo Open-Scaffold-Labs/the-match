@@ -6,6 +6,17 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-16] feat | Self-hosted OTA backend (Option A) BUILT — endpoint + migration 049 + publish/rollback + 14 tests
+
+Matt greenlit Option A (own the OTA backend on our Supabase/Vercel stack; scoping doc 2026-07-16). Built on `feat/ios-native-capabilities`:
+
+- **Wire contract implemented from Capgo's self-hosted docs** (fetched, not guessed): device POSTs AppInfos on every open; server answers `{version,url,checksum}` or benign `{message}`. Two contract subtleties handled: `version_name:"builtin"` (fresh install) compares against `version_build`, and bundles MUST be zipped by `@capgo/cli` (plugin-specific layout — CLI pinned as root devDep).
+- **Migration 049**: `tm_ota_bundles` (semver version, channel, url, sha256 checksum, `min_native_version` compatibility gate, at-most-one-active partial unique index) + `tm_ota_stats` (prunable telemetry). **NOT applied to prod.**
+- **`server/src/routes/ota.js`** mounted at `/api/ota`: prime directive = fail SAFE — every error path (db down, garbage versions, foreign app_id, malformed body) returns 200 `{message}` so devices keep running what they have; never serves downgrades; never serves a bundle whose `min_native_version` exceeds the binary (the crash-loop guard). Stats endpoint always 200s, failures swallowed.
+- **`scripts/ota-publish.mjs`**: build → Capgo-CLI zip → local sha256 re-verify → upload to public `ota-bundles` bucket (auto-created) → **verify public URL readable BEFORE** the transactional deactivate-old/activate-new flip. `--dry-run` supported. Needs `SUPABASE_URL`+`SUPABASE_SERVICE_ROLE_KEY` in .env (Matt's Mac only). **`scripts/ota-rollback.mjs`**: `--to <ver>` / `--off` / `--list`; rollback stops the spread, healing devices on a bad bundle = publish a fixed HIGHER version (downgrade-never is by design + tested).
+- **14 route/unit tests** (`server/test/ota.test.js`) locking the contract incl. all fail-safe paths; **full suite 163/163**. capacitor.config.json now points `updateUrl`/`statsUrl` at prod (`/api/v1/ota/*`); **`autoUpdate` stays FALSE** until the runbook's sim e2e passes. Native rebuild BUILD SUCCEEDED with the config.
+- **`docs/OTA-RUNBOOK.md`**: publish/rollback playbooks, 10-row failure-mode→guard table, one-time go-live checklist (apply 049 → env keys → curl smoke → sim e2e → flip autoUpdate IN THE SUBMITTED BINARY).
+
 ## [2026-07-16] feat | OTA (Capgo) LANDED — Xcode resolved the throttled packages; verified in the running app
 
 Late-session resolution of the OTA blocker: Xcode's GUI resolver completed the throttled Alamofire fetch (~40min); all Capgo deps cached (Alamofire 5.12.0 / BigInt / ZIPFoundation / Version). Re-applied the two wiring pieces (config `CapacitorUpdater {autoUpdate:false, resetWhenUpdate:true}` + `notifyAppReady()` in native.js). Verified: lint 0, web build 0, `xcodebuild` BUILD SUCCEEDED (35s, warm cache), sim run shows CapgoUpdater init + BundleCleanup in device logs and the app renders live profile data. `@capgo/capacitor-updater@8.51.1` now in the binary — OTA capability ships in the first submission as required; inert until a Capgo backend (Cloud vs self-host, Matt's call) is configured. Handoff updated to reflect DONE. (Benign launch log: "Semaphore wait timed out after 0ms" — no update server configured yet.)
