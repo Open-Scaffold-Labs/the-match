@@ -110,18 +110,12 @@
   }
   .flyover {
     border-radius: 34px; overflow: hidden; position: relative;
-    aspect-ratio: 1320 / 2680;
+    aspect-ratio: 1320 / 2868;
   }
-  .flyover img {
+  .flyover video {
     position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-    transform-origin: 50% 32%; /* the green/flag sits ~a third down the frame */
-    animation: flyover 11s ease-in-out infinite alternate;
+    background: #0A1F10;
   }
-  @keyframes flyover {
-    0%   { transform: scale(1.03) translateY(-2.5%); } /* wide, near the tee */
-    100% { transform: scale(1.24) translateY(3.5%);  } /* pushed in on the green */
-  }
-  @media (prefers-reduced-motion: reduce) { .flyover img { animation: none; } }
   .kicker-row { display: flex; align-items: center; gap: 16px; margin-bottom: 30px; }
   .kicker-row .dash { width: 44px; height: 1px; background: var(--gold); }
   .wordmark-hero {
@@ -308,7 +302,13 @@
 
       <div class="cover-phone">
         <div class="flyover">
-          <img src="assets/02-eagle-eye-rangefinder.jpg" alt="Eagle Eye flyover — satellite view of the hole with live distances" loading="eager">
+          <!-- Real flyover: simulator screen recording (2026-07-17), re-encoded
+               584w H.264 crf26, muted+inline so mobile browsers autoplay.
+               Poster shows until playback (and stays for reduced-motion users —
+               the script below never starts the video for them). -->
+          <video src="assets/flyover.mp4" poster="assets/02-eagle-eye-rangefinder.jpg"
+                 muted loop playsinline preload="metadata"
+                 aria-label="Eagle Eye flyover — cinematic satellite preview of the hole"></video>
         </div>
       </div>
     </div>
@@ -514,6 +514,14 @@
   }
   addEventListener('load', sweep);
   document.addEventListener('scrollend', sweep);
+
+  // Flyover video: start only for users who haven't asked for reduced
+  // motion (they keep the static poster). Muted+playsinline satisfies
+  // mobile autoplay policies; .catch guards low-power-mode rejections.
+  const fly = document.querySelector('.flyover video');
+  if (fly && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    fly.play().catch(() => {});
+  }
 </script>
 
 </body>
