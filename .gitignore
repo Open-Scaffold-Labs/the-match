@@ -34,3 +34,4 @@ docs/*.pages
 # transient migration credentials (2026-07 DB move) — never commit
 .env.migration
 .vercel
+.wt-*/
