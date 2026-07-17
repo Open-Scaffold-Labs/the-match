@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The Match — Golf, Settled.</title>
+<meta name="description" content="The Match is the golf companion built for playing against your friends: satellite GPS rangefinder, live multiplayer scorecards, a real WHS handicap, Strokes Gained analytics, and an AI caddie that knows your game.">
+<meta property="og:title" content="The Match — Golf, Settled.">
+<meta property="og:description" content="Satellite rangefinder. Live match scoring. A real handicap. An AI caddie that knows your bag. Golf with your friends, settled on the card.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://the-match.openscaffoldlabs.com">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛳️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ivory: #F2EEE3;          /* interior page ground */
+    --champagne-1: #F6E7B8;    /* radiant cover golds */
+    --champagne-2: #EDD9A0;
+    --champagne-3: #F4ECD8;
+    --ink: #14291C;            /* deep forest ink */
+    --ink-2: #2C3E30;
+    --ink-3: rgba(20,41,28,0.62);
+    --ink-4: rgba(20,41,28,0.42);
+    --gold: #A88A44;           /* olive-gold for micro labels + rules */
+    --gold-deep: #8E7433;
+    --hairline: rgba(20,41,28,0.18);
+    --hairline-gold: rgba(168,138,68,0.45);
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  /* overflow-x: CLIP, not hidden — hidden makes body a scroll container that
+     swallows wheel events (page wouldn't scroll; found via live CSS bisect
+     2026-07-17). clip clips without creating a scroller. */
+  body { background: var(--ivory); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+  a { color: inherit; text-decoration: none; }
+  img { display: block; max-width: 100%; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 28px; }
+
+  .micro {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--gold);
+  }
+  .rule-gold { width: 56px; height: 1px; background: var(--gold); margin: 22px 0 26px; }
+
+  /* ── Cover / hero ─────────────────────────────── */
+  .cover {
+    position: relative; min-height: 100svh; overflow: hidden;
+    background:
+      radial-gradient(900px 640px at 50% 34%, var(--champagne-1) 0%, var(--champagne-2) 46%, transparent 78%),
+      linear-gradient(180deg, var(--champagne-3) 0%, #F0E7CE 55%, var(--ivory) 100%);
+    display: flex; align-items: stretch; justify-content: center;
+    padding: 26px;
+  }
+  .cover-frame {
+    position: relative; flex: 1; max-width: 1160px;
+    border: 1px solid var(--hairline-gold);
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: clamp(28px, 4.5vw, 56px);
+  }
+  .cover-arc {
+    position: absolute; left: -12%; right: -12%; bottom: -4%; height: 340px;
+    border-top: 1px solid rgba(168,138,68,0.30); border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    pointer-events: none;
+  }
+  .cover-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .monogram {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1.5px solid var(--gold);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--sans); font-weight: 800; font-size: 17px; color: var(--gold-deep);
+  }
+  .cover-mid { padding: 6vh 0 4vh; }
+  .kicker-row { display: flex; align-items: center; gap: 16px; margin-bottom: 30px; }
+  .kicker-row .dash { width: 44px; height: 1px; background: var(--gold); }
+  .wordmark-hero {
+    font-family: var(--sans); font-weight: 800; letter-spacing: -0.02em;
+    font-size: clamp(64px, 11vw, 132px); line-height: 0.94;
+    display: flex; align-items: baseline; gap: 0.22em; flex-wrap: wrap;
+  }
+  .wordmark-hero .the { font-size: 0.42em; font-weight: 700; }
+  .wordmark-hero span {
+    background: linear-gradient(180deg, #CBA95B 0%, #B08D45 55%, #8E7433 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .cover-sub {
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: clamp(19px, 2.6vw, 27px); line-height: 1.5; color: var(--ink);
+    max-width: 640px; margin-top: 34px;
+  }
+  .cover-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 38px; }
+  .btn {
+    display: inline-block; padding: 14px 32px; border-radius: 999px;
+    font-weight: 700; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--ink); color: var(--champagne-3);
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(20,41,28,0.25); }
+  .btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+
+  .stat-row {
+    border-top: 1px solid var(--hairline-gold);
+    display: flex; flex-wrap: wrap;
+    padding-top: 26px; margin-top: 5vh;
+  }
+  .stat {
+    flex: 1; min-width: 130px; padding: 4px 22px 4px 0; margin-right: 22px;
+    border-right: 1px solid var(--hairline-gold);
+  }
+  .stat:last-child { border-right: none; margin-right: 0; }
+  .stat b { display: block; font-size: clamp(26px, 3.6vw, 40px); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+  .stat i { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-4); margin-top: 6px; line-height: 1.5; }
+  .cover-foot { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .cover-foot .micro { color: var(--gold-deep); }
+
+  /* ── Page sections ───────────────────────────── */
+  .page { padding: 100px 0; }
+  .page-head { max-width: 620px; }
+  h2.display {
+    font-family: var(--serif); font-weight: 600;
+    font-size: clamp(38px, 5.4vw, 58px); line-height: 1.04; letter-spacing: -0.01em;
+    margin-top: 16px;
+  }
+  .lede { font-size: 17px; line-height: 1.7; color: var(--ink-2); max-width: 560px; }
+
+  .feature-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0 64px; margin-top: 26px;
+  }
+  .fitem { border-top: 1px solid var(--ink); padding: 22px 0 40px; position: relative; }
+  .fitem .num { position: absolute; right: 0; top: 24px; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; color: var(--gold); }
+  .fitem h3 { font-family: var(--serif); font-weight: 600; font-size: 25px; letter-spacing: 0; margin-bottom: 12px; padding-right: 72px; }
+  .fitem p { font-size: 15px; line-height: 1.7; color: var(--ink-2); margin-bottom: 18px; }
+  .pill-badge {
+    display: inline-block; padding: 7px 16px; border-radius: 999px;
+    border: 1.2px solid var(--ink); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink);
+  }
+
+  /* Editorial feature rows w/ phones */
+  .split { display: flex; align-items: center; gap: 72px; }
+  .split.flip { flex-direction: row-reverse; }
+  .split-copy { flex: 1; min-width: 0; }
+  .split h2 { margin-bottom: 18px; }
+  .split p { font-size: 16px; line-height: 1.7; color: var(--ink-2); max-width: 470px; margin-bottom: 12px; }
+  .marks { list-style: none; margin-top: 22px; }
+  .marks li { position: relative; padding-left: 26px; margin-bottom: 12px; font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+  .marks li::before { content: '—'; position: absolute; left: 0; color: var(--gold); }
+  .marks b { color: var(--ink); }
+
+  .phone {
+    border-radius: 40px; padding: 9px; background: #1D251E;
+    box-shadow: 0 26px 60px rgba(20,41,28,0.28), 0 2px 0 rgba(255,255,255,0.5) inset;
+    width: 268px; flex-shrink: 0;
+  }
+  .phone img { border-radius: 32px; width: 100%; }
+  .phones-duo { display: flex; gap: 22px; flex-shrink: 0; }
+  .phones-duo .phone { width: 232px; }
+  .phones-duo .phone:last-child { margin-top: 40px; }
+
+  .sep { height: 1px; background: var(--hairline); max-width: 1060px; margin: 0 auto; }
+  .sep-gold { background: linear-gradient(90deg, transparent, var(--hairline-gold), transparent); }
+
+  /* Stat band */
+  .stat-band { background: #ECE5D2; border-top: 1px solid var(--hairline-gold); border-bottom: 1px solid var(--hairline-gold); }
+  .stat-band .stat-row { border-top: none; padding: 44px 0; margin-top: 0; }
+
+  /* Gallery */
+  .gallery-head { text-align: center; max-width: 640px; margin: 0 auto 46px; }
+  .gallery-head h2 { margin-top: 14px; }
+  .gallery { display: flex; gap: 22px; overflow-x: auto; padding: 8px 28px 30px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; max-width: 1060px; margin: 0 auto; }
+  .gallery::-webkit-scrollbar { height: 5px; }
+  .gallery::-webkit-scrollbar-thumb { background: var(--hairline-gold); border-radius: 3px; }
+  .gallery .shot { scroll-snap-align: center; flex-shrink: 0; width: 208px; }
+  .gallery .shot img { border-radius: 24px; border: 1px solid var(--hairline); box-shadow: 0 14px 36px rgba(20,41,28,0.18); }
+  .gallery .shot figcaption { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-4); text-align: center; margin-top: 12px; }
+
+  /* Closer */
+  .closer {
+    position: relative;
+    background:
+      radial-gradient(760px 480px at 50% 62%, var(--champagne-1) 0%, var(--champagne-2) 52%, transparent 82%),
+      linear-gradient(0deg, var(--champagne-3) 0%, var(--ivory) 100%);
+    padding: 30px; margin-top: 90px;
+  }
+  .closer-frame {
+    border: 1px solid var(--hairline-gold); text-align: center;
+    padding: clamp(60px, 9vw, 110px) 28px;
+  }
+  .closer h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(36px, 5.6vw, 58px); line-height: 1.08; margin: 18px 0 14px; }
+  .closer .lede { margin: 0 auto 36px; }
+  footer {
+    max-width: 1060px; margin: 0 auto; padding: 30px 28px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  footer .micro { color: var(--ink-4); letter-spacing: 0.18em; }
+
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 700ms ease, transform 700ms ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; } }
+
+  @media (max-width: 880px) {
+    .feature-grid { grid-template-columns: 1fr; }
+    .split, .split.flip { flex-direction: column; gap: 44px; text-align: center; }
+    .split p, .marks { margin-left: auto; margin-right: auto; }
+    .marks { text-align: left; max-width: 420px; }
+    .rule-gold { margin-left: auto; margin-right: auto; }
+    .page-head { margin: 0 auto; text-align: center; }
+    .page { padding: 72px 0; }
+    .phones-duo { justify-content: center; }
+    .phones-duo .phone { width: 42vw; max-width: 212px; }
+    .stat { min-width: 40%; margin-bottom: 18px; border-right: none; }
+    .cover-mid { padding: 4vh 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Cover ─────────────────────────────────────── -->
+<div class="cover">
+  <div class="cover-frame">
+    <div class="cover-arc"></div>
+    <div class="cover-top">
+      <span class="micro">Golf with your friends · settled on the card</span>
+      <div class="monogram">M</div>
+    </div>
+
+    <div class="cover-mid">
+      <div class="kicker-row"><span class="dash"></span><span class="micro">The golf companion · 2026</span></div>
+      <div class="wordmark-hero"><span class="the">The</span><span>Match</span></div>
+      <p class="cover-sub">
+        A satellite rangefinder, live multiplayer scorecards, a real handicap,
+        and a caddie that knows your bag — one app for the golf you actually
+        play: against your friends.
+      </p>
+      <div class="cover-ctas">
+        <a class="btn" href="https://the-match-roan.vercel.app" target="_blank" rel="noopener">Play the beta</a>
+        <a class="btn btn-outline" href="#inside">See what's inside</a>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><b>8</b><i>Core features live</i></div>
+        <div class="stat"><b>18</b><i>Holes scored live, every phone</i></div>
+        <div class="stat"><b>4</b><i>Strokes Gained categories</i></div>
+        <div class="stat"><b>1</b><i>App for the whole group</i></div>
+      </div>
+    </div>
+
+    <div class="cover-foot">
+      <span class="micro">Free to play · works on any phone</span>
+      <span class="micro">Built by Open Scaffold Labs</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Section one · Eagle Eye ───────────────────── -->
+<section class="page" id="inside">
+  <div class="wrap split reveal">
+    <div class="split-copy">
+      <span class="micro">Section One · Eagle Eye</span>
+      <h2 class="display">See the hole like a caddie does.</h2>
+      <div class="rule-gold"></div>
+      <p>
+        Satellite imagery with live GPS distances to front, center, and back —
+        plus a <b>plays-like</b> number that folds in elevation, wind, and
+        temperature, so 319 reads as the 311 it actually plays.
+      </p>
+      <ul class="marks">
+        <li><b>Tap anywhere</b> for exact carry and leave-yourself distances.</li>
+        <li><b>Club arcs from your bag</b> — overlays built from your real distances, not tour averages.</li>
+        <li><b>Log shots as you walk</b> — every swing becomes Strokes Gained data.</li>
+      </ul>
+    </div>
+    <div class="phones-duo">
+      <div class="phone"><img src="../assets/02-eagle-eye-rangefinder.jpg" alt="Eagle Eye satellite rangefinder with live distances" width="232" height="504" loading="lazy"></div>
+      <div class="phone"><img src="../assets/02b-eagle-eye-club-arcs.jpg" alt="Eagle Eye club arcs from your own distances" width="232" height="504" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<div class="sep sep-gold"></div>
+
+<!-- ── Section two · Live matches ────────────────── -->
+<section class="page">
+  <div class="wrap split flip reveal">
+    <div class="split-copy">
+      <span class="micro">Section Two · Live Matches</span>
+      <h2 class="display">One code. Everybody's card. Live.</h2>
+      <div class="rule-gold"></div>
+      <p>
+        Start a match, share a four-letter code, and every phone in the group
+        becomes the same scorecard — leaders, birdies, and blowups updating
+        hole by hole.
+      </p>
+      <ul class="marks">
+        <li><b>Stroke, match, and team formats</b> with net scoring off real handicaps.</li>
+        <li><b>Guests welcome</b> — friends without the app get a row on the card too.</li>
+        <li><b>Never lose your round</b> — scores survive dead zones and dead batteries.</li>
+        <li><b>Partial rounds count</b> — quit after 12? Stats only count the holes you played.</li>
+      </ul>
+    </div>
+    <div class="phones-duo">
+      <div class="phone"><img src="../assets/03-live-match-scorecard.jpg" alt="Live match scorecard, three players hole by hole" width="232" height="504" loading="lazy"></div>
+      <div class="phone"><img src="../assets/04-match-board.jpg" alt="Live match leaderboard" width="232" height="504" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stat band ─────────────────────────────────── -->
+<div class="stat-band reveal">
+  <div class="wrap stat-row">
+    <div class="stat"><b>0.6m</b><i>Satellite imagery resolution</i></div>
+    <div class="stat"><b>WHS</b><i>Method Handicap Index — best 8 of 20</i></div>
+    <div class="stat"><b>Live</b><i>Plays-like: elevation · wind · temp</i></div>
+    <div class="stat"><b>Free</b><i>To play, for the whole group</i></div>
+  </div>
+</div>
+
+<!-- ── Section three · The Caddie ────────────────── -->
+<section class="page">
+  <div class="wrap split reveal">
+    <div class="split-copy">
+      <span class="micro">Section Three · The Caddie</span>
+      <h2 class="display">It knows your bag, your numbers, your leaks.</h2>
+      <div class="rule-gold"></div>
+      <p>
+        Ask about a shot, a hole, or your game. Answers come from <b>your</b>
+        measured club distances and <b>your</b> Strokes Gained profile — not
+        generic tips.
+      </p>
+      <ul class="marks">
+        <li>"165 out, slight uphill, breeze into me — what club?"</li>
+        <li>"Where am I losing strokes right now?"</li>
+        <li>"Build me a 20-minute warm-up for tomorrow's match."</li>
+      </ul>
+    </div>
+    <div class="phones-duo">
+      <div class="phone"><img src="../assets/09-ai-caddie.jpg" alt="The Caddie chat with suggested questions" width="232" height="504" loading="lazy"></div>
+      <div class="phone"><img src="../assets/09b-ai-caddie-answer.jpg" alt="The Caddie answering a club question" width="232" height="504" loading="lazy"></div>
+    </div>
+  </div>
+</section>
+
+<div class="sep sep-gold"></div>
+
+<!-- ── Section four · numbered feature index ─────── -->
+<section class="page">
+  <div class="wrap">
+    <div class="page-head reveal">
+      <span class="micro">Section Four · Your Game, Measured</span>
+      <h2 class="display">Eight features. One flywheel.</h2>
+      <div class="rule-gold"></div>
+      <p class="lede">
+        Every round — solo or match — feeds the same engine: a real handicap,
+        Strokes Gained across your whole game, and a practice plan aimed where
+        you're bleeding strokes.
+      </p>
+    </div>
+    <div class="feature-grid reveal">
+      <div class="fitem"><span class="num">01 / 08</span><h3>Eagle Eye GPS</h3><p>Satellite rangefinder with plays-like distances and club arcs from your own bag.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">02 / 08</span><h3>Live Match Scoring</h3><p>Real-time multiplayer scorecards — stroke, match, and team formats, guests included.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">03 / 08</span><h3>Handicap Index</h3><p>WHS-method: best 8 of your last 20, net double bogey, gender-correct tee ratings.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">04 / 08</span><h3>Strokes Gained</h3><p>Off the tee, approach, around the green, and putting — measured, not guessed.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">05 / 08</span><h3>The Caddie</h3><p>AI that answers from your real club distances and your measured SG profile.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">06 / 08</span><h3>GamePlan</h3><p>Tee-to-green strategy priced for your dispersion — not a pro's.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">07 / 08</span><h3>Rivalries</h3><p>Lifetime head-to-head records with every friend you play. Every round is a chapter.</p><span class="pill-badge">Live in the beta</span></div>
+      <div class="fitem"><span class="num">08 / 08</span><h3>Practice Loop</h3><p>Focus areas generated from your data, with drills that target the leak.</p><span class="pill-badge">Live in the beta</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Gallery ───────────────────────────────────── -->
+<section class="page" style="padding-top: 40px;">
+  <div class="gallery-head reveal">
+    <span class="micro">The Whole Bag</span>
+    <h2 class="display">Everything, in one walk-through.</h2>
+  </div>
+  <div class="gallery reveal">
+    <figure class="shot"><img src="../assets/01-home-dashboard.jpg" alt="Home dashboard" width="208" height="452" loading="lazy"><figcaption>Home</figcaption></figure>
+    <figure class="shot"><img src="../assets/02-eagle-eye-rangefinder.jpg" alt="Eagle Eye" width="208" height="452" loading="lazy"><figcaption>Eagle Eye</figcaption></figure>
+    <figure class="shot"><img src="../assets/03-live-match-scorecard.jpg" alt="Live scorecard" width="208" height="452" loading="lazy"><figcaption>Scorecard</figcaption></figure>
+    <figure class="shot"><img src="../assets/04-match-board.jpg" alt="Match board" width="208" height="452" loading="lazy"><figcaption>Board</figcaption></figure>
+    <figure class="shot"><img src="../assets/05-profile-handicap.jpg" alt="Handicap profile" width="208" height="452" loading="lazy"><figcaption>Handicap</figcaption></figure>
+    <figure class="shot"><img src="../assets/07-practice-focus-areas.jpg" alt="Practice" width="208" height="452" loading="lazy"><figcaption>Practice</figcaption></figure>
+    <figure class="shot"><img src="../assets/08-gameplan-strategy.jpg" alt="GamePlan" width="208" height="452" loading="lazy"><figcaption>GamePlan</figcaption></figure>
+    <figure class="shot"><img src="../assets/09-ai-caddie.jpg" alt="The Caddie" width="208" height="452" loading="lazy"><figcaption>The Caddie</figcaption></figure>
+  </div>
+</section>
+
+<!-- ── Closer ────────────────────────────────────── -->
+<div class="closer">
+  <div class="closer-frame reveal">
+    <span class="micro">Prepared for your Saturday group</span>
+    <h2>Your next round is The&nbsp;Match.</h2>
+    <p class="lede" style="max-width: 440px;">Grab your group. Share a code. Settle it on the card.</p>
+    <a class="btn" href="https://the-match-roan.vercel.app" target="_blank" rel="noopener">Play the beta</a>
+  </div>
+</div>
+
+<footer>
+  <span class="micro">The Match · 2026</span>
+  <span class="micro">© Open Scaffold Labs · the-match.openscaffoldlabs.com</span>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>
