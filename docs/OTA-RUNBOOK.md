@@ -86,15 +86,20 @@ vNext (heal everyone).
    in the binary submitted to the App Store** (OTA can't enable itself).
 6. Add a wiki log entry per publish (version, what shipped, min-native).
 
-## Current state (2026-07-16, end of session — LIVE)
+## Current state (2026-07-17 — E2E COMPLETE, pipeline proven)
 
-- **MERGED to main (9b0ca20) and DEPLOYED**; migration 049 **APPLIED to prod** (tables +
-  one-active index verified). Live smoke-tested against prod: update-check answers
-  `{"message":"no active bundle"}` for our app_id, rejects foreign app_ids, and the stats
-  endpoint ingested + persisted a row (verified in tm_ota_stats, then cleaned).
-- Server suite on merged main: 193/193. Endpoint: POST /api/v1/ota/updates + /stats.
-- **Remaining before first real OTA publish (go-live steps 2 + 4 + 5 above):**
-  (a) add SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to the repo .env on Matt's Mac
-  (dashboard → Project Settings → API — a human-held secret, deliberately not fetched by
-  Claude); (b) run the first `ota-publish` + the sim e2e; (c) flip `autoUpdate: true` in
-  capacitor.config.json so it ships in the submitted binary.
+- **Full end-to-end VERIFIED on the simulator (2026-07-17):** `ota-publish 1.0.1` (build →
+  Capgo-CLI zip → sha256 → upload → URL verify → transactional activate) → live endpoint served
+  `{version,url,checksum}` to a version_build "1.0" device → plugin downloaded from Supabase
+  Storage → installed snapshot on device **byte-identical** to the published dist. Rollback
+  `--off` verified after. Test bundle v1.0.1 left INACTIVE (endpoint serves 'no active bundle');
+  test stats rows cleaned.
+- **E2E shake-out fixes (all on main):** two-segment semver normalization (iOS "1.0" — without
+  it fresh installs NEVER got updates), Capgo CLI invocation (appId positional; file named
+  exactly --name, path in the JSON `filename` field), stats content-type quirk (native sender
+  posts without JSON content-type → router-level permissive parser; verified live). 16 ota
+  tests.
+- `.env` on Matt's Mac now has SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (added 2026-07-17,
+  key via clipboard — never in chat/repo).
+- **The ONLY remaining step:** flip `"autoUpdate": true` in capacitor.config.json in the binary
+  that gets submitted to the App Store (go-live step 5). Everything else is done and proven.
