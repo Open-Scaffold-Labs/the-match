@@ -5,9 +5,9 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1783792623.429812,
-    "source_id": "521c14da-aa47-47f8-a24e-aa7a462cf35c",
-    "verified_at": 1783792652.9949021
+    "mtime": 1784252303.8195689,
+    "source_id": "552fa0f3-9ab4-4d7b-bce6-11eb780f5f61",
+    "verified_at": 1784252338.3942552
   },
   "wiki/index.md": {
     "mtime": 1783671975.7960863,
@@ -229,5 +229,20 @@
     "mtime": 1783671933.3881242,
     "source_id": "3347a61f-fd1a-4730-aab6-6705eb8f4449",
     "verified_at": 1783672141.2468338
+  },
+  "wiki/synthesis/app-store-readiness-gameplan-2026-07-16.md": {
+    "mtime": 1784238298.8472354,
+    "source_id": "6352d5a5-4604-41f9-ae0f-d166faec50dc",
+    "verified_at": 1784252236.003917
+  },
+  "wiki/synthesis/voice-interface-build-spec-2026-07-15.md": {
+    "mtime": 1784237820.7373507,
+    "source_id": "dc17ff94-4502-4396-bf90-447de461ffdd",
+    "verified_at": 1784252246.018332
+  },
+  "wiki/synthesis/gameday-strategy-build-spec-2026-07-15.md": {
+    "mtime": 1784237820.736886,
+    "source_id": "c934912e-4864-4ec1-a6ec-ca64489a8db3",
+    "verified_at": 1784252256.157839
   }
 }
