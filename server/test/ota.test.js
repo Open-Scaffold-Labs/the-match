@@ -153,6 +153,21 @@ describe('POST /api/ota/stats', () => {
     expect(statInserts[0][3]).toBe('set')
   })
 
+  it('parses stats even without a JSON content-type (native sender quirk)', async () => {
+    const srv = app.listen(0)
+    const port = srv.address().port
+    const r = await fetch(`http://127.0.0.1:${port}/api/ota/stats`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ app_id: DEVICE.app_id, device_id: 'd2', platform: 'ios', action: 'download_complete', version_name: '1.0.1' }),
+    })
+    const json = await r.json()
+    srv.close()
+    expect(json.ok).toBe(true)
+    const last = statInserts[statInserts.length - 1]
+    expect(last[3]).toBe('download_complete')
+    expect(last[1]).toBe('d2')
+  })
+
   it('stats db failure is swallowed — still 200 (stats can never hurt devices)', async () => {
     statShouldThrow = true
     const { status, json } = await post('/api/ota/stats', { action: 'set' })

@@ -26,8 +26,15 @@
 //   5. the device is NOT an emulator in prod mode mismatch — we DO serve
 //      emulators (needed for sim e2e testing); stats record is_emulator.
 
-const router = require('express').Router()
+const express = require('express')
+const router = express.Router()
 const db     = require('../db')
+
+// The plugin's native stats sender doesn't always set Content-Type:
+// application/json (observed in the 2026-07-16 sim e2e: update-check bodies
+// parsed fine, stats bodies arrived unparsed -> empty rows). Parse ANY
+// content-type as JSON on this router; harmless when upstream already parsed.
+router.use(express.json({ type: () => true, limit: '1mb' }))
 
 const OUR_APP_ID = 'com.openscaffoldlabs.thematch'
 const DEFAULT_CHANNEL = 'production'

@@ -78,12 +78,12 @@ execSync(`VITE_API_ORIGIN=${API_ORIGIN} npm run build --workspace client`, { cwd
 // ---------- 2. zip via Capgo CLI (required format) ----------
 console.log('\n[2/6] Zipping with @capgo/cli (plugin-compatible format)…')
 const zipOut = execSync(
-  `npx @capgo/cli bundle zip --path client/dist --bundle ${VERSION} --json --name ota-${VERSION}`,
+  `npx @capgo/cli bundle zip ${APP_ID} --path client/dist --bundle ${VERSION} --json --name ota-${VERSION}`,
   { cwd: ROOT, encoding: 'utf8' }
 )
 let zipInfo
 try { zipInfo = JSON.parse(zipOut.slice(zipOut.indexOf('{'))) } catch { die(`could not parse Capgo CLI output:\n${zipOut}`) }
-const zipPath = resolve(ROOT, zipInfo.path || `ota-${VERSION}.zip`)
+const zipPath = resolve(ROOT, zipInfo.filename || zipInfo.path || `ota-${VERSION}.zip`)
 if (!existsSync(zipPath)) die(`zip not found at ${zipPath}`)
 const zipBytes = readFileSync(zipPath)
 // Trust but verify: recompute sha256 locally; must match the CLI's value.
