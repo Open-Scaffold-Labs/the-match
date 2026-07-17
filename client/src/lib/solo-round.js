@@ -24,9 +24,10 @@ export const SOLO_ROUND_STORAGE_KEY = uid => `tm-active-round-v1-${uid || 'anon'
 
 // Read the saved round, validating shape. Returns null when nothing is
 // saved, when the JSON is corrupted, when localStorage is disabled, or
-// when the saved phase isn't 'scoring' (setup/summary phases are
-// short-lived and don't need resume semantics — a saved 'setup' phase
-// is effectively a no-op for restore).
+// when the saved phase isn't 'scoring' or 'summary'. ('summary' added
+// 2026-07-16 — solo-end-round-ceremony spec D5: a user who reached the
+// end-of-round summary and navigated away must resume ON the summary,
+// not silently back mid-round. A saved 'setup' phase is still a no-op.)
 export function readSavedSoloRound(uid) {
   try {
     const raw = localStorage.getItem(SOLO_ROUND_STORAGE_KEY(uid))
@@ -34,7 +35,7 @@ export function readSavedSoloRound(uid) {
     const saved = JSON.parse(raw)
     if (
       saved &&
-      saved.phase === 'scoring' &&
+      (saved.phase === 'scoring' || saved.phase === 'summary') &&
       saved.config &&
       Array.isArray(saved.config.pars) &&
       saved.config.pars.length > 0

@@ -8,7 +8,7 @@
     "build": "vite build",
     "postbuild": "node scripts/stamp-sw.js",
     "lint": "eslint src",
-    "test": "node --test src/lib/geo.test.mjs src/lib/side-bets.test.mjs src/lib/__tests__/clubModel.test.mjs src/lib/handicap-milestone.test.mjs src/lib/mapOverlays.test.mjs src/lib/__tests__/shot-capture.test.mjs",
+    "test": "node --test src/lib/geo.test.mjs src/lib/side-bets.test.mjs src/lib/__tests__/clubModel.test.mjs src/lib/handicap-milestone.test.mjs src/lib/mapOverlays.test.mjs src/lib/__tests__/shot-capture.test.mjs src/lib/__tests__/solo-round-phase.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,8 +24,8 @@
     "maplibre-gl": "^5.24.0",
     "onnxruntime-web": "1.21.0",
     "qrcode.react": "^4.2.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.2",
