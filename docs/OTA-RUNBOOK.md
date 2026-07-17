@@ -101,5 +101,7 @@ vNext (heal everyone).
   tests.
 - `.env` on Matt's Mac now has SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (added 2026-07-17,
   key via clipboard — never in chat/repo).
-- **The ONLY remaining step:** flip `"autoUpdate": true` in capacitor.config.json in the binary
-  that gets submitted to the App Store (go-live step 5). Everything else is done and proven.
+- **`autoUpdate: true` FLIPPED (2026-07-17)** — go-live step 5 done; every native build from
+  here on ships with OTA enabled. Discipline: anything ACTIVE in tm_ota_bundles is live to
+  every device with the app (TestFlight included) — publish intentionally; `ota-rollback --off`
+  is the panic switch. OTA go-live checklist: COMPLETE.
