@@ -431,7 +431,12 @@ export default function App() {
         // (The old Leagues-only desktop breakout to 1180px went with the Leagues
         // tab in the 2026-07-09 nav restructure — Leagues now renders inside the
         // Match tab's 430px frame.)
-        width: '100%', maxWidth: tab === TABS.EYE ? '100%' : 430,
+        // 2026-07-17 (Matt: "the scorecard should extend the whole screen") —
+        // the 430px phone-frame cap left a grass gutter on devices WIDER than
+        // 430pt (Pro Max = 440pt) on EVERY tab. Phones now get true full
+        // bleed; the centered frame survives only for desktop-class widths.
+        // Keep in lockstep with scorecardCols() in components/scorecard.
+        width: '100%', maxWidth: tab === TABS.EYE || (typeof window !== 'undefined' && window.innerWidth <= 520) ? '100%' : 430,
         height: '100dvh',
         // Translucent Augusta cream — same tint that was on the
         // Home wrapper, lifted up one level so it covers the entire

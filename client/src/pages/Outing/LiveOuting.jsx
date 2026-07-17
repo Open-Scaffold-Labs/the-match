@@ -30,7 +30,7 @@ import {
 // S4 (2026-07-06): shared scorecard surface moved to components/scorecard/ —
 // LiveOuting is now a CONSUMER of these, same as ActiveRound.
 import {
-  LeadersPlaque, AugustaPlaqueFooter, SavedChip, ScorecardTable, TotalsRow,
+  LeadersPlaque, AugustaPlaqueFooter, SavedChip, ScorecardTable, TotalsRow, scorecardCols,
   MatchScoreboard, computePositions, findTapHint, cellBg, cellColor, cellBorder,
 } from '../../components/scorecard/index.jsx'
 
@@ -1982,9 +1982,13 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   const groupName = (gid) => stateGroups.find(g => g.id === gid)?.name || `Group ${gid}`
   // What the Scorecard view actually renders. For small outings:
   // everyone. For large outings: just the active foursome.
+  // 2026-07-17 (Matt) — the SCORECARD holds a FIXED player order (join
+  // order), never re-sorting by score: rows jumping around between holes
+  // made score entry error-prone. The BOARD view still uses `sorted` for
+  // live standings — that's where rank belongs.
   const scorecardParticipants = isLargeOuting && effectiveGroupId != null
-    ? sorted.filter(p => p.group_id === effectiveGroupId)
-    : sorted
+    ? participants.filter(p => p.group_id === effectiveGroupId)
+    : participants
 
   // Match Play: only active for 2-player matches with 'match' format
   const isMatchPlay   = (outing.scoring_formats || []).includes('match') && participants.length === 2
@@ -2056,12 +2060,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
   // THREE cells: RANK_COL (position badge), AVATAR_COL (square photo box),
   // NAME_COL (surname caps + THRU subtitle). PLAYER_COL is the sum and is
   // still used for header spans over the whole left side.
-  const RANK_COL   = 30        // position badge — "1", "T2", etc
-  const AVATAR_COL = 60        // square; matches rowH visually w/o forcing it
-  const NAME_COL   = 92        // surname caps + THRU subtitle
-  const PLAYER_COL = RANK_COL + AVATAR_COL + NAME_COL  // 182 — header span
-  const HOLE_COL   = 32
-  const SUB_COL    = 40
+  // 2026-07-17 (Matt) — responsive shared column math (scorecardCols):
+  // rank column removed, avatar+name slimmed, HOLE_COL sized so all 9
+  // holes + OUT fit the viewport with ZERO horizontal scrolling.
+  const { PLAYER_COL, AVATAR_COL, NAME_COL, HOLE_COL, SUB_COL } = scorecardCols()
 
   // Compute leaderboard positions ("1", "T2", "3"…) based on score-to-par.
   // Players with no scores yet get "—". Ties get a "T" prefix.
@@ -2162,14 +2164,15 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 marginTop: 4, padding: '3px 9px', borderRadius: 999,
-                background: 'rgba(245,215,138,0.18)',
-                border: '1px solid rgba(245,215,138,0.45)',
+                background: 'rgba(201,160,64,0.16)',
+                border: '1px solid rgba(160,120,40,0.45)',
                 fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
-                color: '#F5D78A', textTransform: 'uppercase',
+                color: 'var(--tm-gold-text)', textTransform: 'uppercase',
               }}>
                 {/* Round 28 audit — bespoke trophy SVG instead of 🏆.
-                    Augusta language consistency on the in-app pill. */}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    Augusta language consistency on the in-app pill.
+                    2026-07-17 design audit: on-light gold tokens. */}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--tm-gold-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/>
                   <path d="M8 6H6a2 2 0 0 0 2 2"/>
                   <path d="M16 6h2a2 2 0 0 1-2 2"/>
@@ -2207,15 +2210,18 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             borderRadius: 12,
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F5D78A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            {/* 2026-07-17 (design audit, Matt: banner unreadable) — this banner
+                sits on the LIGHT header wash; the pale-gold + white text were
+                dark-theme colors. On-light tokens: dark gold title, ink body. */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--tm-gold-text)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <path d="M8 21h8M12 17v4M17 3H7l1 7a5 5 0 0010 0l1-7z"/>
               <path d="M7 3H4a2 2 0 000 4h3M17 3h3a2 2 0 010 4h-3"/>
             </svg>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#F5D78A', letterSpacing: '0.04em' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--tm-gold-text)', letterSpacing: '0.04em' }}>
                 ALL PLAYERS FINISHED
               </div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: 'var(--tm-text-2)', marginTop: 2 }}>
                 Wrap up the match to lock in results and update rivalries.
               </div>
             </div>
@@ -2228,7 +2234,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             }}>{ending ? 'Ending…' : 'End match'}</button>
             <button onClick={() => setAutoEndDismissed(true)} aria-label="Dismiss" style={{
               background: 'transparent', border: 'none',
-              color: 'rgba(255,255,255,0.55)', fontSize: 16, cursor: 'pointer',
+              color: 'var(--tm-text-3)', fontSize: 16, cursor: 'pointer',
               padding: '0 4px',
             }}>✕</button>
           </div>
@@ -2563,9 +2569,11 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
             <span key={o.id} style={{
               padding: '3px 9px',
               fontSize: 9, fontWeight: 800, letterSpacing: '0.10em',
-              color: '#F5D78A',
-              background: 'rgba(232,192,90,0.14)',
-              border: '1px solid rgba(232,192,90,0.40)',
+              // 2026-07-17 (design audit) — chips sit on the light wash;
+              // pale gold was invisible. Dark gold on gold tint reads.
+              color: 'var(--tm-gold-text)',
+              background: 'rgba(201,160,64,0.16)',
+              border: '1px solid rgba(160,120,40,0.45)',
               borderRadius: 999,
             }}>{o.label}</span>
           ))}
@@ -2743,7 +2751,9 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
           <div style={{
             margin: '12px 16px 4px',
             fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
-            color: 'rgba(245,215,138,0.65)',
+            // 2026-07-17 (design audit) — was pale gold at 65% on the light
+            // page wash: effectively invisible. Dark gold reads on light.
+            color: 'var(--tm-gold-text)',
             textAlign: 'center',
           }}>{label}</div>
         )
@@ -2784,9 +2794,14 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
       {effectiveViewMode === 'scorecard' && (
       <div style={{
         flex: 1, display: 'flex', flexDirection: 'column',
-        margin: '12px 12px',
-        padding: 4,
-        borderRadius: 7,
+        // 2026-07-17 (Matt) — the board runs edge-to-edge: side margins gave
+        // up a full hole column of width on phones. Wood frame survives as a
+        // full top/bottom band; radius dropped so the full-bleed edges don't
+        // clip oddly. (Root cause of the persistent side gutter was App.jsx's
+        // 430px phone-frame cap — fixed there the same night.)
+        margin: '12px 0',
+        padding: '4px 0',
+        borderRadius: 0,
         backgroundColor: AUGUSTA_WOOD,
         backgroundImage: [
           // Vertical wood-grain lines — narrow dark lines + slight light highlights
@@ -2798,7 +2813,7 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
       }}>
         <div style={{
           flex: 1, display: 'flex', flexDirection: 'column',
-          borderRadius: 4,
+          borderRadius: 0,
           overflow: 'hidden',
           background: AUGUSTA_PANEL,
           // Gold pinstripe + dark inner ring INSIDE the wood for that
@@ -2866,12 +2881,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 matchPlayData={isMatchPlay ? matchPlayData : null}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(scorecardParticipants[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
-                RANK_COL={RANK_COL}
                 AVATAR_COL={AVATAR_COL}
                 NAME_COL={NAME_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
-                positions={positions}
                 activeHole={activeHole}
                 tapHint={tapHint}
                 rowH={ROW_H}
@@ -2919,12 +2932,10 @@ export default function LiveOuting({ code, user, onBack, onMatchEnd, onGoToEagle
                 matchPlayData={matchPlayData}
                 isP1={(p) => isMatchPlay && String(p.user_id) === String(sorted[0]?.user_id)}
                 PLAYER_COL={PLAYER_COL}
-                RANK_COL={RANK_COL}
                 AVATAR_COL={AVATAR_COL}
                 NAME_COL={NAME_COL}
                 HOLE_COL={HOLE_COL}
                 SUB_COL={SUB_COL}
-                positions={positions}
                 activeHole={activeHole}
                 tapHint={tapHint}
               />

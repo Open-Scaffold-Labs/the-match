@@ -22,7 +22,7 @@ import { watchPosition as geoWatchPosition, clearWatch as geoClearWatch, geoAvai
 import QuickScoreSheet from '../components/scorecard/QuickScoreSheet.jsx'
 // S4 (2026-07-06): shared scorecard surface now lives in components/scorecard/ —
 // solo imports from there, not from the multi page.
-import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint } from '../components/scorecard/index.jsx'
+import { SavedChip, ScorecardTable, TotalsRow, MatchScoreboard, LeadersPlaque, AugustaPlaqueFooter, computePositions, findTapHint, scorecardCols } from '../components/scorecard/index.jsx'
 import HighlightShareModal, { shouldCelebrate } from './Outing/HighlightShare.jsx'
 import VoiceLogger from '../components/VoiceLogger.jsx'
 import RoundMode from '../components/RoundMode.jsx'
@@ -800,10 +800,10 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
            The old SoloScorecardTable/SoloScoreCell fork is deleted. */
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {(() => {
-            // Column + row constants mirror LiveOuting's exactly.
-            const RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92
-            const PLAYER_COL = RANK_COL + AVATAR_COL + NAME_COL
-            const HOLE_COL = 32, SUB_COL = 40, ROW_H = 80
+            // Column + row constants mirror LiveOuting's exactly — shared
+            // responsive math (2026-07-17, Matt: all 9 holes fit, no scroll).
+            const { PLAYER_COL, AVATAR_COL, NAME_COL, HOLE_COL, SUB_COL } = scorecardCols()
+            const ROW_H = 80
             const fillerRows = 0 // multi's filler rows are seats for players yet to join — solo has none (Matt, 2026-07-06)
             const frontPar = frontHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
             const backPar = backHoles.reduce((s, h) => s + (config.pars[h] || 4), 0)
@@ -819,7 +819,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
               onHoleHeaderTap: null,
               matchPlayData: null,
               isP1: () => false,
-              PLAYER_COL, RANK_COL, AVATAR_COL, NAME_COL, HOLE_COL, SUB_COL,
+              PLAYER_COL, AVATAR_COL, NAME_COL, HOLE_COL, SUB_COL,
               positions,
               activeHole: hole,
               tapHint,
@@ -854,9 +854,8 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
                   isMatchPlay={false}
                   matchPlayData={null}
                   isP1={() => false}
-                  PLAYER_COL={PLAYER_COL} RANK_COL={RANK_COL} AVATAR_COL={AVATAR_COL} NAME_COL={NAME_COL}
+                  PLAYER_COL={PLAYER_COL} AVATAR_COL={AVATAR_COL} NAME_COL={NAME_COL}
                   HOLE_COL={HOLE_COL} SUB_COL={SUB_COL}
-                  positions={positions}
                   activeHole={hole}
                   tapHint={tapHint}
                 />

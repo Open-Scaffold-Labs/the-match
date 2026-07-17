@@ -786,7 +786,27 @@ export function MatchScoreboard({
 }
 
 // ─── Scorecard table (front or back 9) ───────────────────────────────────────
-export function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam = () => null, onCellTap, onHoleHeaderTap, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
+// 2026-07-17 (Matt) — shared responsive column math so BOTH scorecard owners
+// (solo ActiveRound + match LiveOuting) fit all 9 holes + OUT on screen with
+// ZERO horizontal scrolling. The rank column is gone from the scorecard (the
+// BOARD view owns standings); identity = avatar + name only. HOLE_COL divides
+// the remaining width; floor 24pt keeps tiles tappable-ish on the narrowest
+// phones (row height 56–80 carries the touch target).
+export function scorecardCols() {
+  // Frame width must match App.jsx's phone-frame rule: full viewport on
+  // phones (≤520pt), 430pt centered frame on desktop-class widths.
+  const vw = typeof window !== 'undefined'
+    ? (window.innerWidth <= 520 ? window.innerWidth : 430)
+    : 390
+  const AVATAR_COL = 48
+  const NAME_COL   = 84
+  const SUB_COL    = 36
+  const PLAYER_COL = AVATAR_COL + NAME_COL
+  const HOLE_COL   = Math.max(24, Math.floor((vw - PLAYER_COL - SUB_COL) / 9))
+  return { PLAYER_COL, AVATAR_COL, NAME_COL, HOLE_COL, SUB_COL }
+}
+
+export function ScorecardTable({ label, holes, holePars, subtotalPar, participants, getScores, isHost, userId, isMarkerFor, playerTeam = () => null, onCellTap, onHoleHeaderTap, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 48, NAME_COL = 84, HOLE_COL, SUB_COL, rowH = 56, fillerRows = 0, positions = [], activeHole = null, tapHint = null, skinsOutcomes = null }) {
   // Tournament-board look: deep forest green panels with white block letters,
   // gold PAR numerals, dark green OUT/IN strip with white. Subtle gradient
   // gives the panels light-from-above weight. (2026-04-30 PM revision)
@@ -815,6 +835,12 @@ export function ScorecardTable({ label, holes, holePars, subtotalPar, participan
     fontSize: 12, fontWeight: 900, color: AUGUSTA_TEXT,
     fontFamily: '"Arial Black", Arial, sans-serif',
     textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0,
+    // 2026-07-17 (design audit, Matt) — the identity columns freeze while
+    // the hole grid scrolls. Without sticky, any horizontal scroll pushed
+    // rank/avatar/name off-screen ("ANIEL / ATT / AMES"). Header label
+    // cells pin with the same offset so rows stay aligned.
+    position: 'sticky', left: 0, zIndex: 2, background: panelGradient,
+    display: 'flex', alignItems: 'center', height: 34, boxSizing: 'border-box',
   }
   const headerHoleCell = {
     minWidth: HOLE_COL, width: HOLE_COL, height: 34,
@@ -942,31 +968,21 @@ export function ScorecardTable({ label, holes, holePars, subtotalPar, participan
             display: 'flex', alignItems: 'center',
             borderBottom: '1px solid ' + AUGUSTA_GREEN_DEEP,
             background: isMe ? AUGUSTA_PANEL_HOVER : panelGradient,
-            borderLeft: isMe ? `4px solid ${AUGUSTA_GOLD}` : 'none',
             minHeight: rowH,
             width: 'max-content', minWidth: '100%',
           }}>
-            {/* Rank badge — shows position (1, T2, …) — leader gets gold bg */}
-            <div style={{
-              minWidth: RANK_COL - (isMe ? 4 : 0), width: RANK_COL - (isMe ? 4 : 0),
-              height: rowH, flexShrink: 0,
-              borderRight: '1px solid rgba(0,0,0,0.30)',
-              background: isLeader
-                ? `linear-gradient(180deg, ${AUGUSTA_GOLD} 0%, #C8A33C 100%)`
-                : AUGUSTA_GREEN_DEEP,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: position.length > 2 ? 13 : 16, fontWeight: 900,
-              color: isLeader ? AUGUSTA_TEXT : AUGUSTA_TEXT,
-              fontFamily: '"Arial Black", Arial, sans-serif',
-              letterSpacing: '0.02em',
-              boxShadow: isLeader ? 'inset 0 0 0 1px rgba(0,0,0,0.10), inset 0 -2px 0 rgba(0,0,0,0.08)' : 'none',
-            }}>
-              {position}
-            </div>
-            {/* Avatar cell — photo fills edge-to-edge, square box */}
+            {/* 2026-07-17 (Matt) — rank column REMOVED from the scorecard:
+                rows hold a FIXED order for score entry; the BOARD view owns
+                live standings. isMe gold bar rides the avatar cell now.
+                Avatar + name stay sticky for the narrow-phone case where a
+                sliver of scroll still exists. */}
+            {/* Avatar cell — photo fills edge-to-edge, square box (sticky) */}
             <div style={{
               minWidth: AVATAR_COL, width: AVATAR_COL,
               height: rowH, flexShrink: 0,
+              position: 'sticky', left: 0, zIndex: 2,
+              borderLeft: isMe ? `4px solid ${AUGUSTA_GOLD}` : 'none',
+              boxSizing: 'border-box',
               borderRight: '1px solid rgba(0,0,0,0.30)',
               background: AUGUSTA_GREEN_DEEP,
               overflow: 'hidden',
@@ -995,11 +1011,15 @@ export function ScorecardTable({ label, holes, holePars, subtotalPar, participan
                 }}>{initials(p.name)}</div>
               )}
             </div>
-            {/* Name cell — surname caps on green panel; leader gets gold */}
+            {/* Name cell — surname caps on green panel; leader gets gold.
+                Sticky needs its own opaque bg or scores slide through it. */}
             <div style={{
               minWidth: NAME_COL, width: NAME_COL, height: rowH,
               padding: '0 10px', flexShrink: 0, overflow: 'hidden',
               display: 'flex', alignItems: 'center',
+              position: 'sticky', left: AVATAR_COL, zIndex: 2,
+              background: isMe ? AUGUSTA_PANEL_HOVER : panelGradient,
+              borderRight: '1px solid rgba(0,0,0,0.18)',
             }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
@@ -1110,14 +1130,8 @@ export function ScorecardTable({ label, holes, holePars, subtotalPar, participan
           minHeight: rowH,
           width: 'max-content', minWidth: '100%',
         }}>
-          {/* Empty rank cell — keeps column geometry matching live rows */}
-          <div style={{
-            minWidth: RANK_COL, width: RANK_COL, height: rowH,
-            background: AUGUSTA_GREEN_DEEP,
-            borderRight: '1px solid rgba(0,0,0,0.30)',
-            flexShrink: 0,
-          }} />
-          {/* Empty avatar cell — deep green, hint of an empty slot */}
+          {/* Empty avatar cell — deep green, hint of an empty slot
+              (rank column removed 2026-07-17 — geometry matches live rows) */}
           <div style={{
             minWidth: AVATAR_COL, width: AVATAR_COL, height: rowH,
             background: AUGUSTA_GREEN_DEEP,
@@ -1155,7 +1169,7 @@ export function ScorecardTable({ label, holes, holePars, subtotalPar, participan
 }
 
 // ─── Totals row ───────────────────────────────────────────────────────────────
-export function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr = () => '—', diffColor = null, playerTeam = () => null, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, RANK_COL = 30, AVATAR_COL = 60, NAME_COL = 92, HOLE_COL, SUB_COL, positions = [] }) {
+export function TotalsRow({ participants, holePars, holeCount, coursePar, getScores, diffStr = () => '—', diffColor = null, playerTeam = () => null, netMode, netTotal, isMatchPlay, matchPlayData, isP1, PLAYER_COL, AVATAR_COL = 48, NAME_COL = 84, HOLE_COL, SUB_COL }) {
   // Augusta-style: dark green strip with white block-letter "TOTALS" + numbers
   return (
     <div style={{ background: AUGUSTA_GREEN, borderTop: '2px solid ' + AUGUSTA_WOOD }}>
@@ -1171,6 +1185,7 @@ export function TotalsRow({ participants, holePars, holeCount, coursePar, getSco
           fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT,
           fontFamily: '"Arial Black", Arial, sans-serif',
           letterSpacing: '0.06em', flexShrink: 0,
+          position: 'sticky', left: 0, zIndex: 2, background: AUGUSTA_GREEN_DEEP,
         }}>TOTALS</div>
         <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
           <div style={{ minWidth: SUB_COL + 8, width: SUB_COL + 8, textAlign: 'center', fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT, letterSpacing: '0.05em', flexShrink: 0 }}>
@@ -1182,7 +1197,7 @@ export function TotalsRow({ participants, holePars, holeCount, coursePar, getSco
           <div style={{ minWidth: 52, textAlign: 'center', fontSize: 11, fontWeight: 900, color: AUGUSTA_TEXT, letterSpacing: '0.05em', flexShrink: 0 }}>THRU</div>
         </div>
       </div>
-      {participants.map((p, idx) => {
+      {participants.map((p) => {
         const sc          = getScores(p)
         const team        = perPlayer(playerTeam, p.user_id)
         const gross       = sc.reduce((s, v) => s + (v || 0), 0)
@@ -1191,8 +1206,6 @@ export function TotalsRow({ participants, holePars, holeCount, coursePar, getSco
         const dStr        = String(perPlayer(diffStr, p) ?? '—')
         const parts       = (p.name || '').trim().split(/\s+/)
         const display     = (parts.length > 1 ? parts[parts.length - 1] : parts[0] || '').toUpperCase().slice(0, 12)
-        const position    = positions[idx] || '—'
-        const isLeader    = holesPlayed > 0 && (position === '1' || position === 'T1')
 
         // Match play status for this player
         let mpStatus = null
@@ -1226,27 +1239,14 @@ export function TotalsRow({ participants, holePars, holeCount, coursePar, getSco
             background: AUGUSTA_GREEN,
             width: 'max-content', minWidth: '100%',
           }}>
-            {/* Rank cell — leader gets gold tile */}
-            <div style={{
-              minWidth: RANK_COL, width: RANK_COL, height: totalsRowH,
-              flexShrink: 0,
-              borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
-              background: isLeader
-                ? `linear-gradient(180deg, ${AUGUSTA_GOLD} 0%, #C8A33C 100%)`
-                : AUGUSTA_GREEN_DEEP,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: position.length > 2 ? 13 : 16, fontWeight: 900,
-              color: isLeader ? AUGUSTA_GREEN_DEEP : '#fff',
-              fontFamily: '"Arial Black", Arial, sans-serif',
-              textShadow: isLeader ? '0 1px 0 rgba(255,255,255,0.30)' : '0 1px 1px rgba(0,0,0,0.45)',
-              boxShadow: isLeader ? 'inset 0 0 0 1px rgba(255,255,255,0.30)' : 'none',
-            }}>
-              {position}
-            </div>
-            {/* Avatar cell — photo fills edge-to-edge on the dark green strip */}
+            {/* Rank column removed 2026-07-17 (Matt) — fixed row order on the
+                scorecard/totals; the BOARD owns standings. Leader still gets
+                the gold name accent below. */}
+            {/* Avatar cell — photo fills edge-to-edge on the dark green strip (sticky) */}
             <div style={{
               minWidth: AVATAR_COL, width: AVATAR_COL, height: totalsRowH,
               flexShrink: 0,
+              position: 'sticky', left: 0, zIndex: 2,
               borderRight: '1px solid ' + AUGUSTA_GREEN_DEEP,
               background: AUGUSTA_GREEN_DEEP,
               overflow: 'hidden',
@@ -1273,11 +1273,13 @@ export function TotalsRow({ participants, holePars, holeCount, coursePar, getSco
                 }}>{initials(p.name)}</div>
               )}
             </div>
-            {/* Name cell */}
+            {/* Name cell (sticky w/ opaque bg — 2026-07-17 audit) */}
             <div style={{
               minWidth: NAME_COL, width: NAME_COL, height: totalsRowH,
               padding: '0 10px', flexShrink: 0,
               display: 'flex', alignItems: 'center',
+              position: 'sticky', left: AVATAR_COL, zIndex: 2,
+              background: AUGUSTA_GREEN,
             }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{
