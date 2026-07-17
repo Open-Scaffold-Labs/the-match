@@ -21,7 +21,7 @@ const OnboardingWizard = lazy(() => import('./components/OnboardingWizard.jsx'))
 const PublicLeaderboard = lazy(() => import('./pages/PublicLeaderboard.jsx'))
 const PrintResults = lazy(() => import('./pages/PrintResults.jsx'))
 import { getToken } from './lib/api.js'
-import { ensurePushSubscription, pushSupported } from './lib/push.js'
+import { ensurePushSubscription, pushSupported, registerNativePush, isNativeShell } from './lib/push.js'
 import { readSession } from './lib/active-round-session.js'
 import { hideSplash } from './lib/native.js'
 
@@ -279,6 +279,9 @@ export default function App() {
   // the UI.
   useEffect(() => {
     if (!user || !user.onboarding_completed_at) return
+    // Native shell (App Store build): notifications come via APNs, not web push.
+    // Register with APNs quietly; the OS shows its own permission prompt.
+    if (isNativeShell()) { registerNativePush().catch(() => {}); return }
     let asked = null
     try { asked = localStorage.getItem('tm-perms-asked') } catch { /* ignore */ }
     const supported = pushSupported()

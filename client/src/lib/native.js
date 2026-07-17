@@ -56,4 +56,14 @@ export async function initNativeShell() {
   } catch (e) {
     console.warn('[native] back-button listener skipped:', e?.message)
   }
+
+  // OTA (Capgo): mark the shipped bundle as good so the updater never
+  // false-rolls-back to a previous bundle. Required by the plugin contract;
+  // harmless while autoUpdate is off (no pending bundle to confirm).
+  try {
+    const { CapacitorUpdater } = await import('@capgo/capacitor-updater')
+    await CapacitorUpdater.notifyAppReady()
+  } catch (e) {
+    console.warn('[native] updater notifyAppReady skipped:', e?.message)
+  }
 }

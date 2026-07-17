@@ -18,6 +18,7 @@ import {
 import { CoursePicker } from '../components/CoursePicker.jsx'
 import { saveEyeHole } from '../lib/eye-hole.js'
 import { readSession, writeSession, clearSession } from '../lib/active-round-session.js'
+import { watchPosition as geoWatchPosition, clearWatch as geoClearWatch, geoAvailable } from '../lib/geolocation.js'
 import QuickScoreSheet from '../components/scorecard/QuickScoreSheet.jsx'
 // S4 (2026-07-06): shared scorecard surface now lives in components/scorecard/ —
 // solo imports from there, not from the multi page.
@@ -1294,13 +1295,13 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
 
   // GPS watch
   useEffect(() => {
-    if (!navigator.geolocation) return
-    watchRef.current = navigator.geolocation.watchPosition(
+    if (!geoAvailable()) return
+    watchRef.current = geoWatchPosition(
       pos => setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
       () => {},
       { enableHighAccuracy: true, maximumAge: 3000 }
     )
-    return () => navigator.geolocation.clearWatch(watchRef.current)
+    return () => geoClearWatch(watchRef.current)
   }, [])
 
   function handleStart({ courseName, pars, courseRating = null, slopeRating = null, holeHandicaps = null, courseId = null, courseTee = null }) {

@@ -82,4 +82,51 @@ router.delete('/subscribe', async (req, res) => {
   }
 })
 
+// ── Native push (APNs) ──────────────────────────────────────────────────────
+// The App Store (Capacitor) build registers with APNs and POSTs its device
+// token here. Body: { token, platform? }. Upsert on token (UNIQUE) so a device
+// that re-registers keeps one row, and one that signs into a new account moves
+// to that user. Stored in tm_native_push_tokens (migration 048), separate from
+// the web tm_push_subscriptions channel.
+router.post('/register-native', async (req, res) => {
+  try {
+    const { token, platform } = req.body || {}
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'device token required' })
+    }
+    const plat = platform === 'android' ? 'android' : 'ios'
+    const ua = String(req.headers['user-agent'] || '').slice(0, 500)
+    await db.query(
+      `INSERT INTO tm_native_push_tokens (user_id, token, platform, user_agent)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (token) DO UPDATE
+         SET user_id    = EXCLUDED.user_id,
+             platform   = EXCLUDED.platform,
+             user_agent = EXCLUDED.user_agent,
+             updated_at = now()`,
+      [req.user.id, token, plat, ua]
+    )
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[notifications/register-native]', err.message)
+    res.status(500).json({ error: 'Failed to register device' })
+  }
+})
+
+// Drop a native device token (sign-out / disable). Body: { token }.
+router.delete('/register-native', async (req, res) => {
+  try {
+    const { token } = req.body || {}
+    if (!token) return res.status(400).json({ error: 'token required' })
+    await db.query(
+      'DELETE FROM tm_native_push_tokens WHERE user_id = $1 AND token = $2',
+      [req.user.id, token]
+    )
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[notifications/register-native delete]', err.message)
+    res.status(500).json({ error: 'Failed to remove device' })
+  }
+})
+
 module.exports = router
