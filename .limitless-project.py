@@ -96,6 +96,13 @@ NOTEBOOKLM = {
         "wiki/synthesis/f5-s4-",
         "wiki/synthesis/f5-s5-",
         "wiki/synthesis/f5-s6-",
+        # Pure-history pages excluded at the cap wall (2026-07-17 — notebook
+        # hit 50/50 hard; refresh reported upload_failed:29). These are
+        # superseded session records fully covered by wiki/log.md, which IS
+        # a source. A REAL consolidation pass (rollup for shipped pre-07
+        # specs) is owed — next-session item in the handoff.
+        "wiki/synthesis/session-report-2026-06-06",
+        "wiki/sources/claude-code-karpathy-obsidian-video-",
     ],
 }
 
