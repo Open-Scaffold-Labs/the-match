@@ -553,7 +553,10 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
 
       {friends.map(f => {
         const act = activity.find(a => String(a.user_id) === String(f.friend_id))
-        const diff = act ? act.total - (act.course_par || 72) : null
+        // Partial-rounds spec §4 D3 — server ships diff (to-par vs holes
+        // PLAYED) + is_partial/holes_played; legacy fallback for cached data.
+        const srvDiff = act ? Number(act.diff) : NaN
+        const diff = Number.isFinite(srvDiff) ? srvDiff : (act ? act.total - (act.course_par || 72) : null)
         const diffStr = diff == null ? null : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : String(diff)
         const diffColor = diff == null ? null : diff < 0 ? 'var(--tm-green)' : diff > 0 ? '#DC2626' : 'var(--tm-gold-text)'
         const hcp = f.friend_handicap != null ? (f.friend_handicap > 0 ? `+${f.friend_handicap}` : String(f.friend_handicap)) : null
@@ -586,7 +589,9 @@ function FriendsPanel({ friends, incoming, outgoing, activity, onRespond, onAddF
             {act && diffStr && (
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: diffColor }}>{diffStr}</div>
-                <div style={{ color: 'rgba(13,31,18,0.35)', fontSize: 10 }}>last round</div>
+                <div style={{ color: 'rgba(13,31,18,0.35)', fontSize: 10 }}>
+                  {act.is_partial && act.holes_played ? `thru ${act.holes_played}` : 'last round'}
+                </div>
               </div>
             )}
           </div>
@@ -2794,17 +2799,21 @@ export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalri
           const bestDisplay = Number.isFinite(bestNum) ? bestNum            : '—'
           return (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              {/* Partial-rounds spec §4 D4 — Avg is the 18-hole-equivalent
+                  over rounds with 9+ holes played, so the label says what the
+                  number means. Best is real full-round totals only; a 9-hole-
+                  course best is labeled so it can't read as an 18-hole record. */}
               <StatTile
                 theme="dark"
                 label="Avg Score"
                 value={avgDisplay}
-                sub={`Par ${rounds[0]?.course_par ?? 72}`}
+                sub="Per 18 holes"
               />
               <StatTile
                 theme="dark"
                 label="Best Round"
                 value={bestDisplay}
-                sub="All time"
+                sub={stats.bestScoreHoles === 9 ? 'All time · 9 holes' : 'All time'}
                 accent="#4ADE80"
               />
             </div>
@@ -3138,7 +3147,12 @@ export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalri
               const sc  = Number(r.score)
               const par = Number(r.course_par)
               const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
-              const diff = hasDiff ? sc - par : null
+              // Partial-rounds spec §4 D3/D8 — prefer the server-computed
+              // to-par (vs par of holes PLAYED); legacy fallback = raw
+              // score − course_par (identical for full rounds).
+              const isPartial = r.is_partial === true
+              const srvDiff = Number(r.to_par_through)
+              const diff = Number.isFinite(srvDiff) ? srvDiff : (hasDiff ? sc - par : null)
               // Diff color tokens for the dark surface — gold under-par,
               // green for E, red for over-par. Mirrors FriendProfile.
               const diffColor = diff == null ? '#fff'
@@ -3171,7 +3185,9 @@ export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalri
                     }}>{r.course_name ?? 'Round'}</div>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
                       {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                      {r.holes ? ` · ${r.holes} holes` : ''}
+                      {isPartial && r.holes_played
+                        ? ` · ${r.holes_played} of ${r.holes ?? 18} holes`
+                        : (r.holes ? ` · ${r.holes} holes` : '')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -3182,7 +3198,9 @@ export function ProfileView({ user, season, avg3, streak, stats, rounds, rivalri
                         </div>
                       )}
                       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', marginTop: 3 }}>
-                        {Number.isFinite(sc) ? `${sc} strokes` : (r.score ?? '—')}
+                        {Number.isFinite(sc)
+                          ? (isPartial && r.holes_played ? `${sc} thru ${r.holes_played}` : `${sc} strokes`)
+                          : (r.score ?? '—')}
                       </div>
                     </div>
                     {r.id != null && (

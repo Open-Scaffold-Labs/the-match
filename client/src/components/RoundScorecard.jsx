@@ -148,8 +148,16 @@ function PlayerScorecardBlock({
     return Array.isArray(scores) ? scores : (() => { try { return JSON.parse(scores) } catch { return [] } })()
   })()
   const totalNum = Number(total ?? playerScores.reduce((s, x) => s + (Number(x) || 0), 0))
-  const diff = Number.isFinite(totalNum) && totalNum > 0 ? totalNum - coursePar : null
-  const diffStr  = diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
+  // Partial-rounds spec §4 D3 — diff is vs the par of holes PLAYED, so a
+  // 47-thru-10 reads "+7 thru 10", never "-25". Full rounds: parPlayed sums
+  // to the full course par, identical to the old totalNum - coursePar.
+  const playedIdx = playerScores.map((x, i) => (Number(x) > 0 ? i : -1)).filter(i => i >= 0)
+  const isPartialCard = playedIdx.length > 0 && playedIdx.length < playerScores.length
+  const parPlayed = playedIdx.reduce((s, i) => s + (Number(holePars?.[i]) || 4), 0)
+  const parBase = isPartialCard ? parPlayed : coursePar
+  const diff = Number.isFinite(totalNum) && totalNum > 0 ? totalNum - parBase : null
+  const diffStr  = diff == null ? '—'
+    : (diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`) + (isPartialCard ? ` thru ${playedIdx.length}` : '')
   const diffColor = diff == null ? 'rgba(255,255,255,0.40)' : diff < 0 ? '#F5E070' : diff === 0 ? '#fff' : '#F87171'
   const initials = (name || '·').split(' ').map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
   const canTap = typeof onTap === 'function'

@@ -7,7 +7,15 @@ tags: [rounds, stats, partial-rounds, averages, scoring, build-spec]
 
 # Partial Rounds — Holes-Played-Aware Stats · Build Spec (2026-07-16)
 
-**Status:** SPECCED — next build. Not started.
+**Status:** BUILT 2026-07-16 (same session as the spec) — all slices S0–S5 shipped to main.
+Gate at ship: 179/179 server vitest (incl. new round-math 21, readers 3, facts 6) + 12/12
+milestone node tests + client build + lint green + prod parity PROVEN (all 49 prod rounds are
+full 18s → equiv18 ≡ total → zero users' numbers moved; SQL-verified). handicap.js: zero
+changed lines (git-diff-verified). **Honest residuals:** (1) outing `/end` partial recording is
+code-reviewed + suite-green but has NO e2e over that block — verify on the beta with a real
+≥9-hole partial match; (2) client rendering verified by build/lint only, runtime check = Matt's
+device after deploy (project norm); (3) PATCH /:id/shots (post-hoc editor) still cleans shots
+without scores — legacy behavior, only reachable for saved rounds, noted §4 D5 scope.
 **Origin:** Matt, 2026-07-16, immediately after the scoreless "-71" bug fix (`35bf692`):
 *"if a person only keeps score for some holes and not all, is the app capable of only
 counting the holes with scores… so it averages it out for the holes played and not

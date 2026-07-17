@@ -1020,14 +1020,19 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
 
 
 // ─── Scorecard Summary ────────────────────────────────────────────────────────
-function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
+function ScorecardSummary({ pars, scores, courseName, onSave, saving, onEditHole }) {
   const totalPar   = pars.reduce((s, p) => s + p, 0)
   const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
   // 2026-07-16 — a summary with zero scored holes must not be savable.
   // Eagle Eye's "End round" back-prompt (2026-07-10) can land here before
   // any score is entered; saving produced total-0 rounds rendered as "-71".
   const scoredHoles = scores.filter(s => Number(s) > 0).length
-  const diff       = totalScore - totalPar
+  // Partial-rounds spec §4 D7 — a partial summary must be impossible to
+  // mistake for a full one: banner + flagged holes + "Save partial round".
+  // To-par is computed vs the par of holes PLAYED, not the full course.
+  const isPartial  = scoredHoles > 0 && scoredHoles < pars.length
+  const parPlayed  = pars.reduce((s, p, i) => s + (Number(scores[i]) > 0 ? p : 0), 0)
+  const diff       = totalScore - (isPartial ? parPlayed : totalPar)
   const diffLabel  = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`
   const diffColor  = diff < 0 ? 'var(--tm-birdie)' : diff === 0 ? 'var(--tm-par)' : 'var(--tm-bogey)'
   const front9Par  = pars.slice(0,9).reduce((s,p)=>s+p,0)
@@ -1040,12 +1045,28 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
       {/* Top padding clears the iOS notch — same pattern as the rest of
           the solo views. (2026-05-07 PM.) */}
       <div style={{ padding: 'calc(var(--safe-top) + 24px) 20px 0', flexShrink: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 4 }}>Round Complete</div>
+        <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 4 }}>
+          {isPartial ? `Partial round · ${scoredHoles} of ${pars.length} holes` : 'Round Complete'}
+        </div>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 2 }}>{courseName}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <span style={{ fontSize: 56, fontWeight: 900, color: diffColor, lineHeight: 1 }}>{totalScore}</span>
           <span style={{ fontSize: 28, color: diffColor, fontWeight: 700 }}>{diffLabel}</span>
+          {isPartial && (
+            <span style={{ fontSize: 15, color: 'var(--tm-text-3)', fontWeight: 700 }}>thru {scoredHoles}</span>
+          )}
         </div>
+        {isPartial && (
+          <div style={{
+            marginTop: 10, padding: '10px 12px', borderRadius: 12,
+            background: 'rgba(201,160,64,0.10)', border: '1px solid rgba(201,160,64,0.35)',
+            fontSize: 12, color: 'var(--tm-text-2)', lineHeight: 1.45,
+          }}>
+            {pars.length - scoredHoles} hole{pars.length - scoredHoles === 1 ? '' : 's'} without a score —
+            tap any hole below to add one. Partial rounds count toward your averages
+            (9+ holes) but never set a Best Round.
+          </div>
+        )}
       </div>
 
       <div className="page-scroll" style={{ padding: '16px 20px', gap: 12 }}>
@@ -1071,12 +1092,24 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
             {pars.map((par, i) => {
               const s = scores[i] || 0
               const color = scoreColor(s, par)
+              // Partial-rounds spec §4 D7 — unscored holes are flagged and
+              // every cell taps back into scoring at that hole, so a
+              // forgot-one-hole round can't silently become a partial.
+              const missing = !s
               return (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 2px', borderRadius: 8, background: s ? 'var(--tm-surface-2)' : 'transparent' }}>
+                <button key={i}
+                  onClick={() => onEditHole?.(i)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '6px 2px', minHeight: 44, borderRadius: 8,
+                    background: s ? 'var(--tm-surface-2)' : (missing ? 'rgba(201,160,64,0.08)' : 'transparent'),
+                    border: missing ? '1px dashed rgba(201,160,64,0.55)' : '1px solid transparent',
+                    cursor: onEditHole ? 'pointer' : 'default', fontFamily: 'inherit',
+                  }}>
                   <span style={{ fontSize: 9, color: 'var(--tm-text-3)', fontWeight: 600 }}>{i+1}</span>
                   <span style={{ fontSize: 11, color: 'var(--tm-text-3)' }}>P{par}</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color }}>{s || '—'}</span>
-                </div>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: missing ? 'var(--tm-gold-text)' : color }}>{s || '—'}</span>
+                </button>
               )
             })}
           </div>
@@ -1086,7 +1119,7 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving }) {
       <div style={{ padding: '16px 20px', flexShrink: 0 }}>
         <button onClick={() => { tmHaptic(15); onSave() }} disabled={saving || scoredHoles === 0}
           style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: (saving || scoredHoles === 0) ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: (saving || scoredHoles === 0) ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 17, border: 'none' }}>
-          {saving ? 'Saving…' : scoredHoles === 0 ? 'No scores entered' : '💾 Save Round'}
+          {saving ? 'Saving…' : scoredHoles === 0 ? 'No scores entered' : isPartial ? `💾 Save partial round (${scoredHoles} holes)` : '💾 Save Round'}
         </button>
       </div>
     </div>
@@ -1406,6 +1439,7 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
         courseName={config.courseName}
         onSave={saveRound}
         saving={saving}
+        onEditHole={(idx) => { setHole(idx); setPhase('scoring') }}
       />
     </NoPullWrap>
   )

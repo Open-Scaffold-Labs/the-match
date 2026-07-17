@@ -76,7 +76,10 @@ export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onC
             const sc  = Number(r.score ?? r.total)
             const par = Number(r.course_par)
             const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
-            const diff = hasDiff ? sc - par : null
+            // Partial-rounds spec §4 D3/D8 — server-computed to-par preferred.
+            const isPartial = r.is_partial === true
+            const srvDiff = Number(r.to_par_through)
+            const diff = Number.isFinite(srvDiff) ? srvDiff : (hasDiff ? sc - par : null)
             const diffColor = diff == null ? '#fff'
               : diff < 0 ? '#F5D78A'
               : diff === 0 ? '#4ADE80'
@@ -107,7 +110,9 @@ export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onC
                   }}>{r.course_name ?? 'Round'}</div>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
                     {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                    {r.holes ? ` · ${r.holes} holes` : ''}
+                    {isPartial && r.holes_played
+                      ? ` · ${r.holes_played} of ${r.holes ?? 18} holes`
+                      : (r.holes ? ` · ${r.holes} holes` : '')}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -118,7 +123,9 @@ export default function RoundHistory({ rounds = [], title = 'Recent Rounds', onC
                       </div>
                     )}
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', marginTop: 3 }}>
-                      {Number.isFinite(sc) ? `${sc} strokes` : '—'}
+                      {Number.isFinite(sc)
+                        ? (isPartial && r.holes_played ? `${sc} thru ${r.holes_played}` : `${sc} strokes`)
+                        : '—'}
                     </div>
                   </div>
                   {r.id != null && (

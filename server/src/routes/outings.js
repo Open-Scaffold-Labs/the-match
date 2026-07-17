@@ -2289,14 +2289,20 @@ router.post('/:code/end', async (req, res) => {
 
     if (wasActive) await db.query("UPDATE tm_outings SET status='closed' WHERE id=$1", [outing.id])
 
-    // Emit a tm_rounds row for every non-guest participant whose scores
-    // are valid (9+ holes, every hole > 0). Idempotent via the
-    // UNIQUE(user_id, outing_id) index from migration 008. Each insert
-    // also fires a handicap recompute so the user's index updates
-    // immediately when they cross the 5-completed-rounds threshold.
+    // Emit a tm_rounds row for every non-guest participant with a
+    // QUALIFYING round: ≥9 holes actually scored (partial-rounds spec
+    // 2026-07-16 §4 D5 — a 15-of-18 match round is a stats citizen exactly
+    // like a solo partial; before this it silently vanished). No-shows
+    // (0 played) and early-withdrawals (<9 played) stay excluded by the
+    // same threshold. Idempotent via the UNIQUE(user_id, outing_id) index
+    // from migration 008. Each insert also fires a handicap recompute so
+    // the user's index updates immediately when they cross the
+    // 5-completed-rounds threshold (partials stay excluded from posting —
+    // isRoundCompleted still requires every hole scored).
     // (2026-05-01 — fix for "matches don't show in recent rounds")
     if (wasActive && shouldRecord) try {
       const { maybeUpdateUserHandicap } = require('../lib/handicap')
+      const { playedCount } = require('../lib/roundMath')
       for (const p of dbParticipants) {
         // tm_outing_participants only carries rows for real users —
         // guests live in tm_outings.state JSON only and never make
@@ -2304,24 +2310,26 @@ router.post('/:code/end', async (req, res) => {
         // check is sufficient.
         if (!p.user_id) continue
         const scores = Array.isArray(p.scores) ? p.scores : (() => { try { return JSON.parse(p.scores ?? '[]') } catch { return [] } })()
-        if (!Array.isArray(scores) || scores.length < 9) continue
-        if (!scores.every(s => s != null && Number(s) > 0)) continue
+        if (!Array.isArray(scores) || playedCount(scores) < 9) continue
         const total = Number(p.total)
         if (!Number.isFinite(total) || total <= 0) continue
         // Live putt capture (2026-07-06 spec): carry the player's self-entered
         // putt facts into their round. RE-CLEANED against the FINAL scores —
         // a conflict resolution may have lowered a score below an earlier
-        // putt count (spec risk P3). No usable data → null columns, never [].
+        // putt count (spec risk P3); unplayed holes (score 0) drop facts too.
+        // No usable data → null columns, never [].
         const { cleanPuttArraysForRound } = require('../lib/puttFacts')
+        const { cleanShotsForRound } = require('../lib/shotFacts')
         const jj = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
         const pf = cleanPuttArraysForRound(scores, jj(p.putts), jj(p.first_putts))
+        const cleanShots = cleanShotsForRound(jj(p.shots), scores)
         await db.query(
           `INSERT INTO tm_rounds (
              user_id, outing_id, course_name, course_par,
              course_rating, slope_rating, game_type, scores, total, date,
-             putts, first_putts, shots, course_id
+             putts, first_putts, shots, course_id, hole_pars, hole_handicaps
            )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11,$12,$13)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10,$11,$12,$13,$14,$15)
            ON CONFLICT (user_id, outing_id) DO NOTHING`,
           [
             p.user_id, outing.id,
@@ -2335,10 +2343,16 @@ router.post('/:code/end', async (req, res) => {
             pf.putts ? JSON.stringify(pf.putts) : null,
             pf.firstPutts ? JSON.stringify(pf.firstPutts) : null,
             // Live shot capture (042): the SELF-entered per-hole shot log flows
-            // into the round so the SG engine can walk complete chains → OTT/APP/ARG.
-            jj(p.shots) ? JSON.stringify(jj(p.shots)) : null,
+            // into the round so the SG engine can walk complete chains →
+            // OTT/APP/ARG. Re-cleaned vs FINAL scores (unplayed holes → null).
+            cleanShots ? JSON.stringify(cleanShots) : null,
             // Phase 3 (044): the shot editor loads hole geometry by course id.
             outing.course_id ?? null,
+            // Partial-rounds spec §5-4: the row is self-sufficient — par of
+            // holes PLAYED computes exactly from the outing's hole pars
+            // (readers previously COALESCEd through the outing join).
+            outing.hole_pars ? JSON.stringify(jj(outing.hole_pars) ?? outing.hole_pars) : null,
+            outing.hole_handicaps ? JSON.stringify(jj(outing.hole_handicaps) ?? outing.hole_handicaps) : null,
           ]
         )
         // 2026-05-05 — AWAITED. Was fire-and-forget which Vercel killed

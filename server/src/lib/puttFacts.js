@@ -19,8 +19,11 @@ function cleanPuttEntry(putts, firstPutt, score) {
   // strict: only a real number counts — Number([]) coerces to 0 and would
   // otherwise record a phantom "0 putts" from a garbage payload
   const n = typeof putts === 'number' ? putts : null
+  // s > 0: a hole with no real score (0 = unplayed, partial-rounds spec
+  // 2026-07-16) can't carry putt facts — 0<=0 used to let a phantom
+  // "0 putts" (= holed from off the green) through on an unplayed hole.
   const validCount = n != null && Number.isInteger(n) && n >= 0 && n <= 6
-    && Number.isFinite(s) && n <= s
+    && Number.isFinite(s) && s > 0 && n <= s
   if (!validCount) return { putts: null, firstPutt: null }
   const validBucket = n > 0 && SG_BUCKETS.includes(firstPutt)
   return { putts: n, firstPutt: validBucket ? firstPutt : null }

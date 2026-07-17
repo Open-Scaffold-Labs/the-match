@@ -29,11 +29,21 @@ function HandicapTrendLine({ rounds }) {
   const recent = (rounds || []).slice(0, 10)
   if (recent.length < 2) return null
 
-  // Plot oldest → newest left-to-right
+  // Plot oldest → newest left-to-right.
+  // Partial-rounds spec §4 D4 — ONE normalized series: 18-hole-equivalent
+  // to-par (equiv_18 − 18-hole par), server-computed. For a full 18-hole
+  // round this is exactly score − par (old behavior); partials and 9-hole
+  // rounds normalize to a comparable per-18 value instead of plotting a
+  // misleading raw diff. Legacy fallback keeps cached payloads rendering.
   const sequence = recent.slice().reverse()
   const diffs = sequence.map(r => {
-    const sc  = Number(r.score ?? r.total ?? 0)
+    const eq  = Number(r.equiv_18)
     const par = Number(r.course_par ?? 72)
+    if (Number.isFinite(eq) && Number.isFinite(par)) {
+      const par18 = Number(r.holes) === 9 ? par * 2 : par
+      return Math.round((eq - par18) * 10) / 10
+    }
+    const sc = Number(r.score ?? r.total ?? 0)
     return Number.isFinite(sc) && Number.isFinite(par) ? sc - par : 0
   })
 
@@ -89,6 +99,10 @@ function HandicapTrendLine({ rounds }) {
   const activePt   = activeIdx != null ? pts[activeIdx]         : null
   const activeDiff = activeIdx != null ? diffs[activeIdx]       : null
   const activeScore = active != null ? Number(active.score ?? active.total) : null
+  // Partial rounds show the honest raw form in the tooltip: "47 thru 10".
+  const activeScoreLabel = active == null ? '—'
+    : !Number.isFinite(activeScore) ? '—'
+    : (active.is_partial && active.holes_played ? `${activeScore} thru ${active.holes_played}` : String(activeScore))
   const activeDateLabel = active?.played_at
     ? new Date(active.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     : ''
@@ -168,7 +182,7 @@ function HandicapTrendLine({ rounds }) {
           }}>
             <span>{activeDateLabel}</span>
             <span style={{ color: '#F5E070', fontWeight: 900, fontSize: 11 }}>
-              {Number.isFinite(activeScore) ? activeScore : '—'}
+              {activeScoreLabel}
             </span>
             <span style={{ color: activeDiffColor, fontWeight: 900, fontSize: 11 }}>
               {activeDiffStr}

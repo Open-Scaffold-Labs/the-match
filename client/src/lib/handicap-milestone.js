@@ -12,7 +12,12 @@
 // Returns null when nothing notable to say (caller hides the slot).
 
 export function computeHandicapMilestone(rounds = []) {
+  // Partial-rounds spec (2026-07-16 §5-14 adjacent): milestones talk about
+  // REAL full-18 scores ("new personal best", "first sub-80") — a 47-thru-10
+  // partial or a 9-hole 40 must never claim them. Rounds without the server's
+  // partial fields (legacy cache) pass through as before.
   const list = (rounds || [])
+    .filter(r => r.is_partial !== true && Number(r.holes ?? 18) !== 9)
     .map(r => ({ score: Number(r.score ?? r.total), par: Number(r.course_par || 72) }))
     .filter(r => Number.isFinite(r.score) && r.score > 0)
   if (list.length < 2) return null

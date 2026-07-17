@@ -54,9 +54,17 @@ function setShotsAtHole(existing, hole, cleanedHoleShots) {
 // server-side hygiene the outing PUT /:code/scores already applies at write
 // time. Returns an array aligned to holes (each entry a cleaned array or null),
 // or null when no hole has a usable shot. Fail-soft: never throws.
-function cleanShotsForRound(rawShots) {
+function cleanShotsForRound(rawShots, scores = null) {
   if (!Array.isArray(rawShots)) return null
-  const out = rawShots.map(hole => cleanHoleShots(hole))
+  // Partial-rounds spec (2026-07-16 §4 D5): when the FINAL scores are known,
+  // a hole without a real score (0/null = unplayed) can't keep shot facts —
+  // the SG engine must never grade a hole the player didn't count. Callers
+  // without scores (legacy) get the old behavior unchanged.
+  const scoreArr = Array.isArray(scores) ? scores : null
+  const out = rawShots.map((hole, i) => {
+    if (scoreArr && !(Number(scoreArr[i]) > 0)) return null
+    return cleanHoleShots(hole)
+  })
   return out.some(x => x != null) ? out : null
 }
 

@@ -32,11 +32,15 @@ router.get('/', async (req, res) => {
         [uid, start]
       ),
 
-      // Last 3 rounds for rolling average. total > 0 excludes scoreless
+      // Rounds for the 3-round rolling average. total > 0 excludes scoreless
       // rounds — none should exist (POST /api/rounds rejects them since
       // 2026-07-16), but a bad row here tanked 3-RND AVG once. Belt-and-braces.
+      // LIMIT 10 (not 3): the average uses the last 3 QUALIFYING rounds
+      // (≥9 holes played, partial-rounds spec §4 D4), so we over-fetch and
+      // filter in JS. scores + hole_pars feed the shared roundMath lib.
       db.many(
-        `SELECT total, course_par FROM tm_rounds WHERE user_id = $1 AND total > 0 ORDER BY date DESC LIMIT 3`,
+        `SELECT total, course_par, scores, hole_pars
+         FROM tm_rounds WHERE user_id = $1 AND total > 0 ORDER BY date DESC LIMIT 10`,
         [uid]
       ),
 
@@ -58,9 +62,13 @@ router.get('/', async (req, res) => {
       else losses++
     }
 
-    // 3-round rolling avg
-    const avg3 = roundRows.length
-      ? parseFloat((roundRows.reduce((s, r) => s + r.total, 0) / roundRows.length).toFixed(1))
+    // 3-round rolling avg — last 3 QUALIFYING rounds (≥9 holes played) as
+    // 18-hole equivalents via roundMath (partial-rounds spec §4 D4). Full
+    // 18-hole rounds pass through as their exact raw total.
+    const { equiv18, isQualifying } = require('../lib/roundMath')
+    const avg3Vals = roundRows.filter(isQualifying).slice(0, 3).map(equiv18).filter(v => v != null)
+    const avg3 = avg3Vals.length
+      ? parseFloat((avg3Vals.reduce((s, v) => s + v, 0) / avg3Vals.length).toFixed(1))
       : null
 
     // Consecutive-week streak

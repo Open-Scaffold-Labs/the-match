@@ -131,7 +131,7 @@ router.get('/summary', async (req, res) => {
 
   const [roundData, clubData, userRow] = await Promise.all([
     db.many(
-      `SELECT total, course_par, course_rating, slope_rating, date, scores
+      `SELECT total, course_par, course_rating, slope_rating, date, scores, hole_pars
        FROM tm_rounds WHERE user_id = $1 AND total > 0 ORDER BY date DESC LIMIT 20`,
       [uid]
     ),
@@ -148,9 +148,16 @@ router.get('/summary', async (req, res) => {
   // divergent recompute here. (audit 2026-06-25)
   const handicap = (userRow && userRow.handicap != null && Number.isFinite(Number(userRow.handicap))) ? Number(userRow.handicap) : null
 
-  const avgScore = parseFloat(
-    (roundData.reduce((s, r) => s + Number(r.total || 0), 0) / roundData.length).toFixed(1)
-  )
+  // Partial-rounds spec (2026-07-16 §4 D4) — Avg Score is the mean 18-hole-
+  // EQUIVALENT over QUALIFYING rounds (≥9 holes played), via the shared
+  // roundMath lib. For full 18-hole rounds equiv18 === total exactly, so a
+  // full-rounds-only history produces the identical number as before. Partials
+  // normalize to holes played; sub-9 rounds are display-only and never enter.
+  const { equiv18, isQualifying, isFullRound } = require('../lib/roundMath')
+  const avgVals = roundData.filter(isQualifying).map(equiv18).filter(v => v != null)
+  const avgScore = avgVals.length
+    ? parseFloat((avgVals.reduce((s, v) => s + v, 0) / avgVals.length).toFixed(1))
+    : null
 
   // Top 5 clubs by average distance
   const clubObj = clubData?.club_data ?? {}
@@ -163,7 +170,17 @@ router.get('/summary', async (req, res) => {
     .sort((a, b) => b.avg - a.avg)
     .slice(0, 5)
 
-  const bestScore = Math.min(...roundData.map(r => Number(r.total)).filter(Number.isFinite))
+  // Best Round — REAL totals over FULL rounds only (records are never
+  // extrapolations; a partial can't set one). bestScoreHoles lets the client
+  // label a 9-hole-course best "(9)".
+  const fullRounds = roundData.filter(isFullRound)
+  const bestRound = fullRounds.length
+    ? fullRounds.reduce((min, r) => (Number(r.total) < Number(min.total) ? r : min))
+    : null
+  const bestScore = bestRound ? Number(bestRound.total) : null
+  const bestScoreHoles = bestRound
+    ? (Array.isArray(bestRound.scores) ? bestRound.scores.length : (() => { try { return JSON.parse(bestRound.scores).length } catch { return null } })())
+    : null
 
   res.json({
     handicap,
@@ -171,6 +188,7 @@ router.get('/summary', async (req, res) => {
     roundCount: roundData.length,
     avgScore,
     bestScore,
+    bestScoreHoles,
     topClubs,
   })
 })

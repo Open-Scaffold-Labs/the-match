@@ -873,10 +873,12 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
             const bestDisplay = Number.isFinite(bestNum) ? bestNum            : '—'
             return (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                {/* Partial-rounds spec §4 D4 — same labels as My Profile:
+                    Avg is 18-hole-equivalent, Best is real full rounds only. */}
                 <StatTile theme="dark" label="Avg Score" value={avgDisplay}
-                  sub={`Par ${data.recentRounds?.[0]?.course_par ?? 72}`} />
+                  sub="Per 18 holes" />
                 <StatTile theme="dark" label="Best Round" value={bestDisplay}
-                  sub="All time" accent="#4ADE80" />
+                  sub={data.stats.bestScoreHoles === 9 ? 'All time · 9 holes' : 'All time'} accent="#4ADE80" />
               </div>
             )
           })()}
@@ -1056,7 +1058,11 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                 const sc  = Number(r.score ?? r.total)
                 const par = Number(r.course_par)
                 const hasDiff = Number.isFinite(sc) && Number.isFinite(par)
-                const diff = hasDiff ? sc - par : null
+                // Partial-rounds spec §4 D3/D8 — server-computed to-par
+                // (vs holes PLAYED) preferred; legacy fallback unchanged.
+                const isPartial = r.is_partial === true
+                const srvDiff = Number(r.to_par_through)
+                const diff = Number.isFinite(srvDiff) ? srvDiff : (hasDiff ? sc - par : null)
                 const diffColor = diff == null ? '#fff'
                   : diff < 0 ? '#F5D78A'
                   : diff === 0 ? '#4ADE80'
@@ -1086,7 +1092,9 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                       </div>
                       <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
                         {r.played_at ? new Date(r.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                        {r.holes ? ` · ${r.holes} holes` : ''}
+                        {isPartial && r.holes_played
+                          ? ` · ${r.holes_played} of ${r.holes ?? 18} holes`
+                          : (r.holes ? ` · ${r.holes} holes` : '')}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -1097,7 +1105,9 @@ export default function FriendProfile({ friend: friendSummary, confirmedGames = 
                           </div>
                         )}
                         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.30)', marginTop: 3 }}>
-                          {Number.isFinite(sc) ? `${sc} strokes` : '—'}
+                          {Number.isFinite(sc)
+                            ? (isPartial && r.holes_played ? `${sc} thru ${r.holes_played}` : `${sc} strokes`)
+                            : '—'}
                         </div>
                       </div>
                       {r.id != null && (

@@ -13,15 +13,17 @@ router.use(requireAuth)
 router.get('/', async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit ?? 10), 50)
   const rows  = await db.many(
-    `SELECT r.id, r.course_name, r.course_par, r.total, r.date, r.game_type, r.scores
+    `SELECT r.id, r.course_name, r.course_par, r.total, r.date, r.game_type, r.scores, r.hole_pars
      FROM tm_rounds r
      WHERE r.user_id = $1 AND r.total > 0
      ORDER BY r.date DESC LIMIT $2`,
     [req.user.id, limit]
   )
+  const { playedCount, parPlayed, toParThrough, isFullRound, equiv18 } = require('../lib/roundMath')
   res.json({ rounds: rows.map(r => {
     const scoresArr = Array.isArray(r.scores) ? r.scores : (() => { try { return JSON.parse(r.scores) } catch { return [] } })()
     const holes     = Array.isArray(scoresArr) ? scoresArr.length : null
+    const hp        = playedCount(scoresArr)
     return {
       id:          r.id,
       // snake_case (Profile view + future consumers)
@@ -31,6 +33,14 @@ router.get('/', async (req, res) => {
       played_at:   r.date,
       holes,
       game_type:   r.game_type,
+      // Partial-rounds spec §4 D8 — server-computed, clients never re-derive
+      // par math on their own. equiv_18 is the trend-chart series (=== total
+      // for full 18-hole rounds).
+      holes_played:   hp,
+      par_played:     parPlayed(r),
+      to_par_through: toParThrough(r),
+      is_partial:     hp > 0 && !isFullRound(r),
+      equiv_18:       equiv18(r),
       // camelCase legacy keys (kept so existing callers don't break)
       courseName:  r.course_name,
       coursePar:   r.course_par,
@@ -108,8 +118,10 @@ router.post('/', async (req, res) => {
   // 2026-07-08 — clean solo shots server-side (the same hygiene the outing
   // PUT /:code/scores applies via cleanHoleShots) so the read-time SG engine
   // only ever walks valid {lie,toPin} chains. Invalid entries dropped, never 400.
+  // Scores passed (2026-07-16) so unplayed holes (score 0) drop their shot
+  // facts — partial-rounds spec §4 D5.
   const { cleanShotsForRound } = require('../lib/shotFacts')
-  const cleanShots = cleanShotsForRound(shots)
+  const cleanShots = cleanShotsForRound(shots, scores)
 
   const row = await db.one(
     `INSERT INTO tm_rounds

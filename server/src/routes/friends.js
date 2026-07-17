@@ -2,6 +2,7 @@ const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
 const { isRoundCompleted, computeHandicapFromRounds } = require('../lib/handicap')
+const { equiv18, isQualifying, isFullRound, playedCount, parPlayed, toParThrough } = require('../lib/roundMath')
 const { sendPushToUser } = require('../lib/push')
 
 router.use(requireAuth)
@@ -61,14 +62,18 @@ router.get('/', async (req, res) => {
          ORDER BY f.created_at DESC`,
         [uid]
       ),
+      // Partial-rounds spec (2026-07-16): diff is computed in JS via roundMath
+      // (to-par vs par of holes PLAYED), not SQL vs full course par — a
+      // 47-thru-10 renders "+7 thru 10", not "-25". total > 0 guards the
+      // scoreless-round class at this reader too.
       db.many(
         `SELECT DISTINCT ON (r.user_id)
                 r.user_id, u.name, r.total, r.course_name, r.date,
-                r.course_par,
-                r.total - COALESCE(r.course_par, 72) AS diff
+                r.course_par, r.scores, r.hole_pars
          FROM tm_rounds r
          JOIN tm_users u ON u.id = r.user_id
-         WHERE r.user_id IN (
+         WHERE r.total > 0
+           AND r.user_id IN (
            SELECT CASE WHEN requester_id = $1 THEN requestee_id ELSE requester_id END
            FROM tm_friends
            WHERE (requester_id = $1 OR requestee_id = $1) AND status = 'accepted'
@@ -78,7 +83,19 @@ router.get('/', async (req, res) => {
       ),
     ])
 
-    res.json({ friends, incoming, outgoing, activity })
+    // Reshape activity rows: JS-computed diff/thru fields, raw arrays dropped
+    // from the payload (clients don't need friends' full scorecards here).
+    const activityOut = activity.map(r => {
+      const hp = playedCount(r.scores)
+      return {
+        user_id: r.user_id, name: r.name, total: r.total,
+        course_name: r.course_name, date: r.date, course_par: r.course_par,
+        diff: toParThrough(r),
+        holes_played: hp,
+        is_partial: hp > 0 && !isFullRound(r),
+      }
+    })
+    res.json({ friends, incoming, outgoing, activity: activityOut })
   } catch (err) {
     console.error('[friends]', err.message)
     res.status(500).json({ error: 'Failed to load friends' })
@@ -173,7 +190,7 @@ router.get('/:friendId/profile', async (req, res) => {
       // the trend chart, Recent Rounds list, and Avg/Best calc).
       db.many(
         `SELECT r.id, r.course_name, r.course_par, r.course_rating, r.slope_rating,
-                r.total, r.date, r.scores, r.outing_id, r.game_type
+                r.total, r.date, r.scores, r.hole_pars, r.outing_id, r.game_type
          FROM tm_rounds r
          WHERE r.user_id = $1 AND r.total > 0
          ORDER BY r.date DESC LIMIT 20`,
@@ -262,20 +279,31 @@ router.get('/:friendId/profile', async (req, res) => {
       else losses++
     }
 
-    // 3-round average — uses the friend's last 3 rounds
-    const lastThree = allRoundRows.slice(0, 3)
-    const avg3 = lastThree.length
-      ? parseFloat((lastThree.reduce((s, r) => s + Number(r.total || 0), 0) / lastThree.length).toFixed(1))
+    // 3-round average — the friend's last 3 QUALIFYING rounds (≥9 holes
+    // played), as 18-hole equivalents. Partial-rounds spec 2026-07-16 §4 D4:
+    // same roundMath the viewer's own profile uses.
+    const lastThree = allRoundRows.filter(isQualifying).slice(0, 3)
+    const avg3Vals  = lastThree.map(equiv18).filter(v => v != null)
+    const avg3 = avg3Vals.length
+      ? parseFloat((avg3Vals.reduce((s, v) => s + v, 0) / avg3Vals.length).toFixed(1))
       : null
 
     // Stats summary (mirrors /api/stats/summary shape) — handicap from
-    // completed rounds only (5+ threshold), avg/best score across all 20,
-    // top 5 clubs by avg distance.
+    // completed rounds only (5+ threshold), avg = mean equiv18 over
+    // qualifying rounds, best = REAL totals over FULL rounds only (records
+    // are never extrapolations), top 5 clubs by avg distance.
     const completed   = allRoundRows.filter(isRoundCompleted)
     const calcHcp     = completed.length >= 5 ? computeHandicapFromRounds(completed) : null
-    const totals      = allRoundRows.map(r => Number(r.total)).filter(Number.isFinite)
-    const avgScore    = totals.length ? parseFloat((totals.reduce((s, t) => s + t, 0) / totals.length).toFixed(1)) : null
-    const bestScore   = totals.length ? Math.min(...totals) : null
+    const avgVals     = allRoundRows.filter(isQualifying).map(equiv18).filter(v => v != null)
+    const avgScore    = avgVals.length ? parseFloat((avgVals.reduce((s, v) => s + v, 0) / avgVals.length).toFixed(1)) : null
+    const fullRounds  = allRoundRows.filter(isFullRound)
+    const bestRound   = fullRounds.length
+      ? fullRounds.reduce((min, r) => (Number(r.total) < Number(min.total) ? r : min))
+      : null
+    const bestScore   = bestRound ? Number(bestRound.total) : null
+    const bestScoreHoles = bestRound
+      ? (Array.isArray(bestRound.scores) ? bestRound.scores.length : (() => { try { return JSON.parse(bestRound.scores).length } catch { return null } })())
+      : null
     const clubObj     = clubData?.club_data ?? {}
     const topClubs = Object.entries(clubObj)
       .map(([club, dists]) => ({
@@ -288,18 +316,26 @@ router.get('/:friendId/profile', async (req, res) => {
 
     // Map rounds for the Profile-style consumer (snake_case + score
     // alias for compatibility with the same renderer the My Profile view uses).
-    const recentRounds = allRoundRows.map(r => ({
-      id:          r.id,
-      course_name: r.course_name,
-      course_par:  r.course_par,
-      score:       r.total,
-      total:       r.total,
-      played_at:   r.date,
-      date:        r.date,
-      holes:       Array.isArray(r.scores) ? r.scores.length : null,
-      game_type:   r.game_type,
-      outing_id:   r.outing_id,
-    }))
+    const recentRounds = allRoundRows.map(r => {
+      const hp = playedCount(r.scores)
+      return {
+        id:          r.id,
+        course_name: r.course_name,
+        course_par:  r.course_par,
+        score:       r.total,
+        total:       r.total,
+        played_at:   r.date,
+        date:        r.date,
+        holes:       Array.isArray(r.scores) ? r.scores.length : null,
+        game_type:   r.game_type,
+        outing_id:   r.outing_id,
+        // Partial-rounds spec §4 D8 — server-computed, clients never re-derive.
+        holes_played:   hp,
+        par_played:     parPlayed(r),
+        to_par_through: toParThrough(r),
+        is_partial:     hp > 0 && !isFullRound(r),
+      }
+    })
 
     res.json({
       friend,
@@ -310,6 +346,7 @@ router.get('/:friendId/profile', async (req, res) => {
         handicap:   calcHcp,
         avgScore,
         bestScore,
+        bestScoreHoles,
         topClubs,
         roundCount: allRoundRows.length,
       },
