@@ -36,6 +36,22 @@ The-match's NotebookLM notebooks (created 2026-04-29):
 
 ## Mandatory contracts
 
+### External-resource claims (multi-session safety — added 2026-07-17)
+
+Multiple Claude sessions (Dale's and Matt's) work this repo in parallel, sometimes same-day.
+The repo is the ONLY shared memory. Therefore, before creating or modifying anything that
+lives OUTSIDE the repo — App Store Connect records, bundle IDs, TestFlight groups/builds,
+signing/team settings, DNS, Vercel projects, vendor accounts, prod env vars, applied
+migrations — you MUST:
+1. `git pull` and read the last 48h of `wiki/log.md` for another session's claim on that resource.
+2. Log your OWN claim in `wiki/log.md` (committed + pushed) BEFORE acting externally.
+3. If a claim exists, coordinate through Dale/Matt — never assume the other session is stale.
+
+Origin: 07-16/17 both sessions built native iOS shells and claimed the same bundle ID
+unaware of each other (see the 2026-07-17 COORDINATION log entry for the resolution).
+Checking only the external system (ASC looked empty) is NOT sufficient — the other session's
+work may be committed but not yet acted on externally. The log is the source of truth.
+
 ### Hub vault + LimitlessStack canonical sync
 
 This project's `tools/` is a deployed copy of the canonical at `/Users/matthewlavin/LimitlessStack/tools/`. Edits in either direction must be propagated to the other before the session closes — otherwise `install.sh` deploys old buggy versions to the next project. The sync check in `tools/limitless-preflight.sh` enforces this mechanically. See `wiki/synthesis/claude-anti-patterns.md` entry #14.

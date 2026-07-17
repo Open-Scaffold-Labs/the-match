@@ -6,6 +6,19 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-17] COORDINATION | ⚠️ TWO native iOS shells exist — read before ANY App Store / TestFlight / bundle-ID action
+
+Two sessions built native shells in parallel on 07-16/17 without seeing each other (Dale flagged it mid-morning; Dale's session checked only ASC — empty at the time — and missed the Capacitor commits already on main. Lesson encoded in CLAUDE.md "External-resource claims" rule, added today).
+
+**State of the world right now:**
+- **Matt's shell (main, `client/ios/App`)** — Capacitor: privacy manifest, native Core Location GPS, APNs scaffold (migration 048), self-hosted OTA live on prod (049, `/api/ota`, auto-update ON), bundle-size work. Simulator-proven; **never uploaded to ASC**. Listing package ready (11 screenshots + copy, `store/` per its log entry).
+- **Dale's shell + WATCH app (branch `feat/watch-w0`, `ios/`)** — XcodeGen: WKWebView iPhone shell (superseded by Matt's — retire it) + **native SwiftUI Apple Watch app** (standalone email/PIN login vs prod, keychain JWT; first field bug — string user id — fixed in build 2). Plus the LIVE distribution pipeline: signing (team 8P96A2SK8X, Apple Development cert on Dale's MBP), both bundle IDs registered, **ASC record "The Match: AI Golf Caddie" (app 6792095265)**, TestFlight builds **1 & 2 uploaded + compliance-cleared**, internal group "OSL Internal" (Dale + Matt, auto-distribution), app icons (gold pennant; note: 07-17 log says the M monogram is the standing icon — reconcile), `ITSAppUsesNonExemptEncryption=false` from build 3.
+- **THE COLLISION:** both shells claim `com.openscaffoldlabs.thematch`. Builds 1–2 in TestFlight are the XcodeGen shell. Matt's Capacitor app is the better iPhone binary but has no upload history.
+
+**Proposed resolution (Dale endorsed, pending Matt):** Capacitor shell = THE iPhone app. Watch target migrates from `ios/TheMatchWatch` into `client/ios/App`'s Xcode project (companion IDs already match). Listing package flows into the EXISTING ASC record (name editable). **Next upload = build ≥3, from the Capacitor project, coordinated in this log first.** Nothing either side built is wasted: Matt had no pipeline/watch; Dale's phone shell retires in favor of Capacitor+OTA.
+
+**Do NOT:** create a second ASC record · upload from either project without logging it here first · renumber below 3 · touch signing/team settings without checking this entry.
+
 ## [2026-07-17] feat | App Store listing package — 11 screenshots + store copy + ASO research + get-noticed playbook
 
 Item 1 of the iOS handoff, DONE. All in [[synthesis/app-store-listing-2026-07-17]] + `wiki/assets/app-store-2026-07/` (+ a .docx of the package for Pages).
