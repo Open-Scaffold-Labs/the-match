@@ -1020,7 +1020,7 @@ function SoloScoreboard({ user, config, scores, shots, putts = [], firstPutts = 
 
 
 // ─── Scorecard Summary ────────────────────────────────────────────────────────
-function ScorecardSummary({ pars, scores, courseName, onSave, saving, onEditHole }) {
+function ScorecardSummary({ pars, scores, courseName, onSave, saving, onEditHole, onResume, onDiscard }) {
   const totalPar   = pars.reduce((s, p) => s + p, 0)
   const totalScore = scores.reduce((s, x) => s + (x || 0), 0)
   // 2026-07-16 — a summary with zero scored holes must not be savable.
@@ -1041,17 +1041,31 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving, onEditHole
   const back9      = scores.slice(9).reduce((s,x)=>s+(x||0),0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    // 2026-07-16 (end-ceremony spec S1) — height must be VIEWPORT-derived,
+    // not `100%`: the TabPanel pull-to-refresh transform wrapper between us
+    // and the absolute scroll container is content-sized, so `height:100%`
+    // collapses and the footer lands ~2 screens below the fold (Matt hit
+    // this live). Same idiom as .page-scroll, applied at the right level.
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - var(--nav-height))' }}>
       {/* Top padding clears the iOS notch — same pattern as the rest of
           the solo views. (2026-05-07 PM.) */}
       <div style={{ padding: 'calc(var(--safe-top) + 24px) 20px 0', flexShrink: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 4 }}>
-          {isPartial ? `Partial round · ${scoredHoles} of ${pars.length} holes` : 'Round Complete'}
+        <div style={{ fontSize: 11, color: 'var(--tm-text-3)', marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+          {/* 2026-07-16 (end-ceremony S3 edge) — 0 scored holes is neither
+              "complete" nor "partial"; say what it is. Eyebrow set in the
+              app's uppercase letter-spaced label style (SEASON 2026 /
+              HANDICAP INDEX) per the same-day design-critique pass. */}
+          {scoredHoles === 0 ? 'Round ended — no scores entered'
+            : isPartial ? `Partial round · ${scoredHoles} of ${pars.length} holes`
+            : 'Round Complete'}
         </div>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 2 }}>{courseName}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <span style={{ fontSize: 56, fontWeight: 900, color: diffColor, lineHeight: 1 }}>{totalScore}</span>
-          <span style={{ fontSize: 28, color: diffColor, fontWeight: 700 }}>{diffLabel}</span>
+          {/* 0 scored → no score hero and no to-par: "0 −71" was nonsense. */}
+          <span style={{ fontSize: 56, fontWeight: 900, color: scoredHoles === 0 ? 'var(--tm-text-3)' : diffColor, lineHeight: 1 }}>{scoredHoles === 0 ? '—' : totalScore}</span>
+          {scoredHoles > 0 && (
+            <span style={{ fontSize: 28, color: diffColor, fontWeight: 700 }}>{diffLabel}</span>
+          )}
           {isPartial && (
             <span style={{ fontSize: 15, color: 'var(--tm-text-3)', fontWeight: 700 }}>thru {scoredHoles}</span>
           )}
@@ -1069,7 +1083,12 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving, onEditHole
         )}
       </div>
 
-      <div className="page-scroll" style={{ padding: '16px 20px', gap: 12 }}>
+      {/* 2026-07-16 (S1) — was className="page-scroll", which is a FULL-TAB
+          outer scroller (height: 100dvh − nav). As an inner flex child it
+          forced the column to header + ~viewport + footer tall, pushing the
+          actions off-screen. Inner scroll regions use the SoloScoreboard
+          idiom instead: flex:1 + overflowY:auto + minHeight:0. */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain', display: 'flex', flexDirection: 'column', padding: '16px 20px', gap: 12 }}>
         {/* Front / Back 9 split */}
         {pars.length === 18 && (
           <div style={{ display: 'flex', gap: 12 }}>
@@ -1116,10 +1135,33 @@ function ScorecardSummary({ pars, scores, courseName, onSave, saving, onEditHole
         </div>
       </div>
 
-      <div style={{ padding: '16px 20px', flexShrink: 0 }}>
+      {/* 2026-07-16 (S2, end-ceremony spec D1; design-critique pass same day) —
+          action stack mirrors the match end sheet: Save (primary gold) /
+          Keep playing (secondary, the in-flow undo) / Discard (tertiary
+          destructive, red OUTLINE button — same pattern as the match sheet's
+          "End without saving", never bare text). The stack sits on a frosted
+          paper bar (translucent surface + blur + hairline) so it's grounded
+          like every card above it instead of floating on the photo. No emoji
+          in labels (Matt rule). */}
+      <div style={{
+        padding: '12px 20px', paddingBottom: 'max(16px, var(--safe-bottom))', flexShrink: 0,
+        display: 'flex', flexDirection: 'column', gap: 8,
+        background: 'rgba(255,253,248,0.86)',
+        backdropFilter: 'blur(14px) saturate(1.3)', WebkitBackdropFilter: 'blur(14px) saturate(1.3)',
+        borderTop: '1px solid var(--tm-border-2)',
+        boxShadow: '0 -8px 24px rgba(7,12,9,0.08)',
+      }}>
         <button onClick={() => { tmHaptic(15); onSave() }} disabled={saving || scoredHoles === 0}
-          style={{ width: '100%', padding: '16px', borderRadius: 'var(--tm-radius-lg)', background: (saving || scoredHoles === 0) ? 'var(--tm-surface-2)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: (saving || scoredHoles === 0) ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 17, border: 'none' }}>
-          {saving ? 'Saving…' : scoredHoles === 0 ? 'No scores entered' : isPartial ? `💾 Save partial round (${scoredHoles} holes)` : '💾 Save Round'}
+          style={{ width: '100%', minHeight: 52, padding: '15px', borderRadius: 'var(--tm-radius-lg)', background: (saving || scoredHoles === 0) ? 'var(--tm-surface-3)' : 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))', color: (saving || scoredHoles === 0) ? 'var(--tm-text-3)' : 'var(--tm-text-inv)', fontWeight: 800, fontSize: 16, border: 'none', boxShadow: (saving || scoredHoles === 0) ? 'none' : '0 2px 10px rgba(160,120,40,0.35)' }}>
+          {saving ? 'Saving…' : scoredHoles === 0 ? 'No scores entered' : isPartial ? `Save partial round (${scoredHoles} hole${scoredHoles === 1 ? '' : 's'})` : 'Save Round'}
+        </button>
+        <button onClick={() => { tmHaptic(10); onResume?.() }} disabled={saving}
+          style={{ width: '100%', minHeight: 46, padding: '12px', borderRadius: 'var(--tm-radius-lg)', background: 'var(--tm-surface)', border: '1px solid var(--tm-border-3)', color: 'var(--tm-text-2)', fontWeight: 700, fontSize: 14 }}>
+          Keep playing
+        </button>
+        <button onClick={() => { tmHaptic(10); onDiscard?.() }} disabled={saving}
+          style={{ width: '100%', minHeight: 44, padding: '11px', borderRadius: 'var(--tm-radius-lg)', background: 'transparent', border: '1px solid rgba(229,72,77,0.4)', color: '#E5484D', fontWeight: 800, fontSize: 13 }}>
+          Discard round
         </button>
       </div>
     </div>
@@ -1154,14 +1196,20 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
   // P2-E — saved-cue timestamp for the QuickScoreSheet (solo has no server
   // round-trip; the autosave effect persists on the state change).
   const [soloSheetSavedAt, setSoloSheetSavedAt] = useState(0)
+  // 2026-07-16 (end-ceremony spec S2) — discard confirm sheet. Discard is
+  // deliberately two-step: research shows one-tap discard adjacent to save
+  // is the market's #1 lost-round grief generator.
+  const [discardPrompt, setDiscardPrompt] = useState(false)
   const watchRef = useRef(null)
   const restoredRef = useRef(false)
   const STORAGE_KEY = SOLO_ROUND_STORAGE_KEY(user?.id)
 
   // 2026-05-05 — restore in-progress round from localStorage on mount.
-  // Only restores 'scoring' phase — setup/summary are short-lived and
-  // don't need resume semantics. Wraps in try/catch because corrupted
-  // JSON or a disabled storage backend should never crash the screen.
+  // Restores 'scoring' AND (2026-07-16, end-ceremony spec D5) 'summary' —
+  // a user who reached the summary and navigated away resumes ON the
+  // summary instead of being dropped silently back mid-round. Wraps in
+  // try/catch because corrupted JSON or a disabled storage backend
+  // should never crash the screen.
   useEffect(() => {
     if (restoredRef.current) return
     restoredRef.current = true
@@ -1169,7 +1217,7 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
       const saved = JSON.parse(raw)
-      if (saved && saved.phase === 'scoring' && saved.config && Array.isArray(saved.config.pars)) {
+      if (saved && (saved.phase === 'scoring' || saved.phase === 'summary') && saved.config && Array.isArray(saved.config.pars)) {
         // P2-A W4 — self-heal: a restored round from a pre-session blob gets
         // its session index written so the Play surface knows about it.
         if (!readSession(user?.id)) {
@@ -1181,7 +1229,7 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
             holeCount: saved.config.pars.length,
           })
         }
-        setPhase('scoring')
+        setPhase(saved.phase)
         setConfig(saved.config)
         setHole(Number.isFinite(saved.hole) ? saved.hole : 0)
         setScores(Array.isArray(saved.scores) ? saved.scores : new Array(saved.config.pars.length).fill(0))
@@ -1192,10 +1240,12 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
     } catch { /* corrupt or disabled — ignore, user starts fresh */ }
   }, [STORAGE_KEY])
 
-  // Persist on every meaningful state change while scoring. Setup and
-  // summary phases don't need autosave — only mid-round resume matters.
+  // Persist on every meaningful state change while scoring OR on the
+  // summary (2026-07-16, end-ceremony spec D5 — the blob's phase must
+  // track reality so restore lands where the user actually was). Setup
+  // doesn't need autosave.
   useEffect(() => {
-    if (phase !== 'scoring' || !config) return
+    if ((phase !== 'scoring' && phase !== 'summary') || !config) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         phase, config, hole, scores, shots, putts, firstPutts,
@@ -1371,6 +1421,16 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
     onBack?.()
   }
 
+  // 2026-07-16 (end-ceremony spec S2/D2) — discard an unsaved solo round.
+  // Confirmed via the portaled sheet only. No server call — a solo round is
+  // client-only until Save. clearSavedRound() already kind-guards the session
+  // index (never touches a match session); the reset mirrors finishAfterSave.
+  function discardRound() {
+    setDiscardPrompt(false)
+    clearSavedRound()
+    finishAfterSave()
+  }
+
   // 2026-05-05 — wrap everything Solo-Round renders in a div with
   // data-no-pull-refresh="true". The TabPanel's pull-to-refresh handler
   // checks for this attribute via closest() on the touch target and
@@ -1393,7 +1453,6 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
         <ShotEditor roundId={reviewRoundId} onClose={finishAfterSave} />
       ) : (
         <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 40 }}>⛳</div>
           <div style={{ fontSize: 18, fontWeight: 900, color: 'var(--tm-text)' }}>Round saved</div>
           <div style={{ fontSize: 13, color: 'var(--tm-text-3)', lineHeight: 1.6, maxWidth: 300 }}>
             Want to see it on the map? Review your shots hole by hole to unlock strokes gained.
@@ -1440,7 +1499,39 @@ export default function ActiveRound({ user, onBack, onGoToEagleEye, onCourseSele
         onSave={saveRound}
         saving={saving}
         onEditHole={(idx) => { setHole(idx); setPhase('scoring') }}
+        onResume={() => setPhase('scoring')}
+        onDiscard={() => setDiscardPrompt(true)}
       />
+      {/* 2026-07-16 (S2/D2) — discard confirm, portaled to <body> like the
+          match endPrompt (LiveOuting) so it's viewport-fixed and immune to
+          any parent layout/scroll context. Same z-layer as the match sheet. */}
+      {discardPrompt && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setDiscardPrompt(false)}>
+          <div style={{ width: '100%', maxWidth: 430, margin: '0 auto', background: 'var(--tm-surface)', borderRadius: '20px 20px 0 0', padding: '24px 20px calc(env(safe-area-inset-bottom, 0px) + 36px)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--tm-border-2)', margin: '0 auto 20px' }} />
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--tm-text)', marginBottom: 6 }}>
+              Discard this round?
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--tm-text-3)', marginBottom: 20, lineHeight: 1.5 }}>
+              Nothing will be recorded — the scores from this round will be gone. This can’t be undone.
+            </div>
+            <button onClick={discardRound} style={{
+              width: '100%', padding: 14, borderRadius: 'var(--tm-radius-lg)',
+              background: 'transparent', color: '#E5484D', fontWeight: 800, fontSize: 14,
+              border: '1px solid rgba(229,72,77,0.4)', cursor: 'pointer', marginBottom: 10,
+            }}>Discard round</button>
+            <button onClick={() => setDiscardPrompt(false)} style={{
+              width: '100%', padding: 14, borderRadius: 'var(--tm-radius-lg)',
+              background: 'linear-gradient(135deg, var(--tm-gold-dim), var(--tm-gold))',
+              color: 'var(--tm-text-inv)', fontWeight: 800, fontSize: 15,
+              border: 'none', cursor: 'pointer',
+            }}>Keep the round</button>
+          </div>
+        </div>,
+        document.body
+      )}
     </NoPullWrap>
   )
 
