@@ -5,14 +5,14 @@
     "verified_at": 1782336216.690293
   },
   "wiki/log.md": {
-    "mtime": 1784252303.8195689,
-    "source_id": "552fa0f3-9ab4-4d7b-bce6-11eb780f5f61",
-    "verified_at": 1784252338.3942552
+    "mtime": 1784252958.7075078,
+    "source_id": "913ec64b-b120-41c7-b23a-14798233eacf",
+    "verified_at": 1784253077.823086
   },
   "wiki/index.md": {
-    "mtime": 1783671975.7960863,
-    "source_id": "7e37ab9e-b0f1-48b3-8300-c45f9539e8ac",
-    "verified_at": 1783672086.512081
+    "mtime": 1784252942.3203552,
+    "source_id": "c120574a-6be8-45fa-b315-d69dde8cfabd",
+    "verified_at": 1784253096.537527
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -182,8 +182,8 @@
     "verified_at": 1783383016.5478091
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1783672026.0075078,
-    "source_id": "a1fa0fe1-20d2-4f2a-b99a-ddc517e9c26b"
+    "mtime": 1784252747.0327177,
+    "source_id": "27daa3f7-8a2f-4ab1-be8f-aa32dc0f9849"
   },
   "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
     "mtime": 1783441571.9913416,
@@ -244,5 +244,10 @@
     "mtime": 1784237820.736886,
     "source_id": "c934912e-4864-4ec1-a6ec-ca64489a8db3",
     "verified_at": 1784252256.157839
+  },
+  "wiki/synthesis/partial-rounds-stats-build-spec-2026-07-16.md": {
+    "mtime": 1784252933.5642972,
+    "source_id": "fb3717be-23f9-40fe-9ed0-ebe67f2cfb44",
+    "verified_at": 1784253103.715476
   }
 }
