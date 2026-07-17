@@ -24,7 +24,11 @@
     --ink-2: #2C3E30;
     --ink-3: rgba(20,41,28,0.62);
     --ink-4: rgba(20,41,28,0.42);
-    --gold: #A88A44;           /* olive-gold for micro labels + rules */
+    --gold: #A88A44;           /* olive-gold for RULES + BORDERS (decorative) */
+    --gold-text: #7A6530;      /* gold for TEXT — 4.6:1+ on ivory & champagne
+                                  (design audit 2026-07-17: #A88A44 text was
+                                  2.7:1, failing WCAG AA at micro-label sizes;
+                                  same gold/gold-text split the app itself uses) */
     --gold-deep: #8E7433;
     --hairline: rgba(20,41,28,0.18);
     --hairline-gold: rgba(168,138,68,0.45);
@@ -43,8 +47,15 @@
 
   .micro {
     font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
-    color: var(--gold);
+    color: var(--gold-text);
   }
+
+  /* Keyboard navigation — visible focus ring (design audit 2026-07-17). */
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--gold-deep); outline-offset: 3px; border-radius: 4px;
+  }
+  /* Anchor targets land clear of the sticky nav. */
+  section, .stat-band, .closer, #top { scroll-margin-top: 76px; }
 
   /* ── Sticky nav (parity with the original page: CTA always in reach) ── */
   nav.site {
@@ -64,7 +75,15 @@
     background: linear-gradient(180deg, #CBA95B 0%, #B08D45 55%, #8E7433 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
-  nav.site .btn { padding: 9px 22px; font-size: 12px; }
+  nav.site .btn {
+    padding: 9px 22px; font-size: 12px;
+    /* Hidden while the cover (with its own CTA) is on screen — two identical
+       gold CTAs above the fold competed (design audit 2026-07-17). Fades in
+       once the visitor scrolls past the cover. */
+    opacity: 0; pointer-events: none; transform: translateY(-4px);
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+  nav.site.past-cover .btn { opacity: 1; pointer-events: auto; transform: none; }
   .rule-gold { width: 56px; height: 1px; background: var(--gold); margin: 22px 0 26px; }
 
   /* ── Cover / hero ─────────────────────────────── */
@@ -154,9 +173,9 @@
   }
   .stat:last-child { border-right: none; margin-right: 0; }
   .stat b { display: block; font-size: clamp(26px, 3.6vw, 40px); font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
-  .stat i { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-4); margin-top: 6px; line-height: 1.5; }
+  .stat i { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); margin-top: 6px; line-height: 1.5; }
   .cover-foot { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-  .cover-foot .micro { color: var(--gold-deep); }
+  .cover-foot .micro { color: var(--gold-text); }
 
   /* ── Page sections ───────────────────────────── */
   .page { padding: 100px 0; }
@@ -217,7 +236,7 @@
   .gallery::-webkit-scrollbar-thumb { background: var(--hairline-gold); border-radius: 3px; }
   .gallery .shot { scroll-snap-align: center; flex-shrink: 0; width: 208px; }
   .gallery .shot img { border-radius: 24px; border: 1px solid var(--hairline); box-shadow: 0 14px 36px rgba(20,41,28,0.18); }
-  .gallery .shot figcaption { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-4); text-align: center; margin-top: 12px; }
+  .gallery .shot figcaption { font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); text-align: center; margin-top: 12px; }
 
   /* Closer */
   .closer {
@@ -237,7 +256,7 @@
     max-width: 1060px; margin: 0 auto; padding: 30px 28px;
     display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
-  footer .micro { color: var(--ink-4); letter-spacing: 0.18em; }
+  footer .micro { color: var(--ink-3); letter-spacing: 0.18em; }
 
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 700ms ease, transform 700ms ease; }
   .reveal.in { opacity: 1; transform: none; }
@@ -281,7 +300,7 @@
     <div class="cover-mid">
       <div class="cover-copy">
         <div class="kicker-row"><span class="dash"></span><span class="micro">The golf companion · 2026</span></div>
-        <div class="wordmark-hero"><span class="the">The</span><span>Match</span></div>
+        <h1 class="wordmark-hero"><span class="the">The</span><span>Match</span></h1>
         <p class="cover-sub">
           A satellite rangefinder, live multiplayer scorecards, a real handicap,
           and a caddie that knows your bag — one app for the golf you actually
@@ -510,10 +529,8 @@
         <li><b>Player cards</b> — headshots, countries, and full positions from leader to cut line.</li>
       </ul>
     </div>
-    <div class="cover-phone" style="transform: rotate(-2deg);">
-      <div class="flyover">
-        <img src="assets/10-tour-pga.jpg" alt="The Tour tab — live PGA Tour leaderboard with positions, totals, today's scores, and holes thru" width="292" height="634" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">
-      </div>
+    <div class="phone" style="width: 268px;">
+      <img src="assets/10-tour-pga.jpg" alt="The Tour tab — live PGA Tour leaderboard with positions, totals, today's scores, and holes thru" width="268" height="582" loading="lazy">
     </div>
   </div>
 </section>
@@ -577,6 +594,15 @@
   const fly = document.querySelector('.flyover video');
   if (fly && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     fly.play().catch(() => {});
+  }
+
+  // Nav CTA appears once the cover's own CTA has scrolled away.
+  const nav = document.querySelector('nav.site');
+  const cover = document.querySelector('.cover');
+  if (nav && cover) {
+    new IntersectionObserver(([e]) => {
+      nav.classList.toggle('past-cover', !e.isIntersecting);
+    }, { rootMargin: '-80px 0px 0px 0px' }).observe(cover);
   }
 </script>
 
