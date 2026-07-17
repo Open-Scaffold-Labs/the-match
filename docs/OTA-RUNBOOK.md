@@ -86,10 +86,15 @@ vNext (heal everyone).
    in the binary submitted to the App Store** (OTA can't enable itself).
 6. Add a wiki log entry per publish (version, what shipped, min-native).
 
-## Current state (2026-07-16)
+## Current state (2026-07-16, end of session — LIVE)
 
-- Endpoint + tests (14, in `server/test/ota.test.js`) + migration 049 + scripts: ON
-  BRANCH `feat/ios-native-capabilities`, not merged; migration NOT applied to prod.
-- capacitor.config.json points updateUrl/statsUrl at prod; `autoUpdate:false`
-  until the e2e above passes.
-- Storage bucket is created automatically by the first publish.
+- **MERGED to main (9b0ca20) and DEPLOYED**; migration 049 **APPLIED to prod** (tables +
+  one-active index verified). Live smoke-tested against prod: update-check answers
+  `{"message":"no active bundle"}` for our app_id, rejects foreign app_ids, and the stats
+  endpoint ingested + persisted a row (verified in tm_ota_stats, then cleaned).
+- Server suite on merged main: 193/193. Endpoint: POST /api/v1/ota/updates + /stats.
+- **Remaining before first real OTA publish (go-live steps 2 + 4 + 5 above):**
+  (a) add SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to the repo .env on Matt's Mac
+  (dashboard → Project Settings → API — a human-held secret, deliberately not fetched by
+  Claude); (b) run the first `ota-publish` + the sim e2e; (c) flip `autoUpdate: true` in
+  capacitor.config.json so it ships in the submitted binary.
