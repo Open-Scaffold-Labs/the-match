@@ -6,7 +6,13 @@ app origin or `thematch.app` here).
 
 ## Contents
 
-- `index.html` — the whole page (no build step, no dependencies).
+- `index.html` — the live page: **editorial design** (champagne-brief language —
+  Fraunces serif on ivory, gold micro-labels, numbered feature index, animated
+  Eagle Eye flyover in the cover phone). Promoted to root 2026-07-17 after
+  content parity with the original dark page. Google Fonts is the only
+  external dependency.
+- `dark/index.html` — the original Augusta-at-night page, kept at `/dark`.
+- `editorial/index.html` — redirect to `/` (the old preview URL).
 - `assets/` — screenshots resized/compressed from `wiki/assets/app-store-2026-07/`
   (720px wide, JPEG q82, 26–70 KB each). Regenerate with:
   `sips -Z 720 -s format jpeg -s formatOptions 82 <src>.png --out assets/<name>.jpg`
