@@ -6,6 +6,10 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-16] refactor | iOS handoff written — next session starts at the App Store listing package
+
+Wrote [[synthesis/next-session-handoff-2026-07-16-ios]] (ACTIVE; rollup regenerated, 07-10 handoff superseded). Matt-approved priority order: **(1) App Store listing package** (sim screenshots on the logged-in iPhone 17 Pro sim, store copy — no competitor names, review notes + demo account, age rating) → **(2) APNs send path** (server-side sender reading tm_native_push_tokens, env-gated; apply migration 048) → **(3) compliance paperwork** (nutrition label must match PrivacyInfo.xcprivacy). OTA state at close: Xcode left open resolving Capgo's Alamofire dep at ~2%/min (throttled network, audited root cause in the entry below); Capgo reinstalled → `feat/ios-native-capabilities` working tree DIRTY with the retry; next session checks Xcode first (finish + re-wire, or revert + retry later — don't hammer the clone).
+
 ## [2026-07-16] feat | Native capabilities — geolocation shim + APNs push wired; OTA (Capgo) blocked on SwiftPM
 
 Branch `feat/ios-native-capabilities` (off main after the iOS-shell merge). NOT merged.
