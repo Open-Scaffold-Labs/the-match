@@ -1,126 +1,126 @@
 {
   "wiki/overview.md": {
-    "mtime": 1782336182.6623178,
-    "source_id": "454c8571-4fe4-4ae5-b0b5-cd6f52c1e36d",
-    "verified_at": 1782336216.690293
+    "mtime": 1784253458.2927997,
+    "source_id": "370aeaab-0e7c-45e3-abbd-3093a000b437",
+    "verified_at": 1784254553.0053718
   },
   "wiki/log.md": {
-    "mtime": 1784252958.7075078,
-    "source_id": "913ec64b-b120-41c7-b23a-14798233eacf",
-    "verified_at": 1784253077.823086
+    "mtime": 1784254504.5540164,
+    "source_id": "9a136ed0-6977-4b33-8575-de0cdcc4ef4b",
+    "verified_at": 1784254590.249692
   },
   "wiki/index.md": {
-    "mtime": 1784252942.3203552,
-    "source_id": "c120574a-6be8-45fa-b315-d69dde8cfabd",
-    "verified_at": 1784253096.537527
+    "mtime": 1784254470.926091,
+    "source_id": "c73cd007-ae81-40bc-8829-ba51b5dc9872",
+    "verified_at": 1784254612.0153081
   },
   "wiki/synthesis/claude-anti-patterns.md": {
-    "mtime": 1778130361.5556011,
-    "source_id": "b1e3fd6a-6130-444d-abac-5e6ce57d49ac",
-    "verified_at": 1778130671.452815
+    "mtime": 1784253458.295508,
+    "source_id": "7c9858f6-2e8d-4e1e-a321-b9251107851f",
+    "verified_at": 1784254956.18173
   },
   "wiki/concepts/llm-wiki-pattern.md": {
-    "mtime": 1777500342.2565055,
-    "source_id": "82220887-5a93-4de8-bac0-e153a39cd248",
-    "verified_at": 1777501709.156737
+    "mtime": 1784253458.2903593,
+    "source_id": "2cccd001-288b-4fb7-9d27-1567a102262f",
+    "verified_at": 1784255276.876032
   },
   "wiki/concepts/notebooklm-workflow.md": {
-    "mtime": 1777500342.2568595,
-    "source_id": "ce3c1326-3223-4653-bb53-05295500df0c"
+    "mtime": 1784253458.2905943,
+    "source_id": "ae2972eb-bdb2-49a0-bf4f-dbb4355d5181"
   },
   "wiki/sources/claude-code-karpathy-obsidian-video-2026-04-14.md": {
-    "mtime": 1777500342.257352,
-    "source_id": "4ff84c02-ada1-4ab0-9605-906758c60d66"
+    "mtime": 1784253458.2931635,
+    "source_id": "ee9ad52c-4646-4b76-a271-1b85cb2b35fc"
   },
   "wiki/synthesis/audit-fixes-proposal-2026-04-29.md": {
-    "mtime": 1777638777.7576013,
-    "source_id": "055fd7b6-7a57-4374-9e5a-be722ec6f870",
-    "verified_at": 1777639038.7436318
+    "mtime": 1784253458.294697,
+    "source_id": "5a8f39a1-f57e-45ca-bb34-3d46bba3269f",
+    "verified_at": 1784255059.8069701
   },
   "wiki/synthesis/audit-2026-04-29.md": {
-    "mtime": 1777638817.5652206,
-    "source_id": "c1c045aa-3e4f-4485-8ac6-9be6d0727a75",
-    "verified_at": 1777639049.2002718
+    "mtime": 1784253458.2936983,
+    "source_id": "88165de7-fa6a-492e-ba83-9a87976bb2bc",
+    "verified_at": 1784255187.252809
   },
   "wiki/synthesis/match-page-completion-plan.md": {
-    "mtime": 1777639508.3526518,
-    "source_id": "d05a2d21-e1a2-46d7-ab3e-a8c980afc2d2",
-    "verified_at": 1777639953.4141362
+    "mtime": 1784253458.3096218,
+    "source_id": "465ada5c-538d-4f01-b045-24840cbf4c23",
+    "verified_at": 1784254968.084126
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1782833971.8682165,
-    "source_id": "f81b2fc2-c2bb-4e03-89a7-200e0dda2a91",
-    "verified_at": 1782834013.019714
+    "mtime": 1784253458.2899,
+    "source_id": "a5b495a3-ce5f-4524-b0f4-ad6d4e8d0ba5",
+    "verified_at": 1784254571.84161
   },
   "wiki/synthesis/audit-2026-05-07.md": {
-    "mtime": 1778180654.29875,
-    "source_id": "0e31c096-9d77-40a0-8602-1586c2fade8d",
-    "verified_at": 1778180852.917377
+    "mtime": 1784253458.2941124,
+    "source_id": "9cc27f14-5f5a-4ff7-9943-807cbf0a591a",
+    "verified_at": 1784255238.600529
   },
   "wiki/synthesis/eagle-eye-next-level-plan-2026-06-06.md": {
-    "mtime": 1781496379.645966,
-    "source_id": "e8017ffe-33fc-412b-ab0a-4425ea409ac2",
-    "verified_at": 1782247877.2479239
+    "mtime": 1784253458.2965536,
+    "source_id": "0f2e0a9d-95d3-4340-88ec-f169a5a109ba",
+    "verified_at": 1784254862.665366
   },
   "wiki/synthesis/session-report-2026-06-06.md": {
-    "mtime": 1780788282.9288797,
-    "source_id": "5b4ae0f9-e876-4913-a7cc-82dcc02d3b2c",
-    "verified_at": 1782247883.452485
+    "mtime": 1784253458.3223505,
+    "source_id": "16cb4107-c8bd-48f3-aa81-09edd91d1e9e",
+    "verified_at": 1784254993.3313322
   },
   "wiki/synthesis/eagle-eye-premium-plan-2026-06-23.md": {
-    "mtime": 1783436738.2734754,
-    "source_id": "532e3887-33ab-4996-bc42-e527e69774e4",
-    "verified_at": 1783436977.758929
+    "mtime": 1784253458.2968903,
+    "source_id": "3753b58a-46e5-457f-8b56-c14da47677a6",
+    "verified_at": 1784254785.0907068
   },
   "wiki/synthesis/build-plan-bulletproof-2026-06-23.md": {
-    "mtime": 1783441946.3874836,
-    "source_id": "5f5acfb6-bc1c-42bd-924b-239dceb1cae8",
-    "verified_at": 1783442209.318553
+    "mtime": 1784253458.2951405,
+    "source_id": "0dd8a33b-b3b4-4685-b84f-5374359622ee",
+    "verified_at": 1784254877.653409
   },
   "wiki/synthesis/playslike-3.1-build-spec-2026-06-25.md": {
-    "mtime": 1782405889.2891493,
-    "source_id": "6d05c4a0-5ba5-4a87-9cce-1f0aa2759c22",
-    "verified_at": 1782408139.353857
+    "mtime": 1784253458.319052,
+    "source_id": "b26d5c98-b31b-4407-b47a-140749e062aa",
+    "verified_at": 1784254899.7542322
   },
   "wiki/synthesis/own-club-arcs-3.3-build-spec-2026-06-25.md": {
-    "mtime": 1782501150.1152554,
-    "source_id": "9c78e267-f2fb-4596-b5fb-e7faa17d81e9",
-    "verified_at": 1782501202.127193
+    "mtime": 1784253458.3150516,
+    "source_id": "154d179a-0b90-49d0-893e-c285d43bb00e",
+    "verified_at": 1784254826.0077848
   },
   "wiki/synthesis/player-data-foundation-2026-06-25.md": {
-    "mtime": 1782502266.3276854,
-    "source_id": "5e06d92b-7be1-48df-b844-c8593f28ef2e",
-    "verified_at": 1782502321.425938
+    "mtime": 1784253458.3186269,
+    "source_id": "11b9a2e6-c35e-4a83-9cc2-42eb96e2d9b9",
+    "verified_at": 1784255019.171467
   },
   "wiki/synthesis/gender-handicap-wiring-2026-06-25.md": {
-    "mtime": 1782502847.5897746,
-    "source_id": "a1f4e163-6a29-47fa-b82b-0c6784dde403",
-    "verified_at": 1782503226.999428
+    "mtime": 1784253458.3061445,
+    "source_id": "ad83d91d-4539-48c2-8d2a-e9f14b75cdc5",
+    "verified_at": 1784255257.304739
   },
   "wiki/synthesis/course-handicap-match-strokes-2026-06-25.md": {
-    "mtime": 1782503664.025513,
-    "source_id": "d79a6e60-3cf6-43b8-91ac-6218b17422e2",
-    "verified_at": 1782504027.376468
+    "mtime": 1784253458.295878,
+    "source_id": "35340f71-6b32-4d17-85b1-118b87710211",
+    "verified_at": 1784254837.342807
   },
   "wiki/synthesis/per-player-gender-ratings-2026-06-25.md": {
-    "mtime": 1782504397.1284204,
-    "source_id": "d2906b04-1518-4bb1-aafd-23a3146e62b0",
-    "verified_at": 1782504825.846385
+    "mtime": 1784253458.3164697,
+    "source_id": "44b81ad7-0f5c-4932-8df6-486c73657531",
+    "verified_at": 1784254888.676079
   },
   "wiki/synthesis/handicap-accuracy-audit-2026-06-25.md": {
-    "mtime": 1782514210.697637,
-    "source_id": "cd617659-0dda-450a-b709-49445a5e367b",
-    "verified_at": 1782514397.263246
+    "mtime": 1784253458.306529,
+    "source_id": "f55ea610-ca01-48fe-801f-07e10068dcd1",
+    "verified_at": 1784255202.754035
   },
   "wiki/synthesis/audit-2026-06-27.md": {
-    "mtime": 1782544667.6634998,
-    "source_id": "f474c917-6327-415e-9a01-ceed96392856",
-    "verified_at": 1782544918.534416
+    "mtime": 1784253458.2944505,
+    "source_id": "b8237263-da78-44b2-a1a4-c26a31c07a1f",
+    "verified_at": 1784254980.729744
   },
   "wiki/synthesis/foundation-lock-build-spec-2026-06-27.md": {
-    "mtime": 1782547010.5425873,
-    "source_id": "a59fbc24-3acd-44bf-b0c1-6629ad7dd062",
-    "verified_at": 1782547214.727875
+    "mtime": 1784253458.3057532,
+    "source_id": "393b2767-3d6a-47bf-8eb6-1a8f58300f5e",
+    "verified_at": 1784254688.542681
   },
   "wiki/synthesis/f5-never-lose-your-round-build-spec-2026-06-28.md": {
     "mtime": 1782623893.775454,
@@ -148,106 +148,106 @@
     "verified_at": 1782757964.498656
   },
   "wiki/synthesis/phase0-foundation-build-spec-2026-06-30.md": {
-    "mtime": 1782839673.2123327,
-    "source_id": "92233f0e-f17d-48af-a38c-1dbc456e6193",
-    "verified_at": 1782919044.028348
+    "mtime": 1784253458.3168132,
+    "source_id": "2082cf97-5028-4022-b443-afb839a82a60",
+    "verified_at": 1784254632.276931
   },
   "wiki/synthesis/playslike-accuracy-rebuild-2026-06-30.md": {
-    "mtime": 1782924039.489906,
-    "source_id": "7a918908-2d7f-4454-b013-66b253d05371"
+    "mtime": 1784253458.3203351,
+    "source_id": "655d844a-05e5-4983-9023-2d969e388a4c"
   },
   "wiki/synthesis/eagle-eye-tokenization-plan-2026-07-02.md": {
-    "mtime": 1783441981.5214276,
-    "source_id": "07e9c5ed-fabb-4fdc-8be9-231c9c34ade9",
-    "verified_at": 1783442198.81949
+    "mtime": 1784253458.297696,
+    "source_id": "922a1aee-3921-4824-9b54-3bc8a1536349",
+    "verified_at": 1784254770.5223901
   },
   "wiki/synthesis/range-rings-dispersion-build-spec-2026-07-02.md": {
-    "mtime": 1783034638.2819545,
-    "source_id": "feede955-572b-4184-af9a-651fdab099a2",
-    "verified_at": 1783034725.071815
+    "mtime": 1784253458.3216608,
+    "source_id": "0032155a-f447-4cbf-a1a2-82b268a1816a",
+    "verified_at": 1784255091.86592
   },
   "wiki/synthesis/sg-map-tap-capture-build-spec-2026-07-02.md": {
-    "mtime": 1783119566.6748734,
-    "source_id": "9d175809-a49a-487d-a7fd-472e7ca89369",
-    "verified_at": 1783119741.498636
+    "mtime": 1784253458.3230958,
+    "source_id": "476563dd-d938-4c31-9a6f-254f551a4875",
+    "verified_at": 1784255045.873982
   },
   "wiki/synthesis/live-putt-capture-outings-build-spec-2026-07-06.md": {
-    "mtime": 1783376071.7762213,
-    "source_id": "db609024-faf0-441c-95d5-50ea6fb1d1d9",
-    "verified_at": 1783376117.5274491
+    "mtime": 1784253458.3087842,
+    "source_id": "67e93196-a746-4bb0-a5f6-b3fdc5585c28",
+    "verified_at": 1784254926.4160042
   },
   "wiki/synthesis/solo-multi-scorecard-unification-spec-2026-07-06.md": {
-    "mtime": 1783381756.8716197,
-    "source_id": "f855e353-a123-4092-81f9-63cdde90c734",
-    "verified_at": 1783383016.5478091
+    "mtime": 1784253458.3238053,
+    "source_id": "383a726b-993b-4867-9d2d-8895dd7df397",
+    "verified_at": 1784255031.5548
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1784252747.0327177,
-    "source_id": "27daa3f7-8a2f-4ab1-be8f-aa32dc0f9849"
+    "mtime": 1784253458.308178,
+    "source_id": "2cef4fc0-0055-4c9d-a366-61eb53fa5454"
   },
   "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
-    "mtime": 1783441571.9913416,
-    "source_id": "6be50dd1-e866-4c00-8337-e2072f2947a2",
-    "verified_at": 1783442215.406632
+    "mtime": 1784253458.3006163,
+    "source_id": "10209fd1-f581-415b-8d0a-7fd44b808216",
+    "verified_at": 1784255077.2198908
   },
   "wiki/synthesis/eagle-eye-walk-and-confirm-progress-2026-07-07.md": {
-    "mtime": 1783547621.0030847,
-    "source_id": "8411e915-edcb-4d90-9700-ccd6a0b0e4d1",
-    "verified_at": 1783654913.435842
+    "mtime": 1784253458.299183,
+    "source_id": "7cdeac4e-b2f0-45da-87bd-8acba07053f5",
+    "verified_at": 1784254710.914359
   },
   "wiki/synthesis/eagle-eye-walk-and-confirm-spec-2026-07-07.md": {
-    "mtime": 1783470771.7378275,
-    "source_id": "9eb1e006-f848-41a4-8951-d6abe46ee609",
-    "verified_at": 1783534415.484431
+    "mtime": 1784253458.3000417,
+    "source_id": "29d78f39-b8c3-484c-86ef-47e80c4a250b",
+    "verified_at": 1784255005.466389
   },
   "wiki/synthesis/start-match-unified-flow-plan-2026-07-09.md": {
-    "mtime": 1783654022.4559717,
-    "source_id": "20451a5b-d760-4ddc-baca-1ae983e227f5",
-    "verified_at": 1783654897.063733
+    "mtime": 1784253458.3239772,
+    "source_id": "0e1a8609-29d1-42bd-95fe-3f8ddf450b27",
+    "verified_at": 1784254652.193805
   },
   "wiki/synthesis/play-funnel-phase1-build-spec-2026-07-10.md": {
-    "mtime": 1783657984.142064,
-    "source_id": "7ff58ceb-d159-4419-b00c-6a4b0ec23d1d",
-    "verified_at": 1783658089.157794
+    "mtime": 1784253458.3174045,
+    "source_id": "fb7b3187-faa1-4992-8c6e-c6667ee60c5a",
+    "verified_at": 1784254670.7535071
   },
   "wiki/synthesis/play-oncourse-phase2-build-spec-2026-07-10.md": {
-    "mtime": 1783663283.6159456,
-    "source_id": "7e47c81e-3122-40ce-83bb-4c8b0a429724",
-    "verified_at": 1783666565.334421
+    "mtime": 1784253458.3180802,
+    "source_id": "262b4a22-2590-4d18-ad42-4de4f735943d",
+    "verified_at": 1784254914.8805618
   },
   "wiki/synthesis/f5-specs-rollup.md": {
-    "mtime": 1783666433.8352027,
-    "source_id": "fbd6c5ea-caca-4b43-b2e2-496f84e92b7e",
-    "verified_at": 1783666619.4834418
+    "mtime": 1784253458.3046956,
+    "source_id": "731cd208-19b2-47af-a1c3-4bb6879c313b",
+    "verified_at": 1784254797.698935
   },
   "wiki/synthesis/map-this-course-editor-build-spec-2026-07-10.md": {
-    "mtime": 1783668126.12383,
-    "source_id": "ac477a73-75c2-4372-8d67-2568963bca3d",
-    "verified_at": 1783668240.737217
+    "mtime": 1784253458.3092537,
+    "source_id": "35fd35e1-578a-4e8f-9b3d-9887f6f483d2",
+    "verified_at": 1784255106.049077
   },
   "wiki/synthesis/phase3-premium-differentiators-build-spec-2026-07-10.md": {
-    "mtime": 1783671933.3881242,
-    "source_id": "3347a61f-fd1a-4730-aab6-6705eb8f4449",
-    "verified_at": 1783672141.2468338
+    "mtime": 1784253458.3170562,
+    "source_id": "3ebeaa6d-0090-4902-b40d-054ddb541d64",
+    "verified_at": 1784255171.352223
   },
   "wiki/synthesis/app-store-readiness-gameplan-2026-07-16.md": {
-    "mtime": 1784238298.8472354,
-    "source_id": "6352d5a5-4604-41f9-ae0f-d166faec50dc",
-    "verified_at": 1784252236.003917
+    "mtime": 1784253458.2934291,
+    "source_id": "585b1777-712d-4991-a3e1-61a4279aa04c",
+    "verified_at": 1784254851.0030122
   },
   "wiki/synthesis/voice-interface-build-spec-2026-07-15.md": {
-    "mtime": 1784237820.7373507,
-    "source_id": "dc17ff94-4502-4396-bf90-447de461ffdd",
-    "verified_at": 1784252246.018332
+    "mtime": 1784253458.3240585,
+    "source_id": "c12a0283-a9c0-4fb4-ac90-3b3f1ce697b0",
+    "verified_at": 1784254939.6920269
   },
   "wiki/synthesis/gameday-strategy-build-spec-2026-07-15.md": {
-    "mtime": 1784237820.736886,
-    "source_id": "c934912e-4864-4ec1-a6ec-ca64489a8db3",
-    "verified_at": 1784252256.157839
+    "mtime": 1784253458.3058546,
+    "source_id": "189b0a45-2d34-44e6-9746-60d38194c890",
+    "verified_at": 1784255222.5481842
   },
   "wiki/synthesis/partial-rounds-stats-build-spec-2026-07-16.md": {
-    "mtime": 1784252933.5642972,
-    "source_id": "fb3717be-23f9-40fe-9ed0-ebe67f2cfb44",
-    "verified_at": 1784253103.715476
+    "mtime": 1784254460.6959667,
+    "source_id": "2b493664-6535-4550-bb54-0801533a0308",
+    "verified_at": 1784254815.12507
   }
 }
