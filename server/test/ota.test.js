@@ -171,9 +171,14 @@ describe('semver comparator', () => {
     expect(cmp('v1.2.3', '1.2.3')).toBe(0)      // tolerant of leading v
     expect(cmp('1.2.3-beta', '1.2.3')).toBe(0)  // suffix ignored (numeric compare)
   })
+  it('two-segment versions normalize to X.Y.0 (iOS CFBundleShortVersionString "1.0")', () => {
+    expect(cmp('1.0', '1.0.0')).toBe(0)
+    expect(cmp('1.0.1', '1.0')).toBe(1)
+    expect(cmp('1.2', '1.0.0')).toBe(1)
+  })
   it('returns null on garbage (callers treat as do-not-update)', () => {
     expect(cmp('builtin', '1.0.0')).toBe(null)
     expect(cmp('', '1.0.0')).toBe(null)
-    expect(cmp('1.2', '1.0.0')).toBe(null)
+    expect(cmp('1', '1.0.0')).toBe(null)
   })
 })

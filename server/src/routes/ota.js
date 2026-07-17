@@ -37,9 +37,12 @@ const DEFAULT_CHANNEL = 'production'
 // null as "cannot compare → do not update" (fail safe).
 function parseSemver(s) {
   if (typeof s !== 'string') return null
-  const m = s.trim().replace(/^v/i, '').match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/)
+  // Accept X.Y.Z and X.Y (normalized to X.Y.0) — iOS CFBundleShortVersionString
+  // is often two-segment ("1.0"), and rejecting it would mean fresh installs
+  // (version_name "builtin") never receive updates. (Caught pre-e2e 2026-07-16.)
+  const m = s.trim().replace(/^v/i, '').match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:[-+].*)?$/)
   if (!m) return null
-  return [Number(m[1]), Number(m[2]), Number(m[3])]
+  return [Number(m[1]), Number(m[2]), Number(m[3] ?? 0)]
 }
 
 // compareSemver(a, b): 1 if a>b, -1 if a<b, 0 equal, null if either unparseable.
