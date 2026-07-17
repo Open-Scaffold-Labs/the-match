@@ -239,25 +239,24 @@ runaway scenario.
 change). Then we add a `tm_user_rate_limits` table or in-memory limiter
 on the Node side as a defense in depth.
 
-## 23. Marketing site URL — the-match.openscaffoldlabs.com
+## 23. Marketing site URL — the-match.openscaffoldlabs.com — ✅ LIVE 2026-07-17
 
-**Decided 2026-06-06 (Dale).** When the marketing/landing page is built,
-its public URL is **`the-match.openscaffoldlabs.com`** (a subdomain of
-`openscaffoldlabs.com`). Use this exact host for the marketing page — not
-the `the-match-roan.vercel.app` app origin and not `thematch.app`.
+**Decided 2026-06-06 (Dale). BUILT + DEPLOYED 2026-07-17** — the marketing
+page is LIVE at **https://the-match.openscaffoldlabs.com** (Vercel project
+`the-match-marketing`, OSL team, CLI-deployed from `marketing/` — NOT
+git-integrated; redeploy = `cd marketing && vercel deploy --prod --yes`).
+DNS auto-provisioned (openscaffoldlabs.com is Vercel-registered on Vercel
+nameservers — no manual CNAME was needed).
 
-Note the relationships:
-- `the-match.openscaffoldlabs.com` — marketing/landing page (this item).
-- `the-match-roan.vercel.app` — the live PWA app origin (current).
+Current state: editorial champagne-brief design at `/` (7 sections, real
+simulator flyover video in the cover, WCAG-AA audited), original dark page
+kept at `/dark/`, `/editorial/` redirects to root. Full history in
+wiki/log.md 2026-07-17 entries.
+
+**Still open from this item:**
+- Swap `the-match.openscaffoldlabs.com` into social bios, share-card CTAs,
+  and the GolfNow affiliate materials (accounts only Matt/Dale can touch).
 - `thematch.app` / short URL — still TBD for referral links (see #19).
-
-Pieces to wire when the page is built:
-- Point the `the-match.openscaffoldlabs.com` DNS record (CNAME) at the
-  marketing-page host (Vercel project for the landing page).
-- Add the domain in the Vercel project settings + verify.
-- Use this URL in all social bios, share-card CTAs, and the GolfNow
-  affiliate materials (the social-media strategy docs reference the app
-  origin today — swap to the marketing URL once it's live).
 
 ## 24. Native shell safe-area / full-bleed (defer to TestFlight)
 
