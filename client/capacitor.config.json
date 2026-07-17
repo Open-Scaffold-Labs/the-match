@@ -10,6 +10,10 @@
     "CapacitorHttp": {
       "enabled": true
     },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "resetWhenUpdate": true
+    },
     "SplashScreen": {
       "launchAutoHide": false,
       "backgroundColor": "#070C09",

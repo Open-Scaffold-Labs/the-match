@@ -33,26 +33,25 @@ tags: [handoff, ios, app-store, capacitor, active]
 - OTA (Capgo): NOT in the tree (uninstalled; config + notifyAppReady wiring reverted) — see
   "OTA status" below.
 
-## OTA status — read before touching
+## OTA status — ✅ RESOLVED (late 2026-07-16, same session)
 
-Root cause of the earlier failures (audited, evidence in log 2026-07-16): SwiftPM stalls
-cloning **Alamofire** (Capgo's HTTP dep) because this machine's GitHub transfer rate was
-throttled (~68KB/s full clone; shallow clone 625KB/s; all other deps clone fine; NOT a version
-conflict; NOT the encryption feature). Repeated retry attempts (~10 clones) may have made the
-IP rate-limit worse.
+Xcode's GUI resolver ground through the throttled Alamofire clone (~40 min at ~2%/min) and
+**all Capgo packages resolved + cached** (Alamofire 5.12.0, BigInt 5.7.0, ZIPFoundation 0.9.20,
+Version 0.8.0). The two wiring pieces were re-applied (capacitor.config.json `CapacitorUpdater`
+`{autoUpdate:false, resetWhenUpdate:true}` + `notifyAppReady()` in `lib/native.js`). Verified:
+lint 0 / web build 0 / `xcodebuild` **BUILD SUCCEEDED** (35s — cache warm) / app runs on the
+sim with Capgo live (CapgoUpdater init + CapgoBundleCleanup in the device log; profile renders
+with live backend data). Committed on `feat/ios-native-capabilities`.
 
-**When this session ended, Xcode was open on `client/ios/App/App.xcodeproj` grinding through
-"Fetching Alamofire" at ~2%/min with Capgo REINSTALLED in package.json/CapApp-SPM (working
-tree dirty on the branch).** Next session: check Xcode first.
-- If resolution FINISHED → build in Xcode or CLI (`xcodebuild ... build`), verify BUILD
-  SUCCEEDED, re-apply the two reverted wiring pieces (capacitor.config.json `CapacitorUpdater`
-  block `{autoUpdate:false, resetWhenUpdate:true}` + `notifyAppReady()` in `lib/native.js` —
-  exact code in log entry), commit on the branch.
-- If still stuck/stalled → `git checkout -- .` the dirty bits, `npm uninstall -w client
-  @capgo/capacitor-updater`, and retry hours later when the throttle clears. Do NOT hammer
-  the clone repeatedly — that's what triggered the rate-limit.
-- Capgo backend decision (Cloud ~$14/mo vs self-host) still open with Matt. OTA must ship in
-  the FIRST submitted binary.
+Root cause of the original failures (audited, evidence in log): the machine's GitHub transfer
+rate was throttled — NOT a version conflict, NOT Capgo's encryption. Packages are now cached,
+so future builds don't refetch.
+
+**Still open on OTA:** Capgo backend decision with Matt (Cloud ~$14/mo vs self-host) + account
++ `CAPGO_*` config before the first real OTA update ships. `autoUpdate` stays false until then
+— the CAPABILITY is in the binary (required for the first submitted build), inert until
+configured. One benign log line to know about: `CapgoUpdater: Semaphore wait timed out after
+0ms` at launch — expected with no update server configured.
 
 ## Priority order (Matt-approved)
 

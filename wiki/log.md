@@ -6,6 +6,10 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-16] feat | OTA (Capgo) LANDED — Xcode resolved the throttled packages; verified in the running app
+
+Late-session resolution of the OTA blocker: Xcode's GUI resolver completed the throttled Alamofire fetch (~40min); all Capgo deps cached (Alamofire 5.12.0 / BigInt / ZIPFoundation / Version). Re-applied the two wiring pieces (config `CapacitorUpdater {autoUpdate:false, resetWhenUpdate:true}` + `notifyAppReady()` in native.js). Verified: lint 0, web build 0, `xcodebuild` BUILD SUCCEEDED (35s, warm cache), sim run shows CapgoUpdater init + BundleCleanup in device logs and the app renders live profile data. `@capgo/capacitor-updater@8.51.1` now in the binary — OTA capability ships in the first submission as required; inert until a Capgo backend (Cloud vs self-host, Matt's call) is configured. Handoff updated to reflect DONE. (Benign launch log: "Semaphore wait timed out after 0ms" — no update server configured yet.)
+
 ## [2026-07-16] refactor | iOS handoff written — next session starts at the App Store listing package
 
 Wrote [[synthesis/next-session-handoff-2026-07-16-ios]] (ACTIVE; rollup regenerated, 07-10 handoff superseded). Matt-approved priority order: **(1) App Store listing package** (sim screenshots on the logged-in iPhone 17 Pro sim, store copy — no competitor names, review notes + demo account, age rating) → **(2) APNs send path** (server-side sender reading tm_native_push_tokens, env-gated; apply migration 048) → **(3) compliance paperwork** (nutrition label must match PrivacyInfo.xcprivacy). OTA state at close: Xcode left open resolving Capgo's Alamofire dep at ~2%/min (throttled network, audited root cause in the entry below); Capgo reinstalled → `feat/ios-native-capabilities` working tree DIRTY with the retry; next session checks Xcode first (finish + re-wire, or revert + retry later — don't hammer the clone).
