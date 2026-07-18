@@ -19,11 +19,32 @@ function versioned(url) {
 // Native-shell API base. When the app is bundled into the Capacitor iOS/Android
 // shell, the webview origin is capacitor://localhost, so root-relative "/api"
 // and "/health" calls would resolve to the local bundle instead of our backend
-// and every request would fail. VITE_API_ORIGIN is injected at NATIVE build time
-// (e.g. `VITE_API_ORIGIN=https://<prod-domain> npm run build`) to point requests
-// at the deployed API. On the web build it is unset → empty string → same-origin
-// relative calls, so existing web/PWA behavior is byte-for-byte unchanged.
-const API_ORIGIN = (import.meta.env.VITE_API_ORIGIN || '').replace(/\/+$/, '')
+// and every request would fail (CapacitorHttp rejects the capacitor:// URL with
+// "the string does not match the expected pattern").
+//
+// This origin USED to come ONLY from the build-time env VITE_API_ORIGIN, which
+// is committed nowhere — so a native build made on a machine that didn't export
+// it shipped with an empty origin and ALL backend calls (sign-in included) died.
+// That is exactly what broke TestFlight builds 3/4 on 2026-07-17: identical
+// code + config to the working build, but rebuilt on a machine without the env.
+//
+// Fix: native builds now fall back to the deployed backend origin directly, so
+// they never depend on an ambient build env again. Detection is self-contained
+// (no import → no cycle with push.js). VITE_API_ORIGIN still wins when set, for
+// staging/local overrides. NO-OP on web: isNativeBuild() is false there, so
+// API_ORIGIN stays '' and same-origin relative calls are byte-for-byte unchanged.
+function isNativeBuild() {
+  if (typeof window === 'undefined') return false
+  if (window.__TM_NATIVE__ === true) return true
+  try { if (window.Capacitor?.isNativePlatform?.()) return true } catch { /* not native */ }
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || ''
+  return /TheMatchNative/i.test(ua)
+}
+// Same origin the OTA config already points at (capacitor.config.json updateUrl).
+const NATIVE_API_ORIGIN = 'https://the-match-roan.vercel.app'
+const API_ORIGIN = (
+  import.meta.env.VITE_API_ORIGIN || (isNativeBuild() ? NATIVE_API_ORIGIN : '')
+).replace(/\/+$/, '')
 function withOrigin(url) {
   if (API_ORIGIN && typeof url === 'string' && url.startsWith('/')) {
     return API_ORIGIN + url
