@@ -7,7 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03D5C1246F7C509F75EC3481 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF0484855D4501D846C8F95 /* HomeView.swift */; };
+		1233F3C7C691E09062763AFC /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 511AEBFF0D268EF3AEF026C8 /* Keychain.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		455CEDC2CC48F91B2F41103D /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14954B333135192F5912820C /* LoginView.swift */; };
+		47ABC2E39585F4D83A411A40 /* TheMatchWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686953E6D12F2D257FC080BE /* TheMatchWatchApp.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -15,12 +19,43 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		53B7AEA6F2DF17FA483B57CC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30AA02C222816ADFFF90F051 /* Foundation.framework */; };
+		56BC06DE073922DAA5D6A3C7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550B62EE278CC5ED7B317B25 /* ContentView.swift */; };
+		5AC50C4855C1A6EE7A3976C1 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F38A23A0E321025A335C811 /* APIClient.swift */; };
+		645E4F13F28BB91A2D6F5AFA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A442F8AE14788664D2E71634 /* Assets.xcassets */; };
 		67BC5B3B9D55363FCC1A0FDA /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 300F8129893B1375E0E88AF3 /* PrivacyInfo.xcprivacy */; };
+		C4CFAF102C59DCE61274B0D7 /* TheMatchWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 7C2EC622B9668285474A8261 /* TheMatchWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		9D21292FD88AC6499E2A3993 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0681C37220FA0A5CD1B6CFFB;
+			remoteInfo = TheMatchWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B35B71334DA9E974D66954ED /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				C4CFAF102C59DCE61274B0D7 /* TheMatchWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		14954B333135192F5912820C /* LoginView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/LoginView.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		300F8129893B1375E0E88AF3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		30AA02C222816ADFFF90F051 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -29,7 +64,14 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		511AEBFF0D268EF3AEF026C8 /* Keychain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Keychain.swift; path = API/Keychain.swift; sourceTree = "<group>"; };
+		550B62EE278CC5ED7B317B25 /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		5FF0484855D4501D846C8F95 /* HomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeView.swift; path = Views/HomeView.swift; sourceTree = "<group>"; };
+		686953E6D12F2D257FC080BE /* TheMatchWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TheMatchWatchApp.swift; sourceTree = "<group>"; };
+		7C2EC622B9668285474A8261 /* TheMatchWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TheMatchWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7F38A23A0E321025A335C811 /* APIClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = API/APIClient.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A442F8AE14788664D2E71634 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,6 +80,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D38891E8C6CD9EEEF8E2CEB2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				53B7AEA6F2DF17FA483B57CC /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -50,6 +100,8 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				89C3BE5548B0CBDB49D72420 /* Frameworks */,
+				77DE3B6842D64AFB403860C2 /* TheMatchWatch */,
 			);
 			sourceTree = "<group>";
 		};
@@ -57,6 +109,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				7C2EC622B9668285474A8261 /* TheMatchWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -77,9 +130,57 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		77DE3B6842D64AFB403860C2 /* TheMatchWatch */ = {
+			isa = PBXGroup;
+			children = (
+				7F38A23A0E321025A335C811 /* APIClient.swift */,
+				511AEBFF0D268EF3AEF026C8 /* Keychain.swift */,
+				550B62EE278CC5ED7B317B25 /* ContentView.swift */,
+				686953E6D12F2D257FC080BE /* TheMatchWatchApp.swift */,
+				5FF0484855D4501D846C8F95 /* HomeView.swift */,
+				14954B333135192F5912820C /* LoginView.swift */,
+				A442F8AE14788664D2E71634 /* Assets.xcassets */,
+			);
+			name = TheMatchWatch;
+			path = TheMatchWatch;
+			sourceTree = "<group>";
+		};
+		89C3BE5548B0CBDB49D72420 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F7BD58BC61221AEC16FBC89C /* watchOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F7BD58BC61221AEC16FBC89C /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				30AA02C222816ADFFF90F051 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0681C37220FA0A5CD1B6CFFB /* TheMatchWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5AEB9C6836613E5A035A2A1F /* Build configuration list for PBXNativeTarget "TheMatchWatch" */;
+			buildPhases = (
+				43915E5017988546700405C2 /* Sources */,
+				D38891E8C6CD9EEEF8E2CEB2 /* Frameworks */,
+				7E67E3B808671631AEA393B9 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TheMatchWatch;
+			productName = TheMatchWatch;
+			productReference = 7C2EC622B9668285474A8261 /* TheMatchWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -87,10 +188,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				B35B71334DA9E974D66954ED /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9E26FD6C740D2A4106093102 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -133,6 +236,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				0681C37220FA0A5CD1B6CFFB /* TheMatchWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -152,9 +256,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7E67E3B808671631AEA393B9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				645E4F13F28BB91A2D6F5AFA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		43915E5017988546700405C2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5AC50C4855C1A6EE7A3976C1 /* APIClient.swift in Sources */,
+				1233F3C7C691E09062763AFC /* Keychain.swift in Sources */,
+				56BC06DE073922DAA5D6A3C7 /* ContentView.swift in Sources */,
+				47ABC2E39585F4D83A411A40 /* TheMatchWatchApp.swift in Sources */,
+				03D5C1246F7C509F75EC3481 /* HomeView.swift in Sources */,
+				455CEDC2CC48F91B2F41103D /* LoginView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -164,6 +289,15 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9E26FD6C740D2A4106093102 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = TheMatchWatch;
+			target = 0681C37220FA0A5CD1B6CFFB /* TheMatchWatch */;
+			targetProxy = 9D21292FD88AC6499E2A3993 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -185,6 +319,51 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		3604AB58AD2DCCCABDAA3341 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 8P96A2SK8X;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TheMatchWatch/Info.plist;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openscaffoldlabs.thematch.watchkitapp;
+				PRODUCT_NAME = TheMatchWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		3B2228ED2D9D2B5C024763B4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 8P96A2SK8X;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TheMatchWatch/Info.plist;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openscaffoldlabs.thematch.watchkitapp;
+				PRODUCT_NAME = TheMatchWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -301,6 +480,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8P96A2SK8X;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -323,6 +503,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8P96A2SK8X;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -355,6 +536,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5AEB9C6836613E5A035A2A1F /* Build configuration list for PBXNativeTarget "TheMatchWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3B2228ED2D9D2B5C024763B4 /* Release */,
+				3604AB58AD2DCCCABDAA3341 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
