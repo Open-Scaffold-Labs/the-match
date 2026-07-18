@@ -6,6 +6,10 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-17] milestone | ⌚ W0 FIELD-VERIFIED — The Match live on Dale's Apple Watch Ultra 3 (TestFlight build 2)
+
+Standalone login (draaen@mac.com + PIN) against prod over the watch's own network path; name + handicap rendered; keychain JWT held. Route: TestFlight (distribution signing) after the dev-signed path hit watchOS integrity walls. Field bugs found+fixed same-day: user id arrives as STRING on /auth/login (build 2, Flexible decode); first-attempt network timeout on fresh installs (watchOS route warm-up — harden with waitsForConnectivity+retry in build ≥3). Build 1: 1 install (phone). Next: Matt sync per the COORDINATION entry above, then W1 hole card + crown scoring in the consolidated Capacitor project.
+
 ## [2026-07-17] COORDINATION | ⚠️ TWO native iOS shells exist — read before ANY App Store / TestFlight / bundle-ID action
 
 Two sessions built native shells in parallel on 07-16/17 without seeing each other (Dale flagged it mid-morning; Dale's session checked only ASC — empty at the time — and missed the Capacitor commits already on main. Lesson encoded in CLAUDE.md "External-resource claims" rule, added today).
