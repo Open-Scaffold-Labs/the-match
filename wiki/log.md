@@ -6,6 +6,10 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-17] CLAIM | Consolidation executing NOW (Dale's session) — watch target → Capacitor project, next upload = 1.0(3)
+
+Per the COORDINATION entry: Dale authorized the merge. This session is (a) copying the SwiftUI watch app from `ios/TheMatchWatch` (branch feat/watch-w0) into `client/ios/App` as a watch target of App.xcodeproj (xcodeproj gem, embed in App), (b) unifying on the M monogram icon, (c) hardening watch networking, (d) archiving the CAPACITOR app as build 1.0(3) and uploading to ASC app 6792095265. Provenance note for the record: Matt's Capacitor shell predates the watch scaffold on main (12:54 ET vs 20:45 PT on 07-16) and was in the branch's ancestry, but the watch app is original parallel work — no derivation either way. Dale's WKWebView shell (ios/TheMatch) retires; ios/ removed after migration. Matt: no ASC/TestFlight/bundle actions until this entry is updated DONE.
+
 ## [2026-07-17] milestone | ⌚ W0 FIELD-VERIFIED — The Match live on Dale's Apple Watch Ultra 3 (TestFlight build 2)
 
 Standalone login (draaen@mac.com + PIN) against prod over the watch's own network path; name + handicap rendered; keychain JWT held. Route: TestFlight (distribution signing) after the dev-signed path hit watchOS integrity walls. Field bugs found+fixed same-day: user id arrives as STRING on /auth/login (build 2, Flexible decode); first-attempt network timeout on fresh installs (watchOS route warm-up — harden with waitsForConnectivity+retry in build ≥3). Build 1: 1 install (phone). Next: Matt sync per the COORDINATION entry above, then W1 hole card + crown scoring in the consolidated Capacitor project.
