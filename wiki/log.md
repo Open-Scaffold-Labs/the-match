@@ -6,6 +6,19 @@ updated: 2026-07-15
 
 # Activity Log
 
+## [2026-07-17] HANDOFF TO MATT | Capacitor shell launch-crashes on a PHYSICAL device (builds 3 & 4) — likely splash-watchdog
+
+Dale's session tried to consolidate the watch app onto Matt's Capacitor shell and ship it. Result: builds 3 (Capacitor + embedded watch) and 4 (Capacitor, watch stripped) BOTH crash on tap-launch on Dale's iPhone 17 Pro Max (iOS 27). Findings, so Matt can fix in his own env:
+- **The binary is healthy.** `devicectl device process launch --console` runs the app and it exits CLEANLY (exit 0) — no dyld/signature/embed fault. Simulator (Debug AND Release) launches fine.
+- **Dies only on a real-device TAP launch**, ~0.5s in, all scenes tear down. Classic **launch-watchdog kill**. Prime suspect: `SplashScreen.launchAutoHide:false` in capacitor.config — splash stays until the web layer calls hide(); if the bundle is slow/never-ready on device, iOS terminates for slow launch. (OTA ruled out-ish: /api/v1/ota/updates returns "no active bundle", fail-safe.)
+- **Provenance:** Matt's ship report proves the shell only on the SIMULATOR ("boots on the simulator against production") — no evidence of a physical-device run before now. This crash predates the watch work (build 4 has no watch and still crashes).
+- **Dale's watch app (build 2, my WKWebView shell) DID run on his phone + Ultra 3** — name/handicap, standalone login. That shell had a flashing-scorecard issue in-app but launched.
+- **What worked all along:** the web app in Safari (course picker verified in-browser). Dale is playing via Safari tonight.
+
+**Matt, please:** run YOUR Capacitor shell on a physical device and debug the launch watchdog (try launchAutoHide:true or ensure the web app calls SplashScreen.hide() early; check the launch-time work on the main thread). Once the shell launches on device, the watch target re-attaches via Xcode's Watch-App target flow (NOT the hand-rolled xcodeproj-gem embed I used — remove `client/ios/App/TheMatchWatch` and add fresh). Builds 3 & 4 are in TestFlight but should NOT be promoted. Dale's `ios/TheMatchWatch` watch sources live in git history (branch feat/watch-into-capacitor) for reuse.
+
+**Honest note from Dale's session:** I over-reached — consolidated onto a shell I hadn't device-tested and hand-stitched a watch embed, costing Dale his evening. The lesson is already in CLAUDE.md's External-resource rule; adding: don't ship a shell to a real user's device without a real-device launch test first.
+
 ## [2026-07-17] CLAIM | Consolidation executing NOW (Dale's session) — watch target → Capacitor project, next upload = 1.0(3)
 
 Per the COORDINATION entry: Dale authorized the merge. This session is (a) copying the SwiftUI watch app from `ios/TheMatchWatch` (branch feat/watch-w0) into `client/ios/App` as a watch target of App.xcodeproj (xcodeproj gem, embed in App), (b) unifying on the M monogram icon, (c) hardening watch networking, (d) archiving the CAPACITOR app as build 1.0(3) and uploading to ASC app 6792095265. Provenance note for the record: Matt's Capacitor shell predates the watch scaffold on main (12:54 ET vs 20:45 PT on 07-16) and was in the branch's ancestry, but the watch app is original parallel work — no derivation either way. Dale's WKWebView shell (ios/TheMatch) retires; ios/ removed after migration. **DONE (7720976, merged to main).** Build **1.0(3)** — Capacitor iPhone app + embedded watch app, M monogram, compliance key baked, watch networking hardened — uploaded to ASC; auto-distributes to OSL Internal on processing. ONE Xcode project now: client/ios/App (watch target TheMatchWatch). Stray ios/ scaffold removed from main same commit. Matt: pull main, open client/ios/App/App.xcodeproj — your project now carries the watch.
