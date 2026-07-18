@@ -37,20 +37,6 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		B35B71334DA9E974D66954ED /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				C4CFAF102C59DCE61274B0D7 /* TheMatchWatch.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		14954B333135192F5912820C /* LoginView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/LoginView.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -80,14 +66,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D38891E8C6CD9EEEF8E2CEB2 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				53B7AEA6F2DF17FA483B57CC /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -164,23 +142,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0681C37220FA0A5CD1B6CFFB /* TheMatchWatch */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5AEB9C6836613E5A035A2A1F /* Build configuration list for PBXNativeTarget "TheMatchWatch" */;
-			buildPhases = (
-				43915E5017988546700405C2 /* Sources */,
-				D38891E8C6CD9EEEF8E2CEB2 /* Frameworks */,
-				7E67E3B808671631AEA393B9 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = TheMatchWatch;
-			productName = TheMatchWatch;
-			productReference = 7C2EC622B9668285474A8261 /* TheMatchWatch.app */;
-			productType = "com.apple.product-type.application";
-		};
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -188,12 +149,10 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
-				B35B71334DA9E974D66954ED /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				9E26FD6C740D2A4106093102 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -236,7 +195,6 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
-				0681C37220FA0A5CD1B6CFFB /* TheMatchWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -256,30 +214,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7E67E3B808671631AEA393B9 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				645E4F13F28BB91A2D6F5AFA /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		43915E5017988546700405C2 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5AC50C4855C1A6EE7A3976C1 /* APIClient.swift in Sources */,
-				1233F3C7C691E09062763AFC /* Keychain.swift in Sources */,
-				56BC06DE073922DAA5D6A3C7 /* ContentView.swift in Sources */,
-				47ABC2E39585F4D83A411A40 /* TheMatchWatchApp.swift in Sources */,
-				03D5C1246F7C509F75EC3481 /* HomeView.swift in Sources */,
-				455CEDC2CC48F91B2F41103D /* LoginView.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -289,15 +226,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		9E26FD6C740D2A4106093102 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = TheMatchWatch;
-			target = 0681C37220FA0A5CD1B6CFFB /* TheMatchWatch */;
-			targetProxy = 9D21292FD88AC6499E2A3993 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -536,15 +464,6 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		5AEB9C6836613E5A035A2A1F /* Build configuration list for PBXNativeTarget "TheMatchWatch" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				3B2228ED2D9D2B5C024763B4 /* Release */,
-				3604AB58AD2DCCCABDAA3341 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
