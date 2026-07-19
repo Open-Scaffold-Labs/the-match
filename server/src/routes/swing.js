@@ -2,6 +2,8 @@ const router      = require('express').Router()
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
 const { buildTimeline, detectEras, headline, narrate } = require('../lib/swingTimeline')
+const { windowize, correlate, worthStrokes, prescribe } = require('../lib/swingJoin')
+const { roundSG } = require('../lib/sg')
 
 router.use(requireAuth)
 
@@ -81,6 +83,58 @@ router.post('/session', async (req, res) => {
     if (e && e.code === '42P01') return res.status(503).json({ error: 'Swing Intelligence not yet enabled', pending_migration: true })
     req.log?.error({ err: e }, 'swing session save failed')
     res.status(500).json({ error: 'Failed to save swing session' })
+  }
+})
+
+// GET /api/swing/join
+// V2 — THE JOIN (spec §Pipeline.6 + §Worth-strokes): swing metrics × SG
+// co-movement, worth-strokes fault ranking, drill prescription. All computed
+// at read time from tm_swings facts + the existing SG engine. Sample gates
+// (MIN_PAIRS/MIN_SIDE in lib/swingJoin) mean most users see the honest
+// 'too_early' state until they've filmed + played enough — that IS the
+// feature working as designed.
+router.get('/join', async (req, res) => {
+  const uid = req.user.id
+  try {
+    const [swingRows, rounds, userRow] = await Promise.all([
+      db.many(
+        `SELECT w.session_id, s.date, s.club_slot, w.duration_ms, w.tempo_ratio
+         FROM tm_swings w JOIN tm_swing_sessions s ON s.id = w.session_id
+         WHERE s.user_id = $1 ORDER BY s.date ASC`,
+        [uid]
+      ),
+      db.many(
+        `SELECT total, course_par, course_rating, date, scores, putts, first_putts, shots, hole_pars
+         FROM tm_rounds WHERE user_id = $1 ORDER BY date ASC LIMIT 60`,
+        [uid]
+      ),
+      db.one('SELECT handicap, sg_baseline FROM tm_users WHERE id = $1', [uid]),
+    ])
+    const j = (v) => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
+    const handicap = userRow && Number.isFinite(Number(userRow.handicap)) ? Number(userRow.handicap) : null
+    const sgRounds = []
+    for (const r of rounds) {
+      const sg = roundSG(
+        { ...r, scores: j(r.scores), putts: j(r.putts), first_putts: j(r.first_putts), shots: j(r.shots) },
+        userRow?.sg_baseline ?? 'auto', handicap
+      )
+      if (sg) sgRounds.push({ date: r.date, sgTotal: sg.sgTotal, sgT2G: sg.sgT2G, sgP: sg.sgP })
+    }
+    const timeline = buildTimeline(swingRows)
+    const windows = windowize(timeline, sgRounds)
+    const ws = worthStrokes(windows)
+    res.json({
+      windows,
+      correlation: correlate(windows),
+      worth_strokes: ws,
+      prescription: prescribe(ws.top),
+    })
+  } catch (e) {
+    if (e && e.code === '42P01') {
+      return res.json({ windows: [], correlation: correlate([]), worth_strokes: worthStrokes([]), prescription: null, pending_migration: true })
+    }
+    req.log?.error({ err: e }, 'swing join failed')
+    res.status(500).json({ error: 'Failed to compute swing join' })
   }
 })
 

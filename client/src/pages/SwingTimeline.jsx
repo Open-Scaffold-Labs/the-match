@@ -47,7 +47,11 @@ export default function SwingTimeline({ onClose }) {
   const load = useCallback(async () => {
     try {
       setError(null)
-      setData(await api('/api/swing/timeline'))
+      const [tl, jn] = await Promise.all([
+        api('/api/swing/timeline'),
+        api('/api/swing/join').catch(() => null), // join is additive; never block the timeline on it
+      ])
+      setData(jn ? { ...tl, join: jn } : tl)
     } catch { setError('We couldn’t load your swing timeline. Tap to retry.') }
     finally { setLoading(false) }
   }, [])
@@ -118,6 +122,10 @@ export default function SwingTimeline({ onClose }) {
             <div style={{ fontSize: 12, color: TXT2, marginBottom: 12, padding: '0 4px' }}>{data.narration.note}</div>
           )}
 
+          {/* V2 — THE JOIN: worth-strokes ranking. Association, never
+              causation; gated to 'too_early' until the windows exist. */}
+          {data.join && <JoinCard join={data.join} />}
+
           {measurable.length === 0 ? (
             <EmptyState onFilm={() => setCapture(true)} />
           ) : (
@@ -187,6 +195,60 @@ export default function SwingTimeline({ onClose }) {
       )}
     </div>,
     document.body
+  )
+}
+
+// V2 worth-strokes card. Three honest states: gated (progress toward the
+// window threshold), no-fault (splits formed but nothing tracks with lost
+// strokes), and ranked (top fault + prescription). Always the disclaimer.
+function JoinCard({ join }) {
+  const ws = join.worth_strokes
+  const corr = join.correlation
+  if (!ws) return null
+
+  if (ws.status === 'too_early') {
+    return (
+      <div style={{ ...CARD('var(--tm-dark-2)'), marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: GOLD, textTransform: 'uppercase', marginBottom: 6 }}>Swing × Score</div>
+        <div style={{ fontSize: 13, color: TXT2, lineHeight: 1.6 }}>
+          {ws.pairs || 0} of {ws.needed || 8} weeks with both a filmed session and a round.
+          Then I can tell you which tempo habits track with your scoring.
+        </div>
+        <div style={{ height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.08)', marginTop: 10, overflow: 'hidden' }}>
+          <div style={{ width: `${Math.min(100, ((ws.pairs || 0) / (ws.needed || 8)) * 100)}%`, height: '100%', background: GOLD, borderRadius: 99 }} />
+        </div>
+      </div>
+    )
+  }
+
+  const top = ws.top
+  const rx = join.prescription
+  const strongest = corr?.correlations?.[0]
+  return (
+    <div style={{ ...CARD('var(--tm-dark-2)'), marginBottom: 12, borderLeft: `3px solid ${top ? AMBER : 'rgba(94,212,122,0.5)'}` }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: GOLD, textTransform: 'uppercase', marginBottom: 8 }}>Swing × Score · worth strokes</div>
+      {top ? (
+        <>
+          <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.4 }}>
+            {top.label.replace(' windows', '')} tracks with <span style={{ color: AMBER }}>{top.delta} strokes</span> worse scoring
+          </div>
+          <div style={{ fontSize: 12, color: TXT2, marginTop: 4 }}>
+            {top.sg_fault >= 0 ? '+' : ''}{top.sg_fault} SG in {top.fault_label} windows vs {top.sg_good >= 0 ? '+' : ''}{top.sg_good} in {top.good_label} windows
+          </div>
+          {rx && (
+            <div style={{ marginTop: 10, background: 'rgba(201,160,64,0.10)', border: '1px solid rgba(201,160,64,0.25)', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: GOLD_BRIGHT }}>{rx.drill}</div>
+              <div style={{ fontSize: 12, color: TXT2, lineHeight: 1.55, marginTop: 4 }}>{rx.how}</div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: 13.5, lineHeight: 1.6 }}>
+          No tempo habit tracks with lost strokes right now{strongest ? ` — the strongest signal is ${strongest.metric_label} × ${strongest.sg_label} (r ${strongest.r}, ${strongest.strength})` : ''}. That\'s a good place to be.
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: 'rgba(232,237,234,0.45)', marginTop: 10, lineHeight: 1.5 }}>{ws.disclaimer}</div>
+    </div>
   )
 }
 

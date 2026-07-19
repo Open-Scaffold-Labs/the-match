@@ -6,6 +6,26 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-19 PM3] feat | V2 THE JOIN — swing × score correlation engine + worth-strokes ranking (same branch)
+
+- **lib/swingJoin.js** (pure): windowize (14d buckets pairing sessions with
+  rounds — single-stream windows excluded, no invented alignment) → Pearson
+  correlations of tempo_ratio / duration / variance × SG:T2G / SG:Total /
+  SG:P (putting as CONTROL — tempo shouldn't track putting; confound
+  tripwire) → worth-strokes splits (fault windows vs norm windows,
+  delta = SG difference). Gates: MIN_PAIRS=8 windows, MIN_SIDE=3 per split
+  side; below gate → 'too_early' with honest counts. ASSOCIATION-ONLY:
+  CAUSATION_DISCLAIMER on every payload, negative deltas reported honestly
+  (a "fault" that tracks with BETTER scoring is shown as such, never top).
+- **prescribe()**: top fault → drill (Tour Tempo rehearsal / continuous
+  motion / metronome ladder), categories aligned with lib/practice.js.
+- **GET /api/swing/join**: timeline facts + per-round SG from lib/sg.roundSG
+  (baseline + handicap from tm_users, same loader pattern as practice route).
+- **Timeline page**: "Swing × Score · worth strokes" card — gated progress
+  bar toward 8 weeks, no-fault state, or top fault + prescription drill;
+  disclaimer always visible.
+- 26 join assertions green; all gates green (build, lint, vitest 195/195).
+
 ## [2026-07-19 PM2] feat | Swing Intelligence V1 slice — guided capture + Caddie narration (same sandbox session, on the V0 branch)
 
 - **On-device analysis, zero upload** (spec §Pipeline.1 + privacy rule): client
