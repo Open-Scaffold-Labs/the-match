@@ -1,3 +1,5 @@
+import { resolveApiOrigin } from './backend-origin.js'
+
 const RETRY_DELAYS = [500, 1000, 2000, 3000]
 
 // API version (Track F.1 / audit N5). Every call site still passes "/api/..."
@@ -28,11 +30,14 @@ function versioned(url) {
 // That is exactly what broke TestFlight builds 3/4 on 2026-07-17: identical
 // code + config to the working build, but rebuilt on a machine without the env.
 //
-// Fix: native builds now fall back to the deployed backend origin directly, so
-// they never depend on an ambient build env again. Detection is self-contained
-// (no import → no cycle with push.js). VITE_API_ORIGIN still wins when set, for
-// staging/local overrides. NO-OP on web: isNativeBuild() is false there, so
-// API_ORIGIN stays '' and same-origin relative calls are byte-for-byte unchanged.
+// Fix: native builds now fall back to the deployed backend origin, so they never
+// depend on an ambient build env again. The origin value AND the resolution rule
+// live in lib/backend-origin.js (single source of truth — the same constant
+// ota-publish.mjs bakes into bundles and capacitor.config.json points at), and
+// resolveApiOrigin is PURE so the rule is unit-tested outside Vite. Native
+// detection stays local (no import → no cycle with push.js).
+// NO-OP on web: isNativeBuild() is false there, so API_ORIGIN stays '' and
+// same-origin relative calls are byte-for-byte unchanged.
 function isNativeBuild() {
   if (typeof window === 'undefined') return false
   if (window.__TM_NATIVE__ === true) return true
@@ -40,11 +45,10 @@ function isNativeBuild() {
   const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || ''
   return /TheMatchNative/i.test(ua)
 }
-// Same origin the OTA config already points at (capacitor.config.json updateUrl).
-const NATIVE_API_ORIGIN = 'https://the-match-roan.vercel.app'
-const API_ORIGIN = (
-  import.meta.env.VITE_API_ORIGIN || (isNativeBuild() ? NATIVE_API_ORIGIN : '')
-).replace(/\/+$/, '')
+const API_ORIGIN = resolveApiOrigin({
+  envOrigin: import.meta.env.VITE_API_ORIGIN,
+  isNative: isNativeBuild(),
+})
 function withOrigin(url) {
   if (API_ORIGIN && typeof url === 'string' && url.startsWith('/')) {
     return API_ORIGIN + url

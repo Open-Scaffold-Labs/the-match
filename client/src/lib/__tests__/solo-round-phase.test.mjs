@@ -106,3 +106,35 @@ test('a solo blob and a match session coexist independently', () => {
   if (s?.kind === 'solo') clearSession(UID)
   assert.ok(readSession(UID), 'match session untouched by a solo discard')
 })
+
+// ── auto-resume rule (2026-07-17) ──────────────────────────────────────────
+// Regression pinned: App.jsx's TabPanel implements pull-to-refresh as a real
+// window.location.reload(). 33a0e13 widened readSavedSoloRound to accept
+// 'summary', which meant a round parked on the summary screen force-navigated
+// the user off the Match hub into ActiveRound's back-button summary on EVERY
+// pull-to-refresh (reported on TestFlight). Only a SCORING round may hijack a
+// reload; a summary round must remain offered (Resume Solo card) but never
+// auto-navigated.
+const { shouldAutoResumeSolo } = await import('../solo-round.js')
+
+test('auto-resume: a scoring round DOES force-navigate on reload', () => {
+  assert.equal(shouldAutoResumeSolo(baseBlob('scoring')), true)
+})
+
+test('auto-resume: a summary round does NOT hijack a reload', () => {
+  assert.equal(shouldAutoResumeSolo(baseBlob('summary')), false)
+})
+
+test('auto-resume: nothing saved → no navigation', () => {
+  assert.equal(shouldAutoResumeSolo(null), false)
+  assert.equal(shouldAutoResumeSolo(undefined), false)
+})
+
+test('auto-resume: a summary round is still OFFERED (not lost) via the blob', () => {
+  localStorage.clear()
+  localStorage.setItem(KEY, JSON.stringify(baseBlob('summary')))
+  // The Resume Solo card reads this — it must still see the round…
+  assert.ok(readSavedSoloRound(UID), 'summary round must remain recoverable')
+  // …even though the reload must not auto-navigate into it.
+  assert.equal(shouldAutoResumeSolo(readSavedSoloRound(UID)), false)
+})

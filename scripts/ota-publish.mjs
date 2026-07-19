@@ -25,6 +25,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
+import { BACKEND_ORIGIN } from '../client/src/lib/backend-origin.js'
 
 const require_ = createRequire(import.meta.url)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -62,7 +63,10 @@ loadDotEnv()
 const DATABASE_URL = process.env.DATABASE_URL || die('DATABASE_URL missing (repo .env)')
 const SUPABASE_URL = process.env.SUPABASE_URL || die('SUPABASE_URL missing — add to .env (https://<ref>.supabase.co)')
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY || die('SUPABASE_SERVICE_ROLE_KEY missing — add to .env')
-const API_ORIGIN   = process.env.VITE_API_ORIGIN || 'https://the-match-roan.vercel.app'
+// Origin comes from the ONE canonical constant (client/src/lib/backend-origin.js),
+// never a local literal — a second copy here is how the native build and the OTA
+// build silently disagreed on 2026-07-17.
+const API_ORIGIN   = process.env.VITE_API_ORIGIN || BACKEND_ORIGIN
 
 const APP_ID  = 'com.openscaffoldlabs.thematch'
 const CHANNEL = 'production'

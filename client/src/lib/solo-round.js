@@ -54,6 +54,24 @@ export function hasSavedSoloRound(uid) {
   return readSavedSoloRound(uid) != null
 }
 
+// Should a (re)mount / reload FORCE-navigate the user into the saved round?
+// PURE (takes the blob, touches no storage) so the rule is unit-testable.
+//
+// Only an ACTIVELY-SCORING round hijacks a reload — Matt's 2026-05-07 ask
+// ("pull-to-refresh shouldn't back me out of my round"). A round parked on the
+// SUMMARY must NOT: App.jsx's TabPanel implements pull-to-refresh as a real
+// window.location.reload(), so on the Match hub a lingering summary round would
+// yank the user into ActiveRound's back-button summary on EVERY refresh
+// (reported on TestFlight 2026-07-17; regression from 33a0e13 widening the
+// resume validator to accept 'summary').
+//
+// The summary round is NOT lost by returning false here: readSavedSoloRound
+// still returns it, so OutingHub's "Resume Solo" card offers it, and a user tap
+// resumes any phase. This governs the AUTOMATIC navigation only.
+export function shouldAutoResumeSolo(saved) {
+  return !!saved && saved.phase === 'scoring'
+}
+
 // ── Start a solo round from OUTSIDE ActiveRound (2026-07-10, Play funnel S3) ──
 // Writes a fresh 'scoring'-phase blob in EXACTLY the shape ActiveRound's
 // autosave writes and its restore validator accepts (phase 'scoring',

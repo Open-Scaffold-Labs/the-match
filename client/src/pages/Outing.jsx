@@ -24,7 +24,7 @@ import CoachMark from '../components/CoachMark.jsx'
 import ActiveRound from './ActiveRound.jsx'
 import OutingHub, { RivalryDetail } from './Outing/OutingHub.jsx'
 import Leagues from './Leagues.jsx'
-import { readSavedSoloRound } from '../lib/solo-round.js'
+import { readSavedSoloRound, shouldAutoResumeSolo } from '../lib/solo-round.js'
 import { writeSession } from '../lib/active-round-session.js'
 import LiveOuting from './Outing/LiveOuting.jsx'
 import EndMatchScreen from './Outing/EndMatchScreen.jsx'
@@ -121,18 +121,11 @@ export default function Outing({ user, pendingPlayers = [], onClearPending, pend
       return
     }
     soloResumeCheckedRef.current = true
-    // Only an ACTIVELY-SCORING round force-resumes on (re)mount/reload — Matt's
-    // 2026-05-07 ask ("pull-to-refresh shouldn't back me out of my round"). A
-    // round left on the SUMMARY must NOT hijack a reload: App.jsx's custom
-    // pull-to-refresh (TabPanel) calls window.location.reload(), so on the hub
-    // a lingering summary round would yank the user into ActiveRound's
-    // back-button summary on EVERY pull-to-refresh (reported 2026-07-17,
-    // TestFlight — regression from 33a0e13 adding 'summary' to the resume
-    // validator). The summary round stays fully recoverable via OutingHub's
-    // "Resume Solo" card, which reads the same blob; this scopes the
-    // summary-resume to the card, not the force-navigate.
-    const savedSolo = readSavedSoloRound(user.id)
-    if (savedSolo && savedSolo.phase === 'scoring') {
+    // The force-navigate rule lives in lib/solo-round.shouldAutoResumeSolo
+    // (pure + unit-tested): only an ACTIVELY-SCORING round hijacks a reload.
+    // A summary-phase round stays recoverable via OutingHub's Resume Solo card
+    // but must not yank the user off the hub on every pull-to-refresh.
+    if (shouldAutoResumeSolo(readSavedSoloRound(user.id))) {
       setView('solo')
     }
   }, [user?.id, pendingJoinCode])
