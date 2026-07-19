@@ -33,15 +33,24 @@ function smooth(xs, win = 5) {
   })
 }
 
-function findImpact(motion, audio) {
+const EDGE_LEAD_MS = 500    // record-press / settle window at clip start
+const EDGE_TAIL_PCT = 0.10  // walk-back / camera-grab window at clip end
+
+function edgeWindows(fps, frameCount) {
+  const lead = Math.min(Math.ceil((EDGE_LEAD_MS / 1000) * fps), Math.floor(frameCount / 4))
+  const tail = Math.min(Math.ceil(frameCount * EDGE_TAIL_PCT), Math.floor(frameCount / 4))
+  return { lead, tail }
+}
+
+function findImpact(motion, audio, lead) {
   if (Array.isArray(audio) && audio.length) {
     const m = mean(audio), s = stdev(audio)
     let best = -1, bestV = m + 4 * s
-    for (let i = 0; i < audio.length; i++) if (audio[i] > bestV) { bestV = audio[i]; best = i }
+    for (let i = lead; i < audio.length; i++) if (audio[i] > bestV) { bestV = audio[i]; best = i }
     if (best >= 0) return { frame: best, via: 'audio' }
   }
-  let best = 0
-  for (let i = 1; i < motion.length; i++) if (motion[i] > motion[best]) best = i
+  let best = Math.max(1, lead)
+  for (let i = best + 1; i < motion.length; i++) if (motion[i] > motion[best]) best = i
   return { frame: best, via: 'motion' }
 }
 
@@ -91,7 +100,30 @@ export function analyzeClip(clip) {
     return { detectable: false, frames: null, duration_ms: null, tempo_ratio: null, impact_via: null, flags: [...flags, 'no_motion'] }
   }
 
-  const impact = findImpact(motion, audio)
+  const { lead, tail } = edgeWindows(fps, motion.length)
+  const impact = findImpact(motion, audio, lead)
+  // Impact in the tail window that never decays = camera handling, not a
+  // swing (a true impact is followed by follow-through DECAY). Refuse.
+  if (impact.frame >= motion.length - tail) {
+    const post = motion.slice(impact.frame + 1)
+    const decayed = post.length > 0 && mean(post) < 0.3 * motion[impact.frame]
+    if (!decayed) {
+      return { detectable: false, frames: null, duration_ms: null, tempo_ratio: null, impact_via: impact.via, flags: [...flags, 'impact_at_clip_edge'] }
+    }
+  }
+  // A motion-picked impact followed by SUSTAINED high motion (not decay) is
+  // camera handling, not a swing: a true follow-through decays within ~0.3s,
+  // a grabbed phone keeps thrashing. (Dale's archive pilot: practice swing +
+  // real swing + walk-back clip — the walk-back won the global motion peak.)
+  if (impact.via === 'motion') {
+    const post = motion.slice(impact.frame + 1, impact.frame + 1 + Math.round(fps))
+    if (post.length >= Math.round(fps / 2)) {
+      const fracHigh = post.filter((v) => v > 0.3 * motion[impact.frame]).length / post.length
+      if (fracHigh > 0.5) {
+        return { detectable: false, frames: null, duration_ms: null, tempo_ratio: null, impact_via: impact.via, flags: [...flags, 'impact_unstable_tail'] }
+      }
+    }
+  }
   const top = findTop(motion, impact.frame)
   if (top == null) {
     return { detectable: false, frames: null, duration_ms: null, tempo_ratio: null, impact_via: impact.via, flags: [...flags, 'top_not_found'] }
