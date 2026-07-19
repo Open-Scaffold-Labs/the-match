@@ -6,6 +6,23 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-19 PM8] feat | Pose model BUNDLED — MoveNet Lightning int8 ONNX ships in-app (same branch)
+
+- **Model:** client/public/models/movenet-lightning-192.onnx (2.9 MB) —
+  MoveNet SinglePose Lightning v4 int8, converted TFLite→ONNX (tf2onnx,
+  opset 13) from the official TF-Hub artifact; validated: uint8
+  [1,192,192,3] in, float32 [1,1,17,3] normalized keypoints out, scores in
+  range. Apache 2.0 attribution in client/THIRD_PARTY_NOTICES.md.
+- **Hosting decision (Option A):** bundled — Vercel static with immutable
+  year-cache headers (vercel.json /models/*), Capacitor binary offline.
+  swingPoseEstimate defaults to /models/movenet-lightning-192.onnx;
+  VITE_POSE_MODEL_URL remains the override.
+- **Dtype fix:** int8 export expects uint8 tensors (client was feeding
+  int32 for the float SavedModel contract) — frameToTensor now uint8.
+- Pose is no longer dormant: on next deploy, capture shows shoulder/hip
+  turn, sway, head movement (face-on) or early extension (DTL) — pending
+  the physical-iPhone accuracy gate.
+
 ## [2026-07-19 PM7] feat | V1.5 pose stream + Android platform (same branch)
 
 - **Pose metrics engine** (lib/swingPose.js + client twin + parity tripwire):

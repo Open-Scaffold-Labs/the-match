@@ -12,6 +12,10 @@
 // tempo engine) — inference cost is trivial even on older iPhones.
 
 const MODEL_INPUT = 192 // MoveNet lightning input size
+// Bundled default (Option A hosting, decided 2026-07-19): MoveNet
+// SinglePose Lightning int8, converted TFLite→ONNX (tf2onnx, opset 13).
+// Apache 2.0 — see THIRD_PARTY_NOTICES.md. Override with VITE_POSE_MODEL_URL.
+const DEFAULT_MODEL_URL = '/models/movenet-lightning-192.onnx'
 
 let _session = null
 let _tried = false
@@ -20,8 +24,7 @@ let _tried = false
 async function getSession() {
   if (_session || _tried) return _session
   _tried = true
-  const url = import.meta.env?.VITE_POSE_MODEL_URL
-  if (!url) return null
+  const url = import.meta.env?.VITE_POSE_MODEL_URL || DEFAULT_MODEL_URL
   try {
     const ort = await import('onnxruntime-web')
     _session = await ort.InferenceSession.create(url, { executionProviders: ['wasm'] })
@@ -29,7 +32,8 @@ async function getSession() {
   return _session
 }
 
-// Draw one video frame to a 192×192 tensor (NHWC int32, MoveNet format).
+// Draw one video frame to a 192×192 tensor (NHWC uint8 — the bundled int8
+// model's input type; float variants take int32 instead, override URL only).
 function frameToTensor(video, ort) {
   const canvas = document.createElement('canvas')
   canvas.width = MODEL_INPUT
@@ -41,11 +45,11 @@ function frameToTensor(video, ort) {
   const sy = (video.videoHeight - side) / 2
   ctx.drawImage(video, sx, sy, side, side, 0, 0, MODEL_INPUT, MODEL_INPUT)
   const { data } = ctx.getImageData(0, 0, MODEL_INPUT, MODEL_INPUT)
-  const rgb = new Int32Array(MODEL_INPUT * MODEL_INPUT * 3)
+  const rgb = new Uint8Array(MODEL_INPUT * MODEL_INPUT * 3)
   for (let i = 0, j = 0; i < data.length; i += 4, j += 3) {
     rgb[j] = data[i]; rgb[j + 1] = data[i + 1]; rgb[j + 2] = data[i + 2]
   }
-  return new ort.Tensor('int32', rgb, [1, MODEL_INPUT, MODEL_INPUT, 3])
+  return new ort.Tensor('uint8', rgb, [1, MODEL_INPUT, MODEL_INPUT, 3])
 }
 
 async function estimateFrame(video, t, session, ort) {
