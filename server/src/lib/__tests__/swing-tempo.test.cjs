@@ -105,4 +105,57 @@ function mkSwing({ fps = 240, backswingMs = 900, downswingMs = 300, audio = true
   ok('undetectable swings counted but excluded from medians', mixed.swings === 3 && mixed.measurable === 2 && mixed.median_duration_ms === 1250)
 }
 
+// ── clip-edge honesty guard (2026-07-20, from Dale's archive pilot) ─────────
+// Real failure modes: record-button click at 0.0s read as audio impact;
+// walk-back-to-camera in the last seconds read as motion impact (produced a
+// plausible-looking, totally wrong 3900ms / 0.3:1). Both must now refuse.
+{
+  // Impact candidate (global motion peak) in the last 10% of the clip.
+  const N = 300, fps = 60
+  const motion = Array.from({ length: N }, () => 0.05 + Math.random() * 0.05)
+  // A real swing mid-clip...
+  for (let i = 90; i < 150; i++) motion[i] = 0.5 + Math.random() * 0.1
+  for (let i = 150; i < 170; i++) motion[i] = 1.5 + (i - 150) * 0.1
+  motion[170] = 3.5 // true impact
+  // ...but camera handling at the end out-shouts it.
+  for (let i = 285; i < N; i++) motion[i] = 4 + Math.random() * 2
+  const r = T.analyzeClip({ motion, fps })
+  ok('motion peak in last 10% → refused with impact_at_clip_edge',
+    r.detectable === false && r.flags.includes('impact_at_clip_edge'))
+  ok('edge refusal reports null metrics (never a fabricated tempo)',
+    r.duration_ms === null && r.tempo_ratio === null)
+
+  // Record-click audio spike at 0.0s must not be taken as impact.
+  const { clip: c2, truth: t2 } = mkSwing({ fps: 240, backswingMs: 900, downswingMs: 300 })
+  const audio = c2.motion.map(() => 0.01 + Math.random() * 0.005)
+  audio[2] = 1.0 // record click inside the lead window
+  audio[t2.impact] = 0.8 // true impact spike
+  const r2 = T.analyzeClip({ motion: c2.motion, audio, fps: 240 })
+  ok('lead-window audio spike ignored; true impact found',
+    r2.detectable === true && r2.impact_via === 'audio' && Math.abs(r2.frames.impact - t2.impact) <= 2)
+
+  // Camera-grab burst that starts BEFORE the tail window (Dale's Swing one:
+  // real swing ~2-3.5s, phone picked up at 3.5s of a 4.9s clip). The burst
+  // wins the global motion peak but never decays → unstable-tail refusal.
+  {
+    const N2 = 291, fps2 = 60
+    const motion2 = Array.from({ length: N2 }, () => 0.05 + Math.random() * 0.05)
+    for (let i = 120; i < 180; i++) motion2[i] = 0.4 + 0.4 * Math.sin(((i - 120) / 60) * Math.PI)
+    for (let i = 180; i < 198; i++) motion2[i] = 0.8 + (i - 180) * 0.1
+    motion2[198] = 2.2 // true impact
+    for (let i = 199; i < 210; i++) motion2[i] = Math.max(0.05, 1.5 * Math.exp(-(i - 199) / 3))
+    for (let i = 210; i < N2; i++) motion2[i] = 0.4 + Math.random() * 1.6 // grabbed phone
+    const rr = T.analyzeClip({ motion: motion2, fps: fps2 })
+    ok('sustained post-impact thrash → refused with impact_unstable_tail',
+      rr.detectable === false && rr.flags.includes('impact_unstable_tail') && rr.duration_ms === null)
+  }
+
+  // A swing whose follow-through decays inside the tail window is still OK
+  // (impact at ~90% of clip, exponential decay after — not camera handling).
+  const { clip: c3, truth: t3 } = mkSwing({ fps: 240, backswingMs: 1100, downswingMs: 320 })
+  const r3 = T.analyzeClip(c3)
+  ok('decaying tail-window impact still detectable (follow-through, not handling)',
+    r3.detectable === true && Math.abs(r3.frames.impact - t3.impact) <= 2)
+}
+
 console.log(`\nswing-tempo: ${pass} passed`)
