@@ -60,6 +60,19 @@ export default function SwingTimeline({ onClose }) {
 
   useEffect(() => { load() }, [load])
 
+  // LLM narrator (spec: facts → model, never video). Fires once the base
+  // payload is in; fail-soft — the deterministic Caddie read below renders
+  // regardless, and a failed narrator call just leaves the template lines.
+  const [aiRead, setAiRead] = useState(null) // { lines, source }
+  useEffect(() => {
+    if (!data || aiRead) return
+    const hasSwings = (data.timeline || []).some(p => p.measurable > 0)
+    if (!hasSwings) return
+    post('/api/swing/narrate', {})
+      .then(r => { if (r?.lines?.length) setAiRead(r) })
+      .catch(() => {})
+  }, [data, aiRead])
+
   const points = useMemo(() => (data?.timeline || []), [data])
   const measurable = useMemo(() => points.filter(p => p.measurable > 0 && p.median_tempo_ratio != null), [points])
   const eras = data?.eras || []
@@ -124,11 +137,13 @@ export default function SwingTimeline({ onClose }) {
 
           {/* Caddie narration — deterministic V0 narrator (LLM narrator
               consumes the same facts later). Silent below sample gates. */}
-          {data.narration?.lines?.length > 0 && (
+          {(aiRead?.lines?.length > 0 || data.narration?.lines?.length > 0) && (
             <div style={{ ...CARD('var(--tm-dark-2)'), marginBottom: 12, borderLeft: `3px solid ${GOLD}` }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: GOLD, textTransform: 'uppercase', marginBottom: 6 }}>Caddie read</div>
-              {data.narration.lines.map((l, i) => (
-                <div key={i} style={{ fontSize: 13.5, lineHeight: 1.6, marginBottom: i < data.narration.lines.length - 1 ? 8 : 0 }}>{l}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: GOLD, textTransform: 'uppercase', marginBottom: 6 }}>
+                Caddie read{aiRead?.source === 'llm' ? ' · AI' : ''}
+              </div>
+              {(aiRead?.lines?.length ? aiRead.lines : data.narration.lines).map((l, i, arr) => (
+                <div key={i} style={{ fontSize: 13.5, lineHeight: 1.6, marginBottom: i < arr.length - 1 ? 8 : 0 }}>{l}</div>
               ))}
             </div>
           )}
@@ -406,7 +421,23 @@ const BALL_INPUTS = [
 function BallDataForm({ sessionId }) {
   const [vals, setVals] = useState({})
   const [state, setState] = useState('idle') // idle | saving | saved | err
+  const [csvState, setCsvState] = useState(null) // null | 'reading' | result message
   const set = (k) => (e) => setVals(v => ({ ...v, [k]: e.target.value }))
+  // CSV rung of the monitor ladder: Rapsodo / Garmin R10 / Mevo exports,
+  // normalized server-side; unmappable files are reported, never guessed.
+  const onCsv = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    setCsvState('reading')
+    try {
+      const text = await f.text()
+      const r = await post('/api/swing/ball-data-csv', { session_id: sessionId, csv: text })
+      setCsvState(`Imported ${r.inserted} rows (${r.device})${r.skipped ? `, ${r.skipped} blank skipped` : ''} ✓`)
+    } catch (err) {
+      setCsvState(err?.message?.includes('Unrecognized') ? 'Unrecognized export — is this a Rapsodo/Garmin/Mevo CSV?' : 'CSV import failed — try again.')
+    }
+  }
   const save = async () => {
     setState('saving')
     try {
@@ -433,11 +464,23 @@ function BallDataForm({ sessionId }) {
           </label>
         ))}
       </div>
-      <button onClick={save} disabled={state === 'saving'} className="touch-press" style={{
-        marginTop: 10, minHeight: 44, padding: '0 18px', borderRadius: 10, cursor: 'pointer',
-        background: 'rgba(201,160,64,0.18)', border: `1px solid ${GOLD}`,
-        color: GOLD_BRIGHT, fontSize: 13, fontWeight: 800, opacity: state === 'saving' ? 0.6 : 1,
-      }}>{state === 'saving' ? 'Saving…' : 'Attach to session'}</button>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+        <button onClick={save} disabled={state === 'saving'} className="touch-press" style={{
+          minHeight: 44, padding: '0 18px', borderRadius: 10, cursor: 'pointer',
+          background: 'rgba(201,160,64,0.18)', border: `1px solid ${GOLD}`,
+          color: GOLD_BRIGHT, fontSize: 13, fontWeight: 800, opacity: state === 'saving' ? 0.6 : 1,
+        }}>{state === 'saving' ? 'Saving…' : 'Attach to session'}</button>
+        <label className="touch-press" style={{
+          minHeight: 44, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+          border: '1px solid rgba(232,193,90,0.18)', color: TXT2, fontSize: 12.5, fontWeight: 700,
+        }}>
+          {csvState === 'reading' ? 'Importing…' : 'or import monitor CSV'}
+          <input type="file" accept=".csv,text/csv" style={{ display: 'none' }} onChange={onCsv} />
+        </label>
+      </div>
+      {csvState && csvState !== 'reading' && (
+        <div style={{ fontSize: 12, marginTop: 8, color: csvState.startsWith('Imported') ? '#5ED47A' : '#F2A0A0' }}>{csvState}</div>
+      )}
       {state === 'err' && <span style={{ fontSize: 12, color: '#F2A0A0', marginLeft: 10 }}>Save failed — try again.</span>}
     </div>
   )

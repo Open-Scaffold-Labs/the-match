@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api, post } from '../lib/api.js'
+import SwingCapture from './SwingCapture.jsx'
 
 // Practice — the interactive data → practice loop (Leapfrog 3.5).
 //
@@ -58,6 +59,7 @@ export default function Practice({ onClose }) {
   const [error, setError]     = useState(null)
   const [detail, setDetail]   = useState(null)   // { weaknessId, categoryLabel, drill }
   const [runner, setRunner]   = useState(false)  // guided session active
+  const [filmSwing, setFilmSwing] = useState(false) // round-loop anchor: swing capture prompt
   const [logged, setLogged]   = useState(() => new Set()) // drillIds logged this visit
 
   const load = useCallback(async () => {
@@ -141,7 +143,10 @@ export default function Practice({ onClose }) {
         {!loading && error && <ErrorState message={error} onRetry={load} />}
         {!loading && !error && data && !data.ready && <BuildingState data={data} />}
         {!loading && !error && data && data.ready && (
-          <ReadyState data={data} logged={logged} onOpenDrill={setDetail} onStartSession={() => setRunner(true)} />
+          <ReadyState data={data} logged={logged} onOpenDrill={setDetail} onStartSession={() => setRunner(true)} onFilmSwing={() => setFilmSwing(true)} />
+        )}
+        {filmSwing && (
+          <SwingCapture onClose={() => setFilmSwing(false)} onSaved={() => setFilmSwing(false)} />
         )}
       </div>
 
@@ -210,11 +215,32 @@ function BuildingState({ data }) {
   )
 }
 
-function ReadyState({ data, logged, onOpenDrill, onStartSession }) {
+function ReadyState({ data, logged, onOpenDrill, onStartSession, onFilmSwing }) {
   const tracked = data.weaknesses.filter(w => !data.focus.some(f => f.weaknessId === w.id))
   return (
     <div>
       <HeadlineCard headline={data.headline} severity={data.focus[0]?.severity ?? 0.2} />
+
+      {/* Round-loop anchor (Swing Intelligence spec §Surfaces): a scoring
+          weakness in the ball-striking categories prompts ONE swing filming
+          — the self-report loop closes: numbers → drill → filmed swing →
+          tempo data joins the timeline. */}
+      {onFilmSwing && data.focus.some(f => ['approach', 'ballstriking', 'longgame', 'wedge'].includes(f.category)) && (
+        <button onClick={onFilmSwing} className="touch-press" style={{
+          width: '100%', marginTop: 12, padding: '13px 16px', cursor: 'pointer', textAlign: 'left',
+          borderRadius: 'var(--tm-radius-lg)', border: '1px solid rgba(201,160,64,0.35)',
+          background: 'linear-gradient(135deg, rgba(201,160,64,0.14) 0%, rgba(255,255,255,0.03) 70%)',
+          color: 'var(--tm-dark-text)', display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#F5D78A' }}>Film one swing before you practice</div>
+            <div style={{ fontSize: 12, color: 'var(--tm-dark-text-2)', marginTop: 2, lineHeight: 1.5 }}>
+              Your weakness is in the swing categories — a tempo read now anchors this block on your Swing Timeline.
+            </div>
+          </div>
+          <ChevronRight size={18} color="rgba(255,255,255,0.4)" />
+        </button>
+      )}
 
       {data.session && data.session.blocks.length > 0 && (
         <button onClick={onStartSession} className="touch-press" style={{

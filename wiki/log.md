@@ -6,6 +6,30 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-19 PM5] feat | LLM narrator + round-loop anchor + CSV monitor rung (same branch)
+
+- **LLM narrator** (spec §Pipeline.6 — facts → model, NEVER video):
+  lib/swingNarrator.factsPromptBlock (deterministic facts only; hard-forbids
+  invented metrics/faults — clubface/plane/hip-turn explicitly NOT measured;
+  worth-strokes carries MANDATORY correlation framing; gated join forbids
+  scoring speculation). POST /api/swing/narrate (rate-limited like Caddie,
+  claude-sonnet-5, 300 tokens) — fail-soft to the template narrator with
+  source:'template' so the read never disappears. Timeline "Caddie read"
+  card prefers AI lines (tagged "· AI"). Real bug caught by tests:
+  Number(null)===0 passed Number.isFinite — null-filter must precede
+  conversion (fixed in swingNarrator).
+- **Round-loop anchor** (spec §Surfaces retention design): Practice page
+  prompts "Film one swing before you practice" when the focus weakness is
+  in a ball-striking category (approach/ballstriking/longgame/wedge) —
+  numbers → drill → filmed swing → timeline. The self-report loop closes.
+- **CSV monitor rung** (spec §5 ladder): POST /api/swing/ball-data-csv
+  (Rapsodo/Garmin/Mevo via lib/swingImport.normalizeExport, ownership-
+  checked, 422 unmappable — reported never guessed) + file input in the
+  Timeline monitor form. Ladder now: manual ✓ CSV ✓ Garmin API (partner
+  application outstanding — can't be coded around).
+- 12 narrator assertions; all gates green (build, lint, vitest 195/195,
+  client 34).
+
 ## [2026-07-19 PM4] feat | V3 moats — archive-import onboarding, ball-data quick entry, coach-share (same branch)
 
 - **SwingImport.jsx + lib/swingBatch.mjs**: public archive-import onboarding

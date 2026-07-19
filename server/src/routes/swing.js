@@ -1,6 +1,17 @@
 const router      = require('express').Router()
+const rateLimit   = require('express-rate-limit')
+const Anthropic   = require('@anthropic-ai/sdk')
 const requireAuth = require('../middleware/auth')
 const db          = require('../db')
+const { factsPromptBlock } = require('../lib/swingNarrator')
+
+const anthropic = new Anthropic()
+// Paid-model guard, same discipline as the Caddie route.
+const narrateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => String(req.user?.id ?? req.ip),
+  message: { error: 'The caddie needs a breather. Try again in a few minutes.' },
+})
 const { buildTimeline, detectEras, headline, narrate } = require('../lib/swingTimeline')
 const { windowize, correlate, worthStrokes, prescribe } = require('../lib/swingJoin')
 const { roundSG } = require('../lib/sg')
@@ -225,6 +236,90 @@ router.post('/ball-data', async (req, res) => {
     if (e && e.code === '42P01') return res.status(503).json({ error: 'Swing Intelligence not yet enabled', pending_migration: true })
     req.log?.error({ err: e }, 'ball data save failed')
     res.status(500).json({ error: 'Failed to save ball data' })
+  }
+})
+
+// POST /api/swing/narrate
+// The LLM narrator (spec §Pipeline.6): deterministic facts → prompt block →
+// model writes the human sentence. NEVER the video. Fail-soft: any failure
+// (no key, model error, empty completion) returns the TEMPLATE narrator's
+// lines with source:'template' — the player always gets an honest read.
+router.post('/narrate', narrateLimiter, async (req, res) => {
+  const uid = req.user.id
+  try {
+    const [swingRows, ballRows] = await Promise.all([
+      db.many(
+        `SELECT w.session_id, s.date, s.club_slot, w.duration_ms, w.tempo_ratio
+         FROM tm_swings w JOIN tm_swing_sessions s ON s.id = w.session_id
+         WHERE s.user_id = $1 ORDER BY s.date ASC`,
+        [uid]
+      ),
+      db.many(
+        `SELECT b.club_speed, b.carry FROM tm_ball_data b
+         JOIN tm_swing_sessions s ON s.id = b.session_id
+         WHERE s.user_id = $1 ORDER BY b.created_at DESC LIMIT 50`,
+        [uid]
+      ).catch(() => []), // ball table may be empty; never fatal
+    ])
+    const timeline = buildTimeline(swingRows)
+    const eras = detectEras(timeline)
+    const fallback = narrate(timeline, eras)
+    const block = factsPromptBlock({ timeline, eras, ball: ballRows })
+    if (!block) return res.json({ lines: fallback.lines, note: fallback.note, source: 'template' })
+
+    try {
+      const msg = await anthropic.messages.create({
+        model: process.env.CADDIE_MODEL || 'claude-sonnet-5',
+        max_tokens: 300,
+        system: 'You are The Match\'s swing caddie. Narrate the player\'s swing facts per the instructions.',
+        messages: [{ role: 'user', content: block }],
+      })
+      const text = (msg.content ?? [])
+        .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+        .map((b) => b.text).join('').trim()
+      if (!text) throw new Error('empty completion')
+      res.json({ lines: [text], source: 'llm' })
+    } catch (e) {
+      req.log?.warn({ err: e }, 'swing narrator LLM failed — template fallback')
+      res.json({ lines: fallback.lines, note: fallback.note, source: 'template' })
+    }
+  } catch (e) {
+    if (e && e.code === '42P01') return res.json({ lines: [], source: 'template', pending_migration: true })
+    req.log?.error({ err: e }, 'swing narrate failed')
+    res.status(500).json({ error: 'Failed to narrate' })
+  }
+})
+
+// POST /api/swing/ball-data-csv
+// Monitor leg, CSV rung (spec §5): upload a Rapsodo / Garmin R10 / Mevo
+// export; rows normalize via lib/swingImport and attach session-level.
+// Unmappable exports are reported, never guessed. Cap 500 rows.
+const { normalizeExport } = require('../lib/swingImport')
+router.post('/ball-data-csv', async (req, res) => {
+  const uid = req.user.id
+  const { session_id, csv } = req.body || {}
+  if (!Number.isFinite(Number(session_id))) return res.status(400).json({ error: 'session_id required' })
+  if (typeof csv !== 'string' || !csv.trim() || csv.length > 512_000) {
+    return res.status(400).json({ error: 'csv text required (max 512KB)' })
+  }
+  const norm = normalizeExport(csv)
+  if (!norm.device) return res.status(422).json({ error: 'Unrecognized export — headers matched fewer than 3 known fields', inserted: 0 })
+  const rows = norm.rows.slice(0, 500)
+  try {
+    const own = await db.many('SELECT id FROM tm_swing_sessions WHERE id = $1 AND user_id = $2', [Number(session_id), uid])
+    if (!own.length) return res.status(404).json({ error: 'session not found' })
+    for (const r of rows) {
+      await db.pool.query(
+        `INSERT INTO tm_ball_data (session_id, recorded_at, club_speed, ball_speed, smash, launch_deg, spin, carry, total, source, device)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'csv',$10)`,
+        [Number(session_id), r.recorded_at, r.club_speed, r.ball_speed, r.smash, r.launch_deg, r.spin, r.carry, r.total, norm.device]
+      )
+    }
+    res.status(201).json({ inserted: rows.length, device: norm.device, skipped: norm.skipped })
+  } catch (e) {
+    if (e && e.code === '42P01') return res.status(503).json({ error: 'Swing Intelligence not yet enabled', pending_migration: true })
+    req.log?.error({ err: e }, 'ball data csv failed')
+    res.status(500).json({ error: 'Failed to import ball data' })
   }
 })
 
