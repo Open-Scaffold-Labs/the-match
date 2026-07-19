@@ -21,6 +21,7 @@ import PlayerCard from '../components/PlayerCard.jsx'
 import Practice from './Practice.jsx'
 import Caddie from './Caddie.jsx'
 import GamePlan from './GamePlan.jsx'
+import SwingTimeline from './SwingTimeline.jsx'
 import { TMEmblem } from '../components/primitives/Icons.jsx'
 import { TABS } from '../constants.js'
 
@@ -39,6 +40,7 @@ export default function Profile({ onNavigate }) {
   const [practiceOpen, setPracticeOpen]     = useState(false)
   const [caddieOpen, setCaddieOpen]         = useState(false)
   const [gamePlanOpen, setGamePlanOpen]     = useState(false)
+  const [swingOpen, setSwingOpen]           = useState(false)
   const [playerCardOpen, setPlayerCardOpen] = useState(false)
   const [selectedFriend, setSelectedFriend] = useState(null)
 
@@ -111,6 +113,7 @@ export default function Profile({ onNavigate }) {
         onOpenPractice={() => setPracticeOpen(true)}
         onOpenCaddie={() => setCaddieOpen(true)}
         onOpenGamePlan={() => setGamePlanOpen(true)}
+        onOpenSwing={() => setSwingOpen(true)}
         // Tap an opponent face inside a rivalry popup → open that user's
         // FriendProfile on top of this view.
         onOpenFriend={setSelectedFriend}
@@ -133,6 +136,11 @@ export default function Profile({ onNavigate }) {
           POSTs /api/gameplan, reopens the latest stored plan. */}
       {gamePlanOpen && (
         <GamePlan onClose={() => setGamePlanOpen(false)} />
+      )}
+      {/* Swing Timeline — Swing Intelligence V0. Full-screen overlay;
+          fetches /api/swing/timeline (eras + tempo chart). */}
+      {swingOpen && (
+        <SwingTimeline onClose={() => setSwingOpen(false)} />
       )}
       {/* Player card overlay — opens from the big avatar in the header.
           userId mirrors the Home sub-view's `profile?.id` pass-through. */}

@@ -1,10 +1,89 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-07-15
+updated: 2026-07-19
 ---
 
 # Activity Log
+
+## [2026-07-19 PM2] feat | Swing Intelligence V1 slice — guided capture + Caddie narration (same sandbox session, on the V0 branch)
+
+- **On-device analysis, zero upload** (spec §Pipeline.1 + privacy rule): client
+  twin of the tempo engine (`client/src/lib/swingTempo.mjs`) + capture analyzer
+  (`lib/swingCapture.mjs` — canvas YAVG sampling for motion[], WebAudio RMS for
+  audio[], 30fps seek-and-draw, WKWebView-safe). PARITY TRIPWIRE: swing-tempo-
+  parity.test.mjs asserts client/server engines are byte-identical on a fixture
+  battery — a tempo can never depend on where it was analyzed.
+- **SwingCapture.jsx**: face-on / down-the-line framing guides (SVG overlay),
+  8s clips, honest unreadable states (clip_too_long / no_motion / no clear
+  impact audio), one-tap save. "The clip never leaves your phone."
+- **POST /api/swing/session**: facts-only ingest (numbers-or-null enforced,
+  flags pass through, nothing back-filled); 42P01 → honest 503.
+- **Caddie narration** (`narrate()` in lib/swingTimeline.js, deterministic
+  template narrator — the LLM narrator consumes the same facts later): Tour-band
+  vs quick vs long-simmer reads, consistency trend (3+ CV sessions), era-shift
+  line with explicit V2 honesty ("once the scoring data joins this"). Silent
+  below 3 measurable sessions. Surfaced as "Caddie read" card on the Timeline.
+- Timeline page: "Film a swing" header action + empty state now routes to live
+  capture (archive import follows after Dale's validation run).
+- Gates: build+lint green; 7 new timeline narration assertions (30 total
+  timeline), 4 capture-math + 3 parity suites in client test script; all repo
+  suites green. Runtime NOT device-verified — camera path needs a physical
+  iPhone check (getUserMedia + MediaRecorder in WKWebView).
+
+## [2026-07-19] feat | Swing Intelligence V0 pilot scaffolded — migration, tempo engine, archive importer (branch feat/swing-intelligence-v0)
+
+Kimi session (web) cloned the freshly-public repo and built the V0 pilot from
+`synthesis/swing-intelligence-build-spec-2026-07-16.md` §V0 — batch importer +
+tempo engine for DALE'S ARCHIVE, zero production surface touched:
+
+- **Migration 050** (`migrations/050_tm_swing_intelligence.sql`): `tm_swing_sessions`,
+  `tm_swings` (duration_ms, tempo_ratio, frames JSONB, pose_metrics JSONB, flags[]),
+  `tm_ball_data` (optional monitor leg: manual/csv/garmin, nullable per-swing join).
+  NOT applied anywhere — apply on prod by hand when V0 validates.
+- **Tempo engine** (`server/src/lib/swingTempo.js`, pure): takeaway/top/impact
+  frame detection from per-frame motion + audio-RMS series → duration_ms +
+  tempo_ratio. Tour Tempo lineage, zero pose uncertainty. Honesty contract:
+  undetectable = null + flag, never interpolated. Key design fix during bring-up:
+  the takeaway baseline must come from the ADDRESS window (pre-top 15%), not a
+  global mean+σ — the follow-through tail inflates a global baseline so a real
+  backswing never crosses it.
+- **Importer** (`server/src/lib/swingImport.js`, pure + `scripts/swing-import.mjs`
+  CLI): date+folder session grouping, Rapsodo/Garmin-R10/Mevo CSV header-sniffing
+  normalisation, session-level pairing default with ±90s per-swing timestamp
+  windows. Dry-run by default (staging JSON); `--write` inserts (needs --user +
+  DATABASE_URL). ffmpeg/ffprobe extract the motion (YAVG deltas) + audio (RMS)
+  series.
+- **Tests**: 23 tempo + 18 importer assertions, all green; wired into ci.yml
+  "Server math checks". Full repo suites green (vitest 195/195, client node --test
+  all pass).
+- **Next**: Dale points the CLI at his archive video folder + any surviving
+  monitor exports; validate video-derived tempo against his tracked ground truth
+  (the spec's founding dataset). Then V1 guided capture.
+
+## [2026-07-19 PM] feat | Swing Timeline surface — V0 longitudinal view shipped (same sandbox session)
+
+- **Timeline lib** (`server/src/lib/swingTimeline.js`, pure): per-session medians
+  from joined tm_swings rows + ERA DETECTION (change-point on tempo_ratio;
+  threshold max(0.3, 2× window noise) so practice-week jitter never becomes an
+  "era"; MIN_ERA_SESSIONS=3 per side; strongest-shift-first greedy dedup after
+  sliding windows re-detected the same boundary at adjacent indexes). Era labels
+  describe SHAPE only (Tour-tempo / Quickened / Long-simmer / Snatch) — worth-
+  strokes judgement stays with the Caddie at narration time (spec §Worth-strokes).
+- **Route** (`server/src/routes/swing.js` → `GET /api/swing/timeline`, registered
+  on the versioned apiRouter): facts stored deterministic, timeline+eras+headline
+  computed at READ time (narration-at-read doctrine). 42P01 (migration 050 not
+  yet applied) → honest empty payload, not a 500.
+- **Surface** (`client/src/pages/SwingTimeline.jsx`): dark instrument overlay
+  (Practice/Eagle-Eye tokens), portaled to body; hand-rolled SVG tempo chart
+  with era bands, 3:1 Tour-Tempo guide, line BREAKS at unmeasurable sessions
+  (hollow points, never interpolated), tap-for-detail (44px hit rects); ONE
+  headline with confidence ladder; empty state = archive-import hook. Entry:
+  Profile → "Swing Timeline" card beside Practice Plan.
+- **Gates**: build + lint green; 16 timeline assertions green; all repo suites
+  green (vitest 195/195, client node --test clean); test wired into ci.yml.
+  Runtime NOT device-verified — needs migration 050 + seeded rows (or a V0
+  import) for the visual check.
 
 ## [2026-07-17] HANDOFF TO MATT | Capacitor shell launch-crashes on a PHYSICAL device (builds 3 & 4) — likely splash-watchdog
 
