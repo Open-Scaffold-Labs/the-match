@@ -6,6 +6,25 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-19 PM4] feat | V3 moats — archive-import onboarding, ball-data quick entry, coach-share (same branch)
+
+- **SwingImport.jsx + lib/swingBatch.mjs**: public archive-import onboarding
+  (spec §Surfaces: unclaimed in market). Multi-pick camera-roll videos →
+  grouped into sessions by capture date → every clip analyzed ON-DEVICE
+  (nothing uploads) → review screen (sessions, per-swing tempo, honest
+  skip list) → POST /api/swing/import (facts-only, 60-session/10-swing
+  caps, dates validated, 42P01→honest 503). Entry: Timeline header +
+  empty-state primary CTA.
+- **Ball-data quick entry** (spec §5 manual→CSV→Garmin ladder): POST
+  /api/swing/ball-data (ownership-checked, any-subset metrics, empty row
+  rejected) + "+ Monitor numbers" form in Timeline session detail.
+- **Coach-share export**: native share sheet (clipboard fallback) with a
+  plain-text facts summary — headline, eras, worth-strokes top — the same
+  numbers the app shows, no extra claims.
+- analyzeVideoBlob now takes {maxClipMs} so archive clips aren't held to
+  the 8s guided-capture limit (120s import ceiling).
+- 3 batch-lib test cases; client suite 34 passing; all gates green.
+
 ## [2026-07-19 PM3] feat | V2 THE JOIN — swing × score correlation engine + worth-strokes ranking (same branch)
 
 - **lib/swingJoin.js** (pure): windowize (14d buckets pairing sessions with

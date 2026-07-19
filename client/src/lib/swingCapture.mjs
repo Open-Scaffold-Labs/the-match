@@ -62,8 +62,9 @@ const MAX_CLIP_MS = 20_000   // guided capture records short clips
  * @returns {Promise<{ motion:number[], audio:number[]|null, fps:number,
  *                     duration_ms:number } | { error:string }>}
  */
-export async function analyzeVideoBlob(blob) {
+export async function analyzeVideoBlob(blob, opts = {}) {
   if (typeof document === 'undefined') return { error: 'no_dom' }
+  const maxMs = Number(opts.maxClipMs) > 0 ? Number(opts.maxClipMs) : MAX_CLIP_MS
   const url = URL.createObjectURL(blob)
   try {
     const video = document.createElement('video')
@@ -77,7 +78,7 @@ export async function analyzeVideoBlob(blob) {
     })
     const duration_ms = Math.round(video.duration * 1000)
     if (!Number.isFinite(duration_ms) || duration_ms <= 0) return { error: 'unreadable_clip' }
-    if (duration_ms > MAX_CLIP_MS) return { error: 'clip_too_long' }
+    if (duration_ms > maxMs) return { error: 'clip_too_long' }
 
     // Frame sampling: seek-and-draw at TARGET_FPS. WKWebView-safe (no
     // requestVideoFrameCallback on older WebKit — seek is universally OK).

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { api } from '../lib/api.js'
+import { api, post } from '../lib/api.js'
 import SwingCapture from './SwingCapture.jsx'
+import SwingImport from './SwingImport.jsx'
 
 // Swing Timeline — Swing Intelligence V0 surface (spec: wiki/synthesis/
 // swing-intelligence-build-spec-2026-07-16.md §Surfaces).
@@ -43,6 +44,7 @@ export default function SwingTimeline({ onClose }) {
   const [error, setError]     = useState(null)
   const [sel, setSel]         = useState(null)   // selected timeline point
   const [capture, setCapture] = useState(false)  // V1 guided capture overlay
+  const [importOpen, setImportOpen] = useState(false) // V3 archive import
 
   const load = useCallback(async () => {
     try {
@@ -81,6 +83,18 @@ export default function SwingTimeline({ onClose }) {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, color: GOLD, textTransform: 'uppercase' }}>Swing Intelligence</div>
           <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>Swing Timeline</div>
         </div>
+        {measurable.length > 0 && (
+          <button onClick={() => shareSummary(data)} className="touch-press" aria-label="Share swing summary with your coach" style={{
+            minHeight: 44, padding: '0 14px', borderRadius: 12, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(232,193,90,0.25)',
+            color: TXT2, fontSize: 13, fontWeight: 700,
+          }}>Share</button>
+        )}
+        <button onClick={() => setImportOpen(true)} className="touch-press" aria-label="Import archive videos" style={{
+          minHeight: 44, padding: '0 14px', borderRadius: 12, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(232,193,90,0.25)',
+          color: TXT2, fontSize: 13, fontWeight: 700,
+        }}>Import</button>
         <button onClick={() => setCapture(true)} className="touch-press" style={{
           minHeight: 44, padding: '0 16px', borderRadius: 12, cursor: 'pointer',
           background: 'rgba(201,160,64,0.18)', border: `1px solid ${GOLD}`,
@@ -127,7 +141,7 @@ export default function SwingTimeline({ onClose }) {
           {data.join && <JoinCard join={data.join} />}
 
           {measurable.length === 0 ? (
-            <EmptyState onFilm={() => setCapture(true)} />
+            <EmptyState onFilm={() => setCapture(true)} onImport={() => setImportOpen(true)} />
           ) : (
             <>
               {/* Tempo chart with era bands */}
@@ -193,9 +207,31 @@ export default function SwingTimeline({ onClose }) {
       {capture && (
         <SwingCapture onClose={() => setCapture(false)} onSaved={() => { setCapture(false); setLoading(true); load() }} />
       )}
+      {importOpen && (
+        <SwingImport onClose={() => setImportOpen(false)} onSaved={() => { setImportOpen(false); setLoading(true); load() }} />
+      )}
     </div>,
     document.body
   )
+}
+
+// V3 coach-share export: a plain-text summary of the facts (eras, latest
+// tempo, worth-strokes) via the native share sheet; clipboard fallback.
+// Facts only — the same numbers the app shows, never extra claims.
+function shareSummary(data) {
+  const lines = ['The Match — Swing Summary', '']
+  if (data.headline?.text) lines.push(data.headline.text)
+  for (const e of data.eras || []) {
+    lines.push(`• ${e.label}: ${e.median_tempo_ratio}:1 (${e.from} → ${e.to}, ${e.points} sessions)`)
+  }
+  const top = data.join?.worth_strokes?.top
+  if (top) lines.push(`• Worth strokes: ${top.label} tracks with ${top.delta} strokes (association, not causation)`)
+  const text = lines.join('\n')
+  if (navigator.share) {
+    navigator.share({ title: 'Swing Summary', text }).catch(() => {})
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).catch(() => {})
+  }
 }
 
 // V2 worth-strokes card. Three honest states: gated (progress toward the
@@ -331,6 +367,7 @@ function TempoChart({ points, measurable, eras, sel, onSelect }) {
 }
 
 function SessionDetail({ p, onClear }) {
+  const [ballOpen, setBallOpen] = useState(false)
   return (
     <div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -344,10 +381,64 @@ function SessionDetail({ p, onClear }) {
           Too few measurable swings for a consistency read — film a few more next session.
         </div>
       )}
-      <button onClick={onClear} className="touch-press" style={{
-        marginTop: 10, background: 'none', border: `1px solid rgba(232,193,90,0.3)`, borderRadius: 10,
-        color: GOLD_BRIGHT, padding: '10px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', minHeight: 44,
-      }}>All sessions</button>
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+        <button onClick={onClear} className="touch-press" style={{
+          background: 'none', border: `1px solid rgba(232,193,90,0.3)`, borderRadius: 10,
+          color: GOLD_BRIGHT, padding: '10px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', minHeight: 44,
+        }}>All sessions</button>
+        <button onClick={() => setBallOpen(o => !o)} className="touch-press" style={{
+          background: 'none', border: '1px solid rgba(232,193,90,0.18)', borderRadius: 10,
+          color: TXT2, padding: '10px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', minHeight: 44,
+        }}>{ballOpen ? 'Hide monitor numbers' : '+ Monitor numbers'}</button>
+      </div>
+      {ballOpen && <BallDataForm sessionId={p.session_id} />}
+    </div>
+  )
+}
+
+// V3 optional monitor leg — manual quick-entry (spec §5 ladder: manual →
+// CSV → Garmin API). Session-level pairing. Any subset of fields; the
+// server rejects a fully-empty row.
+const BALL_INPUTS = [
+  ['club_speed', 'Club mph'], ['ball_speed', 'Ball mph'], ['smash', 'Smash'],
+  ['launch_deg', 'Launch °'], ['spin', 'Spin rpm'], ['carry', 'Carry yds'], ['total', 'Total yds'],
+]
+function BallDataForm({ sessionId }) {
+  const [vals, setVals] = useState({})
+  const [state, setState] = useState('idle') // idle | saving | saved | err
+  const set = (k) => (e) => setVals(v => ({ ...v, [k]: e.target.value }))
+  const save = async () => {
+    setState('saving')
+    try {
+      await post('/api/swing/ball-data', { session_id: sessionId, ...vals })
+      setState('saved')
+    } catch { setState('err') }
+  }
+  if (state === 'saved') return <div style={{ fontSize: 13, color: '#5ED47A', marginTop: 10 }}>Monitor numbers attached to this session ✓</div>
+  return (
+    <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(232,193,90,0.12)', borderRadius: 10, padding: 12 }}>
+      <div style={{ fontSize: 11, color: TXT2, marginBottom: 8 }}>Launch-monitor numbers from this session (any subset):</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        {BALL_INPUTS.map(([k, label]) => (
+          <label key={k} style={{ fontSize: 11, color: TXT2 }}>
+            {label}
+            <input
+              inputMode="decimal" value={vals[k] || ''} onChange={set(k)}
+              style={{
+                width: '100%', marginTop: 3, padding: '8px 6px', borderRadius: 8, fontSize: 15,
+                background: 'var(--tm-dark-1)', color: 'var(--tm-dark-text)',
+                border: '1px solid rgba(232,193,90,0.2)', boxSizing: 'border-box',
+              }}
+            />
+          </label>
+        ))}
+      </div>
+      <button onClick={save} disabled={state === 'saving'} className="touch-press" style={{
+        marginTop: 10, minHeight: 44, padding: '0 18px', borderRadius: 10, cursor: 'pointer',
+        background: 'rgba(201,160,64,0.18)', border: `1px solid ${GOLD}`,
+        color: GOLD_BRIGHT, fontSize: 13, fontWeight: 800, opacity: state === 'saving' ? 0.6 : 1,
+      }}>{state === 'saving' ? 'Saving…' : 'Attach to session'}</button>
+      {state === 'err' && <span style={{ fontSize: 12, color: '#F2A0A0', marginLeft: 10 }}>Save failed — try again.</span>}
     </div>
   )
 }
@@ -361,22 +452,29 @@ function Stat({ label, value }) {
   )
 }
 
-// Empty state — film one swing NOW (V1 capture is live), archive import
-// next (V0 CLI runs on Dale's archive; public import ships after validation).
-function EmptyState({ onFilm }) {
+// Empty state — TWO hooks: film one swing now (V1) or import the whole
+// camera-roll archive (V3, the unclaimed-in-market onboarding).
+function EmptyState({ onFilm, onImport }) {
   return (
     <div style={{ ...CARD(), textAlign: 'center', padding: '28px 20px' }}>
       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Your swing history starts here</div>
       <div style={{ fontSize: 13, color: TXT2, lineHeight: 1.6, marginBottom: 16 }}>
-        Film one swing on your next range visit — The Match reads your tempo
-        on-device and starts your timeline. Camera-roll archive import follows
-        soon, back through every era of your swing.
+        Import years of range videos from your camera roll — read on-device,
+        nothing uploads — and your timeline builds back through every era of
+        your swing. Or film one swing on your next range visit.
       </div>
-      <button onClick={onFilm} className="touch-press" style={{
-        minHeight: 50, padding: '0 24px', borderRadius: 12, cursor: 'pointer',
-        background: 'rgba(201,160,64,0.18)', border: `1px solid ${GOLD}`,
-        color: GOLD_BRIGHT, fontSize: 14, fontWeight: 800,
-      }}>Film your first swing</button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button onClick={onImport} className="touch-press" style={{
+          minHeight: 50, padding: '0 24px', borderRadius: 12, cursor: 'pointer',
+          background: 'rgba(201,160,64,0.18)', border: `1px solid ${GOLD}`,
+          color: GOLD_BRIGHT, fontSize: 14, fontWeight: 800,
+        }}>Import my video archive</button>
+        <button onClick={onFilm} className="touch-press" style={{
+          minHeight: 50, padding: '0 24px', borderRadius: 12, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(232,193,90,0.25)',
+          color: TXT2, fontSize: 14, fontWeight: 700,
+        }}>Film your first swing</button>
+      </div>
     </div>
   )
 }

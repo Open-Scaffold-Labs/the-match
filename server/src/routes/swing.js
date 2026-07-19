@@ -138,4 +138,94 @@ router.get('/join', async (req, res) => {
   }
 })
 
+// POST /api/swing/import
+// V3 archive onboarding: the client analyzed every clip ON-DEVICE and posts
+// session-shaped facts grouped by capture date. Same facts-only contract as
+// /session — numbers-or-null, flags pass through, nothing back-filled.
+// Caps bound abuse: 60 sessions, 10 swings each.
+router.post('/import', async (req, res) => {
+  const uid = req.user.id
+  const sessions = req.body?.sessions
+  if (!Array.isArray(sessions) || sessions.length === 0 || sessions.length > 60) {
+    return res.status(400).json({ error: 'sessions must be 1–60 entries' })
+  }
+  const okNum = (v) => v == null || Number.isFinite(Number(v))
+  for (const s of sessions) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s.date || ''))) {
+      return res.status(400).json({ error: 'each session needs a YYYY-MM-DD date' })
+    }
+    const swings = Array.isArray(s.swings) ? s.swings : []
+    if (swings.length > 10) return res.status(400).json({ error: 'max 10 swings per session' })
+    for (const w of swings) {
+      if (!okNum(w.duration_ms) || !okNum(w.tempo_ratio)) {
+        return res.status(400).json({ error: 'duration_ms / tempo_ratio must be numbers or null' })
+      }
+    }
+  }
+  try {
+    let insertedSessions = 0, insertedSwings = 0
+    for (const s of sessions) {
+      const { rows } = await db.pool.query(
+        `INSERT INTO tm_swing_sessions (user_id, date, context, club_slot, notes, source)
+         VALUES ($1, $2, 'import', NULL, NULL, 'archive') RETURNING id`,
+        [uid, s.date]
+      )
+      insertedSessions++
+      for (const w of (s.swings || [])) {
+        await db.pool.query(
+          `INSERT INTO tm_swings (session_id, duration_ms, tempo_ratio, frames, flags)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [rows[0].id,
+           w.duration_ms != null ? Math.round(Number(w.duration_ms)) : null,
+           w.tempo_ratio != null ? Number(w.tempo_ratio) : null,
+           w.frames ? JSON.stringify(w.frames) : null,
+           Array.isArray(w.flags) ? w.flags.map(String).slice(0, 10) : []]
+        )
+        insertedSwings++
+      }
+    }
+    res.status(201).json({ sessions: insertedSessions, swings: insertedSwings })
+  } catch (e) {
+    if (e && e.code === '42P01') return res.status(503).json({ error: 'Swing Intelligence not yet enabled', pending_migration: true })
+    req.log?.error({ err: e }, 'swing import failed')
+    res.status(500).json({ error: 'Failed to import swing sessions' })
+  }
+})
+
+// POST /api/swing/ball-data
+// V3 optional monitor leg, manual quick-entry (spec §5: manual → CSV →
+// Garmin API ladder). Session-level pairing by default. Facts-or-null; an
+// empty row is rejected rather than stored blank.
+const BALL_FIELDS = ['club_speed', 'ball_speed', 'smash', 'launch_deg', 'spin', 'carry', 'total']
+router.post('/ball-data', async (req, res) => {
+  const uid = req.user.id
+  const { session_id, device = null } = req.body || {}
+  if (!Number.isFinite(Number(session_id))) return res.status(400).json({ error: 'session_id required' })
+  const vals = {}
+  let present = 0
+  for (const f of BALL_FIELDS) {
+    const v = req.body[f]
+    if (v == null || v === '') { vals[f] = null; continue }
+    if (!Number.isFinite(Number(v))) return res.status(400).json({ error: `${f} must be a number` })
+    vals[f] = Number(v)
+    present++
+  }
+  if (!present) return res.status(400).json({ error: 'at least one metric required' })
+  try {
+    // Ownership check: the session must belong to this user.
+    const own = await db.many('SELECT id FROM tm_swing_sessions WHERE id = $1 AND user_id = $2', [Number(session_id), uid])
+    if (!own.length) return res.status(404).json({ error: 'session not found' })
+    const { rows } = await db.pool.query(
+      `INSERT INTO tm_ball_data (session_id, club_speed, ball_speed, smash, launch_deg, spin, carry, total, source, device)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'manual',$9) RETURNING id`,
+      [Number(session_id), vals.club_speed, vals.ball_speed, vals.smash, vals.launch_deg, vals.spin, vals.carry, vals.total, device]
+    )
+    res.status(201).json({ id: rows[0].id })
+  } catch (e) {
+    if (e && e.code === '42P01') return res.status(503).json({ error: 'Swing Intelligence not yet enabled', pending_migration: true })
+    req.log?.error({ err: e }, 'ball data save failed')
+    res.status(500).json({ error: 'Failed to save ball data' })
+  }
+})
+
 module.exports = router
