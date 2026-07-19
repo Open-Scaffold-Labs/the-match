@@ -6,6 +6,14 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-19 PM6] feat | Caddie chat is swing-aware (same branch)
+
+routes/caddie.js loadPlayerContext now also pulls tm_swings facts (42P01-safe
+.catch) and buildSystemPrompt appends the same deterministic
+swingNarrator.factsPromptBlock the /narrate endpoint uses — one contract:
+the model narrates measured tempo facts in ANY conversation, never invents
+metrics. Additive + try/catch — swing facts never block chat.
+
 ## [2026-07-19 PM5] feat | LLM narrator + round-loop anchor + CSV monitor rung (same branch)
 
 - **LLM narrator** (spec §Pipeline.6 — facts → model, NEVER video):
