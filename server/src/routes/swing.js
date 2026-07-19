@@ -80,12 +80,13 @@ router.post('/session', async (req, res) => {
     const sid = rows[0].id
     for (const s of swings) {
       await db.pool.query(
-        `INSERT INTO tm_swings (session_id, duration_ms, tempo_ratio, frames, flags)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO tm_swings (session_id, duration_ms, tempo_ratio, frames, pose_metrics, flags)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [sid,
          s.duration_ms != null ? Math.round(Number(s.duration_ms)) : null,
          s.tempo_ratio != null ? Number(s.tempo_ratio) : null,
          s.frames ? JSON.stringify(s.frames) : null,
+         s.pose_metrics ? JSON.stringify(s.pose_metrics) : null,
          Array.isArray(s.flags) ? s.flags.map(String).slice(0, 10) : []]
       )
     }
@@ -184,12 +185,13 @@ router.post('/import', async (req, res) => {
       insertedSessions++
       for (const w of (s.swings || [])) {
         await db.pool.query(
-          `INSERT INTO tm_swings (session_id, duration_ms, tempo_ratio, frames, flags)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO tm_swings (session_id, duration_ms, tempo_ratio, frames, pose_metrics, flags)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
           [rows[0].id,
            w.duration_ms != null ? Math.round(Number(w.duration_ms)) : null,
            w.tempo_ratio != null ? Number(w.tempo_ratio) : null,
            w.frames ? JSON.stringify(w.frames) : null,
+           w.pose_metrics ? JSON.stringify(w.pose_metrics) : null,
            Array.isArray(w.flags) ? w.flags.map(String).slice(0, 10) : []]
         )
         insertedSwings++

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { post } from '../lib/api.js'
 import { analyzeClip } from '../lib/swingTempo.mjs'
+import { computePoseMetrics } from '../lib/swingPose.mjs'
+import { estimatePoseFrames } from '../lib/swingPoseEstimate.mjs'
 import { analyzeVideoBlob } from '../lib/swingCapture.mjs'
 
 // Swing Capture — Swing Intelligence V1: guided in-app filming (spec:
@@ -22,6 +24,15 @@ const GOLD = 'var(--tm-gold)'
 const GOLD_BRIGHT = '#F5D78A'
 const TXT2 = 'var(--tm-dark-text-2)'
 const CLIP_SECONDS = 8
+
+function PoseStat({ label, value }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: 19, fontWeight: 800, color: GOLD_BRIGHT }}>{value}</div>
+      <div style={{ fontSize: 10, color: TXT2, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+    </div>
+  )
+}
 
 const CTA = {
   width: '100%', minHeight: 50, borderRadius: 12, cursor: 'pointer',
@@ -90,7 +101,15 @@ export default function SwingCapture({ onClose, onSaved }) {
       if (signals.error) {
         setResult({ detectable: false, flags: [signals.error], error: true })
       } else {
-        setResult(analyzeClip(signals))
+        const tempo = analyzeClip(signals)
+        // V1.5 pose stream: fail-soft — null when the model isn't deployed;
+        // per-metric nulls + flags when keypoints aren't credible.
+        let pose_metrics = null
+        if (tempo.detectable) {
+          const poseFrames = await estimatePoseFrames(blob, tempo.frames, signals.fps)
+          if (poseFrames) pose_metrics = computePoseMetrics(poseFrames, view)
+        }
+        setResult({ ...tempo, pose_metrics })
       }
       setPhase('result')
     }
@@ -118,6 +137,7 @@ export default function SwingCapture({ onClose, onSaved }) {
           duration_ms: result.duration_ms,
           tempo_ratio: result.tempo_ratio,
           frames: result.frames,
+          pose_metrics: result.pose_metrics || null,
           flags: result.flags,
         }],
       })
@@ -215,6 +235,26 @@ export default function SwingCapture({ onClose, onSaved }) {
                     <div style={{ fontSize: 11, color: TXT2 }}>impact detection</div>
                   </div>
                 </div>
+                {/* V1.5 pose metrics — only what the model credibly saw */}
+                {result.pose_metrics && (
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
+                    {result.pose_metrics.shoulder_turn?.value != null && (
+                      <PoseStat label="shoulder turn" value={`${result.pose_metrics.shoulder_turn.value}°`} />
+                    )}
+                    {result.pose_metrics.hip_turn?.value != null && (
+                      <PoseStat label="hip turn" value={`${result.pose_metrics.hip_turn.value}°`} />
+                    )}
+                    {result.pose_metrics.sway?.value != null && (
+                      <PoseStat label="sway" value={`${Math.abs(result.pose_metrics.sway.value)} sw`} />
+                    )}
+                    {result.pose_metrics.head_movement?.value != null && (
+                      <PoseStat label="head move" value={`${result.pose_metrics.head_movement.value} sw`} />
+                    )}
+                    {result.pose_metrics.early_extension?.value != null && (
+                      <PoseStat label="early ext." value={`${result.pose_metrics.early_extension.value} sw`} />
+                    )}
+                  </div>
+                )}
                 {result.flags.length > 0 && (
                   <div style={{ fontSize: 12, color: TXT2, textAlign: 'center' }}>
                     Note: {result.flags.includes('impact_from_motion') ? 'no clear impact audio — timing is close but approximate' : result.flags.join(', ')}

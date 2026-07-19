@@ -6,6 +6,26 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-19 PM7] feat | V1.5 pose stream + Android platform (same branch)
+
+- **Pose metrics engine** (lib/swingPose.js + client twin + parity tripwire):
+  shoulder/hip turn, sway (face-on only), head movement, early extension
+  (down-the-line only) from COCO-17 keypoints at the tempo engine's phase
+  frames. Body-relative normalization (shoulder-width units — camera
+  distance irrelevant). PER-METRIC honesty: view-invalid → null +
+  'face_on_only'/'down_the_line_only'; low keypoint scores → null +
+  'low_confidence'; clubface NEVER produced. 13 server assertions +
+  parity suite.
+- **On-device estimation** (lib/swingPoseEstimate.mjs): MoveNet-class ONNX
+  via bundled onnxruntime-web, LAZY model load from VITE_POSE_MODEL_URL,
+  fail-soft null (no model deployed → no pose metrics, no error). 3 frames
+  per swing only; sequential seeks (parallel seeks on one <video> race —
+  caught in review). Capture UI shows only metrics the model credibly saw.
+- **Android platform** (client/android/): `cap add android` + manifest
+  permissions mirroring iOS (location for Eagle Eye, camera+mic for Swing
+  Capture, POST_NOTIFICATIONS). Build target exists; device verification
+  remains the done-gate.
+
 ## [2026-07-19 PM6] feat | Caddie chat is swing-aware (same branch)
 
 routes/caddie.js loadPlayerContext now also pulls tm_swings facts (42P01-safe
