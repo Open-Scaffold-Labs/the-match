@@ -19,6 +19,8 @@ const requireAuth = require('../middleware/auth')
 const db          = require('../db')
 const { sgPromptBlock, aggregateSG } = require('../lib/sg')
 const { analyze } = require('../lib/practice')
+const { buildTimeline, detectEras } = require('../lib/swingTimeline')
+const { factsPromptBlock } = require('../lib/swingNarrator')
 
 const client = new Anthropic()
 
@@ -39,7 +41,7 @@ router.use(requireAuth)
 // Everything the system prompt needs, in one round trip. Every piece is
 // optional — .catch(() => null) keeps a missing table/row from killing chat.
 async function loadPlayerContext(uid) {
-  const [user, clubRow, rounds] = await Promise.all([
+  const [user, clubRow, rounds, swingRows] = await Promise.all([
     db.one(
       `SELECT name, handicap, sg_baseline, shot_shape, typical_miss, distance_miss
        FROM tm_users WHERE id = $1`, [uid]
@@ -54,6 +56,14 @@ async function loadPlayerContext(uid) {
        LEFT JOIN tm_outings o ON o.id = r.outing_id
        WHERE r.user_id = $1 ORDER BY r.date DESC LIMIT 20`, [uid]
     ).catch(() => []),
+    // Swing Intelligence facts (V0+). tm_swing_* may not exist on an env
+    // without migration 050 — .catch(() => []) keeps chat alive regardless.
+    db.many(
+      `SELECT w.session_id, s.date, s.club_slot, w.duration_ms, w.tempo_ratio
+       FROM tm_swings w JOIN tm_swing_sessions s ON s.id = w.session_id
+       WHERE s.user_id = $1 ORDER BY s.date ASC`,
+      [uid]
+    ).catch(() => []),
   ])
 
   const j = v => { if (typeof v !== 'string') return v; try { return JSON.parse(v) } catch { return null } }
@@ -61,7 +71,7 @@ async function loadPlayerContext(uid) {
     ...r, scores: j(r.scores), putts: j(r.putts), first_putts: j(r.first_putts),
     shots: j(r.shots), hole_pars: j(r.hole_pars),
   }))
-  return { user, clubData: clubRow?.club_data ?? null, rounds, sgRounds }
+  return { user, clubData: clubRow?.club_data ?? null, rounds, sgRounds, swingRows }
 }
 
 function bagLine(clubData) {
@@ -84,7 +94,7 @@ function tendenciesLine(u) {
 }
 
 function buildSystemPrompt(ctx, round) {
-  const { user, clubData, sgRounds } = ctx
+  const { user, clubData, sgRounds, swingRows } = ctx
   const handicap = (user?.handicap != null && Number.isFinite(Number(user.handicap)))
     ? Number(user.handicap) : null
 
@@ -102,6 +112,16 @@ function buildSystemPrompt(ctx, round) {
   if (tend) lines.push(`Tendencies — ${tend}`)
   const bag = bagLine(clubData)
   if (bag) lines.push(`Bag averages — ${bag}`)
+
+  // Swing Intelligence block (facts-only, deterministic — the narrator
+  // contract: model narrates measured tempo facts, never invents metrics).
+  try {
+    if (swingRows && swingRows.length) {
+      const tl = buildTimeline(swingRows)
+      const block = factsPromptBlock({ timeline: tl, eras: detectEras(tl) })
+      if (block) lines.push('', block)
+    }
+  } catch { /* swing facts are additive — never block chat */ }
 
   // Strokes Gained block + measurement discipline
   let sgBlock = null, agg = null

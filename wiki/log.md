@@ -1,10 +1,197 @@
 ---
 type: log
 created: 2026-04-29
-updated: 2026-07-15
+updated: 2026-07-19
 ---
 
 # Activity Log
+
+## [2026-07-19 PM8] feat | Pose model BUNDLED — MoveNet Lightning int8 ONNX ships in-app (same branch)
+
+- **Model:** client/public/models/movenet-lightning-192.onnx (2.9 MB) —
+  MoveNet SinglePose Lightning v4 int8, converted TFLite→ONNX (tf2onnx,
+  opset 13) from the official TF-Hub artifact; validated: uint8
+  [1,192,192,3] in, float32 [1,1,17,3] normalized keypoints out, scores in
+  range. Apache 2.0 attribution in client/THIRD_PARTY_NOTICES.md.
+- **Hosting decision (Option A):** bundled — Vercel static with immutable
+  year-cache headers (vercel.json /models/*), Capacitor binary offline.
+  swingPoseEstimate defaults to /models/movenet-lightning-192.onnx;
+  VITE_POSE_MODEL_URL remains the override.
+- **Dtype fix:** int8 export expects uint8 tensors (client was feeding
+  int32 for the float SavedModel contract) — frameToTensor now uint8.
+- Pose is no longer dormant: on next deploy, capture shows shoulder/hip
+  turn, sway, head movement (face-on) or early extension (DTL) — pending
+  the physical-iPhone accuracy gate.
+
+## [2026-07-19 PM7] feat | V1.5 pose stream + Android platform (same branch)
+
+- **Pose metrics engine** (lib/swingPose.js + client twin + parity tripwire):
+  shoulder/hip turn, sway (face-on only), head movement, early extension
+  (down-the-line only) from COCO-17 keypoints at the tempo engine's phase
+  frames. Body-relative normalization (shoulder-width units — camera
+  distance irrelevant). PER-METRIC honesty: view-invalid → null +
+  'face_on_only'/'down_the_line_only'; low keypoint scores → null +
+  'low_confidence'; clubface NEVER produced. 13 server assertions +
+  parity suite.
+- **On-device estimation** (lib/swingPoseEstimate.mjs): MoveNet-class ONNX
+  via bundled onnxruntime-web, LAZY model load from VITE_POSE_MODEL_URL,
+  fail-soft null (no model deployed → no pose metrics, no error). 3 frames
+  per swing only; sequential seeks (parallel seeks on one <video> race —
+  caught in review). Capture UI shows only metrics the model credibly saw.
+- **Android platform** (client/android/): `cap add android` + manifest
+  permissions mirroring iOS (location for Eagle Eye, camera+mic for Swing
+  Capture, POST_NOTIFICATIONS). Build target exists; device verification
+  remains the done-gate.
+
+## [2026-07-19 PM6] feat | Caddie chat is swing-aware (same branch)
+
+routes/caddie.js loadPlayerContext now also pulls tm_swings facts (42P01-safe
+.catch) and buildSystemPrompt appends the same deterministic
+swingNarrator.factsPromptBlock the /narrate endpoint uses — one contract:
+the model narrates measured tempo facts in ANY conversation, never invents
+metrics. Additive + try/catch — swing facts never block chat.
+
+## [2026-07-19 PM5] feat | LLM narrator + round-loop anchor + CSV monitor rung (same branch)
+
+- **LLM narrator** (spec §Pipeline.6 — facts → model, NEVER video):
+  lib/swingNarrator.factsPromptBlock (deterministic facts only; hard-forbids
+  invented metrics/faults — clubface/plane/hip-turn explicitly NOT measured;
+  worth-strokes carries MANDATORY correlation framing; gated join forbids
+  scoring speculation). POST /api/swing/narrate (rate-limited like Caddie,
+  claude-sonnet-5, 300 tokens) — fail-soft to the template narrator with
+  source:'template' so the read never disappears. Timeline "Caddie read"
+  card prefers AI lines (tagged "· AI"). Real bug caught by tests:
+  Number(null)===0 passed Number.isFinite — null-filter must precede
+  conversion (fixed in swingNarrator).
+- **Round-loop anchor** (spec §Surfaces retention design): Practice page
+  prompts "Film one swing before you practice" when the focus weakness is
+  in a ball-striking category (approach/ballstriking/longgame/wedge) —
+  numbers → drill → filmed swing → timeline. The self-report loop closes.
+- **CSV monitor rung** (spec §5 ladder): POST /api/swing/ball-data-csv
+  (Rapsodo/Garmin/Mevo via lib/swingImport.normalizeExport, ownership-
+  checked, 422 unmappable — reported never guessed) + file input in the
+  Timeline monitor form. Ladder now: manual ✓ CSV ✓ Garmin API (partner
+  application outstanding — can't be coded around).
+- 12 narrator assertions; all gates green (build, lint, vitest 195/195,
+  client 34).
+
+## [2026-07-19 PM4] feat | V3 moats — archive-import onboarding, ball-data quick entry, coach-share (same branch)
+
+- **SwingImport.jsx + lib/swingBatch.mjs**: public archive-import onboarding
+  (spec §Surfaces: unclaimed in market). Multi-pick camera-roll videos →
+  grouped into sessions by capture date → every clip analyzed ON-DEVICE
+  (nothing uploads) → review screen (sessions, per-swing tempo, honest
+  skip list) → POST /api/swing/import (facts-only, 60-session/10-swing
+  caps, dates validated, 42P01→honest 503). Entry: Timeline header +
+  empty-state primary CTA.
+- **Ball-data quick entry** (spec §5 manual→CSV→Garmin ladder): POST
+  /api/swing/ball-data (ownership-checked, any-subset metrics, empty row
+  rejected) + "+ Monitor numbers" form in Timeline session detail.
+- **Coach-share export**: native share sheet (clipboard fallback) with a
+  plain-text facts summary — headline, eras, worth-strokes top — the same
+  numbers the app shows, no extra claims.
+- analyzeVideoBlob now takes {maxClipMs} so archive clips aren't held to
+  the 8s guided-capture limit (120s import ceiling).
+- 3 batch-lib test cases; client suite 34 passing; all gates green.
+
+## [2026-07-19 PM3] feat | V2 THE JOIN — swing × score correlation engine + worth-strokes ranking (same branch)
+
+- **lib/swingJoin.js** (pure): windowize (14d buckets pairing sessions with
+  rounds — single-stream windows excluded, no invented alignment) → Pearson
+  correlations of tempo_ratio / duration / variance × SG:T2G / SG:Total /
+  SG:P (putting as CONTROL — tempo shouldn't track putting; confound
+  tripwire) → worth-strokes splits (fault windows vs norm windows,
+  delta = SG difference). Gates: MIN_PAIRS=8 windows, MIN_SIDE=3 per split
+  side; below gate → 'too_early' with honest counts. ASSOCIATION-ONLY:
+  CAUSATION_DISCLAIMER on every payload, negative deltas reported honestly
+  (a "fault" that tracks with BETTER scoring is shown as such, never top).
+- **prescribe()**: top fault → drill (Tour Tempo rehearsal / continuous
+  motion / metronome ladder), categories aligned with lib/practice.js.
+- **GET /api/swing/join**: timeline facts + per-round SG from lib/sg.roundSG
+  (baseline + handicap from tm_users, same loader pattern as practice route).
+- **Timeline page**: "Swing × Score · worth strokes" card — gated progress
+  bar toward 8 weeks, no-fault state, or top fault + prescription drill;
+  disclaimer always visible.
+- 26 join assertions green; all gates green (build, lint, vitest 195/195).
+
+## [2026-07-19 PM2] feat | Swing Intelligence V1 slice — guided capture + Caddie narration (same sandbox session, on the V0 branch)
+
+- **On-device analysis, zero upload** (spec §Pipeline.1 + privacy rule): client
+  twin of the tempo engine (`client/src/lib/swingTempo.mjs`) + capture analyzer
+  (`lib/swingCapture.mjs` — canvas YAVG sampling for motion[], WebAudio RMS for
+  audio[], 30fps seek-and-draw, WKWebView-safe). PARITY TRIPWIRE: swing-tempo-
+  parity.test.mjs asserts client/server engines are byte-identical on a fixture
+  battery — a tempo can never depend on where it was analyzed.
+- **SwingCapture.jsx**: face-on / down-the-line framing guides (SVG overlay),
+  8s clips, honest unreadable states (clip_too_long / no_motion / no clear
+  impact audio), one-tap save. "The clip never leaves your phone."
+- **POST /api/swing/session**: facts-only ingest (numbers-or-null enforced,
+  flags pass through, nothing back-filled); 42P01 → honest 503.
+- **Caddie narration** (`narrate()` in lib/swingTimeline.js, deterministic
+  template narrator — the LLM narrator consumes the same facts later): Tour-band
+  vs quick vs long-simmer reads, consistency trend (3+ CV sessions), era-shift
+  line with explicit V2 honesty ("once the scoring data joins this"). Silent
+  below 3 measurable sessions. Surfaced as "Caddie read" card on the Timeline.
+- Timeline page: "Film a swing" header action + empty state now routes to live
+  capture (archive import follows after Dale's validation run).
+- Gates: build+lint green; 7 new timeline narration assertions (30 total
+  timeline), 4 capture-math + 3 parity suites in client test script; all repo
+  suites green. Runtime NOT device-verified — camera path needs a physical
+  iPhone check (getUserMedia + MediaRecorder in WKWebView).
+
+## [2026-07-19] feat | Swing Intelligence V0 pilot scaffolded — migration, tempo engine, archive importer (branch feat/swing-intelligence-v0)
+
+Kimi session (web) cloned the freshly-public repo and built the V0 pilot from
+`synthesis/swing-intelligence-build-spec-2026-07-16.md` §V0 — batch importer +
+tempo engine for DALE'S ARCHIVE, zero production surface touched:
+
+- **Migration 050** (`migrations/050_tm_swing_intelligence.sql`): `tm_swing_sessions`,
+  `tm_swings` (duration_ms, tempo_ratio, frames JSONB, pose_metrics JSONB, flags[]),
+  `tm_ball_data` (optional monitor leg: manual/csv/garmin, nullable per-swing join).
+  NOT applied anywhere — apply on prod by hand when V0 validates.
+- **Tempo engine** (`server/src/lib/swingTempo.js`, pure): takeaway/top/impact
+  frame detection from per-frame motion + audio-RMS series → duration_ms +
+  tempo_ratio. Tour Tempo lineage, zero pose uncertainty. Honesty contract:
+  undetectable = null + flag, never interpolated. Key design fix during bring-up:
+  the takeaway baseline must come from the ADDRESS window (pre-top 15%), not a
+  global mean+σ — the follow-through tail inflates a global baseline so a real
+  backswing never crosses it.
+- **Importer** (`server/src/lib/swingImport.js`, pure + `scripts/swing-import.mjs`
+  CLI): date+folder session grouping, Rapsodo/Garmin-R10/Mevo CSV header-sniffing
+  normalisation, session-level pairing default with ±90s per-swing timestamp
+  windows. Dry-run by default (staging JSON); `--write` inserts (needs --user +
+  DATABASE_URL). ffmpeg/ffprobe extract the motion (YAVG deltas) + audio (RMS)
+  series.
+- **Tests**: 23 tempo + 18 importer assertions, all green; wired into ci.yml
+  "Server math checks". Full repo suites green (vitest 195/195, client node --test
+  all pass).
+- **Next**: Dale points the CLI at his archive video folder + any surviving
+  monitor exports; validate video-derived tempo against his tracked ground truth
+  (the spec's founding dataset). Then V1 guided capture.
+
+## [2026-07-19 PM] feat | Swing Timeline surface — V0 longitudinal view shipped (same sandbox session)
+
+- **Timeline lib** (`server/src/lib/swingTimeline.js`, pure): per-session medians
+  from joined tm_swings rows + ERA DETECTION (change-point on tempo_ratio;
+  threshold max(0.3, 2× window noise) so practice-week jitter never becomes an
+  "era"; MIN_ERA_SESSIONS=3 per side; strongest-shift-first greedy dedup after
+  sliding windows re-detected the same boundary at adjacent indexes). Era labels
+  describe SHAPE only (Tour-tempo / Quickened / Long-simmer / Snatch) — worth-
+  strokes judgement stays with the Caddie at narration time (spec §Worth-strokes).
+- **Route** (`server/src/routes/swing.js` → `GET /api/swing/timeline`, registered
+  on the versioned apiRouter): facts stored deterministic, timeline+eras+headline
+  computed at READ time (narration-at-read doctrine). 42P01 (migration 050 not
+  yet applied) → honest empty payload, not a 500.
+- **Surface** (`client/src/pages/SwingTimeline.jsx`): dark instrument overlay
+  (Practice/Eagle-Eye tokens), portaled to body; hand-rolled SVG tempo chart
+  with era bands, 3:1 Tour-Tempo guide, line BREAKS at unmeasurable sessions
+  (hollow points, never interpolated), tap-for-detail (44px hit rects); ONE
+  headline with confidence ladder; empty state = archive-import hook. Entry:
+  Profile → "Swing Timeline" card beside Practice Plan.
+- **Gates**: build + lint green; 16 timeline assertions green; all repo suites
+  green (vitest 195/195, client node --test clean); test wired into ci.yml.
+  Runtime NOT device-verified — needs migration 050 + seeded rows (or a V0
+  import) for the visual check.
 
 ## [2026-07-17] HANDOFF TO MATT | Capacitor shell launch-crashes on a PHYSICAL device (builds 3 & 4) — likely splash-watchdog
 
