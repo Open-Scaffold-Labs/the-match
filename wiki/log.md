@@ -6,6 +6,15 @@ updated: 2026-07-19
 
 # Activity Log
 
+## [2026-07-17] infra | Supabase project relabeled + ods_ leftovers dropped — prod DB identity clarified
+
+Prod DB fact, corrected & cleaned: The Match runs on Supabase project **`bqjdiixkygslaryxcyfg`** (region us-east-2 / Ohio), reached via the pooler in the-match's Vercel `DATABASE_URL`. That project was mislabeled **"Open Design Studio"** in the dashboard and still carried 10 empty `ods_*` scaffolding tables (all 0 rows) from before ODS got its own project. Verified orphaned: no repo commits the ref (full grep of ~/Projects = 0 hits), neither open-design-studio repo points its DATABASE_URL here, ODS has its own project (`ckbzyixeuqwttmendaex`, us-east-1). Actions (Dale-authorized, via Supabase MCP + dashboard):
+- **Dropped** ods_payouts/entries/contests/votes/designs/challenges/furniture/leaderboard/profiles/audit_log (CASCADE). Post-check: no ods_* tables remain.
+- **Renamed** the project → **"The Match"** in the dashboard (cosmetic label only; project ref/host/connection strings UNCHANGED — no app impact).
+- **Left in place:** bare `public.users` (0 rows, generic name — not dropped without a second look) and the RLS advisory (RLS disabled on all tm_* tables; separate security decision, NOT actioned — app uses direct Express→Postgres, not the anon-key Data API).
+- **NOT the OpenMusicLover project** — that's a separate ref (`oytrzoilkwwznjpdiyve`); an earlier verbal claim that OML backed The Match was wrong and is corrected here.
+Matt: heads-up — relabeled the bqj… project to "The Match" + dropped its dead ods_ tables; no schema change to any tm_* table.
+
 ## [2026-07-19 PM8] feat | Pose model BUNDLED — MoveNet Lightning int8 ONNX ships in-app (same branch)
 
 - **Model:** client/public/models/movenet-lightning-192.onnx (2.9 MB) —
