@@ -91,6 +91,28 @@ NOTEBOOKLM = {
         # wiki/synthesis/f5-specs-rollup.md source (2026-07-10 — 50-source cap).
         # (NB: prefixes must not catch f5-specs-rollup.md itself — a broad
         # "f5-s" prefix excluded the rollup on first attempt, 2026-07-10.)
+        # 2026-07-20 prune (50-cap, Matt-approved): 19 shipped/closed pages
+        # mirrored via shipped-specs-rollup.md + closed-audits-rollup.md.
+        # Full filenames (no prefixes) so the rollups themselves never match.
+        "wiki/synthesis/course-handicap-match-strokes-2026-06-25",
+        "wiki/synthesis/gender-handicap-wiring-2026-06-25",
+        "wiki/synthesis/handicap-accuracy-audit-2026-06-25",
+        "wiki/synthesis/per-player-gender-ratings-2026-06-25",
+        "wiki/synthesis/player-data-foundation-2026-06-25",
+        "wiki/synthesis/own-club-arcs-3.3-build-spec-2026-06-25",
+        "wiki/synthesis/playslike-3.1-build-spec-2026-06-25",
+        "wiki/synthesis/playslike-accuracy-rebuild-2026-06-30",
+        "wiki/synthesis/range-rings-dispersion-build-spec-2026-07-02",
+        "wiki/synthesis/live-putt-capture-outings-build-spec-2026-07-06",
+        "wiki/synthesis/eagle-eye-tokenization-plan-2026-07-02",
+        "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07",
+        "wiki/synthesis/eagle-eye-next-level-plan-2026-06-06",
+        "wiki/synthesis/eagle-eye-premium-plan-2026-06-23",
+        "wiki/synthesis/sg-map-tap-capture-build-spec-2026-07-02",
+        "wiki/synthesis/audit-2026-04-29",
+        "wiki/synthesis/audit-fixes-proposal-2026-04-29",
+        "wiki/synthesis/audit-2026-05-07",
+        "wiki/synthesis/match-page-completion-plan",
         "wiki/synthesis/f5-never-lose-your-round-build-spec-",
         "wiki/synthesis/f5-s2-",
         "wiki/synthesis/f5-s4-",
