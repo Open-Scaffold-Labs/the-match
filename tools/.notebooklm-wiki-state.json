@@ -5,14 +5,14 @@
     "verified_at": 1784266698.674303
   },
   "wiki/log.md": {
-    "mtime": 1784282816.6189198,
-    "source_id": "f9ad5e94-840c-426c-96eb-bf1151149f60",
-    "verified_at": 1784282885.370324
+    "mtime": 1784580585.6433764,
+    "source_id": "edaad601-ce34-4dce-a567-f7b1d88b9bc8",
+    "verified_at": 1784580636.9723048
   },
   "wiki/index.md": {
-    "mtime": 1784267886.346486,
-    "source_id": "2c494a11-68b8-4c6f-9d3f-636beb14af4f",
-    "verified_at": 1784282908.429213
+    "mtime": 1784580585.6386216,
+    "source_id": "5b0188f5-9952-46a0-aa13-407c78bee36e",
+    "verified_at": 1784580652.5627441
   },
   "wiki/synthesis/claude-anti-patterns.md": {
     "mtime": 1778130361.5556011,
@@ -20,13 +20,13 @@
     "verified_at": 1784283084.826872
   },
   "wiki/concepts/llm-wiki-pattern.md": {
-    "mtime": 1784253458.2903593,
-    "source_id": "2cccd001-288b-4fb7-9d27-1567a102262f",
-    "verified_at": 1784255276.876032
+    "mtime": 1777500342.2565055,
+    "source_id": "893ba8bf-26b0-4e9f-aa85-ba02a7397a4b",
+    "verified_at": 1784580757.116755
   },
   "wiki/concepts/notebooklm-workflow.md": {
-    "mtime": 1784253458.2905943,
-    "source_id": "ae2972eb-bdb2-49a0-bf4f-dbb4355d5181"
+    "mtime": 1777500342.2568595,
+    "source_id": "2c3c9f0b-3059-48c5-a5f2-9e2576daed29"
   },
   "wiki/sources/claude-code-karpathy-obsidian-video-2026-04-14.md": {
     "mtime": 1784253458.2931635,
@@ -48,9 +48,9 @@
     "verified_at": 1784283116.068834
   },
   "wiki/POST-LAUNCH-TODO.md": {
-    "mtime": 1784282759.808431,
-    "source_id": "e1eee25f-27b7-4a34-9eb6-0648b57ddb31",
-    "verified_at": 1784282862.983443
+    "mtime": 1784328818.7441928,
+    "source_id": "3aceb487-67cf-4b38-9b49-202c803851ad",
+    "verified_at": 1784580616.210645
   },
   "wiki/synthesis/audit-2026-05-07.md": {
     "mtime": 1784253458.2941124,
@@ -182,8 +182,9 @@
     "verified_at": 1784283239.365341
   },
   "wiki/synthesis/handoffs-rollup.md": {
-    "mtime": 1784253458.308178,
-    "source_id": "2cef4fc0-0055-4c9d-a366-61eb53fa5454"
+    "mtime": 1784328818.918732,
+    "source_id": "bf449160-70aa-4f19-9e33-a772775d7ddb",
+    "verified_at": 1784580723.5754082
   },
   "wiki/synthesis/ee-stage-c-holemapgl-tokenization-build-spec-2026-07-07.md": {
     "mtime": 1784253458.3006163,
@@ -221,14 +222,14 @@
     "verified_at": 1784267002.723687
   },
   "wiki/synthesis/map-this-course-editor-build-spec-2026-07-10.md": {
-    "mtime": 1784253458.3092537,
-    "source_id": "35fd35e1-578a-4e8f-9b3d-9887f6f483d2",
-    "verified_at": 1784255106.049077
+    "mtime": 1783668126.12383,
+    "source_id": "2a7a69e4-30e9-4398-8700-e4bfda768ad6",
+    "verified_at": 1784580712.3660128
   },
   "wiki/synthesis/phase3-premium-differentiators-build-spec-2026-07-10.md": {
-    "mtime": 1784253458.3170562,
-    "source_id": "3ebeaa6d-0090-4902-b40d-054ddb541d64",
-    "verified_at": 1784255171.352223
+    "mtime": 1783671933.3881242,
+    "source_id": "298efec6-4a03-4df1-8f38-b60bfc261920",
+    "verified_at": 1784580734.2967858
   },
   "wiki/synthesis/app-store-readiness-gameplan-2026-07-16.md": {
     "mtime": 1784238298.8472354,
@@ -241,9 +242,9 @@
     "verified_at": 1784283059.8181188
   },
   "wiki/synthesis/gameday-strategy-build-spec-2026-07-15.md": {
-    "mtime": 1784253458.3058546,
-    "source_id": "189b0a45-2d34-44e6-9746-60d38194c890",
-    "verified_at": 1784255222.5481842
+    "mtime": 1784237820.736886,
+    "source_id": "d7e40c01-33a5-473d-9d8a-a8eac4809863",
+    "verified_at": 1784580745.2733629
   },
   "wiki/synthesis/partial-rounds-stats-build-spec-2026-07-16.md": {
     "mtime": 1784257575.9988058,
@@ -251,13 +252,14 @@
     "verified_at": 1784267032.811865
   },
   "wiki/synthesis/solo-end-round-ceremony-build-spec-2026-07-16.md": {
-    "mtime": 1784260104.0410848,
-    "source_id": "7907618a-3c97-4d0f-8391-3646a3f1b21b",
-    "verified_at": 1784266839.800134
+    "mtime": 1784328818.9205477,
+    "source_id": "32423972-936d-4a8f-a398-87c975a370cd",
+    "verified_at": 1784580663.4488142
   },
   "wiki/synthesis/app-store-listing-2026-07-17.md": {
-    "mtime": 1784265855.78312,
-    "source_id": "9a432a2b-19e7-4882-9c27-3b4ef395490b"
+    "mtime": 1784328818.9176195,
+    "source_id": "ad120da6-e6f5-438a-bd19-273ab57c26f6",
+    "verified_at": 1784580688.849631
   },
   "wiki/synthesis/swing-intelligence-build-spec-2026-07-16.md": {
     "mtime": 1784260103.7635107,
@@ -270,8 +272,18 @@
     "verified_at": 1784267135.0268538
   },
   "wiki/synthesis/self-hosted-ota-scoping-2026-07-16.md": {
-    "mtime": 1784263916.0904932,
-    "source_id": "74c97d02-1da2-4b54-a3fa-21bef9297f55",
-    "verified_at": 1784283274.444353
+    "mtime": 1784328818.9202259,
+    "source_id": "d9c856b9-9ab0-45e1-9b28-f0729be460c5",
+    "verified_at": 1784580700.314909
+  },
+  "wiki/synthesis/closed-audits-rollup.md": {
+    "mtime": 1784580423.8305523,
+    "source_id": "6ec5998b-e32c-41af-8ff9-11d27104a5eb",
+    "verified_at": 1784580670.081983
+  },
+  "wiki/synthesis/shipped-specs-rollup.md": {
+    "mtime": 1784580423.8276646,
+    "source_id": "aa67b878-21e6-4cc0-b2ed-14fd913df367",
+    "verified_at": 1784580677.471793
   }
 }
