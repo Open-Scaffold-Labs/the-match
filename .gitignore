@@ -35,3 +35,7 @@ docs/*.pages
 .env.migration
 .vercel
 .wt-*/
+
+# .env backups (secrets — never committable, any suffix)
+.env.backup*
+.env.*.backup
