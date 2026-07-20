@@ -30,9 +30,13 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const tempo = require('../server/src/lib/swingTempo.js')
+const poseTempo = require('../server/src/lib/swingPoseTempo.js')
+const swingPose = require('../server/src/lib/swingPose.js')
 const imp = require('../server/src/lib/swingImport.js')
 const run = promisify(execFile)
 
@@ -48,6 +52,20 @@ const VIDEO_DIR = opt('videos', null)
 const CSV_DIR = opt('csv', null)
 const USER_ID = Number(opt('user', 0))
 const WRITE = args.includes('--write')
+const POSE = args.includes('--pose')           // MediaPipe wrist-cycle tempo + pose metrics
+const VIEW = opt('view', null)                 // default view: face_on | down_the_line
+
+// Per-clip view override via filename (one folder can hold both angles):
+//   "...dtl..." / "...behind..."  -> down_the_line
+//   "...faceon..." / "...fo."     -> face_on
+// Clips with no token and no --view default are honestly view_unknown:
+// pose extraction still runs (metrics where valid), tempo is skipped.
+function viewForClip(name) {
+  const n = name.toLowerCase()
+  if (/(^|[^a-z])(dtl|down[-_ ]?the[-_ ]?line|behind)([^a-z]|$)/.test(n)) return 'down_the_line'
+  if (/(^|[^a-z])(fo|face[-_ ]?on)([^a-z]|$)/.test(n)) return 'face_on'
+  return VIEW || null
+}
 const OUT = opt('out', path.join(process.cwd(), 'swing-import-staging.json'))
 
 if (!VIDEO_DIR) {
@@ -94,6 +112,32 @@ async function extractSignals(file, fps) {
   return { motion, audio, fps }
 }
 
+// ── pose extraction (MediaPipe via python helper) ───────────────────────────
+// MP Pose 33 -> COCO-17 index map (feeds lib/swingPose.js computePoseMetrics).
+const MP_TO_COCO = { 0: 0, 2: 1, 5: 2, 7: 3, 8: 4, 11: 5, 12: 6, 13: 7, 14: 8, 15: 9, 16: 10, 23: 11, 24: 12, 25: 13, 26: 14, 27: 15, 28: 16 }
+
+async function extractPose(file) {
+  try {
+    const { stdout } = await run('python3', [path.join(SCRIPT_DIR, 'pose-extract.py'), file], { maxBuffer: 1024 * 1024 * 1024 })
+    return JSON.parse(stdout)
+  } catch (e) {
+    return { error: e.message }
+  }
+}
+
+// MediaPipe frames ([y,x,vis] px) -> COCO-17 [{x,y,score}] per frame.
+function mpFramesToCoco(frames) {
+  return (frames || []).map((f) => {
+    if (!f) return null
+    const out = new Array(17).fill(null)
+    for (const [mp, coco] of Object.entries(MP_TO_COCO)) {
+      const p = f[Number(mp)]
+      if (p) out[coco] = { x: p[1], y: p[0], score: p[2] }
+    }
+    return out
+  })
+}
+
 // ── walk inputs ─────────────────────────────────────────────────────────────
 async function walkVideos(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true })
@@ -136,7 +180,33 @@ for (const s of sessions) {
     const meta = await probe(c.path)
     if (!meta) { console.log(`  ! could not probe ${c.path} — skipped`); continue }
     const sig = await extractSignals(c.path, meta.fps)
-    const result = tempo.analyzeClip(sig)
+    let result = tempo.analyzeClip(sig)
+    let poseMetrics = null
+    if (POSE) {
+      const view = viewForClip(path.basename(c.path))
+      const pose = view ? await extractPose(c.path) : { error: 'view_unknown (no --view default, no filename token)' }
+      if (pose.error) {
+        console.log(`  ! pose skipped for ${path.basename(c.path)}: ${pose.error.split('\n')[0]}`)
+      } else {
+        const pr = poseTempo.detectSwingFromPose({ frames: pose.frames, fps: pose.fps, view })
+        if (pr.detectable) {
+          // Pose wins when it fires: person-centric, immune to camera handling.
+          result = { ...pr, impact_via: 'pose' }
+        } else {
+          result.flags = [...result.flags, ...pr.flags.filter((f) => f !== 'pose_tempo')]
+        }
+        // Pose metrics need phase frames; only a detected swing has them.
+        if (pr.detectable) {
+          const coco = mpFramesToCoco(pose.frames)
+          const pf = {
+            address: coco[pr.frames.takeaway] || null,
+            top: coco[pr.frames.top] || null,
+            impact: coco[pr.frames.impact] || null,
+          }
+          poseMetrics = swingPose.computePoseMetrics(pf, view)
+        }
+      }
+    }
     stagedSession.clips.push({
       path: c.path,
       captured_at: c.captured_at,
@@ -149,11 +219,11 @@ for (const s of sessions) {
       duration_ms: result.duration_ms,
       tempo_ratio: result.tempo_ratio,
       frames: result.frames,
-      pose_metrics: null, // V0: tempo only; pose metrics land in V1 capture
+      pose_metrics: poseMetrics,
       flags: result.flags,
     })
     const tag = result.detectable
-      ? `${result.duration_ms}ms  ratio ${result.tempo_ratio}:1  (impact via ${result.impact_via})`
+      ? `${result.duration_ms}ms  ratio ${result.tempo_ratio}:1  (impact via ${result.impact_via || 'motion'})`
       : `undetectable [${result.flags.join(', ')}]`
     console.log(`  ${s.date}  ${path.basename(c.path)}  →  ${tag}`)
   }

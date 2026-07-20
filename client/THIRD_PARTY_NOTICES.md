@@ -15,3 +15,13 @@ use this file except in compliance with the License. Unless required by
 applicable law or agreed to in writing, software distributed under the
 License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
 OF ANY KIND, either express or implied.
+
+## MediaPipe Pose Landmarker (archive importer, dev CLI)
+
+- **Component**: MediaPipe Pose Landmarker (`pose_landmarker_lite.task`) + `mediapipe` Python package
+- **Source**: Google — https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker
+- **License**: Apache-2.0
+- **Use**: server-side keypoint extraction in `scripts/pose-extract.py` for the
+  swing archive importer (`--pose`). The model file is downloaded on first run
+  to `~/.cache/the-match/` and is NOT bundled or redistributed with the app.
+- **Privacy**: runs locally on the developer's machine; no video leaves the box.
