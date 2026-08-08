@@ -2208,7 +2208,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
             name onto three, while the pill group still overflowed and clipped
             SCORECARD off the right edge. The title column must be the one that
             gives (min-width:0 + ellipsis); the pills must not shrink. */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 16px 10px', pointerEvents: 'auto' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 16px 10px', pointerEvents: 'auto' }}>
           {/* Back + Title — the tab bar is hidden on Eagle Eye (full-immersion),
               so this back chevron is the way out, returning to the prior tab. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: '1 1 auto' }}>
@@ -2227,19 +2227,20 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </button>
             )}
             <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-              {/* 2026-08-08 — the wordmark is HIDDEN once a course is active.
-                  Four pills + a back button + a wordmark + a course name do not
-                  fit a 390pt viewport; my first attempt let the title column
-                  shrink, which clipped it to "EAGL". Squeezing was the wrong
-                  lever — something had to go, and on the map view the course
-                  name is the information and "EAGLE EYE" is decoration (the
-                  screen is unmistakable). The wordmark still leads the start
-                  screen, where there's room for it. */}
-              {!(courseCtx && !showStart) && (
-                <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', whiteSpace: 'nowrap', background: 'linear-gradient(90deg, var(--tm-ee-gold-light), var(--tm-ee-gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  EAGLE EYE
-                </div>
-              )}
+              {/* 2026-08-08 — the wordmark is BACK. Earlier today I hid it once
+                  a course was active, because a back button + wordmark + course
+                  name + four pills genuinely do not fit one 390pt row (the
+                  attempt before that let the title column shrink and clipped it
+                  to "EAGL"). Removing it was the wrong trade: Matt read the
+                  missing wordmark as another regression, and he was right to —
+                  deleting a brand element to win 90px of layout is a decision
+                  nobody asked for. The row was the thing that had to give, not
+                  the wordmark. The pills now live on their own line below, which
+                  costs ~34px of map at the very top where the gradient scrim
+                  already sits, and fits everything at any width. */}
+              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', whiteSpace: 'nowrap', background: 'linear-gradient(90deg, var(--tm-ee-gold-light), var(--tm-ee-gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                EAGLE EYE
+              </div>
               {courseCtx && !showStart && (
                 /* Tap the course name → back to the Play start screen (course
                    change, solo/match start, all live there). Was a direct
@@ -2269,7 +2270,9 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               its own location affordance and no use for wind/temp/scorecard
               chrome. (2026-07-10 — Matt: clean start screen.) */}
           {courseCtx && !showStart && (
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          /* flexBasis:'100%' drops this onto its own line ONLY when it can't sit
+             beside the title (wrap). On a wide screen it stays on row one. */
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexBasis: '100%', justifyContent: 'flex-end' }}>
             {/* Tap to enable GPS when off, or refresh the exact location when
                 on — requestLocation() re-requests a fresh fix and (re)starts
                 the watch either way. (2026-06-06) */}
@@ -2703,21 +2706,34 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 RIGHT — all sharing one row. The card slid down from its old
                 standalone slot above. In BIG mode the card + LOG SHOT hide and
                 the toggle recentres (BIG has its own full-screen readout). ── */}
+            {/* 2026-08-08 — this row OVERLAPPED on a real iPhone. Measured at
+                phone width: DIAL|BIG 88px + card 198px + LOG SHOT 113px = 399px
+                of content in ~370px of usable row. Both flanks were
+                position:absolute — out of flow, so they could not push the
+                centred card and simply sat on top of it. Absolute flanks around
+                a centred, variable-width element are an overlap waiting for a
+                narrow screen.
+                Now three IN-FLOW columns: the flanks are flex:1 1 0 (equal, so
+                the card stays genuinely centred rather than merely looking it)
+                and the card is flex:0 1 auto + minWidth:0 so it shrinks instead
+                of colliding. Overlap is now impossible at any width. */}
             <div style={{ order: 3, alignSelf: 'stretch', marginTop: 12, marginBottom: 4,
               pointerEvents: 'none', zIndex: 810, position: 'relative',
-              display: 'flex', justifyContent: 'center', alignItems: 'flex-end', minHeight: 46 }}>
+              display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end',
+              gap: 8, minHeight: 46 }}>
 
-              {/* DIAL|BIG toggle — pinned LEFT in DIAL mode so the distance box
-                  can centre between it and LOG SHOT; recentres in BIG mode. */}
+              {/* DIAL|BIG toggle — left column. In BIG mode it is the only
+                  child, so it recentres on its own. */}
               <div style={bigMode
-                ? { pointerEvents: 'auto' }
-                : { position: 'absolute', left: 0, bottom: 0, pointerEvents: 'auto' }}>
+                ? { pointerEvents: 'auto', margin: '0 auto' }
+                : { flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', pointerEvents: 'auto' }}>
                 <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
               </div>
 
               {!bigMode && (<>
-              {/* ── distance rangefinder card — centred in the row ── */}
+              {/* ── distance rangefinder card — centre column ── */}
               <div style={{ pointerEvents: 'auto', textAlign: 'center',
+              flex: '0 1 auto', minWidth: 0,
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'rgb(var(--tm-ee-glass-rgb) / 0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
               borderRadius: 20, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',
@@ -2809,8 +2825,10 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               )}
             </div>
 
-              {/* LOG SHOT — right flank of the row; same freeze-and-open handler.
-                  DIAL-mode + active-round only (BIG has its own glance overlay). */}
+              {/* LOG SHOT — right column. The column renders even when there is
+                  no button so it still balances the left flank and keeps the
+                  card centred. */}
+              <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', pointerEvents: 'none' }}>
               {activeCapture && (
                 <button onClick={() => {
                   // Freeze BOTH the raw GPS-to-pin (for SG + the hero) and the
@@ -2828,7 +2846,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   setCaptureLie(classifyLie(gps, { fairwayPolys, bunkerPolys, accM: gps?.acc ?? null }))
                   setCaptureOpen(true)
                 }} style={{
-                  position: 'absolute', right: 0, bottom: 0,
+                  flexShrink: 0,
                   pointerEvents: 'auto', height: 36, padding: '0 15px', borderRadius: 999,
                   border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.12)',
                   background: 'rgb(var(--tm-ee-glass-rgb) / 0.62)',
@@ -2838,6 +2856,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                   whiteSpace: 'nowrap',
                 }}>+ LOG SHOT</button>
               )}
+              </div>
               </>)}
             </div>
           </div>
