@@ -422,7 +422,14 @@ router.get('/:id', requireAuth, async (req, res) => {
 // GET /api/courses/:id/holes — mapped holes for a course (client prefers these).
 router.get('/:id/holes', requireAuth, async (req, res) => {
   const courseId = parseInt(req.params.id, 10)
-  if (!Number.isInteger(courseId)) return res.status(400).json({ error: 'bad course id' })
+  // 2026-08-08 — the vendor now issues alphanumeric ids ("pjvj6c9d"), which
+  // parseInt turns into NaN. tm_course_holes.course_id is still an integer
+  // column (widening it is a separate migration), so there simply cannot BE a
+  // curated override for such a course yet. Answer "none" rather than 400:
+  // these overrides are an optional enhancement over the OSM reconstruction,
+  // and a 400 on an optional read is an error the map path should never have
+  // to reason about mid-round.
+  if (!Number.isInteger(courseId)) return res.json({ holes: [] })
   try {
     const { rows } = await db.query(
       `SELECT hole, tee_lat, tee_lon, green_lat, green_lon, aim_lat, aim_lon
@@ -449,7 +456,14 @@ router.get('/:id/holes', requireAuth, async (req, res) => {
 // { holes: [{ hole, tee:{lat,lon}|null, green:{lat,lon}|null, aim:{lat,lon}|null }] }
 router.put('/:id/holes', requireAuth, async (req, res) => {
   const courseId = parseInt(req.params.id, 10)
-  if (!Number.isInteger(courseId)) return res.status(400).json({ error: 'bad course id' })
+  // Writes DO still refuse — but with an honest reason instead of "bad course
+  // id", which would read as user error. tm_course_holes.course_id is integer;
+  // storing an alphanumeric vendor id needs its own migration. Until then the
+  // "Map this course" editor is unavailable for newer courses, and saying so
+  // beats silently discarding a golfer's hand-placed tees and greens.
+  if (!Number.isInteger(courseId)) {
+    return res.status(501).json({ error: 'Hole mapping isn’t available for this course yet.' })
+  }
   const holes = Array.isArray(req.body?.holes) ? req.body.holes : null
   if (!holes) return res.status(400).json({ error: 'holes array required' })
   const num = v => (typeof v === 'number' && Number.isFinite(v)) ? v : null
