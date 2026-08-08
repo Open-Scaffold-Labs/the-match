@@ -31,12 +31,20 @@ import { readSession } from '../lib/active-round-session.js'
 
 // onBackToMap: present when a course view is active behind this screen
 // (showStart in EagleEye) — renders the escape back to the map.
-export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, onStart, onResumeSolo, onResumeMatch, onBackToMap, startBusy, startError }) {
+export default function PlayStart({ user, gps, gpsError, onRequestLocation, onOpenPicker, onStart, onResumeSolo, onResumeMatch, onBackToMap, startBusy, startError }) {
   const [mode, setMode]   = useState('solo') // 'solo' | 'match'
   const [holes, setHoles] = useState(18)
   const [chosenId, setChosenId] = useState(null) // recent overridden by a tap
   const [localBusy, setLocalBusy] = useState(false)
+  // 2026-08-08 — the Enable-Location button gave ZERO feedback, so a request
+  // that never came back was indistinguishable from a button that wasn't
+  // wired. It reads its own outcome now: a fix clears it, an error clears it
+  // (the GPS banner above says what happened). Never a silent tap again.
+  const [locRequesting, setLocRequesting] = useState(false)
   const [localError, setLocalError] = useState('')
+
+  // Clear the in-flight state the moment the request produces ANY outcome.
+  useEffect(() => { if (gps || gpsError) setLocRequesting(false) }, [gps, gpsError])
 
   const recents = readRecents()
   const auto = nearestRecent(gps ? { lat: gps.lat, lon: gps.lon } : null, 5) || lastUsed()
@@ -220,13 +228,17 @@ export default function PlayStart({ user, gps, onRequestLocation, onOpenPicker, 
       {/* Quiet paths: location + browse-a-course. */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 16 }}>
         {!gps && (
-          <button onClick={onRequestLocation} style={{
-            padding: '9px 22px', borderRadius: 12, border: '1px solid rgb(var(--tm-ee-green-rgb) / 0.4)', cursor: 'pointer',
-            background: 'rgb(var(--tm-ee-green-rgb) / 0.1)', color: 'var(--tm-ee-green)', fontWeight: 700, fontSize: 12,
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
+          <button
+            onClick={() => { setLocRequesting(true); onRequestLocation?.() }}
+            disabled={locRequesting}
+            style={{
+              padding: '9px 22px', borderRadius: 12, border: '1px solid rgb(var(--tm-ee-green-rgb) / 0.4)',
+              cursor: locRequesting ? 'default' : 'pointer', opacity: locRequesting ? 0.7 : 1,
+              background: 'rgb(var(--tm-ee-green-rgb) / 0.1)', color: 'var(--tm-ee-green)', fontWeight: 700, fontSize: 12,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 8px var(--tm-ee-green)' }} />
-            Enable Location for the nearest-course default
+            {locRequesting ? 'Requesting location…' : 'Enable Location for the nearest-course default'}
           </button>
         )}
         <button onClick={() => onOpenPicker?.(null, holes)} style={{

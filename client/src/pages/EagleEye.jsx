@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import HoleMapGL from './HoleMapGL.jsx'
-import { getCurrentPosition as geoGetCurrentPosition, watchPosition as geoWatchPosition, clearWatch as geoClearWatch, geoAvailable } from '../lib/geolocation.js'
+import { getCurrentPosition as geoGetCurrentPosition, watchPosition as geoWatchPosition, clearWatch as geoClearWatch, geoAvailable, geoDiag } from '../lib/geolocation.js'
 import { api, post, put } from '../lib/api.js'
 import { greenFCB, matchPolygonsToHoles, matchTeesToHoles, estimateAltFromPressure, pointInPolygon, classifyLie } from '../lib/geo.js'
 import { realBag, arcClubs, recommendClub } from '../lib/clubModel.js'
@@ -2564,6 +2564,14 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               <div style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', marginTop: 1 }}>
                 {gpsError === 'denied-hard' ? 'Tap below to enable, or go to Settings manually' : 'Move to an open area and try again'}
               </div>
+              {/* 2026-08-08 — which of the five geolocation paths actually ran.
+                  Three OTA fixes were shipped blind because a failed request
+                  was indistinguishable from a dead button; this is the trail. */}
+              {geoDiag() && (
+                <div style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace', color: 'rgb(var(--tm-ee-white-rgb) / 0.3)', marginTop: 4, wordBreak: 'break-word' }}>
+                  {geoDiag()}
+                </div>
+              )}
             </div>
             <button onClick={requestLocation}
               style={{ background: 'rgb(var(--tm-ee-red-rgb) / 0.15)', border: '1px solid rgb(var(--tm-ee-red-rgb) / 0.4)', borderRadius: 8, padding: '6px 12px', color: 'var(--tm-ee-red)', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
@@ -2597,6 +2605,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
         <PlayStart
           user={user}
           gps={gps}
+          gpsError={gpsError}
           onRequestLocation={requestLocation}
           onOpenPicker={(mode, holes) => {
             pendingStartRef.current = mode ? { mode, holes } : null
