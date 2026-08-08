@@ -60,7 +60,24 @@ function readPersistedCourse() {
     if (!raw) return null
     const v = JSON.parse(raw)
     // Validate shape so a stale/corrupted value can't crash the UI.
-    if (v && v.course && v.course.id) return v
+    if (!v || !v.course || !v.course.id) return null
+
+    // 2026-08-08 — a persisted course with NO COORDINATES must not be restored.
+    // The course vendor removed location.latitude/longitude around 2026-07-23,
+    // so any course opened between then and the server-side geocode fix was
+    // cached here without them. Restoring one silently reproduces the original
+    // bug on a fixed build: EagleEye anchors its OSM load on course lat/lon,
+    // has no usable fallback (Nominatim returns nothing for "club, city,
+    // state"), so courseGeocoded stays null and HoleMapGL never initialises —
+    // a dark-green rectangle with no error. Dropping the stale entry costs one
+    // course re-pick; keeping it costs the entire hole map, invisibly.
+    const lat = Number(v.course.latitude), lon = Number(v.course.longitude)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      try { localStorage.removeItem(COURSE_STORAGE_KEY) } catch { /* ignore */ }
+      console.warn('[app] dropped persisted course with no coordinates — re-pick to refetch')
+      return null
+    }
+    return v
   } catch { /* ignore — bad JSON / private mode */ }
   return null
 }
