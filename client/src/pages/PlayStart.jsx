@@ -28,6 +28,7 @@ import { dedupeTees } from '../lib/tees.js'
 import { readRecents, nearestRecent, lastUsed, recentDistMiles } from '../lib/course-recents.js'
 import { readSavedSoloRound } from '../lib/solo-round.js'
 import { readSession } from '../lib/active-round-session.js'
+import { geoDiag } from '../lib/geolocation.js'
 
 // onBackToMap: present when a course view is active behind this screen
 // (showStart in EagleEye) — renders the escape back to the map.
@@ -45,6 +46,18 @@ export default function PlayStart({ user, gps, gpsError, onRequestLocation, onOp
 
   // Clear the in-flight state the moment the request produces ANY outcome.
   useEffect(() => { if (gps || gpsError) setLocRequesting(false) }, [gps, gpsError])
+
+  // Show the geolocation trail LIVE while the request is in flight. 1.0.6 only
+  // rendered it inside the error banner — i.e. only AFTER a failure — so a
+  // request stuck mid-flight still looked like a dead button. The trail is
+  // mutated inside the shim, which React can't observe, hence the poll.
+  const [locTrail, setLocTrail] = useState('')
+  useEffect(() => {
+    if (!locRequesting) { setLocTrail(''); return }
+    setLocTrail(geoDiag())
+    const t = setInterval(() => setLocTrail(geoDiag()), 400)
+    return () => clearInterval(t)
+  }, [locRequesting])
 
   const recents = readRecents()
   const auto = nearestRecent(gps ? { lat: gps.lat, lon: gps.lon } : null, 5) || lastUsed()
@@ -240,6 +253,12 @@ export default function PlayStart({ user, gps, gpsError, onRequestLocation, onOp
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--tm-ee-green)', boxShadow: '0 0 8px var(--tm-ee-green)' }} />
             {locRequesting ? 'Requesting location…' : 'Enable Location for the nearest-course default'}
           </button>
+        )}
+        {locRequesting && locTrail && (
+          <div style={{
+            fontSize: 10, fontFamily: 'ui-monospace, monospace', maxWidth: 320, textAlign: 'center',
+            color: 'rgb(var(--tm-ee-white-rgb) / 0.4)', wordBreak: 'break-word', lineHeight: 1.5,
+          }}>{locTrail}</div>
         )}
         <button onClick={() => onOpenPicker?.(null, holes)} style={{
           background: 'none', border: 'none', cursor: 'pointer',

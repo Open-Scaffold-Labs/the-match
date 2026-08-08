@@ -67,8 +67,14 @@ const DEFAULTS = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
 
 // A bridge round-trip (permission read) should be instant.
 const PROBE_DEADLINE_MS = 3000
-// The user has to physically tap Allow, so this one is generous.
-const PERMISSION_DEADLINE_MS = 60000
+// Deliberately SHORT, and here is why it isn't "time for the user to tap Allow":
+// requestPermissions resolves when iOS *presents and answers* the dialog. If the
+// dialog appears, the plugin's publisher fires on the user's answer whenever that
+// happens — this deadline only bounds the case where NOTHING is presented, which
+// is the `.notDetermined` publisher hole. 1.0.6 set it to 60s and turned a fast
+// failure into a minute of dead button with no visible progress. Fail fast, show
+// the trail, fall through to the WebView path.
+const PERMISSION_DEADLINE_MS = 8000
 // Slack on top of the caller's own timeout before we call a fix-request stalled.
 const NATIVE_SLACK_MS = 5000
 
@@ -140,8 +146,10 @@ function nativeGranted() {
     note('plugin not registered in binary')
     return Promise.reject(new Error('Geolocation plugin not in this binary'))
   }
-  return loadPlugin().then(g =>
-    deadline(g.checkPermissions(), PROBE_DEADLINE_MS, 'checkPermissions').then(status => {
+  note('loading plugin')
+  return loadPlugin().then(g => {
+    note('checkPermissions…')
+    return deadline(g.checkPermissions(), PROBE_DEADLINE_MS, 'checkPermissions').then(status => {
       const state = status?.location
       note(`checkPermissions=${state}`)
       if (state === 'granted') return g
@@ -161,7 +169,7 @@ function nativeGranted() {
         throw e
       })
     })
-  )
+  })
 }
 
 // navigator.geolocation, but it can never sit silent either.
