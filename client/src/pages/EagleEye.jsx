@@ -2271,8 +2271,13 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               chrome. (2026-07-10 — Matt: clean start screen.) */}
           {courseCtx && !showStart && (
           /* flexBasis:'100%' drops this onto its own line ONLY when it can't sit
-             beside the title (wrap). On a wide screen it stays on row one. */
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexBasis: '100%', justifyContent: 'flex-end' }}>
+             beside the title (wrap). On a wide screen it stays on row one.
+             space-between (not flex-end): right-aligning left a 94px ragged gap
+             under the back button — measured at 388px, three different left
+             edges (back 16 / title 60 / pills 110), which is what made the
+             header read as accidental. Spanning the full content width gives
+             the toolbar one flush left edge and one flush right edge. */
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, flexBasis: '100%', justifyContent: 'space-between', marginTop: 2 }}>
             {/* Tap to enable GPS when off, or refresh the exact location when
                 on — requestLocation() re-requests a fresh fix and (re)starts
                 the watch either way. (2026-06-06) */}
@@ -2719,28 +2724,35 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                 of colliding. Overlap is now impossible at any width. */}
             <div style={{ order: 3, alignSelf: 'stretch', marginTop: 12, marginBottom: 4,
               pointerEvents: 'none', zIndex: 810, position: 'relative',
-              display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end',
+              display: 'flex', flexWrap: 'nowrap', justifyContent: 'space-between', alignItems: 'flex-end',
               gap: 8, minHeight: 46 }}>
 
               {/* DIAL|BIG toggle — left column. In BIG mode it is the only
                   child, so it recentres on its own. */}
               <div style={bigMode
                 ? { pointerEvents: 'auto', margin: '0 auto' }
-                : { flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', pointerEvents: 'auto' }}>
+                : { flex: '0 0 auto', display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', pointerEvents: 'auto' }}>
                 <ModeToggle mode={bigMode ? 'big' : 'dial'} onChange={(m) => setBig(m === 'big')} />
               </div>
 
               {!bigMode && (<>
               {/* ── distance rangefinder card — centre column ── */}
+              {/* The card is the ONLY flexible item: the flanks keep their
+                  natural width (a 'nowrap' button that is denied its width does
+                  not shrink, it OVERFLOWS its column and paints over whatever is
+                  beside it — which is precisely how 1.0.13 still overlapped) and
+                  the card absorbs the squeeze instead. */}
               <div style={{ pointerEvents: 'auto', textAlign: 'center',
-              flex: '0 1 auto', minWidth: 0,
+              flex: '0 1 auto',
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'rgb(var(--tm-ee-glass-rgb) / 0.60)', backdropFilter: 'blur(22px) saturate(160%)', WebkitBackdropFilter: 'blur(22px) saturate(160%)',
               borderRadius: 20, border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.14)',
               padding: '10px 14px 12px',
               boxShadow: '0 10px 34px rgb(var(--tm-ee-black-rgb) / 0.55), inset 0 1px 0 rgb(var(--tm-ee-white-rgb) / 0.20), 0 0 46px rgb(var(--tm-ee-gold-rgb) / 0.13)',
               position: 'relative', overflow: 'hidden',
-              minWidth: 124,
+              // Floor, not a fixed width: the gauge stays legible while still
+              // letting flex reclaim ~46px when both flanks are present.
+              minWidth: 124, maxWidth: '100%',
             }}>
               {/* faint static grain — kills the flat-dark look (no blend mode → dodges the iOS mix-blend caveat) */}
               <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.05,
@@ -2828,7 +2840,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               {/* LOG SHOT — right column. The column renders even when there is
                   no button so it still balances the left flank and keeps the
                   card centred. */}
-              <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', pointerEvents: 'none' }}>
+              <div style={{ flex: '0 0 auto', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', pointerEvents: 'none' }}>
               {activeCapture && (
                 <button onClick={() => {
                   // Freeze BOTH the raw GPS-to-pin (for SG + the hero) and the
