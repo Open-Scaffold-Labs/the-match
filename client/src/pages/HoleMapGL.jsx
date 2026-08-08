@@ -26,6 +26,62 @@ import { importWithDeadline } from '../lib/import-deadline.js'
 // { data: ArrayBuffer } where the ArrayBuffer is the encoded image-FILE bytes
 // (the JPEG), which MapLibre then decodes — NOT raw pixels.
 const NAIP_TILES = 'naipc://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}'
+
+// ── Imagery providers, primary + fallback (2026-08-08) ─────────────────────
+// On 2026-08-08 gis.apfo.usda.gov stopped completing TLS handshakes: TCP 443
+// accepted, handshake dropped, from BOTH Matt's home wifi and cellular — two
+// independent network paths, so it was the provider, not a local block. Every
+// tile silently failed. MapLibre still initialised fine, so no error fired;
+// the user just saw the `bg` layer, which is dark green. A working map and a
+// dead map looked identical, and the hole map — the core feature — was gone
+// with no explanation.
+//
+// Root problem was ARCHITECTURAL, not the outage: ONE imagery source, no
+// fallback, for the feature the whole app is built on.
+//
+// Fallback choice is constrained by law, not preference. The ESRI World
+// Imagery keyless endpoint is a commercial ToU violation and was deliberately
+// removed in 57e1ba1 — it is NOT an option. USGS National Map is public-domain
+// US federal imagery, no key, no such restriction. Verified serving the exact
+// Staten Island tile while NAIP was down.
+//
+// Trade-off, stated honestly: USGS's cache 404s above z16 (verified z17/18/19),
+// so the fallback is visibly coarser at golf zoom — MapLibre upscales the z16
+// tile. Blurry real imagery beats a green void, and NAIP stays PRIMARY so full
+// resolution returns by itself the moment USDA recovers. No redeploy needed.
+const USGS_TILES = 'naipc://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'
+
+const IMAGERY_PROVIDERS = [
+  { id: 'naip', tiles: NAIP_TILES, maxzoom: 18, attribution: 'Imagery: USDA NAIP',
+    probe: 'https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/13/3082/2413' },
+  { id: 'usgs', tiles: USGS_TILES, maxzoom: 16, attribution: 'Imagery: USGS National Map',
+    probe: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/13/3082/2413' },
+]
+
+// Probe once per session, in order, and remember. A probe must be SHORT: the
+// failure mode we're defending against is a host that accepts the connection
+// and then hangs, so "no answer quickly" has to count as "down".
+const PROVIDER_PROBE_MS = 4000
+let _imageryChoice = null
+async function pickImagery() {
+  if (_imageryChoice) return _imageryChoice
+  for (const p of IMAGERY_PROVIDERS) {
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), PROVIDER_PROBE_MS)
+      const r = await fetch(p.probe, { signal: ctrl.signal, cache: 'no-store' })
+      clearTimeout(t)
+      if (r.ok) {
+        if (p.id !== 'naip') console.warn(`[map] primary imagery unavailable — using ${p.id}`)
+        _imageryChoice = p
+        return p
+      }
+    } catch (e) {
+      console.warn(`[map] imagery provider ${p.id} probe failed:`, e?.message || e)
+    }
+  }
+  return null   // every provider down → caller shows an honest failure card
+}
 const TILE_CACHE = 'naip-tiles-v1'
 const TILE_CACHE_MAX = 2000
 
@@ -74,17 +130,23 @@ function registerNaipCacheProtocol(maplibregl) {
 // rectangle on Matt's device. Every attempt is deadlined now, which turns a
 // hang into the rejection this loop was always written to handle.
 // maplibre-gl is ~1MB, so it stays lazy — see lib/import-deadline.js.
-const MAPLIBRE_IMPORT_DEADLINE_MS = 12000
-async function importMaplibre(tries = 4) {
+// Budget: 2 tries x 6s + one 700ms backoff ~= 13s worst case. The first cut of
+// this guard used 4 x 12s (~53s) — which meant a BROKEN map and a LOADING map
+// looked identical for the best part of a minute, so it read as "still broken".
+// A user-facing failure must arrive while the user is still watching.
+const MAPLIBRE_IMPORT_DEADLINE_MS = 6000
+const MAPLIBRE_IMPORT_TRIES = 2
+async function importMaplibre(tries = MAPLIBRE_IMPORT_TRIES, onAttempt) {
   let lastErr
   for (let i = 0; i < tries; i++) {
+    onAttempt?.(i + 1, tries)
     try {
       const mod = await importWithDeadline(() => import('maplibre-gl'), MAPLIBRE_IMPORT_DEADLINE_MS, 'maplibre-gl')
       return mod.default
     } catch (e) {
       lastErr = e
       console.warn(`[map] maplibre-gl load attempt ${i + 1}/${tries} failed:`, e?.message || e)
-      await new Promise(r => setTimeout(r, 500 * (i + 1)))
+      if (i < tries - 1) await new Promise(r => setTimeout(r, 700))
     }
   }
   throw lastErr
@@ -260,6 +322,21 @@ export default function HoleMapGL({
   const lastHoleRef = useRef(null)
   const resizeObsRef = useRef(null)   // keeps the map canvas matched to its container
   const [failed, setFailed] = useState(false)
+  // What the map is doing RIGHT NOW, and why it stopped. A blank green
+  // rectangle with no text was indistinguishable from a hang; these two make
+  // the state legible while it happens and quotable when it fails.
+  const [failReason, setFailReason] = useState('')
+  // Imagery health. The map can initialise perfectly while EVERY raster tile
+  // fails — you then see the `bg` layer, which is dark green, and nothing else.
+  // That is exactly what a broken map looks like, so on 2026-08-08 a USDA NAIP
+  // outage (TLS handshake dropped at gis.apfo.usda.gov) was indistinguishable
+  // from an app bug and cost a night of misdirected debugging. Tiles are the
+  // one dependency we neither host nor have a lawful free fallback for — the
+  // ESRI keyless endpoint is a commercial ToU violation (57e1ba1) — so when
+  // imagery dies the ONLY correct behaviour is to say so.
+  // 'naip' | 'usgs' — read by the fallback badge so a visibly coarser map is
+  // explained rather than mistaken for a bug.
+  const [imageryProvider, setImageryProvider] = useState(null)
 
   // live snapshots so once-attached handlers (click, drag) read fresh values
   const gpsRef = useRef(gps)
@@ -330,6 +407,7 @@ export default function HoleMapGL({
       if (cancelled) return
       console.error('[HoleMapGL] init failed:', e?.message || e)
       dropStallGuard()
+      setFailReason(String(e?.message || e || 'unknown'))
       setFailed(true)
       onInitError?.()
     }
@@ -339,13 +417,23 @@ export default function HoleMapGL({
       if (cancelled || !containerRef.current) return
       glRef.current = maplibregl
       registerNaipCacheProtocol(maplibregl)   // offline-capable, worker-safe tile caching
+
+      // Choose a LIVE imagery provider before building the style. Without this
+      // the map builds against a dead host and renders a green void with no
+      // error (see IMAGERY_PROVIDERS above). Falls back automatically; if every
+      // provider is down we fail LOUDLY rather than silently.
+      const imagery = await pickImagery()
+      if (cancelled) return
+      if (!imagery) return fail(new Error('No satellite imagery provider is reachable'))
+      setImageryProvider(imagery.id)
+
       let map
       try {
         map = new maplibregl.Map({
           container: containerRef.current,
           style: {
             version: 8,
-            sources: { naip: { type: 'raster', tiles: [NAIP_TILES], tileSize: 256, maxzoom: 18, attribution: 'Imagery: USDA NAIP' } },
+            sources: { naip: { type: 'raster', tiles: [imagery.tiles], tileSize: 256, maxzoom: imagery.maxzoom, attribution: imagery.attribution } },
             layers: [
               { id: 'bg', type: 'background', paint: { 'background-color': eeColor('--tm-ee-map-bg', null, '#0c1a10') } },
               { id: 'naip', type: 'raster', source: 'naip' },
@@ -1014,6 +1102,11 @@ export default function HoleMapGL({
       <div style={{ color: 'rgb(var(--tm-ee-white-rgb) / 0.6)', fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
         The course map didn’t load.<br />Check your connection and try again.
       </div>
+      {failReason && (
+        <div style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace', color: 'rgb(var(--tm-ee-white-rgb) / 0.32)', maxWidth: 300, wordBreak: 'break-word' }}>
+          {failReason}
+        </div>
+      )}
       <button onClick={() => window.location.reload()} style={{
         background: 'linear-gradient(135deg, var(--tm-ee-gold), var(--tm-ee-gold-bright))', border: '1px solid rgb(var(--tm-ee-gold-light-rgb) / 0.85)',
         borderRadius: 999, padding: '10px 22px', color: 'var(--tm-ee-bg)', fontWeight: 900, fontSize: 13,
@@ -1045,6 +1138,17 @@ export default function HoleMapGL({
         .maplibregl-ctrl-top-left{top:42%!important}
       `}</style>
       <div ref={containerRef} style={{ width: '100%', height: '100%', background: 'var(--tm-ee-map-bg)' }} />
+      {/* Fallback imagery is real but coarser (USGS caches only to z16). Say so
+          quietly, or the blur reads as another bug. Clears itself when NAIP
+          recovers — no redeploy. */}
+      {imageryProvider === 'usgs' && (
+        <div style={{ position: 'absolute', left: 10, bottom: 10, zIndex: 5, pointerEvents: 'none',
+          background: 'rgb(var(--tm-ee-bg-rgb) / 0.55)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgb(var(--tm-ee-white-rgb) / 0.10)', borderRadius: 8, padding: '3px 8px',
+          fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', color: 'rgb(var(--tm-ee-white-rgb) / 0.4)' }}>
+          BACKUP IMAGERY
+        </div>
+      )}
     </div>
   )
 }

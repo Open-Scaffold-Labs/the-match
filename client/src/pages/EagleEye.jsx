@@ -2227,9 +2227,19 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
               </button>
             )}
             <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-              <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', whiteSpace: 'nowrap', background: 'linear-gradient(90deg, var(--tm-ee-gold-light), var(--tm-ee-gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                EAGLE EYE
-              </div>
+              {/* 2026-08-08 — the wordmark is HIDDEN once a course is active.
+                  Four pills + a back button + a wordmark + a course name do not
+                  fit a 390pt viewport; my first attempt let the title column
+                  shrink, which clipped it to "EAGL". Squeezing was the wrong
+                  lever — something had to go, and on the map view the course
+                  name is the information and "EAGLE EYE" is decoration (the
+                  screen is unmistakable). The wordmark still leads the start
+                  screen, where there's room for it. */}
+              {!(courseCtx && !showStart) && (
+                <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.14em', whiteSpace: 'nowrap', background: 'linear-gradient(90deg, var(--tm-ee-gold-light), var(--tm-ee-gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  EAGLE EYE
+                </div>
+              )}
               {courseCtx && !showStart && (
                 /* Tap the course name → back to the Play start screen (course
                    change, solo/match start, all live there). Was a direct
@@ -2237,7 +2247,7 @@ export default function EagleEye({ user, onGoToScorecard, onExit, eyeHoleNudge =
                    reachable once a course is active. */
                 <div style={{ display: 'flex', alignItems: 'center', marginTop: 1, minWidth: 0 }}>
                   <button onClick={() => setShowStart(true)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: '100%' }}>
-                    <span style={{ fontSize: 11, color: 'rgb(var(--tm-ee-white-rgb) / 0.45)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{courseCtx.course.club_name}</span>
+                    <span style={{ fontSize: 13, color: 'rgb(var(--tm-ee-white-rgb) / 0.72)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{courseCtx.course.club_name}</span>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--tm-ee-white-rgb) / 0.3)" strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
                   </button>
                   {/* Discreet always-available entry to the "Map this course"
