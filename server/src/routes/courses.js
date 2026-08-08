@@ -61,6 +61,103 @@ const DETAIL_TTL_MS = 30 * 24 * 3600 * 1000  // tees/pars are near-static
 
 const cacheFresh = (row, ttl) => !!row && (Date.now() - new Date(row.fetched_at).getTime() < ttl)
 
+// ── Course coordinates (2026-08-08) ────────────────────────────────────────
+// The vendor REMOVED location.latitude/longitude between 2026-07-17 and
+// 2026-07-23 (verified against their live API and our own search-cache
+// history) and added a street `address` instead. Coordinates are not a nicety:
+// EagleEye anchors its entire OSM/Overpass load on them, and with none supplied
+// it falls back to geocoding "club_name, city, state" — which for
+// "La Tourette Golf Club, Staten Island, NY" returns ZERO Nominatim results
+// (measured). `gc` then ends up null, courseGeocoded stays null, and
+// HoleMapGL's init effect bails on `!geocoded`. The hole map never initialises
+// — no tiles, no error, no retry card, just the dark-green background. Silent.
+//
+// So the server resolves coordinates and always returns them. The client needs
+// no change: it already prefers course lat/lon over its own geocode attempt.
+//
+// The vendor's `address` is a full street address and geocodes cleanly where
+// the club name does not ("1001 Richmond Hill Rd, Staten Island, NY 10306, USA"
+// -> 40.5731, -74.1467, ~340m from the coordinate the vendor itself used to
+// return). Results are cached in tm_course_geocode FOREVER — courses don't
+// move, and Nominatim's usage policy asks for <=1 req/sec.
+const NOMINATIM_TIMEOUT_MS = 6000
+
+async function readGeocode(courseId) {
+  try {
+    const { rows } = await db.query(
+      'SELECT latitude, longitude FROM tm_course_geocode WHERE course_id = $1', [String(courseId)]
+    )
+    return rows[0] || null
+  } catch { return null }   // table missing in an env must never break course loading
+}
+
+async function saveGeocode(courseId, lat, lon, source, query) {
+  try {
+    await db.query(
+      `INSERT INTO tm_course_geocode (course_id, latitude, longitude, source, query)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (course_id) DO UPDATE
+         SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude,
+             source = EXCLUDED.source, query = EXCLUDED.query, resolved_at = now()
+       WHERE tm_course_geocode.source <> 'manual'`,
+      [String(courseId), lat, lon, source, query]
+    )
+  } catch { /* best-effort */ }
+}
+
+async function geocodeAddress(q) {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS)
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
+      // Nominatim REQUIRES an identifying User-Agent; anonymous clients get blocked.
+      { signal: ctrl.signal, headers: { 'User-Agent': 'TheMatch/1.0 (matt@openscaffoldlabs.com)' } }
+    )
+    if (!r.ok) return null
+    const d = await r.json().catch(() => null)
+    const hit = Array.isArray(d) ? d[0] : null
+    if (!hit) return null
+    const lat = parseFloat(hit.lat), lon = parseFloat(hit.lon)
+    return (Number.isFinite(lat) && Number.isFinite(lon)) ? { lat, lon } : null
+  } catch { return null } finally { clearTimeout(t) }
+}
+
+// Resolve coordinates for a course, preferring (1) whatever the vendor still
+// gives us, (2) our cache, (3) a fresh geocode of the vendor's address.
+// Returns {latitude, longitude} or null. NEVER throws — a course must still
+// load (tees, pars, scoring) even when we can't place it on a map.
+async function resolveCourseCoords(courseId, vendorCourse) {
+  const vLat = Number(vendorCourse?.location?.latitude ?? vendorCourse?.latitude)
+  const vLon = Number(vendorCourse?.location?.longitude ?? vendorCourse?.longitude)
+  if (Number.isFinite(vLat) && Number.isFinite(vLon)) {
+    saveGeocode(courseId, vLat, vLon, 'vendor', null)   // fire-and-forget
+    return { latitude: vLat, longitude: vLon }
+  }
+
+  const cachedGeo = await readGeocode(courseId)
+  if (cachedGeo) return { latitude: Number(cachedGeo.latitude), longitude: Number(cachedGeo.longitude) }
+
+  const loc = vendorCourse?.location || {}
+  // Address first — it's the only form that reliably resolves. The name-based
+  // query is the one that ALREADY fails in the client, so it's a last resort
+  // only, not a substitute.
+  const candidates = [
+    loc.address,
+    [vendorCourse?.club_name, loc.city, loc.state, loc.country].filter(Boolean).join(', '),
+  ].filter(Boolean)
+
+  for (const q of candidates) {
+    const hit = await geocodeAddress(q)
+    if (hit) {
+      await saveGeocode(courseId, hit.lat, hit.lon, 'nominatim', q)
+      return { latitude: hit.lat, longitude: hit.lon }
+    }
+  }
+  console.warn('[courses] no coordinates resolvable for', courseId, JSON.stringify(loc))
+  return null
+}
+
 // GET /api/courses/search?q=Pebble+Beach[&lat=Y&lng=Z]
 // When lat+lng provided, results are sorted by distance ascending — used by
 // the Match-create course picker to surface nearby courses first. (2026-04-30)
@@ -205,11 +302,15 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(500).json({ error: 'Failed' })
     }
   }
-  const cid = Number(req.params.id)
+  // 2026-08-08: the vendor switched course ids from integers to alphanumeric
+  // strings ("23978" -> "pjvj6c9d"). This used to be `Number(req.params.id)`
+  // guarded by Number.isFinite, so EVERY new-format course silently skipped
+  // the cache both on read and write — every load hit the rate-limited vendor.
+  // course_id is text as of migration 051; old numeric ids still match as their
+  // digit strings.
+  const cid = String(req.params.id)
   let cached = null
-  if (Number.isFinite(cid)) {
-    try { cached = await db.one('SELECT payload, fetched_at FROM tm_course_cache WHERE course_id = $1', [cid]) } catch { /* best-effort */ }
-  }
+  try { cached = await db.one('SELECT payload, fetched_at FROM tm_course_cache WHERE course_id = $1', [cid]) } catch { /* best-effort */ }
   if (cacheFresh(cached, DETAIL_TTL_MS)) return res.json(cached.payload)
   try {
     const r = await fetch(`${GC_API}/courses/${req.params.id}`, { headers: gcHeaders() })
@@ -217,13 +318,17 @@ router.get('/:id', requireAuth, async (req, res) => {
     if (!r.ok || !d) throw new Error(`vendor ${r?.status}`)
     if (!d.course) return res.status(404).json({ error: 'Course not found' })
     const c = d.course
+    // Coordinates are load-bearing for the hole map — resolve them rather than
+    // passing through whatever the vendor felt like including today. Never
+    // throws; a null just means the course loads without a map.
+    const coords = await resolveCourseCoords(req.params.id, c)
     // Return course + tee list with per-hole par/yardage/handicap
     const body = {
       id: c.id,
       club_name: expandCourseName(c.club_name),
       course_name: expandCourseName(c.course_name),
-      latitude: c.location?.latitude,
-      longitude: c.location?.longitude,
+      latitude: coords?.latitude,
+      longitude: coords?.longitude,
       tees: {
         male: (c.tees?.male || []).map(t => ({
           tee_name: t.tee_name,
@@ -253,7 +358,10 @@ router.get('/:id', requireAuth, async (req, res) => {
         })),
       },
     }
-    if (Number.isFinite(cid)) {
+    // Only cache a course we could PLACE. Caching a coordinate-less payload for
+    // 30 days would pin the blank-map bug in place long after geocoding
+    // recovers — the cache would keep serving the broken shape.
+    if (coords) {
       try {
         await db.query(
           `INSERT INTO tm_course_cache (course_id, payload, fetched_at) VALUES ($1, $2, now())
