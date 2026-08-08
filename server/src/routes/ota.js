@@ -115,19 +115,43 @@ router.post('/updates', async (req, res) => {
 // never affect devices). Prunable table.
 router.post('/stats', async (req, res) => {
   try {
-    const b = req.body || {}
-    await db.query(
-      `INSERT INTO tm_ota_stats (app_id, device_id, platform, action, version, old_version)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        String(b.app_id || '').slice(0, 200),
-        String(b.device_id || '').slice(0, 100),
-        String(b.platform || '').slice(0, 20),
-        String(b.action || '').slice(0, 100),
-        String(b.version_name || b.version || '').slice(0, 50),
-        String(b.old_version_name || '').slice(0, 50),
-      ]
-    )
+    // 2026-08-08 — THE PLUGIN SENDS A BATCHED JSON **ARRAY**, not one object.
+    // From its own source (CapgoUpdater.swift flushStatsQueue):
+    //     let eventsToSend = queuedEvents.map(\.event)
+    //     alamofireSession.request(statsUrl, method: .post,
+    //                              parameters: eventsToSend,      // <- array
+    //                              encoder: JSONParameterEncoder.default)
+    //
+    // This route read `req.body.device_id` on that array, which is undefined,
+    // so EVERY column was written as an empty string and one row was written
+    // per BATCH rather than per event. The table had been collecting blank
+    // rows since July.
+    //
+    // The cost of that was not cosmetic. On 2026-08-08 a device sat on a stale
+    // bundle through an entire round and there was no way to tell which version
+    // it was running — the failure had to be reconstructed from bundle publish
+    // timestamps vs. check-in timestamps. Stats are how we answer "what is that
+    // phone actually running", and they answered nothing.
+    const raw = req.body
+    const events = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? [raw] : [])
+    for (const b of events) {
+      if (!b || typeof b !== 'object') continue
+      await db.query(
+        `INSERT INTO tm_ota_stats (app_id, device_id, platform, action, version, old_version)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          String(b.app_id || '').slice(0, 200),
+          String(b.device_id || '').slice(0, 100),
+          String(b.platform || '').slice(0, 20),
+          String(b.action || '').slice(0, 100),
+          // version_name is the JS BUNDLE version ("1.0.11"); version_build is
+          // the native binary. Record the bundle — that's the one that changes
+          // under us and the one we could not see.
+          String(b.version_name || b.version || '').slice(0, 50),
+          String(b.old_version_name || '').slice(0, 50),
+        ]
+      )
+    }
   } catch (err) {
     console.error('[ota/stats]', err.message)
   }

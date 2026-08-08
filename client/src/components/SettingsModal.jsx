@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api, del, clearToken } from '../lib/api.js'
+import { currentBundleVersion } from '../lib/native.js'
 
 /**
  * SettingsModal — fullscreen overlay opened from the kebab (⋯) icon in
@@ -30,6 +31,14 @@ export default function SettingsModal({ user, onClose }) {
   // 'main' shows the standard settings rows. 'account' is the
   // Account Status sub-view with the delete-account flow.
   const [view, setView] = useState('main')
+
+  // Running OTA bundle version (null on web / before it resolves).
+  const [bundleVersion, setBundleVersion] = useState(null)
+  useEffect(() => {
+    let dead = false
+    currentBundleVersion().then(v => { if (!dead) setBundleVersion(v) }).catch(() => {})
+    return () => { dead = true }
+  }, [])
 
   // Delete-account modal state (only relevant in the 'account' sub-view).
   const [confirmText, setConfirmText] = useState('')
@@ -196,7 +205,11 @@ export default function SettingsModal({ user, onClose }) {
         width: '100%', maxWidth: 480, marginTop: 24,
         fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center',
       }}>
-        The Match · post-launch build · {new Date().getFullYear()}
+        {/* 2026-08-08 — show the RUNNING OTA bundle version. Without it there
+            was no way, from the phone or the server, to tell which JS build a
+            device was on; a stale bundle had to be inferred from publish
+            timestamps after it had already ruined a round. */}
+        The Match · {bundleVersion ? `build ${bundleVersion}` : 'post-launch build'} · {new Date().getFullYear()}
       </div>
 
       {/* Delete-account confirmation modal. Only reachable from the
