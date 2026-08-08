@@ -60,7 +60,27 @@
 // INVARIANT WORTH KEEPING: every public function here settles exactly once,
 // with a success or an error, on every platform and every permission state.
 // Silence is the bug we keep re-shipping; it is now structurally impossible.
+// ── 2026-08-08, THE ACTUAL CAUSE: a dynamic import that never settles ───────
+// The live trail on Matt's device stopped at `loading plugin` and never reached
+// `checkPermissions…`. That is `import('@capacitor/geolocation')` HANGING — not
+// rejecting. Every other step here was deadlined; the module load was the one
+// thing that wasn't, so the whole promise chain never started. All three prior
+// theories (plugin missing from the binary, `.notDetermined` hang, permission
+// state) were downstream of a call that was never reached.
+//
+// Why a dynamic import hangs rather than 404s: assets are served through
+// Capacitor's WKURLSchemeHandler at `capacitor://localhost`. A request the
+// handler can't satisfy is not guaranteed to be failed — it can simply never
+// call back, leaving the fetch pending forever. `import()` then never settles,
+// in either direction. A missing/oddly-cached chunk is therefore SILENT.
+//
+// Fix: import the plugin STATICALLY. No lazy chunk, no second network fetch, no
+// scheme-handler round trip — the plugin object exists the moment this module
+// does. `@capacitor/geolocation`'s own entry is just a registerPlugin call whose
+// web implementation stays lazy, so this costs a few hundred bytes on web and
+// changes nothing there. The deadline below stays as a backstop.
 import { Capacitor } from '@capacitor/core'
+import { Geolocation } from '@capacitor/geolocation'
 
 const isNative = Capacitor.isNativePlatform()
 const DEFAULTS = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -111,11 +131,8 @@ export function geoAvailable() {
   return webAvailable() || pluginRegistered()
 }
 
-let _pluginPromise = null
-function loadPlugin() {
-  if (!_pluginPromise) _pluginPromise = import('@capacitor/geolocation').then(m => m.Geolocation)
-  return _pluginPromise
-}
+// Statically imported (see the header) — resolved, never a network fetch.
+function loadPlugin() { return Promise.resolve(Geolocation) }
 
 // Reject if `p` hasn't settled within `ms`. `geoNativeStall` marks a broken
 // bridge (fall back) as opposed to a real geolocation error (report it).
@@ -147,7 +164,9 @@ function nativeGranted() {
     return Promise.reject(new Error('Geolocation plugin not in this binary'))
   }
   note('loading plugin')
-  return loadPlugin().then(g => {
+  // Deadlined even though it is now a resolved promise — a hang here is exactly
+  // what cost us four bundles, and the cost of the guard is zero.
+  return deadline(loadPlugin(), PROBE_DEADLINE_MS, 'loadPlugin').then(g => {
     note('checkPermissions…')
     return deadline(g.checkPermissions(), PROBE_DEADLINE_MS, 'checkPermissions').then(status => {
       const state = status?.location
