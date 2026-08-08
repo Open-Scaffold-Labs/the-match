@@ -17,6 +17,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { haversineYards, calcBearing } from '../lib/geo.js'
 import { dispersionEllipse } from '../lib/clubModel.js'
 import { dispersionZonePolygon, arcBandPolygon, layupRingsInPlay } from '../lib/mapOverlays.js'
+import { importWithDeadline } from '../lib/import-deadline.js'
 
 // NAIP tiles load through a custom 'naipc://' protocol so EVERY tile request
 // (including the ones MapLibre issues from its worker thread, which a service
@@ -64,11 +65,27 @@ function registerNaipCacheProtocol(maplibregl) {
 // Load the maplibre-gl chunk with a few retries + backoff so a transient
 // network blip (common on a course with spotty signal) self-heals instead of
 // dropping the user onto the retry card.
+//
+// 2026-08-08 — the retry loop was DEAD on iOS. Capacitor's WKURLSchemeHandler
+// can leave an unsatisfiable asset request pending forever instead of failing
+// it, so `await import('maplibre-gl')` never settled: no module, no throw, so
+// the catch never ran, the loop never advanced, onInitError() was never called,
+// and the Leaflet fallback never engaged. The map was just an empty green
+// rectangle on Matt's device. Every attempt is deadlined now, which turns a
+// hang into the rejection this loop was always written to handle.
+// maplibre-gl is ~1MB, so it stays lazy — see lib/import-deadline.js.
+const MAPLIBRE_IMPORT_DEADLINE_MS = 12000
 async function importMaplibre(tries = 4) {
   let lastErr
   for (let i = 0; i < tries; i++) {
-    try { return (await import('maplibre-gl')).default }
-    catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 500 * (i + 1))) }
+    try {
+      const mod = await importWithDeadline(() => import('maplibre-gl'), MAPLIBRE_IMPORT_DEADLINE_MS, 'maplibre-gl')
+      return mod.default
+    } catch (e) {
+      lastErr = e
+      console.warn(`[map] maplibre-gl load attempt ${i + 1}/${tries} failed:`, e?.message || e)
+      await new Promise(r => setTimeout(r, 500 * (i + 1)))
+    }
   }
   throw lastErr
 }
