@@ -184,7 +184,43 @@ router.get('/search', requireAuth, async (req, res) => {
       // A vendor error (429 rate limit, 5xx, shape change) must NOT read as
       // "no results" — that silent-empty is the bug this rework fixes.
       if (!r.ok || !d || !Array.isArray(d.courses)) throw new Error(`vendor ${r.status}`)
-      base = d.courses.map(c => ({
+      let hits = d.courses
+
+      // ── Article-prefix retry (2026-08-08) ────────────────────────────────
+      // The vendor matches TOKEN PREFIXES, ANDed. Measured on their live API:
+      //   "la t"       -> 4 hits, including "La Tourette Golf Club"
+      //   "latourette" -> 0 hits
+      // So a course whose name begins with a separated article is unfindable
+      // by anyone who types it as one word — which is how people write
+      // LaTourette (and it's how NYC Parks officially spells it; the vendor's
+      // spacing is the odd one out). Matt could not find his home course.
+      //
+      // On a zero-result, space-free query, retry with ONE space inserted after
+      // the 2nd then 3rd character. That covers the whole article class — La,
+      // Le, De, Du, El, Mc, Mac, Van — at a cost of at most two extra vendor
+      // calls, only on queries that already returned nothing, and the result is
+      // cached like any other. Deliberately NOT a general fuzzy search: every
+      // extra call burns a rate-limited quota we've already had an outage over.
+      if (hits.length === 0 && !/\s/.test(q) && q.length >= 5) {
+        for (const cut of [2, 3]) {
+          const variant = `${q.slice(0, cut)} ${q.slice(cut)}`
+          try {
+            const rv = await fetch(`${GC_API}/search?search_query=${encodeURIComponent(variant)}`, { headers: gcHeaders() })
+            const dv = await rv.json().catch(() => null)
+            if (rv.ok && dv && Array.isArray(dv.courses) && dv.courses.length) {
+              // Keep only names that match the user's ORIGINAL intent once
+              // spacing/punctuation is normalised away, so "la tourette" can't
+              // drag in "La Tuque" or "La Tradicion".
+              const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+              const want = norm(q)
+              const kept = dv.courses.filter(c => norm(c.club_name).includes(want) || norm(c.course_name).includes(want))
+              if (kept.length) { hits = kept; break }
+            }
+          } catch { /* variant is best-effort — never fail the original query */ }
+        }
+      }
+
+      base = hits.map(c => ({
         id: c.id,
         club_name: expandCourseName(c.club_name),
         course_name: expandCourseName(c.course_name),
